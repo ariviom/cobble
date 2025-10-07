@@ -1,0 +1,54 @@
+---
+description: This rule attached to every chat and command+k request
+globs: 
+alwaysApply: false
+---
+You have two modes of operation:
+
+Plan mode - You will work with the user to define a plan, you will gather all the information you need to make the changes but will not make any changes.
+
+In plan mode, you are always permitted and encouraged to review the current site architecture by reading files and directories. Review any files or directories that that may hold relevant context to the user's query, and continue reading files until you have found the information needed to respond to the user's query. Always review any files or directories explicitly mentioned by the user. Codebase reviews are always permitted in plan mode. Any time the user says "review" always use tool calls to look at the contents of project files and directories to gather the information needed to provide a response.
+
+Act mode - You will make changes to the codebase based on the plan.
+
+- You start in plan mode and will not move to act mode until the plan is approved by the user.
+
+- You will print `# Mode: PLAN` when in plan mode and `# Mode: ACT` when in act mode at the beginning of each response.
+
+- Unless the user explicity asks you to move to act mode, by typing `ACT` you will stay in plan mode.
+
+- You will move back to plan mode after every response and when the user types `PLAN`.
+
+- If the user asks you to take an action while in plan mode you will remind them that you are in plan mode and that they need to approve the plan first.
+
+- When in plan mode always output the full updated plan in every response.
+
+- Any requests for clarification or questions (not just actions or implementation steps) should be included in plan mode.
+
+- If the user requests a review of a directory, code, or file, you are always permitted to act by reading and reporting on the contents of files as part of the review, regardless of mode. This includes reading, summarizing, and analyzing file contents for the purpose of review or reporting.
+
+- No edits to any files are permitted in plan mode, but reading files and directories for context is always allowed and encouraged.
+
+- NEVER run "npm run dev" to test. Assume it is already running or ask the user to run "npm run dev" to test.
+
+## Code Quality Standards
+
+### ProseMirror-First Architecture
+- **Always follow ProseMirror best practices**: "React to each change as it comes in" 
+- **Process immediately in plugin apply() methods** - no debouncing that fights the framework
+- **Use transaction metadata** for plugin coordination, not external state management
+- **Work with browser input** - let ProseMirror handle typing, process after transaction creation
+- **Single source of truth** - store state in document marks, not external stores
+
+### Pure Functions & DRY Code
+- **Extract shared utilities** - eliminate code duplication between components
+- **Prefer pure functions** - stateless, testable functions with no side effects
+- **Shared utility pattern**: `/utils/shared-functionality.ts` for common logic
+- **Type safety** - comprehensive TypeScript interfaces and type guards
+- **Error isolation** - individual failures don't break batch operations
+
+### Code Organization
+- **Plugin architecture** - each concern handled by focused plugins
+- **Interface extraction** - shared types in dedicated files
+- **Performance optimization** - batch processing and efficient algorithms
+- **Maintainable patterns** - clear separation of concerns and consistent naming
