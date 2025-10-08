@@ -1,22 +1,26 @@
 import { notFound } from "next/navigation";
 import { InventoryTable } from "@/components/set/inventory-table";
 
-export default async function SetPage({ params }: { params: Promise<{ setNumber: string }> }) {
-    const { setNumber } = await params;
+export default function SetPage({ params }: { params: { setNumber: string } }) {
+    const { setNumber } = params;
     if (!setNumber) notFound();
     return (
-        <div className="p-6">
+        <div className="min-h-screen p-6 flex flex-col">
             <h1 className="text-xl font-semibold mb-4">Set</h1>
-            <SetInventory setNumber={setNumber} />
+            <div className="flex-1 min-h-0">
+                <SetInventory setNumber={setNumber} />
+            </div>
         </div>
     );
 }
 
 function SetInventory({ setNumber }: { setNumber: string }) {
 	return (
-		<div>
+		<div className="h-full flex flex-col min-h-0">
 			<p className="text-sm text-gray-600 mb-4">Set: {setNumber}</p>
-			<InventoryTable setNumber={setNumber} />
+			<div className="flex-1 min-h-0">
+				<InventoryTable setNumber={setNumber} />
+			</div>
 		</div>
 	);
 }

@@ -6,21 +6,19 @@ Implement MVP for set search, parts inventory display, owned quantities, missing
 
 ## Immediate Next Steps
 
-- Scaffold Next.js app with TypeScript, Tailwind, shadcn/ui.
-- Add `.env` with `REBRICKABLE_API` and server-only access.
-- Implement Route Handlers for Rebrickable set search and parts inventory.
-- Build set search input with autocomplete and validation.
-- Implement inventory table with virtualization, sorting, images.
-- Implement owned quantity per-row and bulk actions; derive missing.
+- Fix search JSON parsing in `components/search/set-search.tsx` (parse `res.json()` before returning `data.results`).
+- Complete owned persistence in `store/owned.ts`: implement `storageKey` and `write`, and add a simple in-memory cache per set to avoid repeated `localStorage` reads.
+- Add sorting controls to the inventory table for name, color, required, owned, and missing.
 - Implement export generators:
   - Rebrickable CSV.
-  - BrickLink CSV wanted list with name "{setNumber} — {setName} — mvp".
-- Persist owned data per set in `localStorage`.
-- Add loading spinner and error states.
+  - BrickLink CSV wanted list named "{setNumber} — {setName} — mvp" with ID/color mapping.
+- Persist last viewed set in `localStorage` and restore on home page.
+- Add error states and retries for search/inventory; keep the basic loading UI.
 
 ## Notes
 
 Target test sets:
+
 - 1788 — Pirate Treasure Chest
 - 6781 — SP-Striker
 - 6989 — Mega Core Magnetizer
@@ -29,11 +27,14 @@ Target test sets:
 
 ## Recent Changes
 
-Initial memory docs drafted and agreed MVP scope captured.
+- Next.js scaffold in place with global layout and React Query provider.
+- Rebrickable proxy Route Handlers implemented for search and inventory.
+- Set search UI with debounce and link to set pages.
+- Virtualized inventory table with images, owned input, bulk actions, and total missing.
 
 ## Next Steps
 
-Build the MVP features listed above, then validate exports against sample accounts or format validators.
+Finish owned persistence and search parsing fix, then add sorting and export adapters. Validate CSV exports against Rebrickable and BrickLink import validators.
 
 ## Active Decisions and Considerations
 

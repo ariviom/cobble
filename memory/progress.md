@@ -2,22 +2,27 @@
 
 ## What Works
 
-- MVP scope defined; memory docs drafted with requirements and constraints.
+- Next.js app scaffold (App Router, TypeScript) with global layout and styles.
+- React Query provider wired via `components/providers/react-query-provider`.
+- Rebrickable proxy Route Handlers:
+  - `app/api/search/route.ts` (set search)
+  - `app/api/inventory/route.ts` (set inventory)
+- `lib/rebrickable.ts` wrapper with `searchSets`, `getSetInventory`, `getSetSummary` using server-only env and caching.
+- Set search UI with debounce and result linking (`components/search/set-search.tsx`).
+- Set page `app/set/[setNumber]/page.tsx` renders inventory for a set.
+- Virtualized inventory table with images, per-row owned input, bulk actions, and total missing (`components/set/inventory-table.tsx`).
 
 ## What's Left to Build
 
-- Next.js app scaffold with styling and component library.
-- Server Route Handlers for Rebrickable set search and parts inventory.
-- Set search UI with autocomplete and validation.
-- Inventory table with virtualization, images, sorting.
-- Owned quantities per-row, bulk actions, derived missing quantities.
-- Export generators: Rebrickable CSV and BrickLink CSV (wanted list) named "{setNumber} — {setName} — mvp".
-- localStorage persistence keyed by set.
-- Loading spinner and error states.
+- Complete owned-quantity persistence: implement `store/owned.ts` (`storageKey`, `write`) and maintain an in-memory map to avoid repeated `localStorage` reads.
+- Sorting for inventory table columns (name, color, required, owned, missing).
+- Export generators: Rebrickable CSV and BrickLink CSV (wanted list) named "{setNumber} — {setName} — mvp"; add ID/color mapping module.
+- Persist last viewed set in `localStorage` and restore on home.
+- Error states and retries for search and inventory requests; surface query errors in UI.
 
 ## Current Status
 
-Planning complete; ready to implement MVP locally using `.env` with `REBRICKABLE_API`.
+Implementation in progress with core data flow working via server proxies and virtualized table. Needs owned persistence, sorting, and export features to reach MVP.
 
 ## Known Issues / Risks
 
@@ -25,3 +30,5 @@ Planning complete; ready to implement MVP locally using `.env` with `REBRICKABLE
 - ID/color mapping mismatches between Rebrickable and BrickLink affecting CSV exports.
 - Large inventories (>1000 parts) may require careful virtualization and memoization to stay fast.
 - CSV specs must exactly match marketplace requirements to import successfully.
+- `store/owned.ts` persistence is incomplete; owned inputs won't persist yet.
+- Search UI fetch handler needs a small JSON parsing fix before returning results.

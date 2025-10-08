@@ -15,11 +15,18 @@ function storageKey(setNumber: string) {
 	return `${STORAGE_PREFIX}${setNumber}`;
 }
 
+// Simple in-memory cache to avoid repeated localStorage reads per render cycle
+const cache: Map<string, Record<string, number>> = new Map();
+
 function read(setNumber: string): Record<string, number> {
+	const cached = cache.get(setNumber);
+	if (cached) return cached;
 	if (typeof window === "undefined") return {};
 	try {
 		const raw = window.localStorage.getItem(storageKey(setNumber));
-		return raw ? (JSON.parse(raw) as Record<string, number>) : {};
+		const parsed = raw ? (JSON.parse(raw) as Record<string, number>) : {};
+		cache.set(setNumber, parsed);
+		return parsed;
 	} catch {
 		return {};
 	}
@@ -28,6 +35,7 @@ function read(setNumber: string): Record<string, number> {
 function write(setNumber: string, data: Record<string, number>) {
 	if (typeof window === "undefined") return;
 	try {
+		cache.set(setNumber, data);
 		window.localStorage.setItem(storageKey(setNumber), JSON.stringify(data));
 	} catch {}
 }
