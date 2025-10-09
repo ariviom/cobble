@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-cera-pro);
+}
+
+@custom-variant list {
+  &:where([data-view='list'] *) {
+    @slot;
+  }
+}
+
+@custom-variant grid {
+  &:where([data-view='grid'] *) {
+    @slot;
+  }
+}
+
+@custom-variant item-sm {
+  &:where([data-item-size='sm'] *) {
+    @slot;
+  }
+}
+
+@custom-variant item-md {
+  &:where([data-item-size='md'] *) {
+    @slot;
+  }
+}
+
+@custom-variant item-lg {
+  &:where([data-item-size='lg'] *) {
+    @slot;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'CeraPro', sans-serif;
+}

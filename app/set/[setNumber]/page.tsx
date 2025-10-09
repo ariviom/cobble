@@ -1,32 +1,34 @@
-import { notFound } from "next/navigation";
-import { InventoryTable } from "@/components/set/InventoryTable";
-import { SearchBar } from "@/components/search/SearchBar";
-
-export default async function SetPage({ params }: { params: Promise<{ setNumber: string }> }) {
-    const { setNumber } = await params;
-    if (!setNumber) notFound();
-    return (
-        <div className="min-h-screen p-6 flex flex-col">
-            <h1 className="text-xl font-semibold mb-4">Set</h1>
-            <div className="flex-1 min-h-0">
-                <SetInventory setNumber={setNumber} />
-            </div>
-        </div>
-    );
-}
+import { SearchBar } from '@/app/components/search/SearchBar';
+import { InventoryTable } from '@/app/components/set/InventoryTable';
+import { notFound } from 'next/navigation';
 
 function SetInventory({ setNumber }: { setNumber: string }) {
-	return (
-		<div className="h-full flex flex-col min-h-0">
-			<div className="mb-4">
-				<SearchBar />
-			</div>
-			<p className="text-sm text-gray-600 mb-4">Set: {setNumber}</p>
-			<div className="flex-1 min-h-0">
-				<InventoryTable setNumber={setNumber} />
-			</div>
-		</div>
-	);
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-4">
+        <SearchBar />
+      </div>
+      <p className="mb-4 text-sm text-gray-600">Set: {setNumber}</p>
+      <div className="min-h-0 flex-1">
+        <InventoryTable setNumber={setNumber} />
+      </div>
+    </div>
+  );
 }
 
-
+export default async function SetPage({
+  params,
+}: {
+  params: Promise<{ setNumber: string }>;
+}) {
+  const { setNumber } = await params;
+  if (!setNumber) notFound();
+  return (
+    <div className="mx-auto flex max-w-6xl flex-col p-6">
+      <h1 className="mb-4 text-xl font-semibold">Set</h1>
+      <div className="min-h-0 flex-1">
+        <SetInventory setNumber={setNumber} />
+      </div>
+    </div>
+  );
+}
