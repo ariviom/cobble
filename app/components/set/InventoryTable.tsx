@@ -153,11 +153,11 @@ export function InventoryTable({
   const gridSizes = useMemo(() => {
     switch (itemSize) {
       case 'sm':
-        return 'grid-cols-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12';
+        return 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-9';
       case 'md':
-        return 'grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8';
+        return 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8';
       case 'lg':
-        return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
+        return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6';
     }
   }, [itemSize]);
 
@@ -204,7 +204,7 @@ export function InventoryTable({
           totalMissing={totalMissing}
           onOpenExport={() => setExportOpen(true)}
         />
-        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded border">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden">
           <div className="flex-1 overflow-auto">
             {rows.length === 0 || isLoading ? (
               <div className="p-4 text-sm text-gray-600">
@@ -214,7 +214,7 @@ export function InventoryTable({
               <div
                 data-view={view}
                 data-item-size={itemSize}
-                className={`${view.startsWith('grid') ? `grid ${gridSizes}` : 'flex flex-wrap'}`}
+                className={`gap-2 ${view === 'grid' ? `grid ${gridSizes}` : 'flex flex-wrap'}`}
               >
                 {sortedIndices.map((originalIndex, idx) => {
                   const r = rows[originalIndex]!;

@@ -5,9 +5,14 @@
   --foreground: #171717;
 }
 
-@theme inline {
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand-yellow: #ffd503;
+  --color-brand-blue: #006fe5;
+  --color-brand-purple: #9937fd;
+  --color-brand-red: #fb2e36;
+  --color-brand-green: #009348;
   --font-sans: var(--font-cera-pro);
 }
 
@@ -39,6 +44,17 @@
   &:where([data-item-size='lg'] *) {
     @slot;
   }
+}
+
+input.hide-arrows::-webkit-outer-spin-button,
+input.hide-arrows::-webkit-inner-spin-button {
+  /* display: none; <- Crashes Chrome on hover */
+  -webkit-appearance: none;
+  margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
+}
+
+input.hide-arrows[type='number'] {
+  -moz-appearance: textfield; /* Firefox */
 }
 
 body {

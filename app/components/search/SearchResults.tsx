@@ -2,37 +2,75 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
+import { useState } from 'react';
 import { SearchResultListItem } from './SearchResultListItem';
-import type { SearchResult } from './types';
+import type { SearchResponse, SortOption } from './types';
 
-async function fetchSearch(q: string) {
-  if (!q) return [] as Array<SearchResult>;
-  const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+async function fetchSearch(
+  q: string,
+  sort: SortOption = 'relevance'
+): Promise<SearchResponse> {
+  if (!q) return { exactMatches: [], otherMatches: [], hasMore: false };
+  const res = await fetch(
+    `/api/search?q=${encodeURIComponent(q)}&sort=${sort}`
+  );
   if (!res.ok) throw new Error('search_failed');
-  const data = (await res.json()) as { results: Array<SearchResult> };
-  return data.results;
+  const data = (await res.json()) as SearchResponse;
+  return data;
 }
 
 export function SearchResults() {
   const params = useSearchParams();
   const q = params.get('q') ?? '';
+  const [sort, setSort] = useState<SortOption>('relevance');
+  const [showMore, setShowMore] = useState(false);
   const { data, isLoading } = useQuery({
-    queryKey: ['search', q],
-    queryFn: () => fetchSearch(q),
+    queryKey: ['search', q, sort],
+    queryFn: () => fetchSearch(q, sort),
     enabled: q.length > 0,
   });
 
   if (!q) return null;
   return (
     <div className="w-full max-w-6xl">
+      <div className="mb-4 flex items-center gap-2">
+        <label className="text-sm font-medium">Sort by</label>
+        <select
+          className="rounded border px-3 py-2 text-sm"
+          value={sort}
+          onChange={e => setSort(e.target.value as SortOption)}
+        >
+          <option value="relevance">Relevance</option>
+          <option value="pieces-asc">Pieces (fewest first)</option>
+          <option value="pieces-desc">Pieces (most first)</option>
+          <option value="year-asc">Year (oldest first)</option>
+          <option value="year-desc">Year (newest first)</option>
+        </select>
+      </div>
       {isLoading && <div className="mt-2 text-sm">Loading…</div>}
-      {!isLoading && data && data.length > 0 && (
-        <ul className="mt-2 divide-y rounded border">
-          {data.map(r => (
-            <SearchResultListItem key={r.setNumber} result={r} />
-          ))}
-        </ul>
-      )}
+      {!isLoading &&
+        data &&
+        (data.exactMatches.length > 0 || data.otherMatches.length > 0) && (
+          <div className="mt-2">
+            <ul className="divide-y rounded border">
+              {data.exactMatches.map(r => (
+                <SearchResultListItem key={r.setNumber} result={r} />
+              ))}
+              {showMore &&
+                data.otherMatches.map(r => (
+                  <SearchResultListItem key={r.setNumber} result={r} />
+                ))}
+            </ul>
+            {data.hasMore && !showMore && (
+              <button
+                onClick={() => setShowMore(true)}
+                className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+              >
+                Show {data.otherMatches.length} more results
+              </button>
+            )}
+          </div>
+        )}
     </div>
   );
 }

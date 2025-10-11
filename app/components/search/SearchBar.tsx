@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { cx } from '@/app/components/ui/utils';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export function SearchBar() {
   const searchParams = useSearchParams();
@@ -35,33 +36,43 @@ export function SearchBar() {
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="w-full max-w-3xl flex items-center gap-2"
-    >
-      <label className="text-sm font-medium" htmlFor="global-search">
+    <div className="w-full max-w-3xl">
+      <label className="mb-2 block text-sm font-medium" htmlFor="global-search">
         Search set
       </label>
-      <input
-        id="global-search"
-        className="flex-1 border rounded px-3 py-2"
-        value={q}
-        onChange={e => setQ(e.target.value)}
-        placeholder="e.g. 1788, 6989, 21322"
-      />
-      <button
-        type="button"
-        className="border rounded px-3 py-2"
-        onClick={onClear}
-      >
-        Clear
-      </button>
-      <button
-        type="submit"
-        className="border rounded px-3 py-2 bg-blue-600 text-white"
-      >
-        Search
-      </button>
-    </form>
+      <form onSubmit={onSubmit} className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <input
+            id="global-search"
+            className="w-full rounded border px-3 py-2 pr-8"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="e.g. 1788, pirate, castle, ninjago"
+          />
+          {q && (
+            <button
+              type="button"
+              className={cx(
+                'absolute top-1/2 right-2 h-6 w-6 -translate-y-1/2 cursor-pointer rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200'
+              )}
+              onClick={onClear}
+              aria-label="Clear search"
+            >
+              <span
+                className="absolute top-1/2 left-1/2 size-[max(100%,2.75rem)] -translate-x-1/2 -translate-y-1/2 pointer-fine:hidden"
+                aria-hidden="true"
+              />
+              ×
+            </button>
+          )}
+        </div>
+        <button
+          type="submit"
+          className="rounded border bg-blue-600 px-3 py-2 text-white"
+        >
+          Search
+        </button>
+      </form>
+    </div>
   );
 }

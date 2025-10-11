@@ -1,63 +1,98 @@
 'use client';
 
-import {
-  clampOwned,
-  computeMissing,
-} from '@/app/components/set/inventory-utils';
-import { Button } from '@/app/components/ui/Button';
-import { Input } from '@/app/components/ui/Input';
+import { clampOwned } from '@/app/components/set/inventory-utils';
+import { cx } from '@/app/components/ui/utils';
 
 type Props = {
   required: number;
   owned: number;
   onChange: (next: number) => void;
-  showMissing?: boolean;
+  className?: string;
 };
+
+type ButtonProps = {
+  children: React.ReactNode;
+  onClick: () => void;
+  disabled: boolean;
+  ariaLabel: string;
+  className?: string;
+  incraseOrDecrase: 'increase' | 'decrease';
+};
+
+function Button({
+  children,
+  onClick,
+  disabled,
+  ariaLabel,
+  incraseOrDecrase,
+  className,
+}: ButtonProps) {
+  return (
+    <button
+      className={cx(
+        'relative h-8 w-8 cursor-pointer rounded-full text-2xl font-bold disabled:cursor-not-allowed',
+        className,
+        incraseOrDecrase === 'increase'
+          ? 'bg-brand-blue text-white disabled:bg-brand-green'
+          : 'bg-gray-100 text-foreground disabled:bg-gray-200 disabled:text-gray-300'
+      )}
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel}
+    >
+      <span
+        className="absolute top-1/2 left-1/2 size-[max(100%,2.75rem)] -translate-x-1/2 -translate-y-1/2 pointer-fine:hidden"
+        aria-hidden="true"
+      />
+      {children}
+    </button>
+  );
+}
 
 export function OwnedQuantityControl({
   required,
   owned,
   onChange,
-  showMissing = true,
+  className,
 }: Props) {
-  const missing = computeMissing(required, owned);
   return (
-    <div className="flex items-center gap-3">
+    <div
+      className={`flex h-8 min-w-min shrink justify-end grid:w-full grid:justify-between${className ?? ''} `}
+    >
       <Button
-        variant="secondary"
-        className="w-12 h-12 text-xl"
         onClick={() => onChange(clampOwned(owned - 1, required))}
         disabled={owned <= 0}
-        aria-label="Decrease owned"
+        ariaLabel="Decrease owned"
+        incraseOrDecrase="decrease"
+        className={owned === required ? '!bg-brand-green text-white' : ''}
       >
         –
       </Button>
-      <div className="flex flex-col items-center min-w-[120px]">
-        <div className="flex items-center gap-2">
-          <Input
-            type="number"
-            className="w-16 text-center"
-            value={owned}
-            onChange={e => {
-              const next = Number(e.target.value);
-              onChange(clampOwned(Number.isFinite(next) ? next : 0, required));
-            }}
-            min={0}
-            max={required}
-            step={1}
-          />
-          <span className="tabular-nums text-sm">of {required}</span>
-        </div>
-        {showMissing && (
-          <div className="text-[11px] text-gray-500">Missing {missing}</div>
-        )}
+      <div
+        className={`relative items-center text-sm ${owned === required ? 'text-brand-green' : ''} ${required > 99 ? 'min-w-20' : 'min-w-16'}`}
+      >
+        <input
+          type="number"
+          name="piece-count"
+          className={`hide-arrows h-full w-full pr-[calc(50%+5px)] text-right ${owned === required ? 'border-x border-white font-bold' : ''}`}
+          value={owned}
+          onChange={e => {
+            const next = Number(e.target.value);
+            onChange(clampOwned(Number.isFinite(next) ? next : 0, required));
+          }}
+          min={0}
+          max={required}
+          step={1}
+        />
+        <span className="pointer-events-none absolute top-1/2 right-[calc(50%+5px)] translate-x-full -translate-y-1/2 pl-1 font-bold whitespace-nowrap tabular-nums">
+          / {required}
+        </span>
       </div>
       <Button
-        variant="secondary"
-        className="w-12 h-12 text-xl"
         onClick={() => onChange(clampOwned(owned + 1, required))}
         disabled={owned >= required}
-        aria-label="Increase owned"
+        ariaLabel="Increase owned"
+        incraseOrDecrase="increase"
       >
         +
       </Button>

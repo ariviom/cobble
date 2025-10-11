@@ -51,27 +51,89 @@ async function rbFetch<T>(
   return (await res.json()) as T;
 }
 
-export async function searchSets(query: string): Promise<
-  Array<{
+export async function searchSets(
+  query: string,
+  sort: string = 'relevance'
+): Promise<{
+  exactMatches: Array<{
     setNumber: string;
     name: string;
     year: number;
     numParts: number;
     imageUrl: string | null;
-  }>
-> {
-  if (!query?.trim()) return [];
+  }>;
+  otherMatches: Array<{
+    setNumber: string;
+    name: string;
+    year: number;
+    numParts: number;
+    imageUrl: string | null;
+  }>;
+}> {
+  if (!query?.trim()) return { exactMatches: [], otherMatches: [] };
+
   const data = await rbFetch<{ results: RebrickableSetSearchResult[] }>(
     '/lego/sets/',
-    { search: query, page_size: 10 }
+    { search: query, page_size: 20 }
   );
-  return data.results.map(r => ({
-    setNumber: r.set_num,
-    name: r.name,
-    year: r.year,
-    numParts: r.num_parts,
-    imageUrl: r.set_img_url,
-  }));
+
+  const allResults = data.results
+    .filter(r => r.num_parts > 0) // Exclude sets with 0 parts
+    .map(r => ({
+      setNumber: r.set_num,
+      name: r.name,
+      year: r.year,
+      numParts: r.num_parts,
+      imageUrl: r.set_img_url,
+    }));
+
+  // Sort function based on sort parameter
+  function sortResults(results: typeof allResults) {
+    switch (sort) {
+      case 'pieces-asc':
+        return [...results].sort((a, b) => a.numParts - b.numParts);
+      case 'pieces-desc':
+        return [...results].sort((a, b) => b.numParts - a.numParts);
+      case 'year-asc':
+        return [...results].sort((a, b) => a.year - b.year);
+      case 'year-desc':
+        return [...results].sort((a, b) => b.year - a.year);
+      default: // 'relevance'
+        return results; // Keep original order
+    }
+  }
+
+  // Check if query looks like a set number (numeric or alphanumeric)
+  const isNumericQuery = /^[0-9]+$/.test(query.trim());
+  const isSetNumberQuery = /^[0-9a-zA-Z-]+$/.test(query.trim());
+
+  if (isSetNumberQuery) {
+    // Split into exact matches (starting with query) and other matches
+    const exactMatches = allResults.filter(r =>
+      r.setNumber.toLowerCase().startsWith(query.toLowerCase())
+    );
+    const otherMatches = allResults.filter(
+      r => !r.setNumber.toLowerCase().startsWith(query.toLowerCase())
+    );
+
+    return {
+      exactMatches: sortResults(exactMatches),
+      otherMatches: sortResults(otherMatches),
+    };
+  } else {
+    // For non-set-number queries, prioritize exact name matches
+    const exactMatches = allResults.filter(
+      r =>
+        r.name.toLowerCase().includes(query.toLowerCase()) ||
+        r.setNumber.toLowerCase().includes(query.toLowerCase())
+    );
+    const otherMatches: typeof allResults = [];
+
+    return {
+      exactMatches: sortResults(exactMatches),
+      otherMatches: sortResults(otherMatches),
+    };
+  }
 }
 
 export async function getSetInventory(

@@ -3,12 +3,14 @@ import { SearchResults } from '@/app/components/search/SearchResults';
 
 export default function SearchPage() {
   return (
-    <div className="min-h-screen p-8">
-      <h1 className="text-2xl font-semibold mb-4">Search</h1>
-      <div className="mb-4">
+    <>
+      <section className="mb-8">
+        <h1 className="mb-4 text-2xl font-semibold">Search</h1>
         <SearchBar />
-      </div>
-      <SearchResults />
-    </div>
+      </section>
+      <section>
+        <SearchResults />
+      </section>
+    </>
   );
 }
