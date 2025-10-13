@@ -10,9 +10,30 @@ type RebrickableSetSearchResult = {
 
 type RebrickableSetInventoryItem = {
   color: { id: number; name: string };
-  part: { part_num: string; name: string; part_img_url: string | null };
+  part: {
+    part_num: string;
+    name: string;
+    part_img_url: string | null;
+    part_cat_id?: number; // Not always present in parts listing; may require extra fetch if missing
+  };
   quantity: number;
   is_spare: boolean;
+};
+
+// The set minifigs endpoint shape can vary; capture common fields defensively
+type RebrickableSetMinifigItem = {
+  fig_num?: string;
+  set_num?: string;
+  set_name?: string;
+  name?: string;
+  quantity: number;
+  set_img_url?: string | null;
+  minifig?: {
+    fig_num?: string;
+    set_num?: string;
+    name?: string;
+    set_img_url?: string | null;
+  };
 };
 
 export type InventoryRow = {
@@ -23,6 +44,20 @@ export type InventoryRow = {
   colorName: string;
   quantityRequired: number;
   imageUrl: string | null;
+  partCategoryId?: number;
+  partCategoryName?: string;
+  parentCategory?:
+    | 'Brick'
+    | 'Plate'
+    | 'Tile'
+    | 'Slope'
+    | 'Clip'
+    | 'Hinge'
+    | 'Bar'
+    | 'Minifigure'
+    | 'Technic'
+    | 'Wheels'
+    | 'Misc';
 };
 
 const BASE = 'https://rebrickable.com/api/v3' as const;
@@ -44,6 +79,16 @@ async function rbFetch<T>(
       url.searchParams.set(k, String(v));
   }
   const res = await fetch(url, {
+    headers: { Authorization: `key ${apiKey}` },
+    next: { revalidate: 60 * 60 },
+  });
+  if (!res.ok) throw new Error(`Rebrickable error ${res.status}`);
+  return (await res.json()) as T;
+}
+
+async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
+  const apiKey = getApiKey();
+  const res = await fetch(absoluteUrl, {
     headers: { Authorization: `key ${apiKey}` },
     next: { revalidate: 60 * 60 },
   });
@@ -139,21 +184,81 @@ export async function searchSets(
 export async function getSetInventory(
   setNumber: string
 ): Promise<InventoryRow[]> {
-  const data = await rbFetch<{ results: RebrickableSetInventoryItem[] }>(
+  type Page = { results: RebrickableSetInventoryItem[]; next: string | null };
+
+  // Fetch all pages of parts for the set
+  const firstPage = await rbFetch<Page>(
     `/lego/sets/${encodeURIComponent(setNumber)}/parts/`,
     { page_size: 1000 }
   );
-  return data.results
+  const allItems: RebrickableSetInventoryItem[] = [...firstPage.results];
+  let nextUrl: string | null = firstPage.next;
+  while (nextUrl) {
+    const page = await rbFetchAbsolute<Page>(nextUrl);
+    allItems.push(...page.results);
+    nextUrl = page.next;
+  }
+
+  const cats = await getPartCategories();
+  const idToName = new Map<number, string>(cats.map(c => [c.id, c.name]));
+
+  const partRows = allItems
     .filter(i => !i.is_spare)
-    .map(i => ({
+    .map(i => {
+      const catId = i.part.part_cat_id;
+      const catName = catId != null ? idToName.get(catId) : undefined;
+      return {
+        setNumber,
+        partId: i.part.part_num,
+        partName: i.part.name,
+        colorId: i.color.id,
+        colorName: i.color.name,
+        quantityRequired: i.quantity,
+        imageUrl: i.part.part_img_url,
+        partCategoryId: catId,
+        partCategoryName: catName,
+        parentCategory: catName ? mapCategoryNameToParent(catName) : undefined,
+      } satisfies InventoryRow;
+    });
+
+  // Fetch all minifigs for the set (separate endpoint) and map them into rows
+  type MinifigPage = {
+    results: RebrickableSetMinifigItem[];
+    next: string | null;
+  };
+  const firstMinifigs = await rbFetch<MinifigPage>(
+    `/lego/sets/${encodeURIComponent(setNumber)}/minifigs/`,
+    { page_size: 1000 }
+  );
+  const allMinifigs: RebrickableSetMinifigItem[] = [...firstMinifigs.results];
+  let nextMinUrl: string | null = firstMinifigs.next;
+  while (nextMinUrl) {
+    const pg = await rbFetchAbsolute<MinifigPage>(nextMinUrl);
+    allMinifigs.push(...pg.results);
+    nextMinUrl = pg.next;
+  }
+
+  const minifigRows: InventoryRow[] = allMinifigs.map((i, idx) => {
+    const rawId =
+      i.set_num ?? i.fig_num ?? i.minifig?.fig_num ?? i.minifig?.set_num ?? '';
+    const figNum = rawId && rawId.trim() ? rawId : `unknown-${idx + 1}`;
+    const figName = i.name ?? i.set_name ?? i.minifig?.name ?? 'Minifigure';
+    const imgUrl = i.set_img_url ?? i.minifig?.set_img_url ?? null;
+    return {
       setNumber,
-      partId: i.part.part_num,
-      partName: i.part.name,
-      colorId: i.color.id,
-      colorName: i.color.name,
+      partId: `fig:${figNum}`,
+      partName: figName,
+      colorId: 0,
+      colorName: '—',
       quantityRequired: i.quantity,
-      imageUrl: i.part.part_img_url,
-    }));
+      imageUrl: imgUrl,
+      partCategoryId: undefined,
+      partCategoryName: 'Minifig',
+      parentCategory: 'Minifigure',
+    } satisfies InventoryRow;
+  });
+
+  return [...partRows, ...minifigRows];
 }
 
 export async function getSetSummary(setNumber: string): Promise<{
@@ -173,4 +278,63 @@ export async function getSetSummary(setNumber: string): Promise<{
     numParts: d.num_parts,
     imageUrl: d.set_img_url,
   };
+}
+
+type RebrickableCategory = { id: number; name: string };
+
+let categoriesCache: { at: number; items: RebrickableCategory[] } | null = null;
+
+export async function getPartCategories(): Promise<RebrickableCategory[]> {
+  const now = Date.now();
+  if (categoriesCache && now - categoriesCache.at < 60 * 60 * 1000) {
+    return categoriesCache.items;
+  }
+  const data = await rbFetch<{ results: RebrickableCategory[] }>(
+    '/lego/part_categories/',
+    { page_size: 1000 }
+  );
+  categoriesCache = { at: now, items: data.results };
+  return data.results;
+}
+
+function mapCategoryNameToParent(
+  name: string
+):
+  | 'Brick'
+  | 'Plate'
+  | 'Tile'
+  | 'Slope'
+  | 'Clip'
+  | 'Hinge'
+  | 'Bar'
+  | 'Minifigure'
+  | 'Technic'
+  | 'Wheels'
+  | 'Misc' {
+  const n = name.toLowerCase();
+  // Precedence: Technic first
+  if (
+    n.startsWith('technic') ||
+    n.includes('pneumatic') ||
+    n.includes('power functions') ||
+    n.includes('electronics')
+  )
+    return 'Technic';
+  if (
+    n.includes('wheel') ||
+    n.includes('tyre') ||
+    n.includes('tire') ||
+    n.includes('rim')
+  )
+    return 'Wheels';
+  if (n.startsWith('minifig')) return 'Minifigure';
+  if (n.startsWith('clip') || n.includes('clip')) return 'Clip';
+  if (n.startsWith('bar') || n.includes('lightsaber')) return 'Bar';
+  if (n.startsWith('hinge') || n.includes('turntable')) return 'Hinge';
+  if (n.startsWith('slope') || n.includes('roof tile')) return 'Slope';
+  if (n.startsWith('tile')) return 'Tile';
+  if (n.startsWith('plate') || n.includes('wedge')) return 'Plate';
+  if (n.startsWith('brick') || n.includes('bracket') || n.includes('arch'))
+    return 'Brick';
+  return 'Misc';
 }

@@ -19,6 +19,10 @@ Help builders complete LEGO sets efficiently. Many users own partial inventories
 - The user exports the missing list as Rebrickable CSV or BrickLink CSV (wanted list) and can copy/download the file.
 - Owned quantities and the last active set are saved to localStorage so the session resumes on return.
 
+## Current UX Details
+- Inventory filtering via tabs: All (default), Missing, Owned, and per-category tabs; horizontally scrollable with arrow controls for small screens.
+- Search form: label above the input; inline clear button appears when text is present with large touch target.
+
 ## User Experience Goals
 
 - Fast: target < 3 seconds to show inventories for ≤ 1000 parts, with loading spinner.

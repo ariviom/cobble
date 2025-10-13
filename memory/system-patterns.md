@@ -28,3 +28,11 @@
 - Mapper/translator for ID/color code conversion (Rebrickable ↔ BrickLink).
 - Cache-first data fetching with fetch cache and revalidate window for set inventories.
 - Unidirectional data flow: server fetch → query cache → UI state (owned) → derived missing → export.
+- UI components:
+  - Tabbed filter bar (`InventoryFilterTabs`) provides filtering across All/Missing/Owned and categories, with horizontal scroll and arrow controls and enlarged touch targets.
+  - Search bar uses inline clear control with large touch target and label positioned above input.
+
+## Gaps / Opportunities
+- Owned persistence store (`store/owned.ts`) incomplete; needs storage key, write, and in-memory cache.
+- Export validation against Rebrickable/BrickLink importers pending.
+- Category taxonomy derived from part name is heuristic; could benefit from a curated mapping for parent categories.

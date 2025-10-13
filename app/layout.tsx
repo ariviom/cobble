@@ -42,9 +42,9 @@ export default function RootLayout({
       </head>
       <body className="bg-white text-gray-900 antialiased">
         <ReactQueryProvider>
-          <main className="mx-auto w-full max-w-screen-2xl px-6 py-8">
+          <div className="mx-auto flex min-h-screen w-full max-w-screen-2xl flex-col px-6 py-8">
             {children}
-          </main>
+          </div>
         </ReactQueryProvider>
       </body>
     </html>
