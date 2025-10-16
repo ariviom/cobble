@@ -40,7 +40,7 @@ export const DropdownTrigger = forwardRef<
       ref={ref}
       type="button"
       className={cx(
-        'rounded-lg border border-foreground-accent bg-neutral-00 px-3 py-1.5 text-sm',
+        'rounded-lg border border-foreground-accent bg-neutral-00 px-3 py-1.5 text-sm min-w-fit',
         className
       )}
       aria-haspopup="menu"

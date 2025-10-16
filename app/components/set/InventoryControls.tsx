@@ -4,6 +4,7 @@ import {
   DropdownPanel,
   DropdownTrigger,
 } from '@/app/components/ui/GroupedDropdown';
+import type { DropdownGroup } from '@/app/components/ui/GroupedDropdown';
 import { Filter, FolderTree, Grid, List, SortAsc } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { SubcategoryToggleRail } from './SubcategoryToggleRail';
@@ -125,68 +126,69 @@ export function InventoryControls({
   return (
     <div
       ref={containerRef}
-      className="sticky top-topnav-height z-30 flex flex-col bg-neutral-50"
+      className="sticky top-topnav-height z-30 flex flex-col bg-neutral-50 lg:w-80 lg:shrink-0 lg:border-r lg:border-neutral-300"
     >
-      <div className="no-scrollbar flex flex-nowrap items-center gap-2 border-b border-neutral-300 py-2 lg:flex-wrap">
-        {/* Display Dropdown: All / Missing / Owned */}
-        <DropdownTrigger
-          id="display-trigger"
-          panelId="display-panel"
-          className="ml-2"
-          label={
-            filter.display === 'owned'
-              ? 'Owned'
-              : filter.display === 'missing'
-                ? 'Missing'
-                : 'All'
-          }
-          labelIcon={<Filter size={16} />}
-          isOpen={openDropdownId === 'display'}
-          onToggle={() => handleDropdownToggle('display')}
-        />
-
-        {/* Sort Dropdown: Sort By / Order / Group By */}
-        <DropdownTrigger
-          id="sort-trigger"
-          panelId="sort-panel"
-          label="Sort"
-          labelIcon={<SortAsc size={16} />}
-          isOpen={openDropdownId === 'sort'}
-          onToggle={() => handleDropdownToggle('sort')}
-        />
-
-        {/* View Options Dropdown: separate groups for View and Size */}
-        <DropdownTrigger
-          id="view-trigger"
-          panelId="view-panel"
-          label={view === 'grid' ? 'Grid' : 'List'}
-          labelIcon={view === 'grid' ? <Grid size={16} /> : <List size={16} />}
-          isOpen={openDropdownId === 'view'}
-          onToggle={() => handleDropdownToggle('view')}
-        />
-
-        {parentOptions.length > 0 ? (
+      {/* Mobile: horizontally scrollable control rail with overlay panel below it */}
+      <div className="relative lg:hidden">
+        <div className="no-scrollbar flex flex-nowrap items-center gap-2 overflow-x-auto border-b border-neutral-300 py-2 px-2">
+          {/* Display Dropdown: All / Missing / Owned */}
           <DropdownTrigger
-            id="parent-trigger"
-            panelId="parent-panel"
-            className="mr-2 lg:mr-0"
-            label={filter.parent ?? 'All Pieces'}
-            labelIcon={<FolderTree size={16} />}
-            isOpen={openDropdownId === 'parent'}
-            onToggle={() => handleDropdownToggle('parent')}
+            id="display-trigger"
+            panelId="display-panel"
+            label={
+              filter.display === 'owned'
+                ? 'Owned'
+                : filter.display === 'missing'
+                  ? 'Missing'
+                  : 'All'
+            }
+            labelIcon={<Filter size={16} />}
+            isOpen={openDropdownId === 'display'}
+            onToggle={() => handleDropdownToggle('display')}
           />
-        ) : null}
-      </div>
 
-      {/* Dropdown Panels - Small screens: shared panel area, Large screens: individual panels */}
-      <div className="lg:hidden">
-        {/* Small screens: single shared panel area */}
-        {openDropdownId === 'display' && (
-          <DropdownPanel
-            id="display-panel"
-            labelledBy="display-trigger"
-            isOpen={true}
-            groups={[
+          {/* Sort Dropdown: Sort By / Order / Group By */}
+          <DropdownTrigger
+            id="sort-trigger"
+            panelId="sort-panel"
+            label="Sort"
+            labelIcon={<SortAsc size={16} />}
+            isOpen={openDropdownId === 'sort'}
+            onToggle={() => handleDropdownToggle('sort')}
+          />
+
+          {/* View Options Dropdown: separate groups for View and Size */}
+          <DropdownTrigger
+            id="view-trigger"
+            panelId="view-panel"
+            label={view === 'grid' ? 'Grid' : 'List'}
+            labelIcon={view === 'grid' ? <Grid size={16} /> : <List size={16} />}
+            isOpen={openDropdownId === 'view'}
+            onToggle={() => handleDropdownToggle('view')}
+          />
+
+          {parentOptions.length > 0 ? (
+            <DropdownTrigger
+              id="parent-trigger"
+              panelId="parent-panel"
+              label={filter.parent ?? 'All Pieces'}
+              labelIcon={<FolderTree size={16} />}
+              isOpen={openDropdownId === 'parent'}
+              onToggle={() => handleDropdownToggle('parent')}
+            />
+          ) : null}
+        </div>
+
+        {/* Overlay panel positioned directly below the control rail */}
+        {(() => {
+          if (!openDropdownId) return null;
+          let id = '';
+          let labelledBy = '';
+          let groups: DropdownGroup[] = [];
+          if (openDropdownId === 'display') {
+            id = 'display-panel';
+            labelledBy = 'display-trigger';
+            groups = [
               {
                 id: 'display',
                 label: 'Filter By',
@@ -197,20 +199,11 @@ export function InventoryControls({
                 ],
                 selectedKey: filter.display,
               },
-            ]}
-            onChange={(groupId, key) =>
-              handleDropdownChange('display', groupId, key)
-            }
-            className="mx-2 mt-1 w-56"
-          />
-        )}
-
-        {openDropdownId === 'sort' && (
-          <DropdownPanel
-            id="sort-panel"
-            labelledBy="sort-trigger"
-            isOpen={true}
-            groups={[
+            ];
+          } else if (openDropdownId === 'sort') {
+            id = 'sort-panel';
+            labelledBy = 'sort-trigger';
+            groups = [
               {
                 id: 'sortBy',
                 label: 'Sort By',
@@ -241,20 +234,11 @@ export function InventoryControls({
                 ],
                 selectedKey: groupBy,
               },
-            ]}
-            onChange={(groupId, key) =>
-              handleDropdownChange('sort', groupId, key)
-            }
-            className="mx-2 mt-1 w-56"
-          />
-        )}
-
-        {openDropdownId === 'view' && (
-          <DropdownPanel
-            id="view-panel"
-            labelledBy="view-trigger"
-            isOpen={true}
-            groups={[
+            ];
+          } else if (openDropdownId === 'view') {
+            id = 'view-panel';
+            labelledBy = 'view-trigger';
+            groups = [
               {
                 id: 'viewMode',
                 label: 'View',
@@ -274,45 +258,43 @@ export function InventoryControls({
                 ],
                 selectedKey: itemSize,
               },
-            ]}
-            onChange={(groupId, key) =>
-              handleDropdownChange('view', groupId, key)
-            }
-            className="mx-2 mt-1 w-56"
-          />
-        )}
-
-        {openDropdownId === 'parent' && parentOptions.length > 0 && (
-          <DropdownPanel
-            id="parent-panel"
-            labelledBy="parent-trigger"
-            isOpen={true}
-            groups={[
+            ];
+          } else if (openDropdownId === 'parent') {
+            id = 'parent-panel';
+            labelledBy = 'parent-trigger';
+            groups = [
               {
                 id: 'parent',
                 label: 'Parent Category',
                 options: [
                   { key: '__all__', text: 'All Pieces' },
-                  ...parentOptions.map(parent => ({
-                    key: parent,
-                    text: parent,
-                  })),
+                  ...parentOptions.map(parent => ({ key: parent, text: parent })),
                 ],
                 selectedKey: filter.parent ?? '__all__',
               },
-            ]}
-            onChange={(groupId, key) =>
-              handleDropdownChange('parent', groupId, key)
-            }
-            className="mx-2 mt-1 w-56"
-          />
-        )}
+            ];
+          }
+          return (
+            <div className="absolute left-0 right-0 top-full z-40">
+              <DropdownPanel
+                id={id}
+                labelledBy={labelledBy}
+                isOpen={true}
+                groups={groups}
+                onChange={(groupId, key) =>
+                  handleDropdownChange(openDropdownId, groupId, key)
+                }
+                className="mx-2 mt-1"
+              />
+            </div>
+          );
+        })()}
       </div>
 
       {/* Large screens: individual panels directly under each trigger */}
       <div className="hidden lg:block">
         <div className="flex flex-col gap-2 px-2 py-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-1">
             <DropdownTrigger
               id="display-trigger-lg"
               panelId="display-panel-lg"
@@ -347,13 +329,13 @@ export function InventoryControls({
                 onChange={(groupId, key) =>
                   handleDropdownChange('display', groupId, key)
                 }
-                className="w-56"
+                className="w-full mt-1"
                 hiddenWhenClosed={false}
               />
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-1">
             <DropdownTrigger
               id="sort-trigger-lg"
               panelId="sort-panel-lg"
@@ -402,13 +384,13 @@ export function InventoryControls({
                 onChange={(groupId, key) =>
                   handleDropdownChange('sort', groupId, key)
                 }
-                className="w-56"
+                className="w-full mt-1"
                 hiddenWhenClosed={false}
               />
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-1">
             <DropdownTrigger
               id="view-trigger-lg"
               panelId="view-panel-lg"
@@ -448,14 +430,14 @@ export function InventoryControls({
                 onChange={(groupId, key) =>
                   handleDropdownChange('view', groupId, key)
                 }
-                className="w-56"
+                className="w-full mt-1"
                 hiddenWhenClosed={false}
               />
             )}
           </div>
 
           {parentOptions.length > 0 && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-1">
               <DropdownTrigger
                 id="parent-trigger-lg"
                 panelId="parent-panel-lg"
@@ -486,7 +468,7 @@ export function InventoryControls({
                   onChange={(groupId, key) =>
                     handleDropdownChange('parent', groupId, key)
                   }
-                  className="w-56"
+                  className="w-full mt-1"
                   hiddenWhenClosed={false}
                 />
               )}
@@ -494,14 +476,6 @@ export function InventoryControls({
           )}
         </div>
       </div>
-
-      {filter.parent && subcategoryOptions.length > 1 ? (
-        <SubcategoryToggleRail
-          options={subcategoryOptions}
-          selected={filter.subcategories}
-          onToggle={onToggleSubcategory}
-        />
-      ) : null}
     </div>
   );
 }

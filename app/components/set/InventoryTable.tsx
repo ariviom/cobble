@@ -11,6 +11,7 @@ import {
 } from './inventory-utils';
 import { InventoryControls } from './InventoryControls';
 import { InventoryItem } from './items/InventoryItem';
+import { SubcategoryToggleRail } from './SubcategoryToggleRail';
 import type { GroupBy, InventoryFilter, ItemSize, ViewType } from './types';
 
 type SortKey = 'name' | 'color' | 'size';
@@ -201,8 +202,20 @@ export function InventoryTable({
     } catch {}
   }, [sortKey, sortDir, groupBy, view, itemSize, filter]);
 
+  const subcategoryOptions = useMemo(() => {
+    if (!filter.parent) return [] as string[];
+    const parent = filter.parent;
+    const set = new Set<string>();
+    rows.forEach((row, idx) => {
+      if (parentByIndex[idx] === parent) {
+        set.add(categoryByIndex[idx] ?? 'Uncategorized');
+      }
+    });
+    return Array.from(set).sort();
+  }, [rows, parentByIndex, categoryByIndex, filter.parent]);
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
       <InventoryControls
         view={view}
         onChangeView={v => setView(v)}
@@ -235,17 +248,7 @@ export function InventoryTable({
             }));
           }
         }}
-        subcategoryOptions={useMemo(() => {
-          if (!filter.parent) return [];
-          const parent = filter.parent;
-          const set = new Set<string>();
-          rows.forEach((row, idx) => {
-            if (parentByIndex[idx] === parent) {
-              set.add(categoryByIndex[idx] ?? 'Uncategorized');
-            }
-          });
-          return Array.from(set).sort();
-        }, [rows, parentByIndex, categoryByIndex, filter.parent])}
+        subcategoryOptions={subcategoryOptions}
         onToggleSubcategory={subcategory => {
           if (!filter.parent) return;
           const exists = filter.subcategories.includes(subcategory);
@@ -261,7 +264,25 @@ export function InventoryTable({
         }
       />
 
-      <div className="flex min-h-0 flex-1 flex-col p-2">
+      <div className="flex min-h-0 flex-1 flex-col">
+        {filter.parent && subcategoryOptions.length > 1 ? (
+          <SubcategoryToggleRail
+            options={subcategoryOptions}
+            selected={filter.subcategories}
+            onToggle={subcategory => {
+              if (!filter.parent) return;
+              const exists = filter.subcategories.includes(subcategory);
+              setFilter(prev => ({
+                ...prev,
+                subcategories: exists
+                  ? prev.subcategories.filter(c => c !== subcategory)
+                  : [...prev.subcategories, subcategory],
+              }));
+            }}
+          />
+        ) : null}
+
+        <div className="flex min-h-0 flex-1 flex-col p-2">
         {rows.length === 0 || isLoading ? (
           <div className="p-4 text-sm text-foreground-muted">
             {isLoading ? 'Loading…' : 'No inventory found.'}
@@ -344,6 +365,7 @@ export function InventoryTable({
             })()}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
