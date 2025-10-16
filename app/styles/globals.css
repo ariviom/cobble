@@ -24,6 +24,7 @@
   --color-brand-green: #009348;
   --font-sans: var(--font-cera-pro);
   --spacing-topnav-height: 4rem;
+  --breakpoint-xs: 23.5rem;
 }
 
 .dark {
