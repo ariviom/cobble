@@ -29,7 +29,7 @@ function ArrowButton({
     <button
       type="button"
       className={cx(
-        'absolute top-1/2 z-10 h-full w-8 -translate-y-1/2 border bg-white text-gray-600 shadow-sm disabled:opacity-30',
+        'absolute top-1/2 z-10 h-full w-8 -translate-y-1/2 border bg-background text-foreground-muted shadow-sm disabled:opacity-30',
         side === 'left' ? 'left-0' : 'right-0',
         disabled ? 'pointer-events-none' : ''
       )}
@@ -185,7 +185,7 @@ export function CategoryRail({
               'relative -ml-px h-9 rounded-none border px-3 text-sm leading-9 first:ml-0',
               it.selected
                 ? 'border-blue-600 bg-blue-600 text-white'
-                : 'bg-white text-gray-800 hover:bg-gray-50'
+                : 'bg-background text-foreground hover:bg-neutral-100'
             )}
             onClick={it.onClick}
           >

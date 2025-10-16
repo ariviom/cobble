@@ -5,10 +5,10 @@ import type { SearchResult } from './types';
 
 export function SearchResultListItem({ result }: { result: SearchResult }) {
   return (
-    <li className="hover:bg-gray-50">
+    <li className="hover:bg-neutral-100">
       <Link
         href={`/set/${encodeURIComponent(result.setNumber)}`}
-        className="flex w-full items-center justify-between border border-gray-200"
+        className="flex w-full items-center justify-between border border-neutral-200 bg-background"
       >
         <div className="flex w-full justify-center gap-2">
           <div className="flex h-48 w-48 items-center justify-center p-4">
@@ -20,14 +20,14 @@ export function SearchResultListItem({ result }: { result: SearchResult }) {
                 className="h-full w-full object-contain"
               />
             ) : (
-              <div className="text-xs text-gray-400">no img</div>
+              <div className="text-xs text-foreground-muted">no img</div>
             )}
           </div>
           <div className="w-full truncate px-4">
             <div className="w-full text-sm">
               {result.setNumber} — {result.name}
             </div>
-            <div className="w-full text-xs text-gray-500">
+            <div className="w-full text-xs text-foreground-muted">
               {result.year} · {result.numParts} parts
             </div>
           </div>

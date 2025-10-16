@@ -51,7 +51,10 @@ export function GroupedDropdown({
   if (variant === 'expanded') {
     return (
       <div
-        className={cx('w-56 rounded border bg-white', className)}
+        className={cx(
+          'w-56 rounded border border-foreground-accent bg-background',
+          className
+        )}
         data-variant="expanded"
       >
         {groups.map(g => (
@@ -60,7 +63,7 @@ export function GroupedDropdown({
             className={cx('border-b last:border-b-0', g.className)}
             data-group-id={g.id}
           >
-            <div className="px-3 py-2 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+            <div className="px-3 py-2 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
               {g.label}
             </div>
             <div>
@@ -71,10 +74,10 @@ export function GroupedDropdown({
                     key={opt.key}
                     type="button"
                     className={cx(
-                      'flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 selected:bg-blue-50 selected:text-blue-700',
+                      'flex w-full items-center gap-2 p-3 text-left hover:bg-neutral-100 selected:bg-blue-50 selected:text-blue-700',
                       selected
                         ? 'bg-blue-50 text-blue-700'
-                        : 'bg-white text-gray-800'
+                        : 'bg-background text-foreground'
                     )}
                     data-selected={selected ? 'true' : undefined}
                     onClick={() => onChange(g.id, opt.key)}
@@ -105,13 +108,13 @@ export function GroupedDropdown({
 
   return (
     <div
-      className={cx('relative', className)}
+      className={cx('relative min-w-fit', className)}
       data-variant="dropdown"
       ref={menuRef}
     >
       <button
         type="button"
-        className="rounded border px-3 py-1.5 text-sm hover:bg-gray-50"
+        className="bg-neutral-00 rounded-lg border border-foreground-accent px-3 py-1.5 text-sm"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(o => !o)}
@@ -125,7 +128,7 @@ export function GroupedDropdown({
         <div
           role="menu"
           className={cx(
-            'absolute z-20 mt-1 w-56 overflow-hidden rounded border bg-white shadow-lg',
+            'absolute z-20 mt-1 w-56 overflow-hidden rounded border bg-background shadow-lg',
             alignRight ? 'right-0' : 'left-0'
           )}
         >
@@ -135,7 +138,7 @@ export function GroupedDropdown({
               className={cx('border-b last:border-b-0', g.className)}
               data-group-id={g.id}
             >
-              <div className="px-3 py-2 text-xs font-semibold tracking-wide text-gray-500 uppercase">
+              <div className="px-3 py-2 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
                 {g.label}
               </div>
               <div>
@@ -146,10 +149,10 @@ export function GroupedDropdown({
                       key={opt.key}
                       type="button"
                       className={cx(
-                        'block w-full px-3 py-2 text-left text-sm hover:bg-gray-50 selected:bg-blue-50 selected:text-blue-700',
+                        'block w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 selected:bg-blue-50 selected:text-blue-700',
                         selected
                           ? 'bg-blue-50 text-blue-700'
-                          : 'bg-white text-gray-800'
+                          : 'bg-background text-foreground'
                       )}
                       data-selected={selected ? 'true' : undefined}
                       onClick={() => {

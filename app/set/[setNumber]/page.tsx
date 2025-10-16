@@ -8,9 +8,5 @@ export default async function SetPage({
 }) {
   const { setNumber } = await params;
   if (!setNumber) notFound();
-  return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <InventoryTable setNumber={setNumber} />
-    </div>
-  );
+  return <InventoryTable setNumber={setNumber} />;
 }

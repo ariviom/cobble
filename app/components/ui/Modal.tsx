@@ -24,9 +24,9 @@ export function Modal({ open, title, onClose, children }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded shadow-lg w-full max-w-md mx-4">
-        <div className="border-b px-4 py-3 flex items-center justify-between">
-          <div className="font-semibold text-sm">{title}</div>
+      <div className="relative mx-4 w-full max-w-md rounded bg-background shadow-lg">
+        <div className="flex items-center justify-between border-b px-4 py-3">
+          <div className="text-sm font-semibold text-foreground">{title}</div>
           <Button variant="ghost" onClick={onClose} aria-label="Close">
             ✕
           </Button>

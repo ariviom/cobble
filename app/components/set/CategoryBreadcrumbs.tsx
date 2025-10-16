@@ -22,8 +22,10 @@ export function CategoryBreadcrumbs({ path, onNavigate, className }: Props) {
           <button
             type="button"
             className={cx(
-              'rounded px-1.5 py-0.5 hover:bg-gray-50',
-              c.key === last ? 'font-semibold text-gray-900' : 'text-gray-700'
+              'rounded px-1.5 py-0.5 hover:bg-neutral-100',
+              c.key === last
+                ? 'font-semibold text-foreground'
+                : 'text-foreground-muted'
             )}
             aria-current={c.key === last ? 'page' : undefined}
             onClick={() => onNavigate(c.key)}
@@ -31,7 +33,7 @@ export function CategoryBreadcrumbs({ path, onNavigate, className }: Props) {
             {c.label}
           </button>
           {idx < path.length - 1 ? (
-            <span className="text-gray-400">›</span>
+            <span className="text-foreground-muted">›</span>
           ) : null}
         </span>
       ))}

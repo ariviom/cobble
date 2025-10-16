@@ -3,7 +3,6 @@
 import { useInventory } from '@/app/hooks/useInventory';
 import { useOwnedStore } from '@/app/store/owned';
 import { useEffect, useMemo, useState } from 'react';
-import { CategoryRail } from './CategoryRail';
 import {
   clampOwned,
   computeMissing,
@@ -28,7 +27,11 @@ export function InventoryTable({
   // UI state
   const [sortKey, setSortKey] = useState<SortKey>('color');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [filter, setFilter] = useState<InventoryFilter>({ kind: 'all' });
+  const [filter, setFilter] = useState<InventoryFilter>({
+    display: 'all',
+    parent: null,
+    subcategories: [],
+  });
   const [view, setView] = useState<ViewType>('list');
   const [itemSize, setItemSize] = useState<ItemSize>('md');
   const [groupBy, setGroupBy] = useState<GroupBy>('none');
@@ -58,24 +61,29 @@ export function InventoryTable({
 
   const visibleIndices = useMemo(() => {
     const idxs = rows.map((_, i) => i);
-    switch (filter.kind) {
-      case 'all':
-        return idxs;
-      case 'missing':
-        return idxs.filter(i => {
-          const own = ownedStore.getOwned(setNumber, keys[i]!);
-          return computeMissing(rows[i]!.quantityRequired, own) > 0;
-        });
-      case 'owned':
-        return idxs.filter(i => {
-          const own = ownedStore.getOwned(setNumber, keys[i]!);
-          return own > 0;
-        });
-      case 'parent':
-        return idxs.filter(i => parentByIndex[i] === filter.parent);
-      case 'category':
-        return idxs.filter(i => categoryByIndex[i] === filter.category);
-    }
+    const selectedParent = filter.parent;
+    const subcategorySet =
+      filter.subcategories.length > 0 ? new Set(filter.subcategories) : null;
+
+    return idxs.filter(i => {
+      const ownedValue = ownedStore.getOwned(setNumber, keys[i]!);
+      if (filter.display === 'missing') {
+        if (computeMissing(rows[i]!.quantityRequired, ownedValue) === 0)
+          return false;
+      } else if (filter.display === 'owned') {
+        if (ownedValue === 0) return false;
+      }
+
+      if (selectedParent) {
+        if (parentByIndex[i] !== selectedParent) return false;
+        if (subcategorySet) {
+          const category = categoryByIndex[i] ?? 'Uncategorized';
+          if (!subcategorySet.has(category)) return false;
+        }
+      }
+
+      return true;
+    });
   }, [
     rows,
     keys,
@@ -163,14 +171,18 @@ export function InventoryTable({
         groupBy: typeof groupBy;
         view: typeof view;
         itemSize: typeof itemSize;
-        filterKind: 'all' | 'missing' | 'owned';
+        display: InventoryFilter['display'];
       }>;
       if (parsed.sortKey) setSortKey(parsed.sortKey);
       if (parsed.sortDir) setSortDir(parsed.sortDir);
       if (parsed.groupBy) setGroupBy(parsed.groupBy);
       if (parsed.view) setView(parsed.view);
       if (parsed.itemSize) setItemSize(parsed.itemSize);
-      if (parsed.filterKind) setFilter({ kind: parsed.filterKind });
+      if (parsed.display)
+        setFilter(prev => ({
+          ...prev,
+          display: parsed.display!,
+        }));
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -183,7 +195,7 @@ export function InventoryTable({
         groupBy,
         view,
         itemSize,
-        filterKind: filter.kind === 'category' ? undefined : filter.kind,
+        display: filter.display,
       };
       localStorage.setItem('ui:inventoryControls', JSON.stringify(payload));
     } catch {}
@@ -191,156 +203,148 @@ export function InventoryTable({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-2 flex flex-wrap items-center gap-3">
-        <InventoryControls
-          view={view}
-          onChangeView={v => setView(v)}
-          itemSize={itemSize}
-          onChangeItemSize={s => setItemSize(s)}
-          sortKey={sortKey}
-          onChangeSortKey={k => setSortKey(k)}
-          sortDir={sortDir}
-          onToggleSortDir={() =>
-            setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
-          }
-          groupBy={groupBy}
-          onChangeGroupBy={g => setGroupBy(g)}
-          filter={filter}
-          onChangeFilter={f => setFilter(f)}
-        />
-      </div>
-      <CategoryRail
-        parents={useMemo(
+      <InventoryControls
+        view={view}
+        onChangeView={v => setView(v)}
+        itemSize={itemSize}
+        onChangeItemSize={s => setItemSize(s)}
+        sortKey={sortKey}
+        onChangeSortKey={k => setSortKey(k)}
+        sortDir={sortDir}
+        onToggleSortDir={() => setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))}
+        groupBy={groupBy}
+        onChangeGroupBy={g => setGroupBy(g)}
+        filter={filter}
+        onChangeFilter={f => setFilter(f)}
+        parentOptions={useMemo(
           () => Array.from(new Set(parentByIndex)).filter(Boolean).sort(),
           [parentByIndex]
         )}
-        subcategoriesByParent={useMemo(() => {
-          const map = new Map<string, string[]>();
-          for (let i = 0; i < rows.length; i++) {
-            const p = parentByIndex[i] ?? 'Misc';
-            const c = categoryByIndex[i] ?? 'Uncategorized';
-            if (!map.has(p)) map.set(p, []);
-            const arr = map.get(p)!;
-            if (!arr.includes(c)) arr.push(c);
+        onSelectParent={parent => {
+          if (!parent) {
+            setFilter(prev => ({
+              ...prev,
+              parent: null,
+              subcategories: [],
+            }));
+          } else {
+            setFilter(prev => ({
+              ...prev,
+              parent,
+              subcategories: [],
+            }));
           }
-          for (const [k, v] of map) v.sort();
-          return map;
-        }, [rows, parentByIndex, categoryByIndex])}
-        filter={(function () {
-          if (filter.kind === 'all') return { kind: 'all' } as const;
-          if (filter.kind === 'parent')
-            return { kind: 'parent', parent: filter.parent } as const;
-          if (filter.kind === 'category')
-            return {
-              kind: 'category' as const,
-              parent: (() => {
-                const idx = categoryByIndex.findIndex(
-                  c => c === filter.category
-                );
-                return idx >= 0 ? parentByIndex[idx]! : 'Misc';
-              })(),
-              category: filter.category,
-            };
-          return { kind: 'all' } as const;
-        })()}
-        onSelectAll={() => setFilter({ kind: 'all' })}
-        onSelectParent={parent => setFilter({ kind: 'parent', parent })}
-        onSelectCategory={(parent, category) =>
-          setFilter({ kind: 'category', category })
+        }}
+        subcategoryOptions={useMemo(() => {
+          if (!filter.parent) return [];
+          const parent = filter.parent;
+          const set = new Set<string>();
+          rows.forEach((row, idx) => {
+            if (parentByIndex[idx] === parent) {
+              set.add(categoryByIndex[idx] ?? 'Uncategorized');
+            }
+          });
+          return Array.from(set).sort();
+        }, [rows, parentByIndex, categoryByIndex, filter.parent])}
+        onToggleSubcategory={subcategory => {
+          if (!filter.parent) return;
+          const exists = filter.subcategories.includes(subcategory);
+          setFilter(prev => ({
+            ...prev,
+            subcategories: exists
+              ? prev.subcategories.filter(c => c !== subcategory)
+              : [...prev.subcategories, subcategory],
+          }));
+        }}
+        onClearSubcategories={() =>
+          setFilter(prev => ({ ...prev, subcategories: [] }))
         }
-        className="mb-2"
       />
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex-1 overflow-auto">
-          {rows.length === 0 || isLoading ? (
-            <div className="p-4 text-sm text-gray-600">
-              {isLoading ? 'Loading…' : 'No inventory found.'}
-            </div>
-          ) : groupBy === 'none' ? (
-            <div
-              data-view={view}
-              data-item-size={itemSize}
-              className={`gap-2 ${view === 'grid' ? `grid ${gridSizes}` : 'flex flex-wrap'}`}
-            >
-              {sortedIndices.map(originalIndex => {
-                const r = rows[originalIndex]!;
-                const key = keys[originalIndex]!;
-                const owned = ownedStore.getOwned(setNumber, key);
-                const missing = computeMissing(r.quantityRequired, owned);
-                return (
-                  <InventoryItem
-                    key={key}
-                    row={r}
-                    owned={owned}
-                    missing={missing}
-                    onOwnedChange={next => {
-                      ownedStore.setOwned(
-                        setNumber,
-                        key,
-                        clampOwned(next, r.quantityRequired)
-                      );
-                    }}
-                  />
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {(() => {
-                const grouped = new Map<string, number[]>();
-                for (const idx of sortedIndices) {
-                  const k = groupKeyByIndex?.[idx] ?? '';
-                  if (!grouped.has(k)) grouped.set(k, []);
-                  grouped.get(k)!.push(idx);
-                }
-                const sections: Array<{ key: string; indices: number[] }> = [];
-                for (const [k, v] of grouped.entries())
-                  sections.push({ key: k, indices: v });
-                sections.sort((a, b) => a.key.localeCompare(b.key));
-                return sections.map(sec => (
-                  <div key={sec.key} className="flex flex-col gap-2">
-                    <div className="sticky top-0 z-10 bg-white/90 px-1 py-1 text-sm font-semibold text-gray-700">
-                      {sec.key}
-                    </div>
-                    <div
-                      data-view={view}
-                      data-item-size={itemSize}
-                      className={`gap-2 ${view === 'grid' ? `grid ${gridSizes}` : 'flex flex-wrap'}`}
-                    >
-                      {sec.indices.map(originalIndex => {
-                        const r = rows[originalIndex]!;
-                        const key = keys[originalIndex]!;
-                        const owned = ownedStore.getOwned(setNumber, key);
-                        const missing = computeMissing(
-                          r.quantityRequired,
-                          owned
-                        );
-                        return (
-                          <InventoryItem
-                            key={key}
-                            row={r}
-                            owned={owned}
-                            missing={missing}
-                            onOwnedChange={next => {
-                              ownedStore.setOwned(
-                                setNumber,
-                                key,
-                                clampOwned(next, r.quantityRequired)
-                              );
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
+      <div className="flex min-h-0 flex-1 flex-col p-2">
+        {rows.length === 0 || isLoading ? (
+          <div className="p-4 text-sm text-foreground-muted">
+            {isLoading ? 'Loading…' : 'No inventory found.'}
+          </div>
+        ) : groupBy === 'none' ? (
+          <div
+            data-view={view}
+            data-item-size={itemSize}
+            className={`gap-2 ${view === 'grid' ? `grid ${gridSizes}` : 'flex flex-wrap'}`}
+          >
+            {sortedIndices.map(originalIndex => {
+              const r = rows[originalIndex]!;
+              const key = keys[originalIndex]!;
+              const owned = ownedStore.getOwned(setNumber, key);
+              const missing = computeMissing(r.quantityRequired, owned);
+              return (
+                <InventoryItem
+                  key={key}
+                  row={r}
+                  owned={owned}
+                  missing={missing}
+                  onOwnedChange={next => {
+                    ownedStore.setOwned(
+                      setNumber,
+                      key,
+                      clampOwned(next, r.quantityRequired)
+                    );
+                  }}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {(() => {
+              const grouped = new Map<string, number[]>();
+              for (const idx of sortedIndices) {
+                const k = groupKeyByIndex?.[idx] ?? '';
+                if (!grouped.has(k)) grouped.set(k, []);
+                grouped.get(k)!.push(idx);
+              }
+              const sections: Array<{ key: string; indices: number[] }> = [];
+              for (const [k, v] of grouped.entries())
+                sections.push({ key: k, indices: v });
+              sections.sort((a, b) => a.key.localeCompare(b.key));
+              return sections.map(sec => (
+                <div key={sec.key} className="flex flex-col gap-2">
+                  <div className="sticky top-0 z-10 bg-background/90 px-1 py-1 text-sm font-semibold text-foreground">
+                    {sec.key}
                   </div>
-                ));
-              })()}
-            </div>
-          )}
-        </div>
+                  <div
+                    data-view={view}
+                    data-item-size={itemSize}
+                    className={`gap-2 ${view === 'grid' ? `grid ${gridSizes}` : 'flex flex-wrap'}`}
+                  >
+                    {sec.indices.map(originalIndex => {
+                      const r = rows[originalIndex]!;
+                      const key = keys[originalIndex]!;
+                      const owned = ownedStore.getOwned(setNumber, key);
+                      const missing = computeMissing(r.quantityRequired, owned);
+                      return (
+                        <InventoryItem
+                          key={key}
+                          row={r}
+                          owned={owned}
+                          missing={missing}
+                          onOwnedChange={next => {
+                            ownedStore.setOwned(
+                              setNumber,
+                              key,
+                              clampOwned(next, r.quantityRequired)
+                            );
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+        )}
       </div>
-      {/* Export is handled via TopNav now */}
     </div>
   );
 }

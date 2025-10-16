@@ -3,15 +3,13 @@ import type { PropsWithChildren } from 'react';
 
 type Props = PropsWithChildren<{
   className?: string;
-  position?: 'sticky' | 'fixed';
 }>;
 
-export function TopNav({ children, className, position = 'sticky' }: Props) {
+export function TopNav({ children, className }: Props) {
   return (
     <div
       className={cx(
-        position === 'fixed' ? 'fixed' : 'sticky',
-        'top-0 z-30 w-full bg-white',
+        'fixed top-0 z-30 h-topnav-height w-full bg-neutral-00',
         'flex items-center justify-between',
         'gap-0',
         'py-0'

@@ -32,9 +32,7 @@ function Button({
       className={cx(
         'relative h-8 w-8 cursor-pointer rounded-full text-2xl font-bold disabled:cursor-not-allowed',
         className,
-        incraseOrDecrase === 'increase'
-          ? 'bg-brand-blue text-white disabled:bg-brand-green'
-          : 'bg-gray-100 text-foreground disabled:bg-gray-200 disabled:text-gray-300'
+        'text-foreground disabled:text-neutral-300'
       )}
       onClick={onClick}
       disabled={disabled}
@@ -57,7 +55,7 @@ export function OwnedQuantityControl({
 }: Props) {
   return (
     <div
-      className={`flex h-8 min-w-min shrink justify-end grid:w-full grid:justify-between${className ?? ''} `}
+      className={`flex h-10 max-w-max min-w-min shrink justify-end rounded-lg border border-neutral-200 grid:w-full grid:justify-between ${className ?? ''} `}
     >
       <Button
         onClick={() => onChange(clampOwned(owned - 1, required))}

@@ -4,8 +4,8 @@ import {
   GroupedDropdown,
   type DropdownGroup,
 } from '@/app/components/ui/GroupedDropdown';
-import { Filter, Grid, List, SortAsc } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { Filter, FolderTree, Grid, List, SortAsc } from 'lucide-react';
+import { SubcategoryToggleRail } from './SubcategoryToggleRail';
 import type {
   GroupBy,
   InventoryFilter,
@@ -27,6 +27,11 @@ type Props = {
   onChangeGroupBy: (g: GroupBy) => void;
   filter: InventoryFilter;
   onChangeFilter: (f: InventoryFilter) => void;
+  parentOptions: string[];
+  onSelectParent: (parent: string | null) => void;
+  subcategoryOptions: string[];
+  onToggleSubcategory: (subcategory: string) => void;
+  onClearSubcategories: () => void;
 };
 
 export function InventoryControls({
@@ -42,156 +47,167 @@ export function InventoryControls({
   onChangeGroupBy,
   filter,
   onChangeFilter,
+  parentOptions,
+  onSelectParent,
+  subcategoryOptions,
+  onToggleSubcategory,
+  onClearSubcategories,
 }: Props) {
-  const [menuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
   return (
-    <div className="flex w-full items-center gap-3">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="sticky top-topnav-height z-30 flex flex-col bg-neutral-50">
+      <div className="no-scrollbar flex flex-nowrap items-center gap-2 border-b border-neutral-300 py-2 lg:flex-wrap">
         {/* Display Dropdown: All / Missing / Owned */}
-        <div
-          className="flex flex-col items-center gap-2"
-          data-dropdown="display"
-        >
-          <GroupedDropdown
-            label={
-              filter.kind === 'owned'
-                ? 'Owned'
-                : filter.kind === 'missing'
-                  ? 'Missing'
-                  : 'All'
+        <GroupedDropdown
+          className="ml-2"
+          label={
+            filter.display === 'owned'
+              ? 'Owned'
+              : filter.display === 'missing'
+                ? 'Missing'
+                : 'All'
+          }
+          labelIcon={<Filter size={16} />}
+          groups={
+            [
+              {
+                id: 'display',
+                label: 'Filter By',
+                options: [
+                  { key: 'all', text: 'All' },
+                  { key: 'missing', text: 'Missing' },
+                  { key: 'owned', text: 'Owned' },
+                ],
+                selectedKey: filter.display,
+              },
+            ] satisfies DropdownGroup[]
+          }
+          onChange={(groupId, key) => {
+            if (groupId !== 'display') return;
+            if (key === 'all' || key === 'missing' || key === 'owned') {
+              onChangeFilter({
+                ...filter,
+                display: key,
+              });
             }
-            labelIcon={<Filter size={16} />}
-            groups={
-              [
-                {
-                  id: 'display',
-                  label: 'Filter By',
-                  options: [
-                    { key: 'all', text: 'All' },
-                    { key: 'missing', text: 'Missing' },
-                    { key: 'owned', text: 'Owned' },
-                  ],
-                  selectedKey:
-                    filter.kind === 'category'
-                      ? 'all'
-                      : (filter.kind as string),
-                },
-              ] satisfies DropdownGroup[]
-            }
-            onChange={(groupId, key) => {
-              if (groupId !== 'display') return;
-              if (key === 'all' || key === 'missing' || key === 'owned') {
-                onChangeFilter({ kind: key as 'all' | 'missing' | 'owned' });
-              }
-            }}
-          />
-        </div>
+          }}
+        />
 
         {/* Sort Dropdown: Sort By / Order / Group By */}
-        <div
-          className="flex flex-col items-center gap-2"
-          data-dropdown="arrange"
-        >
-          <GroupedDropdown
-            label="Sort"
-            labelIcon={<SortAsc size={16} />}
-            groups={[
-              {
-                id: 'sortBy',
-                label: 'Sort By',
-                options: [
-                  { key: 'name', text: 'Name' },
-                  { key: 'color', text: 'Color' },
-                  { key: 'size', text: 'Size' },
-                ],
-                selectedKey: sortKey,
-              },
-              {
-                id: 'order',
-                label: 'Order',
-                options: [
-                  { key: 'asc', text: 'Ascending' },
-                  { key: 'desc', text: 'Descending' },
-                ],
-                selectedKey: sortDir,
-              },
-              {
-                id: 'groupBy',
-                label: 'Group By',
-                options: [
-                  { key: 'none', text: 'None' },
-                  { key: 'color', text: 'Color' },
-                  { key: 'size', text: 'Size' },
-                  { key: 'category', text: 'Category' },
-                ],
-                selectedKey: groupBy,
-              },
-            ]}
-            onChange={(groupId, key) => {
-              if (groupId === 'sortBy') onChangeSortKey(key as SortKey);
-              else if (groupId === 'order') {
-                if (key !== sortDir) onToggleSortDir();
-              } else if (groupId === 'groupBy') onChangeGroupBy(key as GroupBy);
-            }}
-          />
-        </div>
+        <GroupedDropdown
+          label="Sort"
+          labelIcon={<SortAsc size={16} />}
+          groups={[
+            {
+              id: 'sortBy',
+              label: 'Sort By',
+              options: [
+                { key: 'name', text: 'Name' },
+                { key: 'color', text: 'Color' },
+                { key: 'size', text: 'Size' },
+              ],
+              selectedKey: sortKey,
+            },
+            {
+              id: 'order',
+              label: 'Order',
+              options: [
+                { key: 'asc', text: 'Ascending' },
+                { key: 'desc', text: 'Descending' },
+              ],
+              selectedKey: sortDir,
+            },
+            {
+              id: 'groupBy',
+              label: 'Group By',
+              options: [
+                { key: 'none', text: 'None' },
+                { key: 'color', text: 'Color' },
+                { key: 'size', text: 'Size' },
+                { key: 'category', text: 'Category' },
+              ],
+              selectedKey: groupBy,
+            },
+          ]}
+          onChange={(groupId, key) => {
+            if (groupId === 'sortBy') onChangeSortKey(key as SortKey);
+            else if (groupId === 'order') {
+              if (key !== sortDir) onToggleSortDir();
+            } else if (groupId === 'groupBy') onChangeGroupBy(key as GroupBy);
+          }}
+        />
 
         {/* View Options Dropdown: separate groups for View and Size */}
-        <div
-          className="flex flex-col items-center gap-2"
-          data-dropdown="view-options"
-        >
+        <GroupedDropdown
+          label={view === 'grid' ? 'Grid' : 'List'}
+          labelIcon={view === 'grid' ? <Grid size={16} /> : <List size={16} />}
+          groups={[
+            {
+              id: 'viewMode',
+              label: 'View',
+              options: [
+                { key: 'list', text: 'List', icon: <List size={16} /> },
+                { key: 'grid', text: 'Grid', icon: <Grid size={16} /> },
+              ],
+              selectedKey: view,
+            },
+            {
+              id: 'itemSize',
+              label: 'Size',
+              options: [
+                { key: 'lg', text: 'Large' },
+                { key: 'md', text: 'Medium' },
+                { key: 'sm', text: 'Small' },
+              ],
+              selectedKey: itemSize,
+            },
+          ]}
+          onChange={(groupId, key) => {
+            if (groupId === 'viewMode') {
+              onChangeView(key as ViewType);
+            } else if (groupId === 'itemSize') {
+              onChangeItemSize(key as ItemSize);
+            }
+          }}
+        />
+
+        {parentOptions.length > 0 ? (
           <GroupedDropdown
-            label={
-              view === 'grid'
-                ? itemSize === 'lg'
-                  ? 'Large Grid'
-                  : itemSize === 'md'
-                    ? 'Medium Grid'
-                    : 'Small Grid'
-                : itemSize === 'lg'
-                  ? 'Large List'
-                  : itemSize === 'md'
-                    ? 'Medium List'
-                    : 'Small List'
-            }
-            labelIcon={
-              view === 'grid' ? <Grid size={16} /> : <List size={16} />
-            }
+            className="mr-2 lg:mr-0"
+            label={filter.parent ?? 'All Pieces'}
+            labelIcon={<FolderTree size={16} />}
             groups={[
               {
-                id: 'viewMode',
-                label: 'View',
+                id: 'parent',
+                label: 'Parent Category',
                 options: [
-                  { key: 'list', text: 'List', icon: <List size={16} /> },
-                  { key: 'grid', text: 'Grid', icon: <Grid size={16} /> },
+                  { key: '__all__', text: 'All Pieces' },
+                  ...parentOptions.map(parent => ({
+                    key: parent,
+                    text: parent,
+                  })),
                 ],
-                selectedKey: view,
-              },
-              {
-                id: 'itemSize',
-                label: 'Size',
-                options: [
-                  { key: 'lg', text: 'Large' },
-                  { key: 'md', text: 'Medium' },
-                  { key: 'sm', text: 'Small' },
-                ],
-                selectedKey: itemSize,
+                selectedKey: filter.parent ?? '__all__',
               },
             ]}
             onChange={(groupId, key) => {
-              if (groupId === 'viewMode') {
-                onChangeView(key as ViewType);
-              } else if (groupId === 'itemSize') {
-                onChangeItemSize(key as ItemSize);
+              if (groupId !== 'parent') return;
+              if (key === '__all__') {
+                onSelectParent(null);
+              } else {
+                onSelectParent(key);
               }
             }}
           />
-        </div>
+        ) : null}
       </div>
-      <div className="ml-auto flex flex-col items-center gap-2" ref={menuRef} />
+
+      {filter.parent && subcategoryOptions.length > 1 ? (
+        <SubcategoryToggleRail
+          options={subcategoryOptions}
+          selected={filter.subcategories}
+          onToggle={onToggleSubcategory}
+        />
+      ) : null}
     </div>
   );
 }

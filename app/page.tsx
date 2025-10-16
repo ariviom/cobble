@@ -16,7 +16,7 @@ export default function Home() {
         <h1 className="mb-4 text-2xl font-semibold">
           Cobble — LEGO Set Piece Picker
         </h1>
-        <p className="mb-4 text-sm text-gray-600">
+        <p className="mb-4 text-sm text-foreground-muted">
           Search for a set to view pieces.
         </p>
         <SearchBar />

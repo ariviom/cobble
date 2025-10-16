@@ -24,29 +24,25 @@ export function SetTopBar({
 
   return (
     <>
-      <TopNav position="sticky" className="border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <NavButton
-            ariaLabel="Go back"
-            icon={<ArrowLeft className="h-5 w-5" />}
-            onClick={() => router.back()}
-            variant="ghost"
-          />
-        </div>
-        <div className="flex min-w-0 flex-1 justify-center">
-          <SetInfoButton
-            setNumber={setNumber}
-            setName={setName}
-            imageUrl={imageUrl}
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <NavButton
-            ariaLabel="Export missing"
-            icon={<Download className="h-5 w-5" />}
-            onClick={() => setOpen(true)}
-          />
-        </div>
+      <TopNav>
+        <NavButton
+          className="border-r border-b border-foreground-accent"
+          ariaLabel="Go back"
+          icon={<ArrowLeft className="h-5 w-5" />}
+          onClick={() => router.back()}
+          variant="ghost"
+        />
+        <SetInfoButton
+          setNumber={setNumber}
+          setName={setName}
+          imageUrl={imageUrl}
+        />
+        <NavButton
+          className="border-b border-l border-foreground-accent"
+          ariaLabel="Export missing"
+          icon={<Download className="h-5 w-5" />}
+          onClick={() => setOpen(true)}
+        />
       </TopNav>
       <ExportModal
         open={open}

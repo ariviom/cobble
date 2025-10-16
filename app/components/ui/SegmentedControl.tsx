@@ -42,7 +42,7 @@ export function SegmentedControl({
     <div
       ref={containerRef}
       className={cx(
-        'relative inline-flex items-center rounded-md border bg-white p-0.5',
+        'relative inline-flex items-center rounded-md border bg-background p-0.5',
         size === 'sm' ? 'text-xs' : 'text-sm',
         className
       )}
@@ -50,7 +50,7 @@ export function SegmentedControl({
     >
       {thumbStyle && (
         <div
-          className="pointer-events-none absolute top-0.5 bottom-0.5 rounded bg-gray-100 transition-all"
+          className="pointer-events-none absolute top-0.5 bottom-0.5 rounded bg-neutral-100 transition-all"
           style={{ left: thumbStyle.left, width: thumbStyle.width }}
           aria-hidden="true"
         />
@@ -65,8 +65,8 @@ export function SegmentedControl({
           className={cx(
             'relative z-10 rounded px-3 py-1.5 focus:outline-none',
             seg.key === value
-              ? 'text-gray-900'
-              : 'text-gray-600 hover:text-gray-800'
+              ? 'text-foreground'
+              : 'text-foreground-muted hover:text-foreground'
           )}
           onClick={() => onChange(seg.key)}
         >
