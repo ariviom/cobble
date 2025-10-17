@@ -81,6 +81,12 @@
   }
 }
 
+@custom-variant sidebar {
+  &:where(.sidebar *) {
+    @slot;
+  }
+}
+
 input.hide-arrows::-webkit-outer-spin-button,
 input.hide-arrows::-webkit-inner-spin-button {
   /* display: none; <- Crashes Chrome on hover */

@@ -19,7 +19,7 @@ Legend:
 - UI complexity: Medium-High (set list views, status badges, toggles for instructions/box, remove actions)
 
 ## Piece ID via Google Lens → search and sets containing the piece
-- Description: Allow capturing/choosing a photo; use Google Lens (or similar Vision API) to identify the part, then search BrickLink/Rebrickable by the identified part and filter by color; list sets containing the part.
+- Description: Allow capturing/choosing a photo; use Google Lens (or similar Vision API) to identify the part, then search BrickLink/Rebrickable by the identified part and filter by color; list sets containing the part. Allow users to combine multiple pieces (use pieces from recent searches) to narrow down the results to a single set.
 - Notes: Requires image capture/upload, vision API integration, mapping to marketplace IDs, color filtering, and set lookup. Consider privacy and API quotas. Color disambiguation is critical.
 - Implementation complexity: High (vision integration, mappings, search pipelines)
 - UI complexity: Medium (capture flow, results list, color filter controls)

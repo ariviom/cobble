@@ -9,13 +9,7 @@ export type DropdownOption = {
   icon?: React.ReactNode;
 };
 
-export type DropdownGroup = {
-  id: string;
-  label: string;
-  options: DropdownOption[];
-  selectedKey?: string;
-  className?: string;
-};
+// Legacy types removed; now using composition primitives below
 
 export type DropdownTriggerProps = {
   id: string;
@@ -40,7 +34,7 @@ export const DropdownTrigger = forwardRef<
       ref={ref}
       type="button"
       className={cx(
-        'rounded-lg border border-foreground-accent bg-neutral-00 px-3 py-1.5 text-sm min-w-fit',
+        'min-w-fit rounded-lg border border-foreground-accent bg-neutral-00 px-3 py-1.5 text-sm',
         className
       )}
       aria-haspopup="menu"
@@ -57,25 +51,26 @@ export const DropdownTrigger = forwardRef<
   );
 });
 
-export type DropdownPanelProps = {
+// Legacy DropdownPanel removed in favor of DropdownPanelFrame + composition
+
+// Generic dropdown frame that accepts arbitrary children
+export type DropdownPanelFrameProps = {
   id: string;
   labelledBy: string;
   isOpen: boolean;
-  groups: DropdownGroup[];
-  onChange: (groupId: string, nextSelectedKey: string) => void;
   className?: string;
   hiddenWhenClosed?: boolean;
+  children: React.ReactNode;
 };
 
-export function DropdownPanel({
+export function DropdownPanelFrame({
   id,
   labelledBy,
   isOpen,
-  groups,
-  onChange,
   className,
   hiddenWhenClosed = true,
-}: DropdownPanelProps) {
+  children,
+}: DropdownPanelFrameProps) {
   return (
     <div
       id={id}
@@ -94,39 +89,168 @@ export function DropdownPanel({
       data-open={isOpen ? 'true' : undefined}
       data-dropdown-panel
     >
-      {groups.map(group => (
-        <div
-          key={group.id}
-          className={cx('border-b last:border-b-0', group.className)}
-          data-group-id={group.id}
-        >
-          <div className="px-3 py-2 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
-            {group.label}
-          </div>
-          <div>
-            {group.options.map(option => {
-              const selected = group.selectedKey === option.key;
-              return (
-                <button
-                  key={option.key}
-                  type="button"
-                  className={cx(
-                    'flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-neutral-100 selected:bg-blue-50 selected:text-blue-700',
-                    selected
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'bg-background text-foreground'
-                  )}
-                  data-selected={selected ? 'true' : undefined}
-                  onClick={() => onChange(group.id, option.key)}
-                >
-                  {option.icon}
-                  <span>{option.text}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+      {children}
     </div>
   );
 }
+
+// Section wrapper with a label header
+export type DropdownSectionProps = {
+  label: string;
+  className?: string;
+  children: React.ReactNode;
+};
+
+export function DropdownSection({
+  label,
+  className,
+  children,
+}: DropdownSectionProps) {
+  return (
+    <div className={cx('border-b last:border-b-0', className)}>
+      <div className="px-3 py-2 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
+        {label}
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+// Single-select list for simple option picking
+export type SingleSelectListProps = {
+  options: DropdownOption[];
+  selectedKey: string;
+  onChange: (nextKey: string) => void;
+};
+
+export function SingleSelectList({
+  options,
+  selectedKey,
+  onChange,
+}: SingleSelectListProps) {
+  return (
+    <div>
+      {options.map(option => {
+        const selected = selectedKey === option.key;
+        return (
+          <button
+            key={option.key}
+            type="button"
+            className={cx(
+              'flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-neutral-100 selected:bg-blue-50 selected:text-blue-700',
+              selected
+                ? 'bg-blue-50 text-blue-700'
+                : 'bg-background text-foreground'
+            )}
+            data-selected={selected ? 'true' : undefined}
+            onClick={() => onChange(option.key)}
+          >
+            {option.icon}
+            <span>{option.text}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Checkbox-based multi-select list
+export type CheckboxListProps = {
+  options: DropdownOption[];
+  selectedKeys: string[];
+  onToggle: (key: string) => void;
+};
+
+export function CheckboxList({
+  options,
+  selectedKeys,
+  onToggle,
+}: CheckboxListProps) {
+  return (
+    <div>
+      {options.map(option => {
+        const selected = selectedKeys.includes(option.key);
+        return (
+          <button
+            key={option.key}
+            type="button"
+            className={cx(
+              'flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-neutral-100',
+              selected
+                ? 'bg-blue-50 text-blue-700'
+                : 'bg-background text-foreground'
+            )}
+            onClick={() => onToggle(option.key)}
+          >
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={() => {}}
+              className="pointer-events-none"
+              tabIndex={-1}
+            />
+            {option.icon}
+            <span>{option.text}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// Grouped list of multiple single-select sections
+export type GroupedListProps = {
+  sections: Array<{
+    id: string;
+    label: string;
+    options: DropdownOption[];
+    selectedKey: string;
+    onChange: (nextKey: string) => void;
+  }>;
+};
+
+export function GroupedList({ sections }: GroupedListProps) {
+  return (
+    <>
+      {sections.map(sec => (
+        <DropdownSection key={sec.id} label={sec.label}>
+          <SingleSelectList
+            options={sec.options}
+            selectedKey={sec.selectedKey}
+            onChange={sec.onChange}
+          />
+        </DropdownSection>
+      ))}
+    </>
+  );
+}
+
+export type DropdownFooterProps = {
+  className?: string;
+  children?: React.ReactNode;
+};
+
+export function DropdownFooter({ className, children }: DropdownFooterProps) {
+  return (
+    <div
+      className={cx(
+        'flex items-center justify-end gap-2 border-t px-3 py-2',
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function formatMultiSelectLabel(
+  defaultLabel: string,
+  selected: string[]
+) {
+  const count = selected?.length || 0;
+  if (count === 0) return defaultLabel;
+  if (count === 1) return selected[0]!;
+  return `${defaultLabel} (${count})`;
+}
+
+// Legacy ColorDropdownPanel removed in favor of CheckboxList inside DropdownPanelFrame

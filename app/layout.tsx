@@ -41,9 +41,7 @@ export default function RootLayout({
       </head>
       <body className="bg-background text-foreground antialiased">
         <ReactQueryProvider>
-          <div className="mx-auto flex min-h-screen w-full max-w-screen-2xl flex-col">
-            {children}
-          </div>
+          <div className="flex min-h-screen w-full flex-col">{children}</div>
         </ReactQueryProvider>
         <svg
           width="0"

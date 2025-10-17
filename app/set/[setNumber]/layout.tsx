@@ -9,7 +9,7 @@ export default async function SetLayout({
   const { setNumber } = await params;
   const summary = await getSetSummary(setNumber);
   return (
-    <div className="flex min-h-0 flex-1 flex-col pt-topnav-height">
+    <div className="flex min-h-0 flex-1 flex-col pt-topnav-height lg:h-screen lg:overflow-hidden">
       <SetTopBar
         setNumber={setNumber}
         setName={summary.name}

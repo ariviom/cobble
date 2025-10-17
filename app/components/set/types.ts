@@ -21,6 +21,7 @@ export type InventoryFilter = {
   display: 'all' | 'missing' | 'owned';
   parent: string | null;
   subcategories: string[];
+  colors: string[];
 };
 
 export type GroupBy = 'none' | 'color' | 'size' | 'category';
