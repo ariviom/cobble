@@ -1,6 +1,6 @@
 'use client';
 
-import { cx } from '@/app/components/ui/utils';
+import { cx } from 'class-variance-authority';
 
 export type Crumb = { key: string; label: string };
 

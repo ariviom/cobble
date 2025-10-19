@@ -1,6 +1,6 @@
 'use client';
 
-import { cx } from '@/app/components/ui/utils';
+import { cx } from 'class-variance-authority';
 import { useEffect, useRef, useState } from 'react';
 
 type Props = {

@@ -1,15 +1,36 @@
 'use client';
 
+import { cva, type VariantProps } from 'class-variance-authority';
 import { forwardRef, SelectHTMLAttributes } from 'react';
-import { cx } from './utils';
+import { cn } from './utils';
 
-type Props = SelectHTMLAttributes<HTMLSelectElement>;
+const selectVariants = cva(
+  'border border-neutral-200 rounded px-2 py-1 text-sm bg-background text-foreground',
+  {
+    variants: {
+      size: {
+        sm: 'text-sm',
+        md: 'text-sm',
+      },
+    },
+    defaultVariants: {
+      size: 'md',
+    },
+  }
+);
+
+type Props = SelectHTMLAttributes<HTMLSelectElement> &
+  VariantProps<typeof selectVariants>;
 
 export const Select = forwardRef<HTMLSelectElement, Props>(function Select(
-  { className, ...props },
+  { className, size, ...props },
   ref
 ) {
-  const base =
-    'border border-neutral-200 rounded px-2 py-1 text-sm bg-background text-foreground';
-  return <select ref={ref} className={cx(base, className)} {...props} />;
+  return (
+    <select
+      ref={ref}
+      className={cn(selectVariants({ size }), className)}
+      {...props}
+    />
+  );
 });

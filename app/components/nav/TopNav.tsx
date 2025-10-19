@@ -1,4 +1,4 @@
-import { cx } from '@/app/components/ui/utils';
+import { cn } from '@/app/components/ui/utils';
 import type { PropsWithChildren } from 'react';
 
 type Props = PropsWithChildren<{
@@ -8,7 +8,7 @@ type Props = PropsWithChildren<{
 export function TopNav({ children, className }: Props) {
   return (
     <div
-      className={cx(
+      className={cn(
         'fixed top-0 z-30 h-topnav-height w-full bg-neutral-00',
         'flex items-center justify-between',
         'gap-0',
@@ -16,7 +16,7 @@ export function TopNav({ children, className }: Props) {
       )}
     >
       <div
-        className={cx('flex w-full items-center justify-between', className)}
+        className={cn('flex w-full items-center justify-between', className)}
       >
         {children}
       </div>

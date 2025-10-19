@@ -1,6 +1,6 @@
 'use client';
 
-import { cx } from '@/app/components/ui/utils';
+import { cn } from '@/app/components/ui/utils';
 import Link from 'next/link';
 import type { MouseEventHandler, ReactNode } from 'react';
 
@@ -22,8 +22,8 @@ export function NavButton({
   disabled,
   className,
 }: Props) {
-  const base = cx(
-    'flex h-topnav-height w-topnav-height items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-black transition-colors flex-shrink-0'
+  const base = cn(
+    'flex h-topnav-height w-topnav-height flex-shrink-0 items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black'
   );
 
   if (href) {
@@ -31,7 +31,7 @@ export function NavButton({
       <Link
         href={href}
         aria-label={ariaLabel}
-        className={cx(
+        className={cn(
           base,
           disabled && 'pointer-events-none opacity-60',
           className
@@ -47,7 +47,7 @@ export function NavButton({
       aria-label={ariaLabel}
       onClick={onClick}
       disabled={disabled}
-      className={cx(base, className)}
+      className={cn(base, className)}
     >
       {icon}
     </button>

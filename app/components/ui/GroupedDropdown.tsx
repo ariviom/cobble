@@ -1,6 +1,7 @@
 'use client';
 
-import { cx } from '@/app/components/ui/utils';
+import { cn } from '@/app/components/ui/utils';
+import { cva, cx, type VariantProps } from 'class-variance-authority';
 import { forwardRef } from 'react';
 
 export type DropdownOption = {
@@ -19,13 +20,30 @@ export type DropdownTriggerProps = {
   isOpen: boolean;
   onToggle: () => void;
   className?: string;
+  variant?: 'default' | 'sidebar';
 };
+
+const triggerVariants = cva(
+  'min-w-fit rounded-lg border border-foreground-accent bg-neutral-00 px-3 py-1.5 text-sm',
+  {
+    variants: {
+      variant: {
+        default: '',
+        sidebar:
+          'lg:sidebar:rounded-none lg:sidebar:border-none lg:sidebar:border-b lg:sidebar:border-foreground-accent lg:sidebar:text-base lg:sidebar:w-full lg:sidebar:py-3 lg:sidebar:px-4 text-left',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+    },
+  }
+);
 
 export const DropdownTrigger = forwardRef<
   HTMLButtonElement,
-  DropdownTriggerProps
+  DropdownTriggerProps & VariantProps<typeof triggerVariants>
 >(function DropdownTrigger(
-  { id, panelId, label, labelIcon, isOpen, onToggle, className },
+  { id, panelId, label, labelIcon, isOpen, onToggle, className, variant },
   ref
 ) {
   return (
@@ -33,10 +51,7 @@ export const DropdownTrigger = forwardRef<
       id={id}
       ref={ref}
       type="button"
-      className={cx(
-        'min-w-fit rounded-lg border border-foreground-accent bg-neutral-00 px-3 py-1.5 text-sm',
-        className
-      )}
+      className={cn(triggerVariants({ variant }), className)}
       aria-haspopup="menu"
       aria-expanded={isOpen}
       aria-controls={panelId}
@@ -54,12 +69,30 @@ export const DropdownTrigger = forwardRef<
 // Legacy DropdownPanel removed in favor of DropdownPanelFrame + composition
 
 // Generic dropdown frame that accepts arbitrary children
+const panelVariants = cva(
+  // base
+  'min-w-64 overflow-hidden rounded border border-foreground-accent bg-background shadow-lg fixed top-[calc(var(--spacing-topnav-height)+var(--spacing-controls-height))] bottom-0 z-50 overflow-y-auto lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40',
+  {
+    variants: {
+      variant: {
+        default: '',
+        sidebar:
+          'inset-x-0 lg:sidebar:static lg:sidebar:inset-auto lg:sidebar:top-auto lg:sidebar:bottom-auto lg:sidebar:z-auto lg:sidebar:max-h-none lg:sidebar:overflow-visible lg:sidebar:shadow-none lg:sidebar:border-none',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+    },
+  }
+);
+
 export type DropdownPanelFrameProps = {
   id: string;
   labelledBy: string;
   isOpen: boolean;
   className?: string;
   hiddenWhenClosed?: boolean;
+  variant?: 'default' | 'sidebar';
   children: React.ReactNode;
 };
 
@@ -69,6 +102,7 @@ export function DropdownPanelFrame({
   isOpen,
   className,
   hiddenWhenClosed = true,
+  variant = 'default',
   children,
 }: DropdownPanelFrameProps) {
   return (
@@ -77,8 +111,8 @@ export function DropdownPanelFrame({
       role="menu"
       aria-labelledby={labelledBy}
       aria-hidden={isOpen ? undefined : 'true'}
-      className={cx(
-        'overflow-hidden rounded border border-foreground-accent bg-background shadow-lg',
+      className={cn(
+        panelVariants({ variant }),
         isOpen
           ? 'block'
           : hiddenWhenClosed
@@ -96,7 +130,7 @@ export function DropdownPanelFrame({
 
 // Section wrapper with a label header
 export type DropdownSectionProps = {
-  label: string;
+  label?: string;
   className?: string;
   children: React.ReactNode;
 };
@@ -108,9 +142,11 @@ export function DropdownSection({
 }: DropdownSectionProps) {
   return (
     <div className={cx('border-b last:border-b-0', className)}>
-      <div className="px-3 py-2 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
-        {label}
-      </div>
+      {label && (
+        <div className="px-3 py-2 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
+          {label}
+        </div>
+      )}
       <div>{children}</div>
     </div>
   );

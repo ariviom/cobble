@@ -1,37 +1,43 @@
 'use client';
 
+import { cva, type VariantProps } from 'class-variance-authority';
 import { ButtonHTMLAttributes, forwardRef } from 'react';
-import { cx } from './utils';
+import { cn } from './utils';
 
-type Variant = 'primary' | 'secondary' | 'ghost';
-type Size = 'sm' | 'md';
+const buttonVariants = cva(
+  'border rounded inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer',
+  {
+    variants: {
+      variant: {
+        primary: 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700',
+        secondary:
+          'bg-background text-foreground border-neutral-200 hover:bg-neutral-100',
+        ghost:
+          'bg-transparent text-foreground border-transparent hover:bg-neutral-100',
+      },
+      size: {
+        sm: 'px-2 py-1 text-sm',
+        md: 'px-3 py-2 text-sm',
+      },
+    },
+    defaultVariants: {
+      variant: 'secondary',
+      size: 'md',
+    },
+  }
+);
 
-type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: Variant;
-  size?: Size;
-};
+type Props = ButtonHTMLAttributes<HTMLButtonElement> &
+  VariantProps<typeof buttonVariants>;
 
 export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
-  { className, variant = 'secondary', size = 'md', ...props },
+  { className, variant, size, ...props },
   ref
 ) {
-  const base =
-    'border rounded inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer';
-  const byVariant: Record<Variant, string> = {
-    primary: 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700',
-    secondary:
-      'bg-background text-foreground border-neutral-200 hover:bg-neutral-100',
-    ghost:
-      'bg-transparent text-foreground border-transparent hover:bg-neutral-100',
-  };
-  const bySize: Record<Size, string> = {
-    sm: 'px-2 py-1 text-sm',
-    md: 'px-3 py-2 text-sm',
-  };
   return (
     <button
       ref={ref}
-      className={cx(base, byVariant[variant], bySize[size], className)}
+      className={cn(buttonVariants({ variant, size }), className)}
       {...props}
     />
   );

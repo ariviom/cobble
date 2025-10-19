@@ -1,6 +1,5 @@
 'use client';
 
-import { cx } from '@/app/components/ui/utils';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useOwnedStore } from '@/app/store/owned';
 import { ChevronDown } from 'lucide-react';
@@ -28,7 +27,7 @@ export function SetInfoButton({ setNumber, setName, imageUrl }: Props) {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className={cx('flex h-full w-full items-center justify-between', 'p-2')}
+        className="flex h-full w-full items-center justify-between p-2"
         aria-expanded={open}
         aria-controls="setinfo-panel"
       >

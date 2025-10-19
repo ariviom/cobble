@@ -1,6 +1,5 @@
 'use client';
 
-import { cx } from '@/app/components/ui/utils';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -55,9 +54,7 @@ export function SearchBar() {
           {q && (
             <button
               type="button"
-              className={cx(
-                'absolute top-1/2 right-2 h-6 w-6 -translate-y-1/2 cursor-pointer rounded-full bg-neutral-100 text-foreground-muted hover:bg-neutral-200'
-              )}
+              className="absolute top-1/2 right-2 h-6 w-6 -translate-y-1/2 cursor-pointer rounded-full bg-neutral-100 text-foreground-muted hover:bg-neutral-200"
               onClick={onClear}
               aria-label="Clear search"
             >

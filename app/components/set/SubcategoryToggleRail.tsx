@@ -1,6 +1,6 @@
 'use client';
 
-import { cx } from '@/app/components/ui/utils';
+import { cx } from 'class-variance-authority';
 
 type Props = {
   options: string[];

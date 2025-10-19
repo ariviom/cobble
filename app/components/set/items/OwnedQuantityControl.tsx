@@ -1,7 +1,7 @@
 'use client';
 
 import { clampOwned } from '@/app/components/set/inventory-utils';
-import { cx } from '@/app/components/ui/utils';
+import { cn } from '@/app/components/ui/utils';
 
 type Props = {
   required: number;
@@ -29,7 +29,7 @@ function Button({
 }: ButtonProps) {
   return (
     <button
-      className={cx(
+      className={cn(
         'relative h-8 w-8 cursor-pointer rounded-full text-2xl font-bold disabled:cursor-not-allowed',
         className,
         'text-foreground disabled:text-neutral-300'

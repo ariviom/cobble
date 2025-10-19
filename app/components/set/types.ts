@@ -11,7 +11,7 @@ export type InventoryRow = {
   parentCategory?: string;
 };
 
-export type SortKey = 'name' | 'color' | 'size';
+export type SortKey = 'name' | 'color' | 'size' | 'category';
 
 export type ViewType = 'list' | 'grid';
 

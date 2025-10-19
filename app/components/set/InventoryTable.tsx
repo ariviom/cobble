@@ -1,15 +1,9 @@
 'use client';
 
-import {
-  DropdownPanelFrame,
-  DropdownSection,
-  DropdownTrigger,
-  GroupedList,
-  SingleSelectList,
-} from '@/app/components/ui/GroupedDropdown';
 import { useInventory } from '@/app/hooks/useInventory';
+import { useIsDesktop } from '@/app/hooks/useMediaQuery';
 import { useOwnedStore } from '@/app/store/owned';
-import { Filter, Grid, List, SortAsc } from 'lucide-react';
+import { cx } from 'class-variance-authority';
 import { useEffect, useMemo, useState } from 'react';
 import {
   clampOwned,
@@ -22,7 +16,7 @@ import { InventoryItem } from './items/InventoryItem';
 import { SubcategoryToggleRail } from './SubcategoryToggleRail';
 import type { GroupBy, InventoryFilter, ItemSize, ViewType } from './types';
 
-type SortKey = 'name' | 'color' | 'size';
+type SortKey = 'name' | 'color' | 'size' | 'category';
 
 export function InventoryTable({
   setNumber,
@@ -48,6 +42,7 @@ export function InventoryTable({
   const [openTopDropdown, setOpenTopDropdown] = useState<
     'display' | 'sort' | 'view' | null
   >(null);
+  const isDesktop = useIsDesktop();
 
   const ownedStore = useOwnedStore();
 
@@ -129,6 +124,12 @@ export function InventoryTable({
         case 'color':
           base = ra.colorName.localeCompare(rb.colorName);
           break;
+        case 'category': {
+          const ca = categoryByIndex[a] ?? 'Uncategorized';
+          const cb = categoryByIndex[b] ?? 'Uncategorized';
+          base = ca.localeCompare(cb);
+          break;
+        }
         case 'size': {
           const sa = sizeByIndex[a]!;
           const sb = sizeByIndex[b]!;
@@ -255,245 +256,71 @@ export function InventoryTable({
   }, [rows]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-      <InventoryControls
-        view={view}
-        onChangeView={v => setView(v)}
-        itemSize={itemSize}
-        onChangeItemSize={s => setItemSize(s)}
-        sortKey={sortKey}
-        onChangeSortKey={k => setSortKey(k)}
-        sortDir={sortDir}
-        onToggleSortDir={() => setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))}
-        groupBy={groupBy}
-        onChangeGroupBy={g => setGroupBy(g)}
-        filter={filter}
-        onChangeFilter={f => setFilter(f)}
-        parentOptions={useMemo(
-          () => Array.from(new Set(parentByIndex)).filter(Boolean).sort(),
-          [parentByIndex]
-        )}
-        onSelectParent={parent => {
-          if (!parent) {
-            setFilter(prev => ({
-              ...prev,
-              parent: null,
-              subcategories: [],
-            }));
-          } else {
-            setFilter(prev => ({
-              ...prev,
-              parent,
-              subcategories: [],
-            }));
+    <div className="relative inset-0 grid h-screen grid-rows-[auto_1fr] pt-topnav-height lg:pl-80">
+      <div>
+        <InventoryControls
+          view={view}
+          onChangeView={v => setView(v)}
+          itemSize={itemSize}
+          onChangeItemSize={s => setItemSize(s)}
+          sortKey={sortKey}
+          onChangeSortKey={k => setSortKey(k)}
+          sortDir={sortDir}
+          onToggleSortDir={() =>
+            setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
           }
-        }}
-        subcategoryOptions={subcategoryOptions}
-        subcategoriesByParent={subcategoriesByParent}
-        onToggleSubcategory={subcategory => {
-          if (!filter.parent) return;
-          const exists = filter.subcategories.includes(subcategory);
-          setFilter(prev => ({
-            ...prev,
-            subcategories: exists
-              ? prev.subcategories.filter(c => c !== subcategory)
-              : [...prev.subcategories, subcategory],
-          }));
-        }}
-        onClearSubcategories={() =>
-          setFilter(prev => ({ ...prev, subcategories: [] }))
-        }
-        colorOptions={colorOptions}
-        onToggleColor={color => {
-          setFilter(prev => {
-            const exists = (prev.colors || []).includes(color);
-            return {
+          groupBy={groupBy}
+          onChangeGroupBy={g => setGroupBy(g)}
+          filter={filter}
+          onChangeFilter={f => setFilter(f)}
+          parentOptions={useMemo(
+            () => Array.from(new Set(parentByIndex)).filter(Boolean).sort(),
+            [parentByIndex]
+          )}
+          onSelectParent={parent => {
+            if (!parent) {
+              setFilter(prev => ({
+                ...prev,
+                parent: null,
+                subcategories: [],
+              }));
+            } else {
+              setFilter(prev => ({
+                ...prev,
+                parent,
+                subcategories: [],
+              }));
+            }
+          }}
+          subcategoryOptions={subcategoryOptions}
+          subcategoriesByParent={subcategoriesByParent}
+          onToggleSubcategory={subcategory => {
+            if (!filter.parent) return;
+            const exists = filter.subcategories.includes(subcategory);
+            setFilter(prev => ({
               ...prev,
-              colors: exists
-                ? (prev.colors || []).filter(c => c !== color)
-                : [...(prev.colors || []), color],
-            };
-          });
-        }}
-      />
-
-      <div className="flex min-h-0 flex-1 flex-col lg:h-[calc(100vh-var(--spacing-topnav-height))] lg:overflow-y-auto">
-        {/* Desktop top controls: Display, Sort, View */}
-        <div className="hidden lg:block">
-          <div className="relative">
-            <div className="flex items-center gap-2 border-b border-neutral-300 px-2 py-2">
-              <DropdownTrigger
-                id="top-display-trigger"
-                panelId="top-display-panel"
-                label={
-                  filter.display === 'owned'
-                    ? 'Owned'
-                    : filter.display === 'missing'
-                      ? 'Missing'
-                      : 'All'
-                }
-                labelIcon={<Filter size={16} />}
-                isOpen={openTopDropdown === 'display'}
-                onToggle={() =>
-                  setOpenTopDropdown(prev =>
-                    prev === 'display' ? null : 'display'
-                  )
-                }
-              />
-              <DropdownTrigger
-                id="top-sort-trigger"
-                panelId="top-sort-panel"
-                label="Sort"
-                labelIcon={<SortAsc size={16} />}
-                isOpen={openTopDropdown === 'sort'}
-                onToggle={() =>
-                  setOpenTopDropdown(prev => (prev === 'sort' ? null : 'sort'))
-                }
-              />
-              <DropdownTrigger
-                id="top-view-trigger"
-                panelId="top-view-panel"
-                label={view === 'grid' ? 'Grid' : 'List'}
-                labelIcon={
-                  view === 'grid' ? <Grid size={16} /> : <List size={16} />
-                }
-                isOpen={openTopDropdown === 'view'}
-                onToggle={() =>
-                  setOpenTopDropdown(prev => (prev === 'view' ? null : 'view'))
-                }
-              />
-            </div>
-
-            {/* Overlay panel under top controls */}
-            {openTopDropdown && (
-              <div className="absolute top-full right-0 left-0 z-40">
-                {openTopDropdown === 'display' && (
-                  <DropdownPanelFrame
-                    id="top-display-panel"
-                    labelledBy="top-display-trigger"
-                    isOpen={true}
-                    className="mx-2 mt-1"
-                  >
-                    <DropdownSection label="Filter By">
-                      <SingleSelectList
-                        options={[
-                          { key: 'all', text: 'All' },
-                          { key: 'missing', text: 'Missing' },
-                          { key: 'owned', text: 'Owned' },
-                        ]}
-                        selectedKey={filter.display}
-                        onChange={key => {
-                          setFilter(prev => ({ ...prev, display: key as any }));
-                          setOpenTopDropdown(null);
-                        }}
-                      />
-                    </DropdownSection>
-                  </DropdownPanelFrame>
-                )}
-                {openTopDropdown === 'sort' && (
-                  <DropdownPanelFrame
-                    id="top-sort-panel"
-                    labelledBy="top-sort-trigger"
-                    isOpen={true}
-                    className="mx-2 mt-1"
-                  >
-                    <GroupedList
-                      sections={[
-                        {
-                          id: 'sortBy',
-                          label: 'Sort By',
-                          options: [
-                            { key: 'name', text: 'Name' },
-                            { key: 'color', text: 'Color' },
-                            { key: 'size', text: 'Size' },
-                          ],
-                          selectedKey: sortKey,
-                          onChange: k => {
-                            setSortKey(k as any);
-                            setOpenTopDropdown(null);
-                          },
-                        },
-                        {
-                          id: 'order',
-                          label: 'Order',
-                          options: [
-                            { key: 'asc', text: 'Ascending' },
-                            { key: 'desc', text: 'Descending' },
-                          ],
-                          selectedKey: sortDir,
-                          onChange: k => {
-                            setSortDir(k as any);
-                            setOpenTopDropdown(null);
-                          },
-                        },
-                        {
-                          id: 'groupBy',
-                          label: 'Group By',
-                          options: [
-                            { key: 'none', text: 'None' },
-                            { key: 'color', text: 'Color' },
-                            { key: 'size', text: 'Size' },
-                            { key: 'category', text: 'Category' },
-                          ],
-                          selectedKey: groupBy,
-                          onChange: k => {
-                            setGroupBy(k as any);
-                            setOpenTopDropdown(null);
-                          },
-                        },
-                      ]}
-                    />
-                  </DropdownPanelFrame>
-                )}
-                {openTopDropdown === 'view' && (
-                  <DropdownPanelFrame
-                    id="top-view-panel"
-                    labelledBy="top-view-trigger"
-                    isOpen={true}
-                    className="mx-2 mt-1"
-                  >
-                    <DropdownSection label="View">
-                      <SingleSelectList
-                        options={[
-                          {
-                            key: 'list',
-                            text: 'List',
-                            icon: <List size={16} />,
-                          },
-                          {
-                            key: 'grid',
-                            text: 'Grid',
-                            icon: <Grid size={16} />,
-                          },
-                        ]}
-                        selectedKey={view}
-                        onChange={k => {
-                          setView(k as any);
-                          setOpenTopDropdown(null);
-                        }}
-                      />
-                    </DropdownSection>
-                    <DropdownSection label="Size">
-                      <SingleSelectList
-                        options={[
-                          { key: 'lg', text: 'Large' },
-                          { key: 'md', text: 'Medium' },
-                          { key: 'sm', text: 'Small' },
-                        ]}
-                        selectedKey={itemSize}
-                        onChange={k => {
-                          setItemSize(k as any);
-                          setOpenTopDropdown(null);
-                        }}
-                      />
-                    </DropdownSection>
-                  </DropdownPanelFrame>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-        {filter.parent && subcategoryOptions.length > 1 ? (
+              subcategories: exists
+                ? prev.subcategories.filter(c => c !== subcategory)
+                : [...prev.subcategories, subcategory],
+            }));
+          }}
+          onClearSubcategories={() =>
+            setFilter(prev => ({ ...prev, subcategories: [] }))
+          }
+          colorOptions={colorOptions}
+          onToggleColor={color => {
+            setFilter(prev => {
+              const exists = (prev.colors || []).includes(color);
+              return {
+                ...prev,
+                colors: exists
+                  ? (prev.colors || []).filter(c => c !== color)
+                  : [...(prev.colors || []), color],
+              };
+            });
+          }}
+        />
+        {!isDesktop && filter.parent && subcategoryOptions.length > 1 ? (
           <SubcategoryToggleRail
             options={subcategoryOptions}
             selected={filter.subcategories}
@@ -509,7 +336,9 @@ export function InventoryTable({
             }}
           />
         ) : null}
+      </div>
 
+      <div className={cx('flex min-h-0 flex-col overflow-y-auto lg:pl-2')}>
         <div className="flex min-h-0 flex-1 flex-col p-2">
           {rows.length === 0 || isLoading ? (
             <div className="p-4 text-sm text-foreground-muted">
