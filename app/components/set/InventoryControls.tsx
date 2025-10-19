@@ -1,26 +1,16 @@
 'use client';
 
 import {
-  CheckboxList,
   DropdownPanelFrame,
-  DropdownSection,
   DropdownTrigger,
-  GroupedList,
-  SingleSelectList,
   formatMultiSelectLabel,
 } from '@/app/components/ui/GroupedDropdown';
 import { useIsDesktop } from '@/app/hooks/useMediaQuery';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-  FolderTree,
-  Grid,
-  List,
-  Palette,
-  SortAsc,
-} from 'lucide-react';
+import { FolderTree, Palette } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { SidebarCategoryPanel } from './controls/SidebarCategoryPanel';
+import { SidebarColorPanel } from './controls/SidebarColorPanel';
+import { TopBarControls } from './controls/TopBarControls';
 import type {
   GroupBy,
   InventoryFilter,
@@ -76,9 +66,6 @@ export function InventoryControls({
 }: Props) {
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [activeDesktopCategory, setActiveDesktopCategory] = useState<
-    string | null
-  >(null);
   const isDesktop = useIsDesktop();
   const [isParentOpen, setIsParentOpen] = useState(false);
   const [isColorOpen, setIsColorOpen] = useState(false);
@@ -171,201 +158,35 @@ export function InventoryControls({
   const getColorLabel = () =>
     formatMultiSelectLabel('Colors', filter.colors || []);
 
-  function getParentState(parent: string): 'none' | 'some' | 'all' {
-    if (filter.parent !== parent) return 'none';
-    const all = subcategoriesByParent[parent] ?? [];
-    const selected = filter.subcategories || [];
-    if (selected.length === 0) return 'none';
-    if (all.length > 0 && selected.length === all.length) return 'all';
-    return 'some';
-  }
-
-  function toggleParentCheckbox(parent: string) {
-    if (parent === '__all__') {
-      onChangeFilter({ ...filter, parent: null, subcategories: [] });
-      return;
-    }
-    const allSubcats = subcategoriesByParent[parent] ?? [];
-    const state = getParentState(parent);
-    if (filter.parent !== parent) {
-      onChangeFilter({ ...filter, parent, subcategories: allSubcats });
-    } else if (state === 'all') {
-      // Uncheck parent: clear filter
-      onChangeFilter({ ...filter, parent: null, subcategories: [] });
-    } else {
-      // From none or some -> select all
-      onChangeFilter({ ...filter, parent, subcategories: allSubcats });
-    }
-  }
-
-  function toggleSubcategoryForActive(sub: string) {
-    const parent = activeDesktopCategory;
-    if (!parent) return;
-    if (filter.parent !== parent) {
-      // Start selection for this parent
-      onChangeFilter({
-        ...filter,
-        parent,
-        subcategories: [sub],
-      });
-      return;
-    }
-    const exists = (filter.subcategories || []).includes(sub);
-    onChangeFilter({
-      ...filter,
-      subcategories: exists
-        ? (filter.subcategories || []).filter(c => c !== sub)
-        : [...(filter.subcategories || []), sub],
-    });
-  }
+  // Removed legacy category helpers; encapsulated in SidebarCategoryPanel
 
   return (
     <div
       ref={containerRef}
       className="no-scrollbar flex h-controls-height flex-nowrap items-center gap-2 overflow-x-auto border-b border-neutral-300 px-3 lg:overflow-visible"
     >
-      {/* Display Dropdown: All / Missing / Owned */}
-      <div className="lg:relative">
-        <DropdownTrigger
-          id="display-trigger"
-          panelId="display-panel"
-          label={
-            filter.display === 'owned'
-              ? 'Owned'
-              : filter.display === 'missing'
-                ? 'Missing'
-                : 'All'
-          }
-          labelIcon={<Filter size={16} />}
-          isOpen={openDropdownId === 'display'}
-          onToggle={() => handleDropdownToggle('display')}
-        />
-        {openDropdownId === 'display' && (
-          <DropdownPanelFrame
-            id="display-panel"
-            labelledBy="display-trigger"
-            isOpen={true}
-            className="lg:right-0"
-          >
-            <DropdownSection label="Filter By">
-              <SingleSelectList
-                options={[
-                  { key: 'all', text: 'All' },
-                  { key: 'missing', text: 'Missing' },
-                  { key: 'owned', text: 'Owned' },
-                ]}
-                selectedKey={filter.display}
-                onChange={key =>
-                  handleDropdownChange('display', 'display', key)
-                }
-              />
-            </DropdownSection>
-          </DropdownPanelFrame>
-        )}
-      </div>
-
-      {/* Sort Dropdown: Sort By / Order / Group By */}
-      <div className="lg:relative">
-        <DropdownTrigger
-          id="sort-trigger"
-          panelId="sort-panel"
-          label="Sort"
-          labelIcon={<SortAsc size={16} />}
-          isOpen={openDropdownId === 'sort'}
-          onToggle={() => handleDropdownToggle('sort')}
-        />
-        {openDropdownId === 'sort' && (
-          <DropdownPanelFrame
-            id="sort-panel"
-            labelledBy="sort-trigger"
-            isOpen={true}
-            className="lg:right-0"
-          >
-            <GroupedList
-              sections={[
-                {
-                  id: 'sortBy',
-                  label: 'Sort By',
-                  options: [
-                    { key: 'name', text: 'Name' },
-                    { key: 'color', text: 'Color' },
-                    { key: 'size', text: 'Size' },
-                    { key: 'category', text: 'Category' },
-                  ],
-                  selectedKey: sortKey,
-                  onChange: k => handleDropdownChange('sort', 'sortBy', k),
-                },
-                {
-                  id: 'order',
-                  label: 'Order',
-                  options: [
-                    { key: 'asc', text: 'Ascending' },
-                    { key: 'desc', text: 'Descending' },
-                  ],
-                  selectedKey: sortDir,
-                  onChange: k => handleDropdownChange('sort', 'order', k),
-                },
-                {
-                  id: 'groupBy',
-                  label: 'Group By',
-                  options: [
-                    { key: 'none', text: 'None' },
-                    { key: 'color', text: 'Color' },
-                    { key: 'size', text: 'Size' },
-                    { key: 'category', text: 'Category' },
-                  ],
-                  selectedKey: groupBy,
-                  onChange: k => handleDropdownChange('sort', 'groupBy', k),
-                },
-              ]}
-            />
-          </DropdownPanelFrame>
-        )}
-      </div>
-      {/* View Options Dropdown: separate groups for View and Size */}
-      <div className="lg:relative">
-        <DropdownTrigger
-          id="view-trigger"
-          panelId="view-panel"
-          label={view === 'grid' ? 'Grid' : 'List'}
-          labelIcon={view === 'grid' ? <Grid size={16} /> : <List size={16} />}
-          isOpen={openDropdownId === 'view'}
-          onToggle={() => handleDropdownToggle('view')}
-        />
-        {openDropdownId === 'view' && (
-          <DropdownPanelFrame
-            id="view-panel"
-            labelledBy="view-trigger"
-            isOpen={true}
-            className="lg:right-0"
-          >
-            <DropdownSection label="View">
-              <SingleSelectList
-                options={[
-                  { key: 'list', text: 'List', icon: <List size={16} /> },
-                  { key: 'grid', text: 'Grid', icon: <Grid size={16} /> },
-                ]}
-                selectedKey={view}
-                onChange={k => handleDropdownChange('view', 'viewMode', k)}
-              />
-            </DropdownSection>
-            <DropdownSection label="Size">
-              <SingleSelectList
-                options={[
-                  { key: 'lg', text: 'Large' },
-                  { key: 'md', text: 'Medium' },
-                  { key: 'sm', text: 'Small' },
-                ]}
-                selectedKey={itemSize}
-                onChange={k => handleDropdownChange('view', 'itemSize', k)}
-              />
-            </DropdownSection>
-          </DropdownPanelFrame>
-        )}
-      </div>
+      <TopBarControls
+        view={view}
+        onChangeView={onChangeView}
+        itemSize={itemSize}
+        onChangeItemSize={onChangeItemSize}
+        sortKey={sortKey}
+        onChangeSortKey={onChangeSortKey}
+        sortDir={sortDir}
+        onToggleSortDir={onToggleSortDir}
+        groupBy={groupBy}
+        onChangeGroupBy={onChangeGroupBy}
+        displayKey={filter.display}
+        onChangeDisplay={(next: 'all' | 'missing' | 'owned') =>
+          handleDropdownChange('display', 'display', next)
+        }
+        openDropdownId={openDropdownId}
+        onToggleDropdown={handleDropdownToggle}
+      />
       {/* Sidebar Group Triggers */}
       <div className="sidebar relative min-w-fit border-neutral-300 lg:fixed lg:top-topnav-height lg:left-0 lg:h-[calc(100vh-var(--spacing-topnav-height))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-neutral-00">
         <div className="flex flex-nowrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-1">
+          {/* display panel is rendered by TopBarControls; removed duplicate */}
           {parentOptions.length > 0 ? (
             <div className="lg:relative">
               <DropdownTrigger
@@ -384,139 +205,14 @@ export function InventoryControls({
                   isOpen={true}
                   variant="sidebar"
                 >
-                  {activeDesktopCategory === null ? (
-                    <>
-                      <DropdownSection label="Category">
-                        <div>
-                          {/* All Pieces */}
-                          <button
-                            type="button"
-                            className={
-                              (filter.parent ?? '__all__') === '__all__'
-                                ? 'flex w-full items-center gap-2 bg-blue-50 px-3 py-2 text-left text-sm text-blue-700'
-                                : 'flex w-full items-center gap-2 bg-background px-3 py-2 text-left text-sm text-foreground hover:bg-neutral-100'
-                            }
-                            onClick={() => toggleParentCheckbox('__all__')}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={
-                                (filter.parent ?? '__all__') === '__all__'
-                              }
-                              onChange={() => {}}
-                              className="pointer-events-none"
-                              tabIndex={-1}
-                            />
-                            <span>All Pieces</span>
-                          </button>
-
-                          {/* Parents */}
-                          {parentOptions.map(parent => {
-                            const state = getParentState(parent);
-                            const selected = filter.parent === parent;
-                            const subCount = (
-                              subcategoriesByParent[parent] || []
-                            ).length;
-                            return (
-                              <div key={parent} className="relative">
-                                <button
-                                  type="button"
-                                  className={
-                                    selected
-                                      ? 'flex w-full items-center gap-2 bg-blue-50 px-3 py-2 text-left text-sm text-blue-700'
-                                      : 'flex w-full items-center gap-2 bg-background px-3 py-2 text-left text-sm text-foreground hover:bg-neutral-100'
-                                  }
-                                  onClick={() => toggleParentCheckbox(parent)}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={state === 'all'}
-                                    ref={el => {
-                                      if (el)
-                                        el.indeterminate = state === 'some';
-                                    }}
-                                    onChange={() => {}}
-                                    aria-checked={
-                                      state === 'some' ? 'mixed' : undefined
-                                    }
-                                    className="pointer-events-none"
-                                    tabIndex={-1}
-                                  />
-                                  <span>{parent}</span>
-                                </button>
-                                {subCount > 1 && (
-                                  <button
-                                    type="button"
-                                    className="absolute top-0 right-0 h-full w-10 text-foreground-muted hover:text-foreground"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      setActiveDesktopCategory(parent);
-                                    }}
-                                    aria-label={`Show ${parent} subcategories`}
-                                  >
-                                    <ChevronRight size={18} />
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </DropdownSection>
-                    </>
-                  ) : (
-                    <>
-                      <DropdownSection>
-                        <div className="flex items-center gap-2 px-3 py-2">
-                          <button
-                            type="button"
-                            className="rounded p-1 hover:bg-neutral-100"
-                            onClick={() => setActiveDesktopCategory(null)}
-                            aria-label="Back to categories"
-                          >
-                            <ChevronLeft size={16} />
-                          </button>
-                          <span className="text-sm font-semibold">
-                            {activeDesktopCategory}
-                          </span>
-                        </div>
-                      </DropdownSection>
-                      <DropdownSection>
-                        <div>
-                          {(
-                            subcategoriesByParent[activeDesktopCategory] ?? []
-                          ).map(sub => {
-                            const selected =
-                              filter.parent === activeDesktopCategory &&
-                              (filter.subcategories || []).includes(sub);
-                            return (
-                              <button
-                                key={sub}
-                                type="button"
-                                className={
-                                  selected
-                                    ? 'flex w-full items-center gap-3 bg-blue-50 px-3 py-3 text-left text-[0.95rem] text-blue-700'
-                                    : 'flex w-full items-center gap-3 bg-background px-3 py-3 text-left text-[0.95rem] text-foreground hover:bg-neutral-100'
-                                }
-                                onClick={() => toggleSubcategoryForActive(sub)}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={selected}
-                                  onChange={() => {}}
-                                  className="pointer-events-none size-5"
-                                  tabIndex={-1}
-                                />
-                                <span>{sub}</span>
-                                <span className="ml-auto inline-flex h-full w-10 items-center justify-center text-foreground-muted">
-                                  <ChevronRight size={18} />
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </DropdownSection>
-                    </>
-                  )}
+                  <SidebarCategoryPanel
+                    filter={filter}
+                    onChangeFilter={onChangeFilter}
+                    parentOptions={parentOptions}
+                    subcategoriesByParent={subcategoriesByParent}
+                    isDesktop={isDesktop}
+                    onMobileSelect={() => setOpenDropdownId(null)}
+                  />
                 </DropdownPanelFrame>
               )}
             </div>
@@ -540,31 +236,12 @@ export function InventoryControls({
                   isOpen={true}
                   variant="sidebar"
                 >
-                  <DropdownSection label="Colors">
-                    <CheckboxList
-                      options={(colorOptions || []).map(c => ({
-                        key: c,
-                        text: c === '-' ? 'Minifigures' : c,
-                      }))}
-                      selectedKeys={filter.colors || []}
-                      onToggle={onToggleColor}
-                    />
-                  </DropdownSection>
-                  {(filter.colors?.length || 0) > 0 && (
-                    <DropdownSection label="">
-                      <div className="px-3 py-2">
-                        <button
-                          type="button"
-                          className="ml-auto inline-flex items-center rounded border border-foreground-accent px-2 py-1 text-xs hover:bg-neutral-100"
-                          onClick={() =>
-                            onChangeFilter({ ...filter, colors: [] })
-                          }
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    </DropdownSection>
-                  )}
+                  <SidebarColorPanel
+                    colorOptions={colorOptions}
+                    selectedColors={filter.colors || []}
+                    onToggleColor={onToggleColor}
+                    onClear={() => onChangeFilter({ ...filter, colors: [] })}
+                  />
                 </DropdownPanelFrame>
               )}
             </div>

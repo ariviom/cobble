@@ -3,6 +3,7 @@
 import { cn } from '@/app/components/ui/utils';
 import { cva, cx, type VariantProps } from 'class-variance-authority';
 import { forwardRef } from 'react';
+import { RowButton } from './RowButton';
 
 export type DropdownOption = {
   key: string;
@@ -30,7 +31,7 @@ const triggerVariants = cva(
       variant: {
         default: '',
         sidebar:
-          'lg:sidebar:rounded-none lg:sidebar:border-none lg:sidebar:border-b lg:sidebar:border-foreground-accent lg:sidebar:text-base lg:sidebar:w-full lg:sidebar:py-3 lg:sidebar:px-4 text-left',
+          'lg:sidebar:rounded-none lg:sidebar:border-x-0 lg:sidebar:border-t-0 lg:sidebar:border-b lg:sidebar:border-foreground-accent lg:sidebar:text-base lg:sidebar:w-full lg:sidebar:py-3 lg:sidebar:px-4 text-left',
       },
     },
     defaultVariants: {
@@ -169,21 +170,14 @@ export function SingleSelectList({
       {options.map(option => {
         const selected = selectedKey === option.key;
         return (
-          <button
+          <RowButton
             key={option.key}
-            type="button"
-            className={cx(
-              'flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-neutral-100 selected:bg-blue-50 selected:text-blue-700',
-              selected
-                ? 'bg-blue-50 text-blue-700'
-                : 'bg-background text-foreground'
-            )}
-            data-selected={selected ? 'true' : undefined}
+            selected={selected}
             onClick={() => onChange(option.key)}
           >
             {option.icon}
             <span>{option.text}</span>
-          </button>
+          </RowButton>
         );
       })}
     </div>
@@ -207,15 +201,9 @@ export function CheckboxList({
       {options.map(option => {
         const selected = selectedKeys.includes(option.key);
         return (
-          <button
+          <RowButton
             key={option.key}
-            type="button"
-            className={cx(
-              'flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-neutral-100',
-              selected
-                ? 'bg-blue-50 text-blue-700'
-                : 'bg-background text-foreground'
-            )}
+            selected={selected}
             onClick={() => onToggle(option.key)}
           >
             <input
@@ -227,7 +215,7 @@ export function CheckboxList({
             />
             {option.icon}
             <span>{option.text}</span>
-          </button>
+          </RowButton>
         );
       })}
     </div>

@@ -388,7 +388,7 @@ export function InventoryTable({
                 return sections.map(sec => (
                   <div key={sec.key} className="flex flex-col gap-2">
                     <div className="sticky top-0 z-10 bg-background/90 px-1 py-1 text-sm font-semibold text-foreground">
-                      {sec.key}
+                      {sec.key === 'Minifig' ? 'Minifigures' : sec.key}
                     </div>
                     <div
                       data-view={view}
