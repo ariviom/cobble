@@ -22,6 +22,7 @@ type Props = {
   subcategoriesByParent: Record<string, string[]>;
   isDesktop: boolean;
   onMobileSelect?: () => void;
+  parentCounts?: Record<string, number>;
 };
 
 export function SidebarCategoryPanel({
@@ -31,6 +32,7 @@ export function SidebarCategoryPanel({
   subcategoriesByParent,
   isDesktop,
   onMobileSelect,
+  parentCounts,
 }: Props) {
   const [activeParent, setActiveParent] = useState<string | null>(null);
 
@@ -88,7 +90,14 @@ export function SidebarCategoryPanel({
                   checked={state === 'all'}
                   indeterminate={state === 'some'}
                 />
-                <span>{parent}</span>
+                <span>
+                  {parent}
+                  {typeof parentCounts?.[parent] === 'number' ? (
+                    <span className="ml-1 text-foreground-muted">
+                      ({parentCounts![parent]})
+                    </span>
+                  ) : null}
+                </span>
               </RowButton>
               {subCount > 1 && (
                 <button

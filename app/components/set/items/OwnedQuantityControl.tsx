@@ -55,19 +55,18 @@ export function OwnedQuantityControl({
 }: Props) {
   return (
     <div
-      className={`flex h-10 max-w-max min-w-min shrink justify-end rounded-lg border border-neutral-200 grid:w-full grid:justify-between ${className ?? ''} `}
+      className={`flex h-10 w-full min-w-min shrink justify-end rounded-lg border grid:w-full grid:justify-between ${className ?? ''} ${owned === required ? 'border-brand-green ring-1 ring-brand-green' : 'border-neutral-200'} `}
     >
       <Button
         onClick={() => onChange(clampOwned(owned - 1, required))}
         disabled={owned <= 0}
         ariaLabel="Decrease owned"
         incraseOrDecrase="decrease"
-        className={owned === required ? '!bg-brand-green text-white' : ''}
       >
         –
       </Button>
       <div
-        className={`relative items-center text-sm ${owned === required ? 'text-brand-green' : ''} ${required > 99 ? 'min-w-20' : 'min-w-16'}`}
+        className={`relative items-center text-sm ${required > 99 ? 'min-w-20' : 'min-w-16'}`}
       >
         <input
           type="number"

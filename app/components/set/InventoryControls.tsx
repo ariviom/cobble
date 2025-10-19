@@ -33,6 +33,7 @@ type Props = {
   filter: InventoryFilter;
   onChangeFilter: (f: InventoryFilter) => void;
   parentOptions: string[];
+  parentCounts?: Record<string, number>;
   onSelectParent: (parent: string | null) => void;
   subcategoryOptions: string[];
   subcategoriesByParent: Record<string, string[]>;
@@ -57,6 +58,7 @@ export function InventoryControls({
   onChangeFilter,
   parentOptions,
   onSelectParent,
+  parentCounts,
   subcategoryOptions,
   subcategoriesByParent,
   onToggleSubcategory,
@@ -192,7 +194,7 @@ export function InventoryControls({
               <DropdownTrigger
                 id="parent-trigger"
                 panelId="parent-panel"
-                label={filter.parent ?? 'All Pieces'}
+                label={isDesktop ? 'Pieces' : (filter.parent ?? 'All Pieces')}
                 labelIcon={<FolderTree size={16} />}
                 isOpen={isDesktop ? isParentOpen : openDropdownId === 'parent'}
                 onToggle={() => handleDropdownToggle('parent')}
@@ -212,6 +214,7 @@ export function InventoryControls({
                     subcategoriesByParent={subcategoriesByParent}
                     isDesktop={isDesktop}
                     onMobileSelect={() => setOpenDropdownId(null)}
+                    parentCounts={parentCounts}
                   />
                 </DropdownPanelFrame>
               )}
@@ -223,7 +226,7 @@ export function InventoryControls({
               <DropdownTrigger
                 id="color-trigger"
                 panelId="color-panel"
-                label={getColorLabel()}
+                label={isDesktop ? 'Colors' : getColorLabel()}
                 labelIcon={<Palette size={16} />}
                 isOpen={isDesktop ? isColorOpen : openDropdownId === 'color'}
                 onToggle={() => handleDropdownToggle('color')}

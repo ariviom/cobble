@@ -255,6 +255,28 @@ export function InventoryTable({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
+  const countsByParent = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]!;
+      const key = keys[i]!;
+      // display filter
+      const ownedValue = ownedStore.getOwned(setNumber, key);
+      if (filter.display === 'missing') {
+        if (computeMissing(r.quantityRequired, ownedValue) === 0) continue;
+      } else if (filter.display === 'owned') {
+        if (ownedValue === 0) continue;
+      }
+      // color filter
+      if (filter.colors && filter.colors.length > 0) {
+        if (!filter.colors.includes(r.colorName)) continue;
+      }
+      const parent = parentByIndex[i] ?? 'Misc';
+      counts[parent] = (counts[parent] ?? 0) + 1;
+    }
+    return counts;
+  }, [rows, keys, filter, parentByIndex, ownedStore, setNumber]);
+
   return (
     <div className="relative inset-0 grid h-screen grid-rows-[auto_1fr] pt-topnav-height lg:pl-80">
       <div>
@@ -277,6 +299,7 @@ export function InventoryTable({
             () => Array.from(new Set(parentByIndex)).filter(Boolean).sort(),
             [parentByIndex]
           )}
+          parentCounts={countsByParent}
           onSelectParent={parent => {
             if (!parent) {
               setFilter(prev => ({
