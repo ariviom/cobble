@@ -12,12 +12,34 @@ export function useMediaQuery(query: string): boolean {
     setMatches(mql.matches);
     mql.addEventListener?.('change', onChange);
     // Fallback for Safari <14
-    // @ts-expect-error older API
-    mql.addListener?.(onChange);
+    if (
+      (
+        mql as MediaQueryList & {
+          addListener?: (l: (e: MediaQueryListEvent) => void) => void;
+        }
+      ).addListener
+    ) {
+      (
+        mql as MediaQueryList & {
+          addListener: (l: (e: MediaQueryListEvent) => void) => void;
+        }
+      ).addListener(onChange);
+    }
     return () => {
       mql.removeEventListener?.('change', onChange);
-      // @ts-expect-error older API
-      mql.removeListener?.(onChange);
+      if (
+        (
+          mql as MediaQueryList & {
+            removeListener?: (l: (e: MediaQueryListEvent) => void) => void;
+          }
+        ).removeListener
+      ) {
+        (
+          mql as MediaQueryList & {
+            removeListener: (l: (e: MediaQueryListEvent) => void) => void;
+          }
+        ).removeListener(onChange);
+      }
     };
   }, [query]);
 

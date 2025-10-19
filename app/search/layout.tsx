@@ -1,7 +1,9 @@
 import { TopNav } from '@/app/components/nav/TopNav';
 import type { PropsWithChildren } from 'react';
 
-export default function SearchLayout({ children }: PropsWithChildren<{}>) {
+export default function SearchLayout({
+  children,
+}: PropsWithChildren<{ children?: React.ReactNode }>) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <TopNav>

@@ -70,14 +70,16 @@ export function ExportModal({
           <span className="mr-2">Export to</span>
           <Select
             value={target}
-            onChange={e => setTarget(e.target.value as any)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+              setTarget(e.target.value as 'rebrickable' | 'bricklink')
+            }
           >
             <option value="rebrickable">Rebrickable (CSV)</option>
             <option value="bricklink">BrickLink (Wanted List CSV)</option>
           </Select>
         </label>
         {error && <div className="text-xs text-red-600">{error}</div>}
-        <div className="flex items-center justify-end gap-2 mt-2">
+        <div className="mt-2 flex items-center justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>

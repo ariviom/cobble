@@ -1,6 +1,7 @@
 import { TopNav } from '@/app/components/nav/TopNav';
 import { SearchBar } from '@/app/components/search/SearchBar';
 import Link from 'next/link';
+import { Suspense } from 'react';
 
 export default function Home() {
   return (
@@ -19,7 +20,9 @@ export default function Home() {
         <p className="mb-4 text-sm text-foreground-muted">
           Search for a set to view pieces.
         </p>
-        <SearchBar />
+        <Suspense fallback={null}>
+          <SearchBar />
+        </Suspense>
       </section>
       <section>
         <Link href="/search" className="text-sm text-blue-600 underline">

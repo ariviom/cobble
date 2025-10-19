@@ -67,7 +67,12 @@ export function ExportModal({
     <Modal open={open} onClose={onClose} title="Export missing parts">
       <div className="flex flex-col gap-3">
         <label className="text-sm">Export target</label>
-        <Select value={target} onChange={e => setTarget(e.target.value as any)}>
+        <Select
+          value={target}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+            setTarget(e.target.value as 'rebrickable' | 'bricklink')
+          }
+        >
           <option value="rebrickable">Rebrickable CSV</option>
           <option value="bricklink">BrickLink Wanted List CSV</option>
         </Select>
