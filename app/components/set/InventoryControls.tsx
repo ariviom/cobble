@@ -165,7 +165,7 @@ export function InventoryControls({
   return (
     <div
       ref={containerRef}
-      className="no-scrollbar flex h-controls-height flex-nowrap items-center gap-2 overflow-x-auto border-b border-neutral-300 px-3 lg:overflow-visible"
+      className="no-scrollbar flex h-controls-height max-w-screen flex-nowrap items-center gap-2 overflow-x-auto border-b border-neutral-300 px-3 lg:overflow-visible"
     >
       <TopBarControls
         view={view}
@@ -184,6 +184,9 @@ export function InventoryControls({
         }
         openDropdownId={openDropdownId}
         onToggleDropdown={handleDropdownToggle}
+        onCloseDropdown={id =>
+          setOpenDropdownId(prev => (prev === id ? null : prev))
+        }
       />
       {/* Sidebar Group Triggers */}
       <div className="sidebar relative min-w-fit border-neutral-300 lg:fixed lg:top-topnav-height lg:left-0 lg:h-[calc(100vh-var(--spacing-topnav-height))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-neutral-00">
@@ -194,7 +197,20 @@ export function InventoryControls({
               <DropdownTrigger
                 id="parent-trigger"
                 panelId="parent-panel"
-                label={isDesktop ? 'Pieces' : (filter.parent ?? 'All Pieces')}
+                label={
+                  isDesktop ? (
+                    <span>
+                      Pieces
+                      {filter.parent ? (
+                        <span className="ml-2 text-sm text-neutral-400">
+                          ({filter.parent})
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : (
+                    (filter.parent ?? 'All Pieces')
+                  )
+                }
                 labelIcon={<FolderTree size={16} />}
                 isOpen={isDesktop ? isParentOpen : openDropdownId === 'parent'}
                 onToggle={() => handleDropdownToggle('parent')}
@@ -226,7 +242,20 @@ export function InventoryControls({
               <DropdownTrigger
                 id="color-trigger"
                 panelId="color-panel"
-                label={isDesktop ? 'Colors' : getColorLabel()}
+                label={
+                  isDesktop ? (
+                    <span>
+                      Colors
+                      {(filter.colors?.length || 0) > 0 ? (
+                        <span className="ml-2 text-sm text-neutral-400">
+                          ({filter.colors!.join(', ')})
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : (
+                    getColorLabel()
+                  )
+                }
                 labelIcon={<Palette size={16} />}
                 isOpen={isDesktop ? isColorOpen : openDropdownId === 'color'}
                 onToggle={() => handleDropdownToggle('color')}

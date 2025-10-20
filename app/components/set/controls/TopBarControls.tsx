@@ -26,6 +26,7 @@ type Props = {
   onChangeDisplay: (next: 'all' | 'missing' | 'owned') => void;
   openDropdownId: string | null;
   onToggleDropdown: (id: string) => void;
+  onCloseDropdown: (id: 'display' | 'sort' | 'view') => void;
 };
 
 export function TopBarControls({
@@ -43,6 +44,7 @@ export function TopBarControls({
   onChangeDisplay,
   openDropdownId,
   onToggleDropdown,
+  onCloseDropdown,
 }: Props) {
   const isDesktop = useIsDesktop();
   return (
@@ -67,7 +69,9 @@ export function TopBarControls({
             id="display-panel"
             labelledBy="display-trigger"
             isOpen={true}
-            className={isDesktop ? 'lg:right-0' : ''}
+            className={
+              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
+            }
             variant={isDesktop ? 'default' : 'sidebar'}
           >
             <DropdownSection label="Filter By">
@@ -101,7 +105,9 @@ export function TopBarControls({
             id="sort-panel"
             labelledBy="sort-trigger"
             isOpen={true}
-            className={isDesktop ? 'lg:right-0' : ''}
+            className={
+              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
+            }
             variant={isDesktop ? 'default' : 'sidebar'}
           >
             <GroupedList
@@ -116,7 +122,10 @@ export function TopBarControls({
                     { key: 'category', text: 'Category' },
                   ],
                   selectedKey: sortKey,
-                  onChange: k => onChangeSortKey(k as SortKey),
+                  onChange: k => {
+                    onChangeSortKey(k as SortKey);
+                    onCloseDropdown('sort');
+                  },
                 },
                 {
                   id: 'order',
@@ -126,7 +135,10 @@ export function TopBarControls({
                     { key: 'desc', text: 'Descending' },
                   ],
                   selectedKey: sortDir,
-                  onChange: onToggleSortDir,
+                  onChange: () => {
+                    onToggleSortDir();
+                    onCloseDropdown('sort');
+                  },
                 },
                 {
                   id: 'groupBy',
@@ -138,7 +150,10 @@ export function TopBarControls({
                     { key: 'category', text: 'Category' },
                   ],
                   selectedKey: groupBy,
-                  onChange: g => onChangeGroupBy(g as GroupBy),
+                  onChange: g => {
+                    onChangeGroupBy(g as GroupBy);
+                    onCloseDropdown('sort');
+                  },
                 },
               ]}
             />
@@ -160,7 +175,9 @@ export function TopBarControls({
             id="view-panel"
             labelledBy="view-trigger"
             isOpen={true}
-            className={isDesktop ? 'lg:right-0' : ''}
+            className={
+              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
+            }
             variant={isDesktop ? 'default' : 'sidebar'}
           >
             <DropdownSection label="View">
@@ -170,7 +187,10 @@ export function TopBarControls({
                   { key: 'grid', text: 'Grid', icon: <Grid size={16} /> },
                 ]}
                 selectedKey={view}
-                onChange={k => onChangeView(k as ViewType)}
+                onChange={k => {
+                  onChangeView(k as ViewType);
+                  onCloseDropdown('view');
+                }}
               />
             </DropdownSection>
             <DropdownSection label="Size">
@@ -181,7 +201,10 @@ export function TopBarControls({
                   { key: 'sm', text: 'Small' },
                 ]}
                 selectedKey={itemSize}
-                onChange={k => onChangeItemSize(k as ItemSize)}
+                onChange={k => {
+                  onChangeItemSize(k as ItemSize);
+                  onCloseDropdown('view');
+                }}
               />
             </DropdownSection>
           </DropdownPanelFrame>

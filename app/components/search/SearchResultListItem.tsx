@@ -28,7 +28,7 @@ export function SearchResultListItem({ result }: { result: SearchResult }) {
               {result.setNumber} — {result.name}
             </div>
             <div className="w-full text-xs text-foreground-muted">
-              {result.year} · {result.numParts} parts
+              {result.year} | {result.numParts} parts
             </div>
           </div>
         </div>

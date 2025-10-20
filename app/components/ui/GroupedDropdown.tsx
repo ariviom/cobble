@@ -16,7 +16,7 @@ export type DropdownOption = {
 export type DropdownTriggerProps = {
   id: string;
   panelId: string;
-  label: string;
+  label: React.ReactNode;
   labelIcon?: React.ReactNode;
   isOpen: boolean;
   onToggle: () => void;
@@ -142,7 +142,7 @@ export function DropdownSection({
   children,
 }: DropdownSectionProps) {
   return (
-    <div className={cx('border-b last:border-b-0', className)}>
+    <div className={cx('', className)}>
       {label && (
         <div className="px-3 py-2 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
           {label}

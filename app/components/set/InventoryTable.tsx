@@ -173,11 +173,11 @@ export function InventoryTable({
   const gridSizes = useMemo(() => {
     switch (itemSize) {
       case 'sm':
-        return 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-9';
+        return 'grid-cols-2 xs:grid-cols-2 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7';
       case 'md':
-        return 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8';
+        return 'grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6';
       case 'lg':
-        return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6';
+        return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6';
     }
   }, [itemSize]);
 
@@ -279,7 +279,7 @@ export function InventoryTable({
 
   return (
     <div className="relative inset-0 grid h-screen grid-rows-[auto_1fr] pt-topnav-height lg:pl-80">
-      <div>
+      <div className="w-full">
         <InventoryControls
           view={view}
           onChangeView={v => setView(v)}
@@ -362,7 +362,7 @@ export function InventoryTable({
       </div>
 
       <div className={cx('flex min-h-0 flex-col overflow-y-auto lg:pl-2')}>
-        <div className="flex min-h-0 flex-1 flex-col p-2">
+        <div className="flex min-h-0 flex-1 flex-col px-2 pb-2 lg:py-2">
           {rows.length === 0 || isLoading ? (
             <div className="p-4 text-sm text-foreground-muted">
               {isLoading ? 'Loading…' : 'No inventory found.'}
@@ -410,7 +410,7 @@ export function InventoryTable({
                 sections.sort((a, b) => a.key.localeCompare(b.key));
                 return sections.map(sec => (
                   <div key={sec.key} className="flex flex-col gap-2">
-                    <div className="sticky top-0 z-10 bg-background/90 px-1 py-1 text-sm font-semibold text-foreground">
+                    <div className="sticky top-0 z-10 bg-background/90 px-1 py-2 text-sm font-semibold text-foreground">
                       {sec.key === 'Minifig' ? 'Minifigures' : sec.key}
                     </div>
                     <div

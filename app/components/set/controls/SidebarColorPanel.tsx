@@ -40,13 +40,13 @@ export function SidebarColorPanel({
       </DropdownSection>
       {(selectedColors?.length || 0) > 0 && (
         <DropdownSection label="">
-          <div className="px-3 py-2">
+          <div className="flex w-full justify-center border-b border-neutral-300 px-3 py-2">
             <button
               type="button"
-              className="ml-auto inline-flex items-center rounded border border-foreground-accent px-2 py-1 text-xs hover:bg-neutral-100"
+              className="w-32 rounded border border-foreground-accent bg-neutral-00 px-2 py-1 text-xs hover:bg-neutral-100"
               onClick={onClear}
             >
-              Clear
+              Clear All
             </button>
           </div>
         </DropdownSection>

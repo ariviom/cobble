@@ -20,7 +20,7 @@ export function InventoryItem({ row, owned, onOwnedChange }: Props) {
     typeof displayId === 'string' &&
     !displayId.startsWith('unknown-');
   return (
-    <div className="flex w-full justify-between gap-6 rounded-lg border border-neutral-200 bg-white p-4 dark:bg-background grid:flex-col">
+    <div className="flex w-full justify-start gap-6 rounded-lg border border-neutral-200 bg-white p-4 dark:bg-background grid:flex-col">
       <div
         className={`relative aspect-square grow-0 rounded-lg list:flex list:items-center list:justify-center grid:w-full list:item-sm:h-16 list:item-sm:w-16 list:item-md:h-24 list:item-md:w-24 list:item-lg:h-36 list:item-lg:w-36`}
       >
@@ -36,43 +36,49 @@ export function InventoryItem({ row, owned, onOwnedChange }: Props) {
           <div className="text-xs text-foreground-muted">no img</div>
         )}
         <div
-          className={`absolute right-0 bottom-0 h-6 w-6 translate-x-1/2 translate-y-1/2 items-center justify-center rounded-full border-2 border-brand-green bg-background text-brand-green ${owned === row.quantityRequired ? 'flex' : 'hidden'}`}
+          className={`absolute right-0 bottom-0 flex h-8 min-w-8 translate-x-3 translate-y-1/2 items-center justify-center rounded-full ${owned === row.quantityRequired ? 'border-2 border-brand-green bg-background text-brand-green' : ''}`}
         >
-          <svg
-            x="0"
-            y="0"
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M12.5 4L5.5 11L2.5 8"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          {owned === row.quantityRequired ? (
+            <svg
+              x="0"
+              y="0"
+              width="20"
+              height="20"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M12.5 4L5.5 11L2.5 8"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : (
+            <span className="hidden border-brand-red bg-background px-2 text-sm text-brand-red">
+              Need {row.quantityRequired - owned}
+            </span>
+          )}
         </div>
       </div>
-      <div className="flex w-full flex-col gap-6 sm:flex-row sm:items-center sm:justify-between grid:flex-col">
+      <div className="flex h-full w-full flex-col gap-6 sm:flex-row sm:items-center sm:justify-between grid:flex-col">
         <div className="h-full">
-          <div className="w-full font-bold list:item-sm:text-sm list:item-lg:text-lg">
+          <p className="line-clamp-2 w-full overflow-hidden font-bold">
             {row.partName}
-          </div>
-          <div className="w-full text-foreground-muted list:item-sm:text-xs list:item-md:text-sm">
+          </p>
+          <p className="w-full text-foreground-muted list:item-sm:text-xs list:item-md:text-sm">
             {isMinifig ? (
               hasRealFigId ? (
                 <span>Minifigure ID: {displayId}</span>
               ) : null
             ) : (
-              <span>
-                {displayId} · {row.colorName}
+              <span className="text-sm">
+                {displayId} | {row.colorName}
               </span>
             )}
-          </div>
+          </p>
         </div>
         <OwnedQuantityControl
           required={row.quantityRequired}
