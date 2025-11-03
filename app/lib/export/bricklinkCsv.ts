@@ -11,10 +11,10 @@ export type BrickLinkOptions = {
 // Create a typical subset: Item Type,Item No,Color,Quantity,Condition,Description,Comments,Extra,Image,Minimum Price,Maximum Price,Tier Quantity1,Tier Price1, ... (we'll use essentials)
 // We'll include wanted list name in Description for portability if importer doesn't accept a separate name field.
 
-export function generateBrickLinkCsv(
+export async function generateBrickLinkCsv(
   rows: MissingRow[],
   opts: BrickLinkOptions
-): { csv: string; unmapped: MissingRow[] } {
+): Promise<{ csv: string; unmapped: MissingRow[] }> {
   const filtered = rows.filter(r => r.quantityMissing > 0);
   const headers = [
     'Item Type',
@@ -27,7 +27,7 @@ export function generateBrickLinkCsv(
   const body: Array<Array<string | number>> = [];
   const unmapped: MissingRow[] = [];
   for (const r of filtered) {
-    const mapped = mapToBrickLink(r.partId, r.colorId);
+    const mapped = await mapToBrickLink(r.partId, r.colorId);
     if (!mapped) {
       unmapped.push(r);
       continue;

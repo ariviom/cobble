@@ -7,7 +7,6 @@ Implement MVP for set search, parts inventory display, owned quantities, missing
 ## Immediate Next Steps
 
 - Fix search JSON parsing in `components/search/set-search.tsx` (parse `res.json()` before returning `data.results`).
-- Complete owned persistence in `store/owned.ts`: implement `storageKey` and `write`, and add a simple in-memory cache per set to avoid repeated `localStorage` reads.
 - Add sorting controls to the inventory table for name, color, size. (Required/Owned/Missing replaced by filter tabs)
 - Implement export generators:
   - Rebrickable CSV.
@@ -33,10 +32,11 @@ Target test sets:
 - Virtualized inventory table with images, owned input, bulk actions, and total missing.
 - Replaced sort keys for required/owned/missing and the group-by-category toggle with a new tabbed filter bar (All, Missing, Owned, plus per-category tabs) with horizontal scroll and arrow controls.
 - Search bar: moved label above, added inline clear “x” with enlarged touch target.
+- Owned persistence implemented in `app/store/owned.ts` with versioned storage key, cache-first reads, and debounced writes using `requestIdleCallback` when available.
 
 ## Next Steps
 
-Finish owned persistence and search parsing fix, then validate CSV exports against Rebrickable and BrickLink import validators. Iterate on tab filtering UX and performance if needed.
+Finish search parsing fix, then validate CSV exports against Rebrickable and BrickLink import validators. Iterate on tab filtering UX and performance if needed.
 
 ## Active Decisions and Considerations
 

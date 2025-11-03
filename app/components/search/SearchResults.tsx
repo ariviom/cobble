@@ -24,7 +24,7 @@ export function SearchResults() {
   const q = params.get('q') ?? '';
   const [sort, setSort] = useState<SortOption>('relevance');
   const [showMore, setShowMore] = useState(false);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['search', q, sort],
     queryFn: () => fetchSearch(q, sort),
     enabled: q.length > 0,
@@ -32,7 +32,7 @@ export function SearchResults() {
 
   if (!q) return null;
   return (
-    <div className="w-full max-w-6xl">
+    <div className="w-full">
       <div className="mb-4 flex items-center gap-2">
         <label className="text-sm font-medium">Sort by</label>
         <select
@@ -48,7 +48,14 @@ export function SearchResults() {
         </select>
       </div>
       {isLoading && <div className="mt-2 text-sm">Loading…</div>}
+      {error && (
+        <div className="mt-2 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          {/* Placeholder error message - will be styled later */}
+          Failed to load search results. Please try again.
+        </div>
+      )}
       {!isLoading &&
+        !error &&
         data &&
         (data.exactMatches.length > 0 || data.otherMatches.length > 0) && (
           <div className="mt-2">

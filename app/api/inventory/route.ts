@@ -8,7 +8,12 @@ export async function GET(req: NextRequest) {
   try {
     const rows = await getSetInventory(set);
     return NextResponse.json({ rows });
-  } catch {
+  } catch (err) {
+    console.error('Inventory fetch failed:', {
+      setNumber: set,
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     return NextResponse.json({ error: 'inventory_failed' }, { status: 500 });
   }
 }

@@ -9,6 +9,7 @@ import { useMemo } from 'react';
 export type UseInventoryResult = {
   rows: InventoryRow[];
   isLoading: boolean;
+  error: Error | null;
   keys: string[];
   required: number[];
   totalRequired: number;
@@ -27,7 +28,7 @@ async function fetchInventory(setNumber: string): Promise<InventoryRow[]> {
 }
 
 export function useInventory(setNumber: string): UseInventoryResult {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['inventory', setNumber],
     queryFn: () => fetchInventory(setNumber),
   });
@@ -77,6 +78,7 @@ export function useInventory(setNumber: string): UseInventoryResult {
   return {
     rows,
     isLoading,
+    error: error instanceof Error ? error : null,
     keys,
     required,
     totalRequired,

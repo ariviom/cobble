@@ -38,7 +38,7 @@ export function ExportModal({
     URL.revokeObjectURL(url);
   }
 
-  function onExport() {
+  async function onExport() {
     setError(null);
     const missingRows = getMissingRows();
     if (target === 'rebrickable') {
@@ -50,17 +50,22 @@ export function ExportModal({
     const wantedName = setName
       ? `${setNumber} — ${setName} — mvp`
       : `${setNumber} — mvp`;
-    const { csv, unmapped } = generateBrickLinkCsv(missingRows, {
-      wantedListName: wantedName,
-      condition: 'U',
-    });
-    if (unmapped.length > 0) {
-      setError(
-        `${unmapped.length} rows could not be mapped to BrickLink colors and were skipped.`
-      );
+    try {
+      const { csv, unmapped } = await generateBrickLinkCsv(missingRows, {
+        wantedListName: wantedName,
+        condition: 'U',
+      });
+      if (unmapped.length > 0) {
+        setError(
+          `${unmapped.length} rows could not be mapped to BrickLink colors and were skipped.`
+        );
+      }
+      downloadCsv(`${setNumber}_missing_bricklink.csv`, csv);
+      onClose();
+    } catch (err) {
+      setError('Failed to generate BrickLink export. Please try again.');
+      console.error('BrickLink export error:', err);
     }
-    downloadCsv(`${setNumber}_missing_bricklink.csv`, csv);
-    onClose();
   }
 
   return (

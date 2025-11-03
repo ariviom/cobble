@@ -12,7 +12,13 @@ export async function GET(req: NextRequest) {
       otherMatches,
       hasMore: otherMatches.length > 0,
     });
-  } catch {
+  } catch (err) {
+    console.error('Search failed:', {
+      query: q,
+      sort,
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     return NextResponse.json({ error: 'search_failed' }, { status: 500 });
   }
 }

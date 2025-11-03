@@ -1,3 +1,4 @@
+import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { ReactQueryProvider } from '@/app/components/providers/react-query-provider';
 import type { Metadata, Viewport } from 'next';
 import './styles/globals.css';
@@ -41,7 +42,9 @@ export default function RootLayout({
       </head>
       <body className="bg-background text-foreground antialiased">
         <ReactQueryProvider>
-          <div className="flex min-h-screen w-full flex-col">{children}</div>
+          <ErrorBoundary>
+            <div className="flex min-h-screen w-full flex-col">{children}</div>
+          </ErrorBoundary>
         </ReactQueryProvider>
         <svg
           width="0"

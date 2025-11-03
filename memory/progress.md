@@ -13,10 +13,11 @@
 - Set page `app/set/[setNumber]/page.tsx` renders inventory for a set.
 - Virtualized inventory table with images, per-row owned input, bulk actions, and total missing (`components/set/inventory-table.tsx`).
 - Tabbed filters for inventory: All (default), Missing, Owned, and per-category tabs with horizontal scroll and arrow controls.
+ - Tabbed filters for inventory: All (default), Missing, Owned, and per-category tabs with horizontal scroll and arrow controls.
+ - Owned-quantity persistence via `app/store/owned.ts` with in-memory cache, versioned localStorage key, and debounced writes.
 
 ## What's Left to Build
 
-- Complete owned-quantity persistence: implement `store/owned.ts` (`storageKey`, `write`) and maintain an in-memory map to avoid repeated `localStorage` reads.
 - Sorting for inventory table columns (name, color, size). (Required/Owned/Missing handled by filters.)
 - Export generators: Rebrickable CSV and BrickLink CSV (wanted list) named "{setNumber} — {setName} — mvp"; add ID/color mapping module.
 - Persist last viewed set in `localStorage` and restore on home.
@@ -24,7 +25,7 @@
 
 ## Current Status
 
-Implementation in progress with core data flow working via server proxies and virtualized table. Needs owned persistence, sorting, and export features to reach MVP.
+Implementation in progress with core data flow working via server proxies and virtualized table. Owned persistence is implemented; remaining to reach MVP are sorting and export features.
 
 ## Known Issues / Risks
 
@@ -32,5 +33,5 @@ Implementation in progress with core data flow working via server proxies and vi
 - ID/color mapping mismatches between Rebrickable and BrickLink affecting CSV exports.
 - Large inventories (>1000 parts) may require careful virtualization and memoization to stay fast.
 - CSV specs must exactly match marketplace requirements to import successfully.
-- `store/owned.ts` persistence is incomplete; owned inputs won't persist yet.
 - Search UI fetch handler needs a small JSON parsing fix before returning results.
+ - Debounced owned writes delay flush by ~500ms; acceptable trade-off for UI responsiveness.

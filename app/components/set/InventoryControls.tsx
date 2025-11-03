@@ -165,7 +165,7 @@ export function InventoryControls({
   return (
     <div
       ref={containerRef}
-      className="no-scrollbar flex h-controls-height max-w-screen flex-nowrap items-center gap-2 overflow-x-auto border-b border-neutral-300 px-3 lg:overflow-visible"
+      className="no-scrollbar flex h-controls-height max-w-screen flex-nowrap items-center gap-2 overflow-x-auto border-b border-neutral-300 px-2 lg:overflow-visible"
     >
       <TopBarControls
         view={view}

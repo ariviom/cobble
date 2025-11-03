@@ -338,3 +338,46 @@ function mapCategoryNameToParent(
     return 'Brick';
   return 'Misc';
 }
+
+export type RebrickableColor = {
+  id: number;
+  name: string;
+  rgb: string | null;
+  is_trans: boolean;
+  external_ids?: {
+    BrickLink?: {
+      ext_ids: number[];
+      ext_descrs: string[][];
+    };
+    [key: string]: unknown;
+  };
+};
+
+let colorsCache: { at: number; items: RebrickableColor[] } | null = null;
+
+export async function getColors(): Promise<RebrickableColor[]> {
+  const now = Date.now();
+  if (colorsCache && now - colorsCache.at < 60 * 60 * 1000) {
+    return colorsCache.items;
+  }
+  const allColors: RebrickableColor[] = [];
+  let nextUrl: string | null = null;
+  let firstPage = true;
+
+  while (firstPage || nextUrl) {
+    const page = firstPage
+      ? await rbFetch<{ results: RebrickableColor[]; next: string | null }>(
+          '/lego/colors/',
+          { page_size: 1000 }
+        )
+      : await rbFetchAbsolute<{ results: RebrickableColor[]; next: string | null }>(
+          nextUrl!
+        );
+    allColors.push(...page.results);
+    nextUrl = page.next;
+    firstPage = false;
+  }
+
+  colorsCache = { at: now, items: allColors };
+  return allColors;
+}

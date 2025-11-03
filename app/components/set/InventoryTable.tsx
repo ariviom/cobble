@@ -25,7 +25,7 @@ export function InventoryTable({
   setNumber: string;
   setName?: string;
 }) {
-  const { rows, isLoading, keys } = useInventory(setNumber);
+  const { rows, isLoading, error, keys } = useInventory(setNumber);
 
   // UI state
   const [sortKey, setSortKey] = useState<SortKey>('color');
@@ -45,6 +45,8 @@ export function InventoryTable({
   const isDesktop = useIsDesktop();
 
   const ownedStore = useOwnedStore();
+  // Subscribe to version changes to trigger re-renders when owned quantities change
+  useOwnedStore(state => state._version);
 
   useEffect(() => {
     // warm localStorage read
@@ -278,7 +280,7 @@ export function InventoryTable({
   }, [rows, keys, filter, parentByIndex, ownedStore, setNumber]);
 
   return (
-    <div className="relative inset-0 grid h-screen grid-rows-[auto_1fr] pt-topnav-height lg:pl-80">
+    <div className="relative inset-0 grid h-screen grid-rows-[auto_1fr] lg:pl-80">
       <div className="w-full">
         <InventoryControls
           view={view}
@@ -362,8 +364,13 @@ export function InventoryTable({
       </div>
 
       <div className={cx('flex min-h-0 flex-col overflow-y-auto lg:pl-2')}>
-        <div className="flex min-h-0 flex-1 flex-col px-2 pb-2 lg:py-2">
-          {rows.length === 0 || isLoading ? (
+        <div className="flex min-h-0 flex-1 flex-col p-2 pb-2 lg:py-2">
+          {error ? (
+            <div className="p-4 rounded border border-red-200 bg-red-50 text-sm text-red-800">
+              {/* Placeholder error message - will be styled later */}
+              Failed to load inventory. Please try again.
+            </div>
+          ) : rows.length === 0 || isLoading ? (
             <div className="p-4 text-sm text-foreground-muted">
               {isLoading ? 'Loading…' : 'No inventory found.'}
             </div>

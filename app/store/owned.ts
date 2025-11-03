@@ -11,16 +11,53 @@ type OwnedState = {
     keys: string[],
     quantities: number[]
   ) => void;
+  _version: number; // Version counter for triggering re-renders
 };
 
 const STORAGE_PREFIX = 'cobble_owned_';
+const STORAGE_VERSION_SUFFIX = '_v1';
+const WRITE_DEBOUNCE_MS = 500; // longer debounce per UX guidance
 
 function storageKey(setNumber: string) {
-  return `${STORAGE_PREFIX}${setNumber}`;
+  return `${STORAGE_PREFIX}${setNumber}${STORAGE_VERSION_SUFFIX}`;
 }
 
 // Simple in-memory cache to avoid repeated localStorage reads per render cycle
 const cache: Map<string, Record<string, number>> = new Map();
+
+// Debounced write scheduling per setNumber
+const pendingWrites: Map<string, Record<string, number>> = new Map();
+const writeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+
+function flushWriteNow(setNumber: string) {
+  const data = pendingWrites.get(setNumber);
+  if (!data || typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(storageKey(setNumber), JSON.stringify(data));
+  } catch {}
+}
+
+function scheduleWrite(setNumber: string) {
+  const existing = writeTimers.get(setNumber);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => {
+    // Prefer idle time when available
+    const idle = (window as any).requestIdleCallback as
+      | ((cb: () => void, opts?: { timeout?: number }) => number)
+      | undefined;
+    if (typeof idle === 'function') {
+      try {
+        idle(() => flushWriteNow(setNumber), { timeout: 1000 });
+      } catch {
+        flushWriteNow(setNumber);
+      }
+    } else {
+      flushWriteNow(setNumber);
+    }
+    writeTimers.delete(setNumber);
+  }, WRITE_DEBOUNCE_MS);
+  writeTimers.set(setNumber, timer);
+}
 
 function read(setNumber: string): Record<string, number> {
   const cached = cache.get(setNumber);
@@ -38,31 +75,43 @@ function read(setNumber: string): Record<string, number> {
 
 function write(setNumber: string, data: Record<string, number>) {
   if (typeof window === 'undefined') return;
-  try {
-    cache.set(setNumber, data);
-    window.localStorage.setItem(storageKey(setNumber), JSON.stringify(data));
-  } catch {}
+  // Update in-memory cache immediately for responsive reads
+  cache.set(setNumber, data);
+  pendingWrites.set(setNumber, data);
+  scheduleWrite(setNumber);
 }
 
-export const useOwnedStore = create<OwnedState>(set => ({
+export const useOwnedStore = create<OwnedState>((set, get) => ({
+  _version: 0,
   getOwned: (setNumber, key) => {
     const state = read(setNumber);
     return state[key] ?? 0;
   },
   setOwned: (setNumber, key, qty) => {
     const state = read(setNumber);
-    state[key] = Math.max(0, Math.floor(qty || 0));
-    write(setNumber, state);
-    set({});
+    const nextQty = Math.max(0, Math.floor(qty || 0));
+    let updated: Record<string, number>;
+    if (nextQty === 0) {
+      const { [key]: _omit, ...rest } = state;
+      updated = rest;
+    } else {
+      updated = { ...state, [key]: nextQty };
+    }
+    write(setNumber, updated);
+    // Increment version to trigger re-renders for components subscribed to _version
+    set(state => ({ ...state, _version: (state._version ?? 0) + 1 }));
   },
   clearAll: setNumber => {
     write(setNumber, {});
-    set({});
+    set(state => ({ ...state, _version: (state._version ?? 0) + 1 }));
   },
   markAllAsOwned: (setNumber, keys, quantities) => {
     const data: Record<string, number> = {};
-    for (let i = 0; i < keys.length; i++) data[keys[i]] = quantities[i] ?? 0;
+    for (let i = 0; i < keys.length; i++) {
+      const q = Math.max(0, Math.floor(quantities[i] ?? 0));
+      if (q > 0) data[keys[i]!] = q;
+    }
     write(setNumber, data);
-    set({});
+    set(state => ({ ...state, _version: (state._version ?? 0) + 1 }));
   },
 }));

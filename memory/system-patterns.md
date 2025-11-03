@@ -28,11 +28,30 @@
 - Mapper/translator for ID/color code conversion (Rebrickable ↔ BrickLink).
 - Cache-first data fetching with fetch cache and revalidate window for set inventories.
 - Unidirectional data flow: server fetch → query cache → UI state (owned) → derived missing → export.
+- Client-side persistence uses cache-first reads with debounced write-through to localStorage; writes prefer `requestIdleCallback` when available.
 - UI components:
   - Tabbed filter bar (`InventoryFilterTabs`) provides filtering across All/Missing/Owned and categories, with horizontal scroll and arrow controls and enlarged touch targets.
   - Search bar uses inline clear control with large touch target and label positioned above input.
 
 ## Gaps / Opportunities
-- Owned persistence store (`store/owned.ts`) incomplete; needs storage key, write, and in-memory cache.
 - Export validation against Rebrickable/BrickLink importers pending.
 - Category taxonomy derived from part name is heuristic; could benefit from a curated mapping for parent categories.
+
+## Performance Optimization Opportunities
+
+### Future Optimization: useInventory Hook Calculations
+The `useInventory` hook in `app/hooks/useInventory.ts` recalculates `totalMissing` on every owned store change, which can be expensive for large inventories (500+ parts).
+
+**Current implementation:**
+- `totalMissing` uses `useMemo` but depends on `ownedStore`, which changes frequently
+- Each calculation iterates through all rows and calls `ownedStore.getOwned()` for each
+
+**Potential optimizations:**
+1. **Derived state in Zustand store**: Calculate missing totals in the Zustand store itself, only recomputing when relevant data changes
+2. **More granular memoization**: Split calculations by category or use indexed lookups
+3. **Incremental updates**: Track deltas instead of recalculating from scratch
+4. **Virtualized calculations**: Only calculate visible rows initially, compute rest on-demand
+
+**Impact**: Large sets (>1000 parts) may experience UI lag when rapidly updating owned quantities.
+
+**When to address**: When users report performance issues with large inventories or when inventory sizes consistently exceed 500-1000 parts.

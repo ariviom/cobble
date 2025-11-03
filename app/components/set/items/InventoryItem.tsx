@@ -36,14 +36,14 @@ export function InventoryItem({ row, owned, onOwnedChange }: Props) {
           <div className="text-xs text-foreground-muted">no img</div>
         )}
         <div
-          className={`absolute right-0 bottom-0 flex h-8 min-w-8 translate-x-3 translate-y-1/2 items-center justify-center rounded-full ${owned === row.quantityRequired ? 'border-2 border-brand-green bg-background text-brand-green' : ''}`}
+          className={`absolute right-0 bottom-0 flex h-6 min-w-6 translate-x-3 translate-y-1/2 items-center justify-center rounded-full grid:h-8 grid:min-w-8 ${owned === row.quantityRequired ? 'border-2 border-brand-green bg-background text-brand-green' : ''}`}
         >
           {owned === row.quantityRequired ? (
             <svg
               x="0"
               y="0"
-              width="20"
-              height="20"
+              width="16"
+              height="16"
               viewBox="0 0 16 16"
               fill="none"
               stroke="currentColor"
