@@ -34,11 +34,7 @@ type Props = {
   onChangeFilter: (f: InventoryFilter) => void;
   parentOptions: string[];
   parentCounts?: Record<string, number>;
-  onSelectParent: (parent: string | null) => void;
-  subcategoryOptions: string[];
   subcategoriesByParent: Record<string, string[]>;
-  onToggleSubcategory: (subcategory: string) => void;
-  onClearSubcategories: () => void;
   colorOptions: string[];
   onToggleColor: (color: string) => void;
 };
@@ -57,12 +53,8 @@ export function InventoryControls({
   filter,
   onChangeFilter,
   parentOptions,
-  onSelectParent,
   parentCounts,
-  subcategoryOptions,
   subcategoriesByParent,
-  onToggleSubcategory,
-  onClearSubcategories,
   colorOptions,
   onToggleColor,
 }: Props) {
@@ -141,15 +133,6 @@ export function InventoryControls({
       } else if (groupId === 'itemSize') {
         onChangeItemSize(key as ItemSize);
       }
-    } else if (dropdownId === 'parent') {
-      if (groupId !== 'parent') return;
-      if (key === '__all__') {
-        onSelectParent(null);
-      } else {
-        onSelectParent(key);
-      }
-      // remain open on desktop
-      if (isDesktop) setIsParentOpen(true);
     } else if (dropdownId === 'color') {
       // remain open on desktop
       if (isDesktop) setIsColorOpen(true);
@@ -189,7 +172,7 @@ export function InventoryControls({
         }
       />
       {/* Sidebar Group Triggers */}
-      <div className="sidebar relative min-w-fit border-neutral-300 lg:fixed lg:top-topnav-height lg:left-0 lg:h-[calc(100vh-var(--spacing-topnav-height))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-neutral-00">
+      <div className="sidebar relative min-w-fit border-neutral-300 lg:fixed lg:top-topnav-height lg:left-0 lg:h-[calc(100vh-var(--spacing-nav-height))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-neutral-00">
         <div className="flex flex-nowrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-1">
           {/* display panel is rendered by TopBarControls; removed duplicate */}
           {parentOptions.length > 0 ? (
@@ -197,20 +180,7 @@ export function InventoryControls({
               <DropdownTrigger
                 id="parent-trigger"
                 panelId="parent-panel"
-                label={
-                  isDesktop ? (
-                    <span>
-                      Pieces
-                      {filter.parent ? (
-                        <span className="ml-2 text-sm text-neutral-400">
-                          ({filter.parent})
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : (
-                    (filter.parent ?? 'All Pieces')
-                  )
-                }
+                label={formatMultiSelectLabel('Pieces', filter.parents || [])}
                 labelIcon={<FolderTree size={16} />}
                 isOpen={isDesktop ? isParentOpen : openDropdownId === 'parent'}
                 onToggle={() => handleDropdownToggle('parent')}

@@ -26,7 +26,7 @@ export function SetTopBar({
     <>
       <TopNav>
         <NavButton
-          className="border-r border-b border-foreground-accent"
+          className="lg:hidden"
           ariaLabel="Go back"
           icon={<ArrowLeft className="h-5 w-5" />}
           onClick={() => router.back()}
@@ -38,7 +38,6 @@ export function SetTopBar({
           imageUrl={imageUrl}
         />
         <NavButton
-          className="border-b border-l border-foreground-accent"
           ariaLabel="Export missing"
           icon={<Download className="h-5 w-5" />}
           onClick={() => setOpen(true)}

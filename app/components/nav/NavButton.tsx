@@ -11,6 +11,7 @@ type Props = {
   href?: string;
   variant?: 'default' | 'ghost' | 'primary';
   disabled?: boolean;
+  label?: string;
   className?: string;
 };
 
@@ -20,10 +21,11 @@ export function NavButton({
   onClick,
   href,
   disabled,
+  label,
   className,
 }: Props) {
   const base = cn(
-    'flex h-topnav-height w-topnav-height flex-shrink-0 items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black'
+    'flex h-topnav-height w-topnav-height min-w-min flex-shrink-0 items-center justify-center gap-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black'
   );
 
   if (href) {
@@ -49,6 +51,7 @@ export function NavButton({
       disabled={disabled}
       className={cn(base, className)}
     >
+      {label && <span className="hidden min-w-max lg:block">{label}</span>}
       {icon}
     </button>
   );

@@ -1,3 +1,4 @@
+import { Navigation } from '@/app/components/nav/Navigation';
 import { cn } from '@/app/components/ui/utils';
 import type { PropsWithChildren, ReactNode } from 'react';
 
@@ -16,17 +17,24 @@ export function PageLayout({
   children,
 }: PageLayoutProps) {
   return (
-    <div
-      className={cn(
-        'flex min-h-0 flex-1 flex-col pt-topnav-height',
-        className
-      )}
-    >
-      {topBar}
-      <div className={cn('flex-1', contentWrapperClassName)}>
-        <div className={cn('h-full w-full', contentClassName)}>{children}</div>
+    <div className="flex max-h-screen w-full flex-col overflow-hidden">
+      <Navigation className="order-last w-full lg:order-first" />
+      <div
+        className={cn(
+          'flex h-full min-h-0 flex-1 shrink flex-col lg:pb-0',
+          className
+        )}
+      >
+        {topBar}
+        <div
+          className={cn(
+            'h-[calc(100dvh-var(--spacing-nav-height))] w-full pt-topnav-height lg:pt-0',
+            contentClassName
+          )}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
 }
-

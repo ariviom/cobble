@@ -23,7 +23,7 @@ export function SetInfoButton({ setNumber, setName, imageUrl }: Props) {
   const ownedStore = useOwnedStore();
 
   return (
-    <div className="relative h-topnav-height w-full border-b border-foreground-accent">
+    <div className="relative h-topnav-height w-full lg:h-topnav-height-lg">
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
@@ -39,9 +39,9 @@ export function SetInfoButton({ setNumber, setName, imageUrl }: Props) {
                 <Image
                   src={imageUrl}
                   alt="Set thumbnail"
-                  width={32}
-                  height={32}
-                  className="h-full w-full object-cover"
+                  width={92}
+                  height={92}
+                  className="h-8 w-8 object-cover lg:h-16 lg:w-16"
                 />
               </div>
             </div>
@@ -49,8 +49,9 @@ export function SetInfoButton({ setNumber, setName, imageUrl }: Props) {
             <div className="mr-2 h-8 w-8 flex-shrink-0 rounded-sm border bg-neutral-100" />
           )}
           <div className="flex min-w-0 flex-col items-start text-left">
-            <div className="max-w-[40vw] truncate text-sm font-medium sm:max-w-[50vw]">
+            <div className="flex max-w-[40vw] items-center truncate text-sm font-medium sm:max-w-[50vw]">
               {setName}
+              <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0 text-foreground-muted" />
             </div>
             <div className="text-xs text-foreground-muted">
               {isLoading
@@ -59,7 +60,6 @@ export function SetInfoButton({ setNumber, setName, imageUrl }: Props) {
             </div>
           </div>
         </div>
-        <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0 text-foreground-muted" />
       </button>
       {open && (
         <div

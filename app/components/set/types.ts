@@ -19,8 +19,9 @@ export type ItemSize = 'sm' | 'md' | 'lg';
 
 export type InventoryFilter = {
   display: 'all' | 'missing' | 'owned';
-  parent: string | null;
-  subcategories: string[];
+  parents: string[]; // selected parent categories; empty means all parents
+  // if a parent key is missing, that means "all subcategories" for that parent are included
+  subcategoriesByParent: Record<string, string[]>;
   colors: string[];
 };
 

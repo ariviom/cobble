@@ -9,7 +9,7 @@ export function TopNav({ children, className }: Props) {
   return (
     <div
       className={cn(
-        'fixed top-0 z-30 h-topnav-height w-full bg-neutral-00',
+        'fixed top-0 right-0 z-30 h-topnav-height w-full border-b border-foreground-accent bg-neutral-00 lg:top-topnav-height lg:h-topnav-height-lg lg:w-[calc(100%-20rem)]',
         'flex items-center justify-between',
         'gap-0',
         'py-0'

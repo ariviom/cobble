@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './fonts.css';
 
 @theme {
   --color-neutral-00: oklch(100% 0 0);
@@ -22,8 +23,12 @@
   --color-brand-purple: #9937fd;
   --color-brand-red: #fb2e36;
   --color-brand-green: #009348;
+  --color-theme-primary: var(--color-brand-blue);
+  --color-theme-accent: mix(var(--color-theme-primary), white, 10%);
   --font-sans: var(--font-cera-pro);
+  --spacing-nav-height: 4rem;
   --spacing-topnav-height: 4rem;
+  --spacing-topnav-height-lg: 6rem;
   --spacing-controls-height: 3rem;
   --breakpoint-xs: 23.5rem;
 }

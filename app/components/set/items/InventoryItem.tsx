@@ -22,14 +22,14 @@ export function InventoryItem({ row, owned, onOwnedChange }: Props) {
   return (
     <div className="flex w-full justify-start gap-6 rounded-lg border border-neutral-200 bg-white p-4 dark:bg-background grid:flex-col">
       <div
-        className={`relative aspect-square grow-0 rounded-lg list:flex list:items-center list:justify-center grid:w-full list:item-sm:h-16 list:item-sm:w-16 list:item-md:h-24 list:item-md:w-24 list:item-lg:h-36 list:item-lg:w-36`}
+        className={`relative grow-0 justify-center rounded-lg list:flex list:items-center grid:w-full list:item-sm:h-16 list:item-sm:w-16 list:item-md:h-24 list:item-md:w-24 list:item-lg:h-36 list:item-lg:w-36`}
       >
         {row.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={row.imageUrl}
             alt=""
-            className={`h-full w-full overflow-hidden rounded-lg object-contain ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : ''}`}
+            className={`mx-auto h-full w-full overflow-hidden rounded-lg object-contain grid:item-sm:max-w-24 ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : ''}`}
             data-knockout="true"
           />
         ) : (
@@ -63,12 +63,12 @@ export function InventoryItem({ row, owned, onOwnedChange }: Props) {
           )}
         </div>
       </div>
-      <div className="flex h-full w-full flex-col gap-6 sm:flex-row sm:items-center sm:justify-between grid:flex-col">
+      <div className="flex h-full w-full flex-col justify-between gap-x-6 gap-y-3 sm:flex-row sm:items-center grid:flex-col">
         <div className="h-full">
-          <p className="line-clamp-2 w-full overflow-hidden font-bold">
+          <p className="line-clamp-1 w-full overflow-hidden font-bold lg:line-clamp-2">
             {row.partName}
           </p>
-          <p className="w-full text-foreground-muted list:item-sm:text-xs list:item-md:text-sm">
+          <p className="mt-1 w-full text-sm text-neutral-400">
             {isMinifig ? (
               hasRealFigId ? (
                 <span>Minifigure ID: {displayId}</span>
@@ -80,11 +80,29 @@ export function InventoryItem({ row, owned, onOwnedChange }: Props) {
             )}
           </p>
         </div>
-        <OwnedQuantityControl
-          required={row.quantityRequired}
-          owned={owned}
-          onChange={onOwnedChange}
-        />
+        <div className="w-full">
+          <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36">
+            <p className="text-foreground-muted">
+              {owned}/{row.quantityRequired}
+            </p>
+            <p
+              className={
+                row.quantityRequired === owned
+                  ? 'text-brand-green'
+                  : 'text-brand-red'
+              }
+            >
+              {row.quantityRequired === owned
+                ? 'Complete'
+                : `Need ${row.quantityRequired - owned}`}
+            </p>
+          </div>
+          <OwnedQuantityControl
+            required={row.quantityRequired}
+            owned={owned}
+            onChange={onOwnedChange}
+          />
+        </div>
       </div>
     </div>
   );

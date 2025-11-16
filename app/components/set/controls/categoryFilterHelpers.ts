@@ -4,51 +4,92 @@ export type ParentSelectionState = 'none' | 'some' | 'all';
 
 export function getParentState(
   filter: InventoryFilter,
-  subcategoriesByParent: Record<string, string[]>,
+  allSubcategoriesByParent: Record<string, string[]>,
   parent: string
 ): ParentSelectionState {
-  if (filter.parent !== parent) return 'none';
-  const all = subcategoriesByParent[parent] ?? [];
-  const selected = filter.subcategories || [];
-  if (selected.length === 0) return 'none';
-  if (all.length > 0 && selected.length === all.length) return 'all';
+  const hasParent = (filter.parents || []).includes(parent);
+  if (!hasParent) return 'none';
+  const all = allSubcategoriesByParent[parent] ?? [];
+  const explicit = filter.subcategoriesByParent?.[parent];
+  // Absence of an explicit list implies "all selected"
+  if (!explicit || explicit.length === 0) {
+    return 'all';
+  }
+  if (all.length > 0 && explicit.length === all.length) return 'all';
   return 'some';
 }
 
 export function toggleParent(
   filter: InventoryFilter,
-  subcategoriesByParent: Record<string, string[]>,
+  allSubcategoriesByParent: Record<string, string[]>,
   parent: string
 ): InventoryFilter {
   if (parent === '__all__') {
-    return { ...filter, parent: null, subcategories: [] };
+    return { ...filter, parents: [], subcategoriesByParent: {} };
   }
-  const allSubcats = subcategoriesByParent[parent] ?? [];
-  const state = getParentState(filter, subcategoriesByParent, parent);
-  if (filter.parent !== parent) {
-    return { ...filter, parent, subcategories: allSubcats };
+  const parents = new Set(filter.parents || []);
+  if (!parents.has(parent)) {
+    // Select parent; default to "all subcategories" by clearing explicit list
+    return {
+      ...filter,
+      parents: [...parents.add(parent)],
+      subcategoriesByParent: Object.fromEntries(
+        Object.entries(filter.subcategoriesByParent || {}).filter(
+          ([p]) => p !== parent
+        )
+      ),
+    };
+  } else {
+    // Deselect parent; remove explicit subcategory list
+    parents.delete(parent);
+    const nextSubs = { ...(filter.subcategoriesByParent || {}) };
+    delete nextSubs[parent];
+    return { ...filter, parents: Array.from(parents), subcategoriesByParent: nextSubs };
   }
-  if (state === 'all') {
-    // Uncheck parent: clear filter
-    return { ...filter, parent: null, subcategories: [] };
-  }
-  // From none or some -> select all for this parent
-  return { ...filter, parent, subcategories: allSubcats };
 }
 
 export function toggleSubcategory(
   filter: InventoryFilter,
+  allSubcategoriesByParent: Record<string, string[]>,
   parent: string,
   sub: string
 ): InventoryFilter {
-  if (filter.parent !== parent) {
-    return { ...filter, parent, subcategories: [sub] };
+  const allSubs = allSubcategoriesByParent[parent] ?? [];
+  const parents = new Set(filter.parents || []);
+  if (!parents.has(parent)) {
+    parents.add(parent);
   }
-  const exists = (filter.subcategories || []).includes(sub);
+  const currentExplicit = filter.subcategoriesByParent?.[parent];
+  let nextForParent: string[];
+  if (!currentExplicit || currentExplicit.length === 0) {
+    // Currently implicit "all". Start from all, then toggle off the chosen one.
+    nextForParent = allSubs.filter(s => s !== sub);
+  } else {
+    const set = new Set(currentExplicit);
+    if (set.has(sub)) set.delete(sub);
+    else set.add(sub);
+    nextForParent = Array.from(set);
+  }
+  const nextSubs = { ...(filter.subcategoriesByParent || {}) };
+  if (nextForParent.length === allSubs.length || nextForParent.length === 0) {
+    // Collapse back to implicit "all" when full, or if empty revert to "all" to avoid a parent with no subs
+    delete nextSubs[parent];
+  } else {
+    nextSubs[parent] = nextForParent.sort((a, b) => a.localeCompare(b));
+  }
   return {
     ...filter,
-    subcategories: exists
-      ? (filter.subcategories || []).filter(c => c !== sub)
-      : [...(filter.subcategories || []), sub],
+    parents: Array.from(parents),
+    subcategoriesByParent: nextSubs,
   };
+}
+
+export function clearParentSubcategories(
+  filter: InventoryFilter,
+  parent: string
+): InventoryFilter {
+  if (!(filter.parents || []).includes(parent)) return filter;
+  const nextSubs = { ...(filter.subcategoriesByParent || {}) };
+  delete nextSubs[parent];
+  return { ...filter, subcategoriesByParent: nextSubs };
 }

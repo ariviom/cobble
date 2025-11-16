@@ -3,7 +3,6 @@
 import { useInventory } from '@/app/hooks/useInventory';
 import { useIsDesktop } from '@/app/hooks/useMediaQuery';
 import { useOwnedStore } from '@/app/store/owned';
-import { cx } from 'class-variance-authority';
 import { useEffect, useMemo, useState } from 'react';
 import {
   clampOwned,
@@ -13,7 +12,6 @@ import {
 } from './inventory-utils';
 import { InventoryControls } from './InventoryControls';
 import { InventoryItem } from './items/InventoryItem';
-import { SubcategoryToggleRail } from './SubcategoryToggleRail';
 import type { GroupBy, InventoryFilter, ItemSize, ViewType } from './types';
 
 type SortKey = 'name' | 'color' | 'size' | 'category';
@@ -32,8 +30,8 @@ export function InventoryTable({
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [filter, setFilter] = useState<InventoryFilter>({
     display: 'all',
-    parent: null,
-    subcategories: [],
+    parents: [],
+    subcategoriesByParent: {},
     colors: [],
   });
   const [view, setView] = useState<ViewType>('list');
@@ -71,9 +69,11 @@ export function InventoryTable({
 
   const visibleIndices = useMemo(() => {
     const idxs = rows.map((_, i) => i);
-    const selectedParent = filter.parent;
-    const subcategorySet =
-      filter.subcategories.length > 0 ? new Set(filter.subcategories) : null;
+    const selectedParents =
+      filter.parents && filter.parents.length > 0
+        ? new Set(filter.parents)
+        : null;
+    // subcategory restrictions handled per-parent using subcategoriesByParent
     const colorSet =
       filter.colors && filter.colors.length > 0 ? new Set(filter.colors) : null;
 
@@ -86,11 +86,13 @@ export function InventoryTable({
         if (ownedValue === 0) return false;
       }
 
-      if (selectedParent) {
-        if (parentByIndex[i] !== selectedParent) return false;
-        if (subcategorySet) {
+      if (selectedParents) {
+        const parent = parentByIndex[i];
+        if (!selectedParents.has(parent)) return false;
+        const explicitSubs = filter.subcategoriesByParent?.[parent];
+        if (explicitSubs && explicitSubs.length > 0) {
           const category = categoryByIndex[i] ?? 'Uncategorized';
-          if (!subcategorySet.has(category)) return false;
+          if (!explicitSubs.includes(category)) return false;
         }
       }
 
@@ -175,7 +177,7 @@ export function InventoryTable({
   const gridSizes = useMemo(() => {
     switch (itemSize) {
       case 'sm':
-        return 'grid-cols-2 xs:grid-cols-2 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7';
+        return 'grid-cols-2 xs:grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7';
       case 'md':
         return 'grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6';
       case 'lg':
@@ -224,18 +226,6 @@ export function InventoryTable({
     } catch {}
   }, [sortKey, sortDir, groupBy, view, itemSize, filter]);
 
-  const subcategoryOptions = useMemo(() => {
-    if (!filter.parent) return [] as string[];
-    const parent = filter.parent;
-    const set = new Set<string>();
-    rows.forEach((row, idx) => {
-      if (parentByIndex[idx] === parent) {
-        set.add(categoryByIndex[idx] ?? 'Uncategorized');
-      }
-    });
-    return Array.from(set).sort();
-  }, [rows, parentByIndex, categoryByIndex, filter.parent]);
-
   const subcategoriesByParent = useMemo(() => {
     const map = new Map<string, Set<string>>();
     rows.forEach((row, idx) => {
@@ -280,7 +270,7 @@ export function InventoryTable({
   }, [rows, keys, filter, parentByIndex, ownedStore, setNumber]);
 
   return (
-    <div className="relative inset-0 grid h-screen grid-rows-[auto_1fr] lg:pl-80">
+    <div className="relative inset-0 grid h-full grid-rows-[auto_1fr] pb-2 lg:pt-topnav-height-lg lg:pl-80">
       <div className="w-full">
         <InventoryControls
           view={view}
@@ -302,36 +292,7 @@ export function InventoryTable({
             [parentByIndex]
           )}
           parentCounts={countsByParent}
-          onSelectParent={parent => {
-            if (!parent) {
-              setFilter(prev => ({
-                ...prev,
-                parent: null,
-                subcategories: [],
-              }));
-            } else {
-              setFilter(prev => ({
-                ...prev,
-                parent,
-                subcategories: [],
-              }));
-            }
-          }}
-          subcategoryOptions={subcategoryOptions}
           subcategoriesByParent={subcategoriesByParent}
-          onToggleSubcategory={subcategory => {
-            if (!filter.parent) return;
-            const exists = filter.subcategories.includes(subcategory);
-            setFilter(prev => ({
-              ...prev,
-              subcategories: exists
-                ? prev.subcategories.filter(c => c !== subcategory)
-                : [...prev.subcategories, subcategory],
-            }));
-          }}
-          onClearSubcategories={() =>
-            setFilter(prev => ({ ...prev, subcategories: [] }))
-          }
           colorOptions={colorOptions}
           onToggleColor={color => {
             setFilter(prev => {
@@ -345,28 +306,12 @@ export function InventoryTable({
             });
           }}
         />
-        {!isDesktop && filter.parent && subcategoryOptions.length > 1 ? (
-          <SubcategoryToggleRail
-            options={subcategoryOptions}
-            selected={filter.subcategories}
-            onToggle={subcategory => {
-              if (!filter.parent) return;
-              const exists = filter.subcategories.includes(subcategory);
-              setFilter(prev => ({
-                ...prev,
-                subcategories: exists
-                  ? prev.subcategories.filter(c => c !== subcategory)
-                  : [...prev.subcategories, subcategory],
-              }));
-            }}
-          />
-        ) : null}
       </div>
 
-      <div className={cx('flex min-h-0 flex-col overflow-y-auto lg:pl-2')}>
-        <div className="flex min-h-0 flex-1 flex-col p-2 pb-2 lg:py-2">
+      <div className="h-full overflow-y-auto lg:pl-2">
+        <div className="flex flex-col p-2 pb-2 lg:py-2">
           {error ? (
-            <div className="p-4 rounded border border-red-200 bg-red-50 text-sm text-red-800">
+            <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">
               {/* Placeholder error message - will be styled later */}
               Failed to load inventory. Please try again.
             </div>

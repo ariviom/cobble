@@ -1,0 +1,16 @@
+{
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "prettier.prettierPath": "./node_modules/prettier",
+    "prettier.configPath": ".prettierrc",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+    "tailwindCSS.experimental.configFile": "app/styles/globals.css",
+    "tailwindCSS.experimental.classRegex": [
+      [
+        "cva\\(((?:[^)(]+|\\((?:[^)(]+|\\([^)(]*\\))*\\))*)\\)\\s*;?",
+        "[\"'`]([^\"'`]*)[\"'`]"
+      ]
+    ]
+  }

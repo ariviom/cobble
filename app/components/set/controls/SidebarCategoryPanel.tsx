@@ -2,7 +2,6 @@
 
 import {
   DropdownSection,
-  SingleSelectList,
 } from '@/app/components/ui/GroupedDropdown';
 import { RowButton } from '@/app/components/ui/RowButton';
 import { RowCheckbox } from '@/app/components/ui/RowCheckbox';
@@ -13,6 +12,7 @@ import {
   getParentState,
   toggleParent,
   toggleSubcategory,
+  clearParentSubcategories,
 } from './categoryFilterHelpers';
 
 type Props = {
@@ -42,29 +42,8 @@ export function SidebarCategoryPanel({
 
   function toggleSubcategoryForActive(sub: string) {
     if (!activeParent) return;
-    onChangeFilter(toggleSubcategory(filter, activeParent, sub));
-  }
-
-  // Mobile: simple single-select of parents; no checkboxes/carets
-  if (!isDesktop) {
-    return (
-      <DropdownSection>
-        <SingleSelectList
-          options={[
-            { key: '__all__', text: 'All Pieces' },
-            ...parentOptions.map(p => ({ key: p, text: p })),
-          ]}
-          selectedKey={filter.parent ?? '__all__'}
-          onChange={key => {
-            if (key === '__all__') {
-              onChangeFilter({ ...filter, parent: null, subcategories: [] });
-            } else {
-              onChangeFilter({ ...filter, parent: key, subcategories: [] });
-            }
-            onMobileSelect?.();
-          }}
-        />
-      </DropdownSection>
+    onChangeFilter(
+      toggleSubcategory(filter, subcategoriesByParent, activeParent, sub)
     );
   }
 
@@ -74,7 +53,7 @@ export function SidebarCategoryPanel({
         {/* Parents */}
         {parentOptions.map(parent => {
           const state = getParentState(filter, subcategoriesByParent, parent);
-          const selected = filter.parent === parent;
+          const selected = (filter.parents || []).includes(parent);
           const subCount = (subcategoriesByParent[parent] || []).length;
           return (
             <div
@@ -115,6 +94,23 @@ export function SidebarCategoryPanel({
             </div>
           );
         })}
+        {(filter.parents?.length || 0) > 0 ? (
+          <div className="flex w-full justify-center border-b border-neutral-300 px-3 py-2">
+            <button
+              type="button"
+              className="w-32 rounded border border-foreground-accent bg-neutral-00 px-2 py-1 text-xs hover:bg-neutral-100"
+              onClick={() =>
+                onChangeFilter({
+                  ...filter,
+                  parents: [],
+                  subcategoriesByParent: {},
+                })
+              }
+            >
+              Clear All
+            </button>
+          </div>
+        ) : null}
       </div>
     </DropdownSection>
   ) : (
@@ -135,16 +131,18 @@ export function SidebarCategoryPanel({
       <DropdownSection>
         <div>
           {(subcategoriesByParent[activeParent] ?? []).map(sub => {
-            const selected =
-              filter.parent === activeParent &&
-              (filter.subcategories || []).includes(sub);
+            const parentSelected = (filter.parents || []).includes(activeParent);
+            const explicit = filter.subcategoriesByParent?.[activeParent];
+            const isEffectivelySelected =
+              parentSelected &&
+              (!explicit || explicit.length === 0 || explicit.includes(sub));
             return (
               <RowButton
                 key={sub}
-                selected={selected}
+                selected={isEffectivelySelected}
                 onClick={() => toggleSubcategoryForActive(sub)}
               >
-                <RowCheckbox checked={selected} />
+                <RowCheckbox checked={isEffectivelySelected} />
                 <span>{sub}</span>
                 <span className="ml-auto inline-flex h-full w-10 items-center justify-center text-foreground-muted">
                   <ChevronRight size={18} />
@@ -152,6 +150,18 @@ export function SidebarCategoryPanel({
               </RowButton>
             );
           })}
+          <div className="flex w-full justify-center border-b border-neutral-300 px-3 py-2">
+            <button
+              type="button"
+              className="w-32 rounded border border-foreground-accent bg-neutral-00 px-2 py-1 text-xs hover:bg-neutral-100"
+              onClick={() => {
+                if (!activeParent) return;
+                onChangeFilter(clearParentSubcategories(filter, activeParent));
+              }}
+            >
+              Clear All
+            </button>
+          </div>
         </div>
       </DropdownSection>
     </>
