@@ -43,8 +43,10 @@ export function InventoryTable({
 
   useEffect(() => {
     // warm localStorage read
-    keys.forEach(k => ownedStore.getOwned(setNumber, k));
-  }, [setNumber, keys.join(',')]);
+    for (const k of keys) {
+      ownedStore.getOwned(setNumber, k);
+    }
+  }, [setNumber, keys, ownedStore]);
 
   // Do not early-return to preserve hooks order
 
@@ -147,7 +149,7 @@ export function InventoryTable({
     idxs.sort(cmp);
 
     return idxs;
-  }, [rows, sortKey, sortDir, sizeByIndex, visibleIndices]);
+  }, [rows, sortKey, sortDir, sizeByIndex, categoryByIndex, visibleIndices]);
 
   const groupKeyByIndex = useMemo(() => {
     if (groupBy === 'none') return null;

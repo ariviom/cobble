@@ -87,7 +87,7 @@ function write(setNumber: string, data: Record<string, number>) {
   scheduleWrite(setNumber);
 }
 
-export const useOwnedStore = create<OwnedState>((set, get) => ({
+export const useOwnedStore = create<OwnedState>(set => ({
   _version: 0,
   getOwned: (setNumber, key) => {
     const state = read(setNumber);
@@ -96,13 +96,14 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
   setOwned: (setNumber, key, qty) => {
     const state = read(setNumber);
     const nextQty = Math.max(0, Math.floor(qty || 0));
-    let updated: Record<string, number>;
-    if (nextQty === 0) {
-      const { [key]: _omit, ...rest } = state;
-      updated = rest;
-    } else {
-      updated = { ...state, [key]: nextQty };
-    }
+    const updated: Record<string, number> =
+      nextQty === 0
+        ? (() => {
+            const rest = { ...state };
+            delete rest[key];
+            return rest;
+          })()
+        : { ...state, [key]: nextQty };
     write(setNumber, updated);
     // Increment version to trigger re-renders for components subscribed to _version
     set(state => ({ ...state, _version: (state._version ?? 0) + 1 }));

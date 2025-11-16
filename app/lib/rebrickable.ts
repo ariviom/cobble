@@ -365,7 +365,7 @@ export async function getColors(): Promise<RebrickableColor[]> {
   let firstPage = true;
 
   while (firstPage || nextUrl) {
-    const page = firstPage
+    const page: { results: RebrickableColor[]; next: string | null } = firstPage
       ? await rbFetch<{ results: RebrickableColor[]; next: string | null }>(
           '/lego/colors/',
           { page_size: 1000 }

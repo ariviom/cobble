@@ -16,7 +16,6 @@ type ButtonProps = {
   disabled: boolean;
   ariaLabel: string;
   className?: string;
-  incraseOrDecrase: 'increase' | 'decrease';
 };
 
 function Button({
@@ -24,7 +23,6 @@ function Button({
   onClick,
   disabled,
   ariaLabel,
-  incraseOrDecrase,
   className,
 }: ButtonProps) {
   return (
@@ -57,7 +55,6 @@ export function OwnedQuantityControl({
         onClick={() => onChange(clampOwned(owned - 1, required))}
         disabled={owned <= 0}
         ariaLabel="Decrease owned"
-        incraseOrDecrase="decrease"
       >
         –
       </Button>
@@ -86,7 +83,6 @@ export function OwnedQuantityControl({
         onClick={() => onChange(clampOwned(owned + 1, required))}
         disabled={owned >= required}
         ariaLabel="Increase owned"
-        incraseOrDecrase="increase"
       >
         +
       </Button>
