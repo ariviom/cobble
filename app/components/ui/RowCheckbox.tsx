@@ -27,8 +27,10 @@ export const RowCheckbox = forwardRef<HTMLInputElement, Props>(
         ref={node => {
           innerRef.current = node;
           if (typeof ref === 'function') ref(node);
-          else if (ref && 'current' in (ref as any))
-            (ref as any).current = node;
+          else if (ref && typeof ref !== 'function') {
+            (ref as React.MutableRefObject<HTMLInputElement | null>).current =
+              node;
+          }
         }}
         type="checkbox"
         checked={checked}

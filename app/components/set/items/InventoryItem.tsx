@@ -80,7 +80,7 @@ export function InventoryItem({ row, owned, onOwnedChange }: Props) {
             )}
           </p>
         </div>
-        <div className="w-full">
+        <div className="w-full sm:list:w-auto">
           <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36">
             <p className="text-foreground-muted">
               {owned}/{row.quantityRequired}

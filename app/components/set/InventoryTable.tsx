@@ -1,7 +1,6 @@
 'use client';
 
 import { useInventory } from '@/app/hooks/useInventory';
-import { useIsDesktop } from '@/app/hooks/useMediaQuery';
 import { useOwnedStore } from '@/app/store/owned';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -18,7 +17,6 @@ type SortKey = 'name' | 'color' | 'size' | 'category';
 
 export function InventoryTable({
   setNumber,
-  setName,
 }: {
   setNumber: string;
   setName?: string;
@@ -37,10 +35,7 @@ export function InventoryTable({
   const [view, setView] = useState<ViewType>('list');
   const [itemSize, setItemSize] = useState<ItemSize>('md');
   const [groupBy, setGroupBy] = useState<GroupBy>('none');
-  const [openTopDropdown, setOpenTopDropdown] = useState<
-    'display' | 'sort' | 'view' | null
-  >(null);
-  const isDesktop = useIsDesktop();
+  // removed legacy top dropdown state
 
   const ownedStore = useOwnedStore();
   // Subscribe to version changes to trigger re-renders when owned quantities change
@@ -49,7 +44,6 @@ export function InventoryTable({
   useEffect(() => {
     // warm localStorage read
     keys.forEach(k => ownedStore.getOwned(setNumber, k));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setNumber, keys.join(',')]);
 
   // Do not early-return to preserve hooks order
@@ -209,7 +203,6 @@ export function InventoryTable({
           display: parsed.display!,
         }));
     } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

@@ -42,9 +42,15 @@ function scheduleWrite(setNumber: string) {
   if (existing) clearTimeout(existing);
   const timer = setTimeout(() => {
     // Prefer idle time when available
-    const idle = (window as any).requestIdleCallback as
-      | ((cb: () => void, opts?: { timeout?: number }) => number)
-      | undefined;
+    const idle =
+      typeof window !== 'undefined' && 'requestIdleCallback' in window
+        ? (window as Window & {
+            requestIdleCallback?: (
+              cb: () => void,
+              opts?: { timeout?: number }
+            ) => number;
+          }).requestIdleCallback
+        : undefined;
     if (typeof idle === 'function') {
       try {
         idle(() => flushWriteNow(setNumber), { timeout: 1000 });

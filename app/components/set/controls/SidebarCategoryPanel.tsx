@@ -20,8 +20,6 @@ type Props = {
   onChangeFilter: (f: InventoryFilter) => void;
   parentOptions: string[];
   subcategoriesByParent: Record<string, string[]>;
-  isDesktop: boolean;
-  onMobileSelect?: () => void;
   parentCounts?: Record<string, number>;
 };
 
@@ -30,8 +28,6 @@ export function SidebarCategoryPanel({
   onChangeFilter,
   parentOptions,
   subcategoriesByParent,
-  isDesktop,
-  onMobileSelect,
   parentCounts,
 }: Props) {
   const [activeParent, setActiveParent] = useState<string | null>(null);

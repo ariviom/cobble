@@ -198,8 +198,6 @@ export function InventoryControls({
                     onChangeFilter={onChangeFilter}
                     parentOptions={parentOptions}
                     subcategoriesByParent={subcategoriesByParent}
-                    isDesktop={isDesktop}
-                    onMobileSelect={() => setOpenDropdownId(null)}
                     parentCounts={parentCounts}
                   />
                 </DropdownPanelFrame>
