@@ -44,12 +44,14 @@ function scheduleWrite(setNumber: string) {
     // Prefer idle time when available
     const idle =
       typeof window !== 'undefined' && 'requestIdleCallback' in window
-        ? (window as Window & {
-            requestIdleCallback?: (
-              cb: () => void,
-              opts?: { timeout?: number }
-            ) => number;
-          }).requestIdleCallback
+        ? (
+            window as Window & {
+              requestIdleCallback?: (
+                cb: () => void,
+                opts?: { timeout?: number }
+              ) => number;
+            }
+          ).requestIdleCallback
         : undefined;
     if (typeof idle === 'function') {
       try {

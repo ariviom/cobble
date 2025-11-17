@@ -148,7 +148,7 @@ export function InventoryControls({
   return (
     <div
       ref={containerRef}
-      className="no-scrollbar flex h-controls-height max-w-screen flex-nowrap items-center gap-2 overflow-x-auto border-b border-neutral-300 px-2 lg:overflow-visible"
+      className="fixed top-topnav-height z-50 no-scrollbar flex h-controls-height w-full max-w-screen flex-nowrap items-center gap-2 overflow-x-auto border-b border-neutral-300 bg-neutral-50 px-2 lg:top-filter-offset lg:overflow-visible"
     >
       <TopBarControls
         view={view}
@@ -172,7 +172,7 @@ export function InventoryControls({
         }
       />
       {/* Sidebar Group Triggers */}
-      <div className="sidebar relative min-w-fit border-neutral-300 lg:fixed lg:top-topnav-height lg:left-0 lg:h-[calc(100vh-var(--spacing-nav-height))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-neutral-00">
+      <div className="sidebar relative min-w-fit border-neutral-300 lg:fixed lg:top-nav-height lg:left-0 lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-neutral-00">
         <div className="flex flex-nowrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-1">
           {/* display panel is rendered by TopBarControls; removed duplicate */}
           {parentOptions.length > 0 ? (

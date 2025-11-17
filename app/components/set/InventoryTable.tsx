@@ -265,46 +265,42 @@ export function InventoryTable({
   }, [rows, keys, filter, parentByIndex, ownedStore, setNumber]);
 
   return (
-    <div className="relative inset-0 grid h-full grid-rows-[auto_1fr] pb-2 lg:pt-topnav-height-lg lg:pl-80">
-      <div className="w-full">
-        <InventoryControls
-          view={view}
-          onChangeView={v => setView(v)}
-          itemSize={itemSize}
-          onChangeItemSize={s => setItemSize(s)}
-          sortKey={sortKey}
-          onChangeSortKey={k => setSortKey(k)}
-          sortDir={sortDir}
-          onToggleSortDir={() =>
-            setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
-          }
-          groupBy={groupBy}
-          onChangeGroupBy={g => setGroupBy(g)}
-          filter={filter}
-          onChangeFilter={f => setFilter(f)}
-          parentOptions={useMemo(
-            () => Array.from(new Set(parentByIndex)).filter(Boolean).sort(),
-            [parentByIndex]
-          )}
-          parentCounts={countsByParent}
-          subcategoriesByParent={subcategoriesByParent}
-          colorOptions={colorOptions}
-          onToggleColor={color => {
-            setFilter(prev => {
-              const exists = (prev.colors || []).includes(color);
-              return {
-                ...prev,
-                colors: exists
-                  ? (prev.colors || []).filter(c => c !== color)
-                  : [...(prev.colors || []), color],
-              };
-            });
-          }}
-        />
-      </div>
+    <div className="relative inset-0 pb-2 lg:pl-80">
+      <InventoryControls
+        view={view}
+        onChangeView={v => setView(v)}
+        itemSize={itemSize}
+        onChangeItemSize={s => setItemSize(s)}
+        sortKey={sortKey}
+        onChangeSortKey={k => setSortKey(k)}
+        sortDir={sortDir}
+        onToggleSortDir={() => setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))}
+        groupBy={groupBy}
+        onChangeGroupBy={g => setGroupBy(g)}
+        filter={filter}
+        onChangeFilter={f => setFilter(f)}
+        parentOptions={useMemo(
+          () => Array.from(new Set(parentByIndex)).filter(Boolean).sort(),
+          [parentByIndex]
+        )}
+        parentCounts={countsByParent}
+        subcategoriesByParent={subcategoriesByParent}
+        colorOptions={colorOptions}
+        onToggleColor={color => {
+          setFilter(prev => {
+            const exists = (prev.colors || []).includes(color);
+            return {
+              ...prev,
+              colors: exists
+                ? (prev.colors || []).filter(c => c !== color)
+                : [...(prev.colors || []), color],
+            };
+          });
+        }}
+      />
 
-      <div className="h-full overflow-y-auto lg:pl-2">
-        <div className="flex flex-col p-2 pb-2 lg:py-2">
+      <div className="pt-inventory-offset lg:pl-2">
+        <div className="flex flex-col">
           {error ? (
             <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">
               {/* Placeholder error message - will be styled later */}
@@ -357,7 +353,7 @@ export function InventoryTable({
                 sections.sort((a, b) => a.key.localeCompare(b.key));
                 return sections.map(sec => (
                   <div key={sec.key} className="flex flex-col gap-2">
-                    <div className="sticky top-0 z-10 bg-background/90 px-1 py-2 text-sm font-semibold text-foreground">
+                    <div className="sticky top-sticky-label z-10 bg-background/90 px-1 py-2 text-sm font-semibold text-foreground">
                       {sec.key === 'Minifig' ? 'Minifigures' : sec.key}
                     </div>
                     <div

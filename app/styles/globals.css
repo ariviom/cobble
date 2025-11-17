@@ -28,9 +28,27 @@
   --font-sans: var(--font-cera-pro);
   --spacing-nav-height: 4rem;
   --spacing-topnav-height: 4rem;
-  --spacing-topnav-height-lg: 6rem;
   --spacing-controls-height: 3rem;
+  --spacing-filter-offset: calc(
+    var(--spacing-nav-height) + var(--spacing-topnav-height)
+  );
+  --spacing-inventory-offset: calc(
+    var(--spacing-topnav-height) + var(--spacing-controls-height)
+  );
+  --spacing-sticky-label: calc(
+    var(--spacing-topnav-height) + var(--spacing-controls-height)
+  );
   --breakpoint-xs: 23.5rem;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --spacing-topnav-height: 6rem;
+    --spacing-sticky-label: calc(
+      var(--spacing-topnav-height) + var(--spacing-controls-height) +
+        var(--spacing-nav-height)
+    );
+  }
 }
 
 .dark {

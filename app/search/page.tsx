@@ -5,7 +5,7 @@ import { Suspense } from 'react';
 export default function SearchPage() {
   return (
     <>
-      <section className="mb-8">
+      <section className="my-4">
         <div className="mx-auto w-full max-w-5xl px-4 md:px-6 lg:px-8">
           <h1 className="mb-4 text-2xl font-semibold">Search</h1>
           <Suspense fallback={null}>

@@ -13,8 +13,7 @@ export type SortOption =
   | 'year-asc'
   | 'year-desc';
 
-export type SearchResponse = {
-  exactMatches: SearchResult[];
-  otherMatches: SearchResult[];
-  hasMore: boolean;
+export type SearchPage = {
+  results: SearchResult[];
+  nextPage: number | null;
 };

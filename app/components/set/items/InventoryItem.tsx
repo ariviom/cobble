@@ -65,7 +65,7 @@ export function InventoryItem({ row, owned, onOwnedChange }: Props) {
       </div>
       <div className="flex h-full w-full flex-col justify-between gap-x-6 gap-y-3 sm:flex-row sm:items-center grid:flex-col">
         <div className="h-full">
-          <p className="line-clamp-1 w-full overflow-hidden font-bold lg:line-clamp-2">
+          <p className="line-clamp-1 w-full overflow-hidden font-medium lg:line-clamp-2">
             {row.partName}
           </p>
           <p className="mt-1 w-full text-sm text-neutral-400">
