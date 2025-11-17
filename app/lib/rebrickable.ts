@@ -114,10 +114,10 @@ export async function searchSets(
 }> {
   if (!query?.trim()) return { results: [], nextPage: null };
 
-  const data = await rbFetch<{ results: RebrickableSetSearchResult[]; next: string | null }>(
-    '/lego/sets/',
-    { search: query, page_size: pageSize, page }
-  );
+  const data = await rbFetch<{
+    results: RebrickableSetSearchResult[];
+    next: string | null;
+  }>('/lego/sets/', { search: query, page_size: pageSize, page });
 
   let allResults = data.results
     .filter(r => r.num_parts > 0) // Exclude sets with 0 parts
@@ -133,8 +133,12 @@ export async function searchSets(
   const isSetNumberQuery = /^[0-9a-zA-Z-]+$/.test(query.trim());
   if (isSetNumberQuery) {
     const lower = query.toLowerCase();
-    const prefix = allResults.filter(r => r.setNumber.toLowerCase().startsWith(lower));
-    const rest = allResults.filter(r => !r.setNumber.toLowerCase().startsWith(lower));
+    const prefix = allResults.filter(r =>
+      r.setNumber.toLowerCase().startsWith(lower)
+    );
+    const rest = allResults.filter(
+      r => !r.setNumber.toLowerCase().startsWith(lower)
+    );
     allResults = [...prefix, ...rest];
   }
 
@@ -174,10 +178,8 @@ const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
 const SEARCH_AGG_PAGE_SIZE = 200;
 const SEARCH_AGG_CAP = 1000;
 
-let aggregatedSearchCache: Map<
-  string,
-  { at: number; items: SimpleSet[] }
-> = new Map();
+let aggregatedSearchCache: Map<string, { at: number; items: SimpleSet[] }> =
+  new Map();
 
 function normalizeText(s: string): string {
   return s
@@ -189,7 +191,11 @@ function normalizeText(s: string): string {
     .replace(/\s+/g, ' ');
 }
 
-function sortAggregatedResults(items: SimpleSet[], sort: string, query: string): SimpleSet[] {
+function sortAggregatedResults(
+  items: SimpleSet[],
+  sort: string,
+  query: string
+): SimpleSet[] {
   if (sort === 'pieces-asc') {
     return [...items].sort((a, b) => a.numParts - b.numParts);
   }
@@ -239,15 +245,16 @@ export async function getAggregatedSearchResults(
   const collected: RebrickableSetSearchResult[] = [];
 
   while (first || nextUrl) {
-    const page =
+    const page: { results: RebrickableSetSearchResult[]; next: string | null } =
       first
-        ? await rbFetch<{ results: RebrickableSetSearchResult[]; next: string | null }>(
-            '/lego/sets/',
-            { search: query, page_size: SEARCH_AGG_PAGE_SIZE }
-          )
-        : await rbFetchAbsolute<{ results: RebrickableSetSearchResult[]; next: string | null }>(
-            nextUrl!
-          );
+        ? await rbFetch<{
+            results: RebrickableSetSearchResult[];
+            next: string | null;
+          }>('/lego/sets/', { search: query, page_size: SEARCH_AGG_PAGE_SIZE })
+        : await rbFetchAbsolute<{
+            results: RebrickableSetSearchResult[];
+            next: string | null;
+          }>(nextUrl!);
     collected.push(...page.results);
     nextUrl = page.next;
     first = false;
@@ -256,7 +263,9 @@ export async function getAggregatedSearchResults(
 
   // Load themes to exclude non-set categories like Books and Gear
   const themes = await getThemes();
-  const themeIdToName = new Map<number, string>(themes.map(t => [t.id, t.name]));
+  const themeIdToName = new Map<number, string>(
+    themes.map(t => [t.id, t.name])
+  );
   const EXCLUDED_THEME_KEYWORDS = [
     'book',
     'books',
@@ -281,7 +290,8 @@ export async function getAggregatedSearchResults(
   const mapped: SimpleSet[] = collected
     .filter(r => r.num_parts > 0)
     .filter(r => {
-      const themeName = r.theme_id != null ? themeIdToName.get(r.theme_id) : undefined;
+      const themeName =
+        r.theme_id != null ? themeIdToName.get(r.theme_id) : undefined;
       if (!themeName) return true;
       const tn = themeName.toLowerCase();
       return !EXCLUDED_THEME_KEYWORDS.some(k => tn.includes(k));
@@ -417,39 +427,46 @@ export async function getPartCategories(): Promise<RebrickableCategory[]> {
 }
 
 export type RebrickablePart = {
-	part_num: string;
-	name: string;
-	part_cat_id?: number;
-	part_img_url: string | null;
-	external_ids?: Record<string, unknown>;
+  part_num: string;
+  name: string;
+  part_cat_id?: number;
+  part_img_url: string | null;
+  print_of?: string | null;
+  external_ids?: Record<string, unknown>;
 };
 
 export async function getPart(partNum: string): Promise<RebrickablePart> {
-	return rbFetch<RebrickablePart>(`/lego/parts/${encodeURIComponent(partNum)}/`);
+  return rbFetch<RebrickablePart>(
+    `/lego/parts/${encodeURIComponent(partNum)}/`,
+    { inc_part_details: 1 }
+  );
 }
 
 type RebrickablePartListItem = {
-	part_num: string;
-	name: string;
-	part_img_url: string | null;
+  part_num: string;
+  name: string;
+  part_img_url: string | null;
 };
 
 export async function searchParts(
-	query: string,
-	pageSize: number = 25
+  query: string,
+  pageSize: number = 25
 ): Promise<RebrickablePartListItem[]> {
-	if (!query.trim()) return [];
-	const data = await rbFetch<{ results: RebrickablePartListItem[] }>(`/lego/parts/`, {
-		search: query,
-		page_size: Math.max(1, Math.min(100, pageSize)),
-	});
-	return data.results ?? [];
+  if (!query.trim()) return [];
+  const data = await rbFetch<{ results: RebrickablePartListItem[] }>(
+    `/lego/parts/`,
+    {
+      search: query,
+      page_size: Math.max(1, Math.min(100, pageSize)),
+    }
+  );
+  return data.results ?? [];
 }
 
 export type ResolvedPart = {
-	partNum: string;
-	name: string;
-	imageUrl: string | null;
+  partNum: string;
+  name: string;
+  imageUrl: string | null;
 };
 
 type CacheEntry<T> = { at: number; value: T };
@@ -460,99 +477,285 @@ const resolvedPartCache = new Map<string, CacheEntry<ResolvedPart | null>>();
  * to a Rebrickable part using direct fetch, then Rebrickable search fallback.
  * Results are cached in-memory for 24 hours.
  */
-export async function resolvePartIdToRebrickable(partId: string): Promise<ResolvedPart | null> {
-	const key = partId.trim().toLowerCase();
-	const now = Date.now();
-	const cached = resolvedPartCache.get(key);
-	if (cached && now - cached.at < 24 * 60 * 60 * 1000) {
-		return cached.value;
-	}
-	// 1) Direct fetch
-	try {
-		const part = await getPart(partId);
-		const result: ResolvedPart = {
-			partNum: part.part_num,
-			name: part.name,
-			imageUrl: part.part_img_url,
-		};
-		resolvedPartCache.set(key, { at: now, value: result });
-		return result;
-	} catch {
-		// fall through to search
-	}
-	// 2) Search fallback
-	try {
-		const list = await searchParts(partId, 25);
-		if (list.length === 0) {
-			resolvedPartCache.set(key, { at: now, value: null });
-			return null;
-		}
-		// Prefer exact case-insensitive part_num match
-		const exact =
-			list.find((p) => p.part_num.toLowerCase() === key) ??
-			// Then startsWith to catch extended variants
-			list.find((p) => p.part_num.toLowerCase().startsWith(key)) ??
-			// Otherwise take the first returned item
-			list[0];
-		const result: ResolvedPart = {
-			partNum: exact.part_num,
-			name: exact.name,
-			imageUrl: exact.part_img_url,
-		};
-		resolvedPartCache.set(key, { at: now, value: result });
-		return result;
-	} catch {
-		resolvedPartCache.set(key, { at: now, value: null });
-		return null;
-	}
+export async function resolvePartIdToRebrickable(
+  partId: string,
+  hints?: { bricklinkId?: string }
+): Promise<ResolvedPart | null> {
+  const key = partId.trim().toLowerCase();
+  const now = Date.now();
+  const cached = resolvedPartCache.get(key);
+  if (cached && now - cached.at < 24 * 60 * 60 * 1000) {
+    return cached.value;
+  }
+  // 1) Direct fetch
+  try {
+    const part = await getPart(partId);
+    const result: ResolvedPart = {
+      partNum: part.part_num,
+      name: part.name,
+      imageUrl: part.part_img_url,
+    };
+    resolvedPartCache.set(key, { at: now, value: result });
+    return result;
+  } catch {
+    // fall through to search
+  }
+  // 2) Search fallback
+  try {
+    const list = await searchParts(partId, 25);
+    if (list.length > 0) {
+      // Prefer exact case-insensitive part_num match
+      const exact =
+        list.find(p => p.part_num.toLowerCase() === key) ??
+        // Then startsWith to catch extended variants
+        list.find(p => p.part_num.toLowerCase().startsWith(key)) ??
+        // Otherwise take the first returned item
+        list[0];
+      const result: ResolvedPart = {
+        partNum: exact.part_num,
+        name: exact.name,
+        imageUrl: exact.part_img_url,
+      };
+      resolvedPartCache.set(key, { at: now, value: result });
+      return result;
+    }
+  } catch {
+    // continue to external-id path
+  }
+  // 3) External ID (BrickLink) hint
+  if (hints?.bricklinkId) {
+    try {
+      const alt = await rbFetch<{ results: RebrickablePart[] }>(
+        `/lego/parts/`,
+        {
+          bricklink_id: hints.bricklinkId,
+          page_size: 5,
+          inc_part_details: 1,
+        }
+      );
+      if (Array.isArray(alt.results) && alt.results.length > 0) {
+        const p = alt.results[0]!;
+        const result: ResolvedPart = {
+          partNum: p.part_num,
+          name: p.name,
+          imageUrl: p.part_img_url,
+        };
+        resolvedPartCache.set(key, { at: now, value: result });
+        return result;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  resolvedPartCache.set(key, { at: now, value: null });
+  return null;
 }
 
 export type PartInSet = {
-	setNumber: string;
-	name: string;
-	year: number;
-	imageUrl: string | null;
-	quantity: number;
+  setNumber: string;
+  name: string;
+  year: number;
+  imageUrl: string | null;
+  quantity: number;
 };
 
 export async function getSetsForPart(
-	partNum: string,
-	colorId?: number
+  partNum: string,
+  colorId?: number
 ): Promise<PartInSet[]> {
-	type Page = {
-		results: Array<{
-			set: {
-				set_num: string;
-				name: string;
-				year: number;
-				set_img_url: string | null;
-			};
-			quantity: number;
-		}>;
-		next: string | null;
-	};
-	const params: Record<string, string | number> = { page_size: 1000 };
-	if (typeof colorId === 'number') params.color_id = colorId;
+  // Rebrickable returns slightly different shapes between the uncolored and color-scoped endpoints.
+  // - Uncolored (/parts/{part_num}/sets/): results[].set{ set_num, name, year, set_img_url }, quantity
+  // - Color-scoped (/parts/{part_num}/colors/{color_id}/sets/): results[] has set fields at top-level (no nested "set"), no quantity
+  type Page = {
+    results: Array<
+      | {
+          set: {
+            set_num: string;
+            name: string;
+            year: number;
+            set_img_url: string | null;
+          };
+          quantity?: number;
+        }
+      | {
+          set_num: string;
+          name: string;
+          year: number;
+          set_img_url: string | null;
+          quantity?: number;
+        }
+    >;
+    next: string | null;
+  };
+  async function fetchAll(pn: string, color?: number): Promise<PartInSet[]> {
+    const params: Record<string, string | number> = { page_size: 1000 };
+    const path =
+      typeof color === 'number'
+        ? `/lego/parts/${encodeURIComponent(pn)}/colors/${color}/sets/`
+        : `/lego/parts/${encodeURIComponent(pn)}/sets/`;
+    const first = await rbFetch<Page>(path, params);
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        console.log('rebrickable sets first page', {
+          pn,
+          color,
+          path,
+          count: Array.isArray((first as any)?.results)
+            ? (first as any).results.length
+            : undefined,
+          next: (first as any)?.next ?? null,
+          sample: Array.isArray((first as any)?.results)
+            ? (first as any).results[0]
+            : undefined,
+        });
+      } catch {
+        // ignore logging errors
+      }
+    }
+    const all: Page['results'] = [...first.results];
+    let nextUrl: string | null = first.next;
+    while (nextUrl) {
+      const page = await rbFetchAbsolute<Page>(nextUrl);
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          console.log('rebrickable sets next page', {
+            pn,
+            color,
+            nextUrl,
+            count: Array.isArray((page as any)?.results)
+              ? (page as any).results.length
+              : undefined,
+            next: (page as any)?.next ?? null,
+          });
+        } catch {
+          // ignore logging errors
+        }
+      }
+      all.push(...page.results);
+      nextUrl = page.next;
+    }
+    return all.map(r => {
+      if ('set' in r && r.set) {
+        return {
+          setNumber: r.set.set_num,
+          name: r.set.name,
+          year: r.set.year,
+          imageUrl: r.set.set_img_url,
+          quantity: typeof r.quantity === 'number' ? r.quantity : 0,
+        };
+      }
+      // Color-scoped shape (top-level fields)
+      const top = r as {
+        set_num: string;
+        name: string;
+        year: number;
+        set_img_url: string | null;
+        quantity?: number;
+      };
+      return {
+        setNumber: top.set_num,
+        name: top.name,
+        year: top.year,
+        imageUrl: top.set_img_url,
+        quantity: typeof top.quantity === 'number' ? top.quantity : 0,
+      };
+    });
+  }
 
-	const first = await rbFetch<Page>(
-		`/lego/parts/${encodeURIComponent(partNum)}/sets/`,
-		params
-	);
-	const all: Page['results'] = [...first.results];
-	let nextUrl: string | null = first.next;
-	while (nextUrl) {
-		const page = await rbFetchAbsolute<Page>(nextUrl);
-		all.push(...page.results);
-		nextUrl = page.next;
-	}
-	const mapped: PartInSet[] = all.map(r => ({
-		setNumber: r.set.set_num,
-		name: r.set.name,
-		year: r.set.year,
-		imageUrl: r.set.set_img_url,
-		quantity: r.quantity,
-	}));
-	return mapped;
+  // Try exact part with color (if provided), then without color
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      console.log('getSetsForPart attempt', { partNum, colorId });
+    } catch {
+      // ignore
+    }
+  }
+  let sets = await fetchAll(partNum, colorId);
+  if (!sets.length && typeof colorId === 'number') {
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        console.log('getSetsForPart retry without color', { partNum, colorId });
+      } catch {}
+    }
+    sets = await fetchAll(partNum, undefined);
+  }
+  // If still empty, and the part has exactly one valid color in RB, try that color explicitly
+  if (!sets.length) {
+    try {
+      const colors = await getPartColorsForPart(partNum);
+      if (colors.length === 1) {
+        const only = colors[0]!;
+        if (only.id !== (colorId ?? -1)) {
+          if (process.env.NODE_ENV !== 'production') {
+            try {
+              console.log('getSetsForPart retry with sole available color', {
+                partNum,
+                colorTried: only.id,
+              });
+            } catch {}
+          }
+          const viaOnly = await fetchAll(partNum, only.id);
+          if (viaOnly.length) return viaOnly;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+  if (sets.length) return sets;
+
+  // If printed variant, attempt base mold via print_of
+  try {
+    const meta = await getPart(partNum);
+    const base = meta.print_of?.trim();
+    if (base && base !== partNum) {
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          console.log('getSetsForPart trying base via print_of', {
+            partNum,
+            base,
+            colorId,
+          });
+        } catch {}
+      }
+      let baseSets = await fetchAll(base, colorId);
+      if (!baseSets.length && typeof colorId === 'number') {
+        if (process.env.NODE_ENV !== 'production') {
+          try {
+            console.log('getSetsForPart base retry without color', {
+              base,
+              colorId,
+            });
+          } catch {}
+        }
+        baseSets = await fetchAll(base, undefined);
+      }
+      if (!baseSets.length) {
+        try {
+          const colors = await getPartColorsForPart(base);
+          if (colors.length === 1) {
+            const only = colors[0]!;
+            if (process.env.NODE_ENV !== 'production') {
+              try {
+                console.log(
+                  'getSetsForPart base retry with sole available color',
+                  { base, colorTried: only.id }
+                );
+              } catch {}
+            }
+            const viaOnly = await fetchAll(base, only.id);
+            if (viaOnly.length) return viaOnly;
+          }
+        } catch {
+          // ignore
+        }
+      }
+      return baseSets;
+    }
+  } catch {
+    // ignore, return empty
+  }
+  return [];
 }
 
 function mapCategoryNameToParent(
@@ -628,9 +831,10 @@ export async function getColors(): Promise<RebrickableColor[]> {
           '/lego/colors/',
           { page_size: 1000 }
         )
-      : await rbFetchAbsolute<{ results: RebrickableColor[]; next: string | null }>(
-          nextUrl!
-        );
+      : await rbFetchAbsolute<{
+          results: RebrickableColor[];
+          next: string | null;
+        }>(nextUrl!);
     allColors.push(...page.results);
     nextUrl = page.next;
     firstPage = false;
@@ -638,6 +842,113 @@ export async function getColors(): Promise<RebrickableColor[]> {
 
   colorsCache = { at: now, items: allColors };
   return allColors;
+}
+
+/**
+ * Map a BrickLink color id to a Rebrickable color id, using external_ids mapping.
+ * Returns null if no mapping found.
+ */
+export async function mapBrickLinkColorIdToRebrickableColorId(
+  blColorId: number
+): Promise<number | null> {
+  const all = await getColors();
+  for (const c of all) {
+    const bl = (c.external_ids as any)?.BrickLink;
+    const ids: number[] | undefined = Array.isArray(bl?.ext_ids)
+      ? bl.ext_ids
+      : undefined;
+    if (ids && ids.includes(blColorId)) return c.id;
+  }
+  return null;
+}
+
+export type PartAvailableColor = {
+  id: number;
+  name: string;
+  rgb: string | null;
+  isTrans: boolean;
+  numSets: number;
+  numSetParts: number;
+};
+
+/**
+ * List only the colors in which this part appears.
+ */
+export async function getPartColorsForPart(
+  partNum: string
+): Promise<PartAvailableColor[]> {
+  type Page = {
+    results: Array<
+      | {
+          color: RebrickableColor;
+          num_sets?: number;
+          num_set_parts?: number;
+        }
+      | {
+          color_id: number;
+          color_name: string;
+          is_trans?: boolean;
+          rgb?: string | null;
+          num_sets?: number;
+          num_set_parts?: number;
+        }
+    >;
+    next: string | null;
+  };
+  const results: Page['results'] = [];
+  let first = true;
+  let nextUrl: string | null = null;
+  while (first || nextUrl) {
+    const page: Page = first
+      ? await rbFetch<Page>(
+          `/lego/parts/${encodeURIComponent(partNum)}/colors/`,
+          {
+            page_size: 1000,
+          }
+        )
+      : await rbFetchAbsolute<Page>(nextUrl!);
+    results.push(...page.results);
+    nextUrl = page.next;
+    first = false;
+  }
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      console.log('rebrickable part colors', {
+        partNum,
+        count: results.length,
+        sample: results[0],
+      });
+    } catch {}
+  }
+  return results.map(r => {
+    if ('color' in r) {
+      return {
+        id: r.color.id,
+        name: r.color.name,
+        rgb: r.color.rgb ?? null,
+        isTrans: r.color.is_trans,
+        numSets: typeof r.num_sets === 'number' ? r.num_sets : 0,
+        numSetParts: typeof r.num_set_parts === 'number' ? r.num_set_parts : 0,
+      };
+    }
+    const top = r as {
+      color_id: number;
+      color_name: string;
+      is_trans?: boolean;
+      rgb?: string | null;
+      num_sets?: number;
+      num_set_parts?: number;
+    };
+    return {
+      id: top.color_id,
+      name: top.color_name,
+      rgb: typeof top.rgb === 'string' ? top.rgb : null,
+      isTrans: !!top.is_trans,
+      numSets: typeof top.num_sets === 'number' ? top.num_sets : 0,
+      numSetParts:
+        typeof top.num_set_parts === 'number' ? top.num_set_parts : 0,
+    };
+  });
 }
 
 // Themes
@@ -653,14 +964,15 @@ export async function getThemes(): Promise<RebrickableTheme[]> {
   let first = true;
   let nextUrl: string | null = null;
   while (first || nextUrl) {
-    const page = first
+    const page: { results: RebrickableTheme[]; next: string | null } = first
       ? await rbFetch<{ results: RebrickableTheme[]; next: string | null }>(
           '/lego/themes/',
           { page_size: 1000 }
         )
-      : await rbFetchAbsolute<{ results: RebrickableTheme[]; next: string | null }>(
-          nextUrl!
-        );
+      : await rbFetchAbsolute<{
+          results: RebrickableTheme[];
+          next: string | null;
+        }>(nextUrl!);
     all.push(...page.results);
     nextUrl = page.next;
     first = false;

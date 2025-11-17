@@ -4,6 +4,7 @@ export type BrickognizeCandidate = {
 	partNum?: string;
 	rebrickable_part_num?: string;
 	bricklink_part_num?: string | number;
+	external_sites?: Array<{ name?: string; url?: string }>;
 	confidence?: number;
 	colorId?: number;
 	color_id?: number;
@@ -109,6 +110,7 @@ export function extractCandidatePartNumbers(payload: BrickognizeResponse): Array
 	colorId?: number;
 	colorName?: string;
 	imageUrl?: string;
+	bricklinkId?: string;
 }> {
 	const out: Array<{
 		partNum: string;
@@ -116,6 +118,7 @@ export function extractCandidatePartNumbers(payload: BrickognizeResponse): Array
 		colorId?: number;
 		colorName?: string;
 		imageUrl?: string;
+		bricklinkId?: string;
 	}> = [];
 
 	// Common arrays observed: candidates, results, matches
@@ -155,7 +158,27 @@ export function extractCandidatePartNumbers(payload: BrickognizeResponse): Array
 			const colorName = (c.colorName as string) ?? (c.color_name as string) ?? undefined;
 			const imageUrl =
 				(c.imageUrl as string) ?? (c.image_url as string) ?? (c.img_url as string) ?? undefined;
-			out.push({ partNum, confidence, colorId, colorName, imageUrl });
+			// Try to extract BrickLink ID from explicit field or external_sites url param P=
+			let bricklinkId: string | undefined = undefined;
+			const blField =
+				(typeof c.bricklink_part_num === 'string' && c.bricklink_part_num) ||
+				(typeof c.bricklink_part_num === 'number' && String(c.bricklink_part_num)) ||
+				'';
+			if (blField) {
+				bricklinkId = blField;
+			} else if (Array.isArray(c.external_sites)) {
+				for (const site of c.external_sites) {
+					const url = site?.url ?? '';
+					if (typeof url === 'string' && url.includes('bricklink.com')) {
+						const m = url.match(/[?&]P=([^&]+)/i);
+						if (m && m[1]) {
+							bricklinkId = decodeURIComponent(m[1]);
+							break;
+						}
+					}
+				}
+			}
+			out.push({ partNum, confidence, colorId, colorName, imageUrl, bricklinkId });
 		}
 	}
 

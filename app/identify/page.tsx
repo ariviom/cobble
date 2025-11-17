@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { IdentifyResultCard } from '@/app/components/identify/IdentifyResultCard';
 import { IdentifySetList } from '@/app/components/identify/IdentifySetList';
+import { IdentifyAssemblyList } from '@/app/components/identify/IdentifyAssemblyList';
 import type {
 	IdentifyCandidate,
 	IdentifyPart,
@@ -21,6 +22,17 @@ export default function IdentifyPage() {
 	const [sets, setSets] = useState<IdentifySet[]>([]);
 	const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
 	const [colors, setColors] = useState<Array<{ id: number; name: string }> | null>(null);
+	const [assembly, setAssembly] = useState<
+		Array<{
+			blPartNo: string;
+			name?: string;
+			imageUrl?: string | null;
+			quantity: number;
+			blColorId?: number;
+			blColorName?: string;
+			rbPartNum?: string;
+		}> | null
+	>(null);
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 
 	const onFileChange = useCallback((file: File | null) => {
@@ -53,8 +65,21 @@ export default function IdentifyPage() {
 			setPart(data.part);
 			setCandidates(data.candidates ?? []);
 			setSets(data.sets ?? []);
-			// Preload colors lazily
-			void loadColors();
+			setAssembly((data.assembly ?? null) as any);
+			// Use availableColors from API; auto-select if only one
+			const availableColors = (data.availableColors ?? []).filter(c => !!c?.name);
+			if (availableColors.length > 0) {
+				setColors(availableColors.map(c => ({ id: c.id, name: c.name })));
+			} else {
+				setColors([]);
+			}
+			if (typeof data.selectedColorId !== 'undefined') {
+				setSelectedColorId(data.selectedColorId ?? null);
+			} else if (availableColors.length === 1) {
+				setSelectedColorId(availableColors[0]!.id);
+			} else {
+				setSelectedColorId(null);
+			}
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
 		} finally {
@@ -62,23 +87,8 @@ export default function IdentifyPage() {
 		}
 	}, [selectedFile]);
 
-	const loadColors = useCallback(async () => {
-		try {
-			if (colors) return;
-			const res = await fetch('/api/colors', { cache: 'force-cache' });
-			if (!res.ok) throw new Error('colors_failed');
-			const data = (await res.json()) as { colors: Array<{ id: number; name: string }> };
-			const list = data.colors as unknown as RebrickableColor[];
-			setColors(
-				list
-					.filter((c) => !!c.name)
-					.map((c) => ({ id: c.id, name: c.name }))
-					.sort((a, b) => a.name.localeCompare(b.name))
-			);
-		} catch {
-			// ignore color load failures
-		}
-	}, [colors]);
+	// Global colors no longer used for Identify; colors come from API per-part
+	const loadColors = useCallback(async () => {}, []);
 
 	const onSelectCandidate = useCallback(async (c: IdentifyCandidate) => {
 		try {
@@ -109,11 +119,13 @@ export default function IdentifyPage() {
 			if (selectedColorId != null) url.searchParams.set('colorId', String(selectedColorId));
 			const res = await fetch(url.toString(), { cache: 'no-store' });
 			if (!res.ok) throw new Error('identify_sets_failed');
-			const payload = (await res.json()) as { sets: IdentifySet };
+			const payload = await res.json();
 			// payload.part has authoritative name/image; prefer it
 			const payloadAny = (payload as unknown) as {
 				part?: { partNum: string; name: string; imageUrl: string | null };
 				sets?: IdentifySet[];
+				availableColors?: Array<{ id: number; name: string }>;
+				selectedColorId?: number | null;
 			};
 			if (payloadAny.part) {
 				setPart((prev) =>
@@ -128,6 +140,18 @@ export default function IdentifyPage() {
 				);
 			}
 			setSets((payloadAny.sets as IdentifySet[]) ?? []);
+			if (Array.isArray((payloadAny as any).assembly)) {
+				setAssembly((payloadAny as any).assembly);
+			} else {
+				setAssembly(null);
+			}
+			if (Array.isArray(payloadAny.availableColors)) {
+				const opts = payloadAny.availableColors.filter(c => !!c?.name);
+				setColors(opts.map(c => ({ id: c.id, name: c.name })));
+			}
+			if ('selectedColorId' in payloadAny) {
+				setSelectedColorId(payloadAny.selectedColorId ?? null);
+			}
 		} catch (e) {
 			setError(e instanceof Error ? e.message : String(e));
 		} finally {
@@ -146,9 +170,17 @@ export default function IdentifyPage() {
 				if (colorId != null) url.searchParams.set('colorId', String(colorId));
 				const res = await fetch(url.toString(), { cache: 'no-store' });
 				if (!res.ok) throw new Error('identify_sets_failed');
-				const payload = (await res.json()) as { sets: IdentifySet[] };
-				const setsAny = (payload as unknown as { sets?: IdentifySet[] }).sets ?? [];
+				const payload: unknown = await res.json();
+				const setsAny = (payload as { sets?: IdentifySet[] }).sets ?? [];
+				const avail = (payload as { availableColors?: Array<{ id: number; name: string }> }).availableColors ?? undefined;
+				const selected = (payload as { selectedColorId?: number | null }).selectedColorId;
 				setSets(setsAny);
+				if (Array.isArray(avail)) {
+					setColors(avail.filter(c => !!c?.name).map(c => ({ id: c.id, name: c.name })));
+				}
+				if (typeof selected !== 'undefined') {
+					setSelectedColorId(selected ?? null);
+				}
 			} catch (e) {
 				setError(e instanceof Error ? e.message : String(e));
 			} finally {
@@ -159,6 +191,46 @@ export default function IdentifyPage() {
 	);
 
 	const colorOptions = useMemo(() => colors ?? [], [colors]);
+
+	const onSelectAssemblyPart = useCallback(
+		async (rbPartNum: string | null, blPartNo: string, blColorId?: number | null) => {
+			try {
+				setError(null);
+				setIsLoading(true);
+				const partToUse = rbPartNum ?? blPartNo;
+				setPart(prev =>
+					prev
+						? { ...prev, partNum: partToUse }
+						: { partNum: partToUse, name: part?.name ?? '', imageUrl: part?.imageUrl ?? null, confidence: 0, colorId: null, colorName: null }
+				);
+				const url = new URL('/api/identify/sets', window.location.origin);
+				url.searchParams.set('part', partToUse);
+				if (selectedColorId != null) {
+					url.searchParams.set('colorId', String(selectedColorId));
+				} else if (typeof blColorId === 'number') {
+					url.searchParams.set('blColorId', String(blColorId));
+				}
+				const res = await fetch(url.toString(), { cache: 'no-store' });
+				if (!res.ok) throw new Error('identify_sets_failed');
+				const payload: unknown = await res.json();
+				const setsAny = (payload as { sets?: IdentifySet[] }).sets ?? [];
+				setSets(setsAny);
+				const avail = (payload as { availableColors?: Array<{ id: number; name: string }> }).availableColors ?? undefined;
+				const selected = (payload as { selectedColorId?: number | null }).selectedColorId;
+				if (Array.isArray(avail)) {
+					setColors(avail.filter(c => !!c?.name).map(c => ({ id: c.id, name: c.name })));
+				}
+				if (typeof selected !== 'undefined') {
+					setSelectedColorId(selected ?? null);
+				}
+			} catch (e) {
+				setError(e instanceof Error ? e.message : String(e));
+			} finally {
+				setIsLoading(false);
+			}
+		},
+		[part, selectedColorId]
+	);
 
 	return (
 		<div className="p-6">
@@ -231,6 +303,12 @@ export default function IdentifyPage() {
 						onChangeColor={onChangeColor}
 					/>
 					<IdentifySetList items={sets} />
+					{assembly && assembly.length > 0 && (
+						<IdentifyAssemblyList
+							items={assembly as any}
+							onSelectPart={onSelectAssemblyPart}
+						/>
+					)}
 				</div>
 			)}
 		</div>

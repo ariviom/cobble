@@ -28,13 +28,14 @@ export async function GET() {
     }
 
     // Merge fallback mappings that might not be in API results
-    return NextResponse.json({ mapping }, { headers: { 'Cache-Control': 'public, max-age=3600' } });
+    return NextResponse.json(
+      { mapping },
+      { headers: { 'Cache-Control': 'public, max-age=3600' } }
+    );
   } catch (err) {
     console.error('Failed to generate color mapping:', err);
     // Return fallback mapping only if API fails
     return NextResponse.json({ mapping: FALLBACK_COLOR_MAP }, { status: 200 });
   }
 }
-
-
 

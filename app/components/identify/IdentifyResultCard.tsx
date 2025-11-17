@@ -40,7 +40,7 @@ export function IdentifyResultCard({
 						{part.partNum} • confidence {(part.confidence * 100).toFixed(0)}%
 					</div>
 					<div className="mt-2 flex items-center gap-2">
-						{typeof selectedColorId !== 'undefined' && onChangeColor && (
+						{typeof selectedColorId !== 'undefined' && onChangeColor && (colorOptions?.length ?? 0) > 1 && (
 							<select
 								className="rounded border px-2 py-1 text-xs"
 								value={selectedColorId ?? ''}

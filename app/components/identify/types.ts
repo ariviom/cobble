@@ -28,6 +28,17 @@ export type IdentifyResponse = {
 	part: IdentifyPart;
 	candidates: IdentifyCandidate[];
 	sets: IdentifySet[];
+	availableColors?: Array<{ id: number; name: string }>;
+	selectedColorId?: number | null;
+	assembly?: Array<{
+		blPartNo: string;
+		name?: string;
+		imageUrl?: string | null;
+		quantity: number;
+		blColorId?: number;
+		blColorName?: string;
+		rbPartNum?: string;
+	}>;
 };
 
 

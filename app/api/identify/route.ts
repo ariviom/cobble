@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { identifyWithBrickognize, extractCandidatePartNumbers } from '@/app/lib/brickognize';
-import { getSetsForPart, resolvePartIdToRebrickable, type PartInSet } from '@/app/lib/rebrickable';
+import { getSetsForPart, resolvePartIdToRebrickable, type PartInSet, getPartColorsForPart, type PartAvailableColor } from '@/app/lib/rebrickable';
+import { blGetPart, blGetPartSubsets, type BLSubsetItem } from '@/app/lib/bricklink';
 
 export async function POST(req: NextRequest) {
 	try {
@@ -40,11 +41,76 @@ export async function POST(req: NextRequest) {
 		if (candidates.length === 0) {
 			return NextResponse.json({ error: 'no_match' }, { status: 422 });
 		}
+		if (process.env.NODE_ENV !== 'production') {
+			try {
+				console.log('identify: candidates', candidates.slice(0, 5));
+			} catch {}
+		}
+
+		// EARLY: If top BrickLink candidate is an assembly, return its components immediately for user selection.
+		try {
+			const blTop = candidates.find(c => (c as any).bricklinkId) as any;
+			if (blTop && blTop.bricklinkId) {
+				const subsets: BLSubsetItem[] = await blGetPartSubsets(blTop.bricklinkId);
+				if (Array.isArray(subsets) && subsets.length > 0) {
+					const assemblyComponents = await Promise.all(
+						subsets.map(async (s) => {
+							let rbPartNum: string | undefined;
+							try {
+								const childResolved = await resolvePartIdToRebrickable(s.item.no, { bricklinkId: s.item.no });
+								rbPartNum = childResolved?.partNum ?? undefined;
+							} catch {}
+							return {
+								blPartNo: s.item.no,
+								name: s.item.name,
+								imageUrl: s.item.image_url,
+								quantity: s.quantity,
+								blColorId: s.color_id,
+								blColorName: s.color_name,
+								rbPartNum,
+							};
+						})
+					);
+					if (process.env.NODE_ENV !== 'production') {
+						try {
+							console.log('identify: early assembly detected', { bl: blTop.bricklinkId, count: assemblyComponents.length });
+						} catch {}
+					}
+					return NextResponse.json({
+						part: {
+							partNum: blTop.partNum,
+							name: blTop.name ?? '',
+							imageUrl: blTop.imageUrl ?? null,
+							confidence: blTop.confidence ?? 0,
+							colorId: null,
+							colorName: null,
+						},
+						candidates: [],
+						assembly: assemblyComponents,
+						availableColors: [],
+						selectedColorId: null,
+						sets: [],
+					});
+				}
+			}
+		} catch (e) {
+			if (process.env.NODE_ENV !== 'production') {
+				try {
+					console.log('identify: assembly check failed', { error: e instanceof Error ? e.message : String(e) });
+				} catch {}
+			}
+		}
 
 		// Resolve each candidate to a Rebrickable part (name + image) using resolver
 		const resolved = await Promise.all(
 			candidates.map(async (c) => {
-				const part = await resolvePartIdToRebrickable(c.partNum);
+				// Prefer BrickLink-based resolution when BL id exists
+				const blId: string | undefined = (c as any).bricklinkId;
+				let part = await resolvePartIdToRebrickable(c.partNum, { bricklinkId: blId });
+				if (!part) {
+					// fallback to text-only resolution last
+					part = await resolvePartIdToRebrickable(c.partNum);
+				}
 				if (!part) return null;
 				return {
 					partNum: part.partNum,
@@ -53,6 +119,7 @@ export async function POST(req: NextRequest) {
 					confidence: c.confidence ?? 0,
 					colorId: c.colorId,
 					colorName: c.colorName,
+					bricklinkId: blId,
 				};
 			})
 		);
@@ -65,6 +132,69 @@ export async function POST(req: NextRequest) {
 			colorName?: string;
 		}>;
 		if (valid.length === 0) {
+			// Fallback: if we have a BrickLink candidate, try to return assembly components for UI
+			const blCand = candidates.find(c => (c as any).bricklinkId) as any;
+			if (blCand && blCand.bricklinkId) {
+				let assemblyComponents: Array<{
+					blPartNo: string;
+					name?: string;
+					imageUrl?: string | null;
+					quantity: number;
+					blColorId?: number;
+					blColorName?: string;
+					rbPartNum?: string;
+				}> = [];
+				try {
+					const subsets: BLSubsetItem[] = await blGetPartSubsets(blCand.bricklinkId);
+					if (Array.isArray(subsets) && subsets.length > 0) {
+						assemblyComponents = await Promise.all(
+							subsets.map(async (s) => {
+								let rbPartNum: string | undefined;
+								try {
+									const childResolved = await resolvePartIdToRebrickable(s.item.no, { bricklinkId: s.item.no });
+									rbPartNum = childResolved?.partNum ?? undefined;
+								} catch {}
+								return {
+									blPartNo: s.item.no,
+									name: s.item.name,
+									imageUrl: s.item.image_url,
+									quantity: s.quantity,
+									blColorId: s.color_id,
+									blColorName: s.color_name,
+									rbPartNum,
+								};
+							})
+						);
+					}
+				} catch {
+					// ignore
+				}
+				if (assemblyComponents.length > 0) {
+					if (process.env.NODE_ENV !== 'production') {
+						try {
+							console.log('identify: assembly fallback used', {
+								blPart: blCand.bricklinkId,
+								components: assemblyComponents.length,
+							});
+						} catch {}
+					}
+					return NextResponse.json({
+						part: {
+							partNum: blCand.partNum,
+							name: blCand.name ?? '',
+							imageUrl: blCand.imageUrl ?? null,
+							confidence: blCand.confidence ?? 0,
+							colorId: null,
+							colorName: null,
+						},
+						candidates: [],
+						assembly: assemblyComponents,
+						availableColors: [],
+						selectedColorId: null,
+						sets: [],
+					});
+				}
+			}
 			return NextResponse.json({ error: 'no_valid_candidate' }, { status: 422 });
 		}
 
@@ -91,8 +221,59 @@ export async function POST(req: NextRequest) {
 
 		// Choose best candidate by sets found; if none, use the first candidate
 		let chosen = valid[0]!;
-		let chosenColorId = colorHint ?? chosen.colorId ?? undefined;
+		// If chosen has a BrickLink ID, check for assembly components
+		let assemblyComponents: Array<{
+			blPartNo: string;
+			name?: string;
+			imageUrl?: string | null;
+			quantity: number;
+			blColorId?: number;
+			blColorName?: string;
+			rbPartNum?: string;
+		}> = [];
+		if ((chosen as any).bricklinkId) {
+			try {
+				const subsets: BLSubsetItem[] = await blGetPartSubsets((chosen as any).bricklinkId);
+				if (Array.isArray(subsets) && subsets.length > 0) {
+					assemblyComponents = await Promise.all(
+						subsets.map(async (s) => {
+							// Resolve each child to RB part if possible using its BL part no
+							let rbPartNum: string | undefined;
+							try {
+								const childResolved = await resolvePartIdToRebrickable(s.item.no, { bricklinkId: s.item.no });
+								rbPartNum = childResolved?.partNum ?? undefined;
+							} catch {}
+							return {
+								blPartNo: s.item.no,
+								name: s.item.name,
+								imageUrl: s.item.image_url,
+								quantity: s.quantity,
+								blColorId: s.color_id,
+								blColorName: s.color_name,
+								rbPartNum,
+							};
+						})
+					);
+				}
+			} catch {
+				// ignore subsets failures
+			}
+		}
+		// Determine available colors for the chosen part to auto-select if only one
+		let availableColors: PartAvailableColor[] = [];
+		try {
+			availableColors = await getPartColorsForPart(chosen.partNum);
+		} catch {
+			availableColors = [];
+		}
+		// Prefer the sole available RB color (if any), then explicit hint, then the candidate-provided color
+		let chosenColorId = (availableColors.length === 1 ? availableColors[0]!.id : undefined) ?? colorHint ?? chosen.colorId;
 		let sets: PartInSet[] = await fetchCandidateSets(chosen.partNum, chosenColorId);
+		if (process.env.NODE_ENV !== 'production') {
+			try {
+				console.log('identify: chosen', { partNum: chosen.partNum, colors: availableColors.length, chosenColorId, sets: sets.length });
+			} catch {}
+		}
 		if (!sets.length && valid.length > 1) {
 			for (let i = 1; i < Math.min(valid.length, 5); i++) {
 				const cand = valid[i]!;
@@ -127,6 +308,9 @@ export async function POST(req: NextRequest) {
 				colorName: chosen.colorName ?? null,
 			},
 			candidates: valid.slice(0, 5),
+			assembly: assemblyComponents,
+			availableColors,
+			selectedColorId: chosenColorId ?? null,
 			sets,
 		});
 	} catch (err) {
