@@ -8,6 +8,16 @@ const nextConfig: NextConfig = {
         hostname: 'cdn.rebrickable.com',
         pathname: '/media/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.bricklink.com',
+        pathname: '/**',
+      },
     ],
   },
 };

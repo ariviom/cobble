@@ -52,7 +52,6 @@
 
 ## Why this design (updated)
 
-- Visual-only per requirements (no OCR, no Bing).
 - Brickognize returns BL-centric IDs and assemblies. BrickLink provides deterministic ID resolution and assembly decomposition. Rebrickable remains the source for per-part colors and sets, keeping exports/inventories consistent.
 - Color is auto-managed: single RB color → auto-select; multiple → per-part list only.
 

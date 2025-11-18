@@ -158,7 +158,8 @@ export function extractCandidatePartNumbers(payload: BrickognizeResponse): Array
 			const colorName = (c.colorName as string) ?? (c.color_name as string) ?? undefined;
 			const imageUrl =
 				(c.imageUrl as string) ?? (c.image_url as string) ?? (c.img_url as string) ?? undefined;
-			// Try to extract BrickLink ID from explicit field or external_sites url param P=
+			// Try to extract BrickLink ID from explicit field or external_sites url param P=.
+			// Prefer entries explicitly named "bricklink" (case/whitespace-insensitive), then fallback to URL host.
 			let bricklinkId: string | undefined = undefined;
 			const blField =
 				(typeof c.bricklink_part_num === 'string' && c.bricklink_part_num) ||
@@ -167,14 +168,26 @@ export function extractCandidatePartNumbers(payload: BrickognizeResponse): Array
 			if (blField) {
 				bricklinkId = blField;
 			} else if (Array.isArray(c.external_sites)) {
-				for (const site of c.external_sites) {
-					const url = site?.url ?? '';
-					if (typeof url === 'string' && url.includes('bricklink.com')) {
-						const m = url.match(/[?&]P=([^&]+)/i);
-						if (m && m[1]) {
-							bricklinkId = decodeURIComponent(m[1]);
-							break;
-						}
+				// First pass: prefer sites clearly labeled as BrickLink
+				const sites = c.external_sites as Array<{ name?: string; url?: string }>;
+				const normalized = sites.map(s => {
+					const name =
+						typeof s?.name === 'string'
+							? s.name.trim().toLowerCase()
+							: '';
+					return { name, url: typeof s?.url === 'string' ? s.url : '' };
+				});
+				const byName = normalized.find(s => s.name.replace(/\s+/g, '') === 'bricklink');
+				const candidatesForParse = byName ? [byName] : normalized;
+				for (const s of candidatesForParse) {
+					const url = s.url ?? '';
+					const isBrickLink =
+						(byName && s === byName) || (typeof url === 'string' && url.includes('bricklink.com'));
+					if (!isBrickLink) continue;
+					const m = url.match(/[?&]P=([^&]+)/i);
+					if (m && m[1]) {
+						bricklinkId = decodeURIComponent(m[1]);
+						break;
 					}
 				}
 			}

@@ -29,16 +29,10 @@ export type IdentifyResponse = {
 	candidates: IdentifyCandidate[];
 	sets: IdentifySet[];
 	availableColors?: Array<{ id: number; name: string }>;
+	// When falling back to BrickLink supersets for assemblies (no component list)
+	blPartId?: string;
+	blAvailableColors?: Array<{ id: number; name: string }>;
 	selectedColorId?: number | null;
-	assembly?: Array<{
-		blPartNo: string;
-		name?: string;
-		imageUrl?: string | null;
-		quantity: number;
-		blColorId?: number;
-		blColorName?: string;
-		rbPartNum?: string;
-	}>;
 };
 
 

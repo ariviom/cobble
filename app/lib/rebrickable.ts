@@ -390,6 +390,10 @@ export async function getSetInventory(
   return [...partRows, ...minifigRows];
 }
 
+let setSummaryCache:
+  | { at: number; items: Map<string, { setNumber: string; name: string; year: number; numParts: number; imageUrl: string | null }> }
+  | null = null;
+
 export async function getSetSummary(setNumber: string): Promise<{
   setNumber: string;
   name: string;
@@ -397,16 +401,27 @@ export async function getSetSummary(setNumber: string): Promise<{
   numParts: number;
   imageUrl: string | null;
 }> {
+  const now = Date.now();
+  const ttl = 60 * 60 * 1000; // 1h
+  if (setSummaryCache && now - setSummaryCache.at < ttl) {
+    const cached = setSummaryCache.items.get(setNumber.toLowerCase());
+    if (cached) return cached;
+  }
   const d = await rbFetch<RebrickableSetSearchResult>(
     `/lego/sets/${encodeURIComponent(setNumber)}/`
   );
-  return {
+  const result = {
     setNumber: d.set_num,
     name: d.name,
     year: d.year,
     numParts: d.num_parts,
     imageUrl: d.set_img_url,
   };
+  if (!setSummaryCache || now - setSummaryCache.at >= ttl) {
+    setSummaryCache = { at: now, items: new Map() };
+  }
+  setSummaryCache.items.set(setNumber.toLowerCase(), result);
+  return result;
 }
 
 type RebrickableCategory = { id: number; name: string };
@@ -487,6 +502,31 @@ export async function resolvePartIdToRebrickable(
   if (cached && now - cached.at < 24 * 60 * 60 * 1000) {
     return cached.value;
   }
+  // 0) External ID (BrickLink) hint FIRST when available
+  if (hints?.bricklinkId) {
+    try {
+      const alt = await rbFetch<{ results: RebrickablePart[] }>(
+        `/lego/parts/`,
+        {
+          bricklink_id: hints.bricklinkId,
+          page_size: 5,
+          inc_part_details: 1,
+        }
+      );
+      if (Array.isArray(alt.results) && alt.results.length > 0) {
+        const p = alt.results[0]!;
+        const result: ResolvedPart = {
+          partNum: p.part_num,
+          name: p.name,
+          imageUrl: p.part_img_url,
+        };
+        resolvedPartCache.set(key, { at: now, value: result });
+        return result;
+      }
+    } catch {
+      // ignore and try other methods
+    }
+  }
   // 1) Direct fetch
   try {
     const part = await getPart(partId);
@@ -522,31 +562,6 @@ export async function resolvePartIdToRebrickable(
   } catch {
     // continue to external-id path
   }
-  // 3) External ID (BrickLink) hint
-  if (hints?.bricklinkId) {
-    try {
-      const alt = await rbFetch<{ results: RebrickablePart[] }>(
-        `/lego/parts/`,
-        {
-          bricklink_id: hints.bricklinkId,
-          page_size: 5,
-          inc_part_details: 1,
-        }
-      );
-      if (Array.isArray(alt.results) && alt.results.length > 0) {
-        const p = alt.results[0]!;
-        const result: ResolvedPart = {
-          partNum: p.part_num,
-          name: p.name,
-          imageUrl: p.part_img_url,
-        };
-        resolvedPartCache.set(key, { at: now, value: result });
-        return result;
-      }
-    } catch {
-      // ignore
-    }
-  }
   resolvedPartCache.set(key, { at: now, value: null });
   return null;
 }
@@ -563,6 +578,39 @@ export async function getSetsForPart(
   partNum: string,
   colorId?: number
 ): Promise<PartInSet[]> {
+  // 1h TTL cache with brief negative TTL to reduce thrash on empty results
+  const SETS_TTL_MS = 60 * 60 * 1000;
+  const NEGATIVE_TTL_MS = 10 * 60 * 1000;
+  const MAX_CACHE_ENTRIES = 500;
+  type SetsCacheEntry = { at: number; items: PartInSet[] };
+  const globalAny = globalThis as unknown as {
+    __RB_SETS_CACHE__?: Map<string, SetsCacheEntry>;
+    __RB_SETS_NEG_CACHE__?: Map<string, { at: number }>;
+  };
+  if (!globalAny.__RB_SETS_CACHE__) globalAny.__RB_SETS_CACHE__ = new Map();
+  if (!globalAny.__RB_SETS_NEG_CACHE__) globalAny.__RB_SETS_NEG_CACHE__ = new Map();
+  const posCache = globalAny.__RB_SETS_CACHE__!;
+  const negCache = globalAny.__RB_SETS_NEG_CACHE__!;
+  const cacheKey = `${partNum.trim().toLowerCase()}::${typeof colorId === 'number' ? colorId : ''}`;
+  const now = Date.now();
+  const hit = posCache.get(cacheKey);
+  if (hit && now - hit.at < SETS_TTL_MS) {
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        console.log('rb sets cache hit', { partNum, colorId, count: hit.items.length });
+      } catch {}
+    }
+    return hit.items;
+  }
+  const negHit = negCache.get(cacheKey);
+  if (negHit && now - negHit.at < NEGATIVE_TTL_MS) {
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        console.log('rb sets NEGATIVE cache hit', { partNum, colorId });
+      } catch {}
+    }
+    return [];
+  }
   // Rebrickable returns slightly different shapes between the uncolored and color-scoped endpoints.
   // - Uncolored (/parts/{part_num}/sets/): results[].set{ set_num, name, year, set_img_url }, quantity
   // - Color-scoped (/parts/{part_num}/colors/{color_id}/sets/): results[] has set fields at top-level (no nested "set"), no quantity
@@ -641,7 +689,8 @@ export async function getSetsForPart(
           name: r.set.name,
           year: r.set.year,
           imageUrl: r.set.set_img_url,
-          quantity: typeof r.quantity === 'number' ? r.quantity : 0,
+          // Rebrickable sometimes omits quantity on these endpoints; treat missing as at least 1.
+          quantity: typeof r.quantity === 'number' ? r.quantity : 1,
         };
       }
       // Color-scoped shape (top-level fields)
@@ -657,7 +706,8 @@ export async function getSetsForPart(
         name: top.name,
         year: top.year,
         imageUrl: top.set_img_url,
-        quantity: typeof top.quantity === 'number' ? top.quantity : 0,
+        // Color-scoped endpoint usually omits quantity; default to 1 so "qty in set" is never 0.
+        quantity: typeof top.quantity === 'number' ? top.quantity : 1,
       };
     });
   }
@@ -755,7 +805,36 @@ export async function getSetsForPart(
   } catch {
     // ignore, return empty
   }
-  return [];
+  // Cache results
+  if (sets.length > 0) {
+    posCache.set(cacheKey, { at: now, items: sets });
+    if (posCache.size > MAX_CACHE_ENTRIES) {
+      // naive eviction of oldest
+      let oldestKey: string | null = null;
+      let oldestAt = Number.MAX_SAFE_INTEGER;
+      for (const [k, v] of posCache.entries()) {
+        if (v.at < oldestAt) {
+          oldestAt = v.at;
+          oldestKey = k;
+        }
+      }
+      if (oldestKey) posCache.delete(oldestKey);
+    }
+  } else {
+    negCache.set(cacheKey, { at: now });
+    if (negCache.size > MAX_CACHE_ENTRIES) {
+      let oldestKey: string | null = null;
+      let oldestAt = Number.MAX_SAFE_INTEGER;
+      for (const [k, v] of negCache.entries()) {
+        if (v.at < oldestAt) {
+          oldestAt = v.at;
+          oldestKey = k;
+        }
+      }
+      if (oldestKey) negCache.delete(oldestKey);
+    }
+  }
+  return sets;
 }
 
 function mapCategoryNameToParent(

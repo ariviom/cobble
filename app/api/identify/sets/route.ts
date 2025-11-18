@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
 	const part = searchParams.get('part');
 	const colorIdRaw = searchParams.get('colorId');
 	const blColorIdRaw = searchParams.get('blColorId');
-	if (!part) return NextResponse.json({ error: 'missing_part' }, { status: 400 });
+	if (!part) return NextResponse.json({ error: 'missing_part' });
 	let colorId =
 		colorIdRaw && colorIdRaw.trim() !== '' ? Number(colorIdRaw) : undefined;
 	let rbPart = part;
@@ -87,13 +87,16 @@ export async function GET(req: NextRequest) {
 			sets: sorted,
 		});
 	} catch (err) {
-		console.error('Identify sets failed:', {
-			part,
-			error: err instanceof Error ? err.message : String(err),
-			stack: err instanceof Error ? err.stack : undefined,
-		});
-		// Simplest working path: return empty sets with minimal part info
-		return NextResponse.json({ part: { partNum: part, name: '', imageUrl: null }, sets: [] });
+		if (process.env.NODE_ENV !== 'production') {
+			try {
+				console.log('identify/sets failed', {
+					part,
+					error: err instanceof Error ? err.message : String(err),
+				});
+			} catch {}
+		}
+		// Always-200: return empty sets with minimal part info
+		return NextResponse.json({ error: 'identify_sets_failed', part: { partNum: part, name: '', imageUrl: null }, sets: [] });
 	}
 }
 

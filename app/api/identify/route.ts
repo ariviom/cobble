@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { identifyWithBrickognize, extractCandidatePartNumbers } from '@/app/lib/brickognize';
-import { getSetsForPart, resolvePartIdToRebrickable, type PartInSet, getPartColorsForPart, type PartAvailableColor } from '@/app/lib/rebrickable';
-import { blGetPart, blGetPartSubsets, type BLSubsetItem } from '@/app/lib/bricklink';
+import { getSetsForPart, resolvePartIdToRebrickable, type PartInSet, getPartColorsForPart, type PartAvailableColor, getSetSummary } from '@/app/lib/rebrickable';
+import { blGetPart, blGetPartSupersets, blGetPartColors, blGetPartSubsets, type BLSupersetItem } from '@/app/lib/bricklink';
 
 export async function POST(req: NextRequest) {
 	try {
 		const form = await req.formData();
 		const file = form.get('image');
 		if (!(file instanceof File)) {
-			return NextResponse.json({ error: 'missing_image' }, { status: 400 });
+			return NextResponse.json({ error: 'missing_image' });
 		}
 		const colorHintRaw = form.get('colorHint');
 		const colorHint =
@@ -20,26 +20,20 @@ export async function POST(req: NextRequest) {
 		const brickognizePayload = await identifyWithBrickognize(file as unknown as Blob);
 		if (process.env.NODE_ENV !== 'production') {
 			try {
-				console.log('identify: brickognize raw payload', {
-					keys: Object.keys(brickognizePayload ?? {}),
+				console.log('identify: brickognize payload', {
 					listing_id: (brickognizePayload as any).listing_id,
 					items_len: Array.isArray((brickognizePayload as any).items)
 						? (brickognizePayload as any).items.length
 						: undefined,
-					candidates_len: Array.isArray((brickognizePayload as any).candidates)
-						? (brickognizePayload as any).candidates.length
-						: undefined,
 				});
-			} catch {
-				// ignore
-			}
+			} catch {}
 		}
 		const candidates = extractCandidatePartNumbers(brickognizePayload)
 			// Prefer higher confidence first
 			.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
 
 		if (candidates.length === 0) {
-			return NextResponse.json({ error: 'no_match' }, { status: 422 });
+			return NextResponse.json({ error: 'no_match' });
 		}
 		if (process.env.NODE_ENV !== 'production') {
 			try {
@@ -47,59 +41,7 @@ export async function POST(req: NextRequest) {
 			} catch {}
 		}
 
-		// EARLY: If top BrickLink candidate is an assembly, return its components immediately for user selection.
-		try {
-			const blTop = candidates.find(c => (c as any).bricklinkId) as any;
-			if (blTop && blTop.bricklinkId) {
-				const subsets: BLSubsetItem[] = await blGetPartSubsets(blTop.bricklinkId);
-				if (Array.isArray(subsets) && subsets.length > 0) {
-					const assemblyComponents = await Promise.all(
-						subsets.map(async (s) => {
-							let rbPartNum: string | undefined;
-							try {
-								const childResolved = await resolvePartIdToRebrickable(s.item.no, { bricklinkId: s.item.no });
-								rbPartNum = childResolved?.partNum ?? undefined;
-							} catch {}
-							return {
-								blPartNo: s.item.no,
-								name: s.item.name,
-								imageUrl: s.item.image_url,
-								quantity: s.quantity,
-								blColorId: s.color_id,
-								blColorName: s.color_name,
-								rbPartNum,
-							};
-						})
-					);
-					if (process.env.NODE_ENV !== 'production') {
-						try {
-							console.log('identify: early assembly detected', { bl: blTop.bricklinkId, count: assemblyComponents.length });
-						} catch {}
-					}
-					return NextResponse.json({
-						part: {
-							partNum: blTop.partNum,
-							name: blTop.name ?? '',
-							imageUrl: blTop.imageUrl ?? null,
-							confidence: blTop.confidence ?? 0,
-							colorId: null,
-							colorName: null,
-						},
-						candidates: [],
-						assembly: assemblyComponents,
-						availableColors: [],
-						selectedColorId: null,
-						sets: [],
-					});
-				}
-			}
-		} catch (e) {
-			if (process.env.NODE_ENV !== 'production') {
-				try {
-					console.log('identify: assembly check failed', { error: e instanceof Error ? e.message : String(e) });
-				} catch {}
-			}
-		}
+		// RB-first flow; BL supersets only as fallback. No component list.
 
 		// Resolve each candidate to a Rebrickable part (name + image) using resolver
 		const resolved = await Promise.all(
@@ -130,72 +72,156 @@ export async function POST(req: NextRequest) {
 			confidence: number;
 			colorId?: number;
 			colorName?: string;
+			bricklinkId?: string;
 		}>;
 		if (valid.length === 0) {
-			// Fallback: if we have a BrickLink candidate, try to return assembly components for UI
+			// BL supersets fallback if we have a BL-backed candidate
 			const blCand = candidates.find(c => (c as any).bricklinkId) as any;
 			if (blCand && blCand.bricklinkId) {
-				let assemblyComponents: Array<{
-					blPartNo: string;
-					name?: string;
-					imageUrl?: string | null;
-					quantity: number;
-					blColorId?: number;
-					blColorName?: string;
-					rbPartNum?: string;
-				}> = [];
+				let setsFromBL: Array<{ setNumber: string; name: string; year: number; imageUrl: string | null; quantity: number }> = [];
+				let partImage: string | null = blCand.imageUrl ?? null;
+				let partName: string = blCand.name ?? '';
 				try {
-					const subsets: BLSubsetItem[] = await blGetPartSubsets(blCand.bricklinkId);
-					if (Array.isArray(subsets) && subsets.length > 0) {
-						assemblyComponents = await Promise.all(
-							subsets.map(async (s) => {
-								let rbPartNum: string | undefined;
-								try {
-									const childResolved = await resolvePartIdToRebrickable(s.item.no, { bricklinkId: s.item.no });
-									rbPartNum = childResolved?.partNum ?? undefined;
-								} catch {}
-								return {
-									blPartNo: s.item.no,
-									name: s.item.name,
-									imageUrl: s.item.image_url,
-									quantity: s.quantity,
-									blColorId: s.color_id,
-									blColorName: s.color_name,
-									rbPartNum,
-								};
-							})
-						);
-					}
-				} catch {
-					// ignore
-				}
-				if (assemblyComponents.length > 0) {
-					if (process.env.NODE_ENV !== 'production') {
+					const supersets: BLSupersetItem[] = await blGetPartSupersets(blCand.bricklinkId);
+					if (Array.isArray(supersets) && supersets.length > 0) {
+						setsFromBL = supersets.map(s => ({
+							setNumber: s.setNumber,
+							name: s.name,
+							year: 0,
+							imageUrl: s.imageUrl,
+							quantity: s.quantity,
+						}));
+					} else {
+						// Try supersets by color variants to improve match rate
 						try {
-							console.log('identify: assembly fallback used', {
-								blPart: blCand.bricklinkId,
-								components: assemblyComponents.length,
-							});
+							const colors = await blGetPartColors(blCand.bricklinkId);
+							for (const c of (colors ?? []).slice(0, 10)) {
+								if (typeof c?.color_id !== 'number') continue;
+								const supByColor = await blGetPartSupersets(blCand.bricklinkId, c.color_id);
+								for (const s of supByColor) {
+									setsFromBL.push({
+										setNumber: s.setNumber,
+										name: s.name,
+										year: 0,
+										imageUrl: s.imageUrl,
+										quantity: s.quantity,
+									});
+								}
+								if (setsFromBL.length >= 50) break;
+							}
+							// If still empty, infer color ids from subsets entries
+							if (setsFromBL.length === 0) {
+								try {
+									const subs = await blGetPartSubsets(blCand.bricklinkId);
+									const uniq = new Map<number, string | undefined>();
+									for (const s of subs ?? []) {
+										if (typeof s?.color_id === 'number') {
+											if (!uniq.has(s.color_id)) uniq.set(s.color_id, s.color_name);
+										}
+									}
+									for (const [cid] of uniq) {
+										if (process.env.NODE_ENV !== 'production') {
+											try {
+												console.log('identify: BL supersets by inferred subset color', {
+													bl: blCand.bricklinkId,
+													colorId: cid,
+												});
+											} catch {}
+										}
+										const supByColor = await blGetPartSupersets(blCand.bricklinkId, cid);
+										for (const s of supByColor) {
+											setsFromBL.push({
+												setNumber: s.setNumber,
+												name: s.name,
+												year: 0,
+												imageUrl: s.imageUrl,
+												quantity: s.quantity,
+											});
+										}
+										if (setsFromBL.length >= 50) break;
+									}
+								} catch {}
+							}
+							// Deduplicate by setNumber
+							if (setsFromBL.length) {
+								const seen = new Set<string>();
+								setsFromBL = setsFromBL.filter(s => {
+									if (seen.has(s.setNumber)) return false;
+									seen.add(s.setNumber);
+									return true;
+								});
+							}
 						} catch {}
 					}
-					return NextResponse.json({
-						part: {
-							partNum: blCand.partNum,
-							name: blCand.name ?? '',
-							imageUrl: blCand.imageUrl ?? null,
-							confidence: blCand.confidence ?? 0,
-							colorId: null,
-							colorName: null,
-						},
-						candidates: [],
-						assembly: assemblyComponents,
-						availableColors: [],
-						selectedColorId: null,
-						sets: [],
-					});
+				} catch (e) {
+					if (process.env.NODE_ENV !== 'production') {
+						try {
+							console.log('identify: bl supersets fetch failed', { bl: blCand.bricklinkId, error: e instanceof Error ? e.message : String(e) });
+						} catch {}
+					}
 				}
+				// Try to enrich part meta from BL
+				try {
+					const meta = await blGetPart(blCand.bricklinkId);
+					partName = meta?.name ?? partName;
+					partImage = (meta as any)?.image_url ?? partImage;
+				} catch {}
+				// Include available BL colors for UI dropdown
+				let blAvailableColors: Array<{ id: number; name: string }> = [];
+				try {
+					const cols = await blGetPartColors(blCand.bricklinkId);
+					blAvailableColors = (cols ?? []).map(c => ({
+						id: c.color_id,
+						name: c.color_name ?? String(c.color_id),
+					}));
+				} catch {}
+				// If still no sets from BL paths, fall back to RB resolution for this BL id
+				// Enrich BL-derived sets with RB images (and year) when possible
+				try {
+					const top = setsFromBL.slice(0, 20);
+					const enriched = await Promise.all(
+						top.map(async set => {
+							try {
+								const summary = await getSetSummary(set.setNumber);
+								return {
+									...set,
+									year: summary.year ?? set.year,
+									imageUrl: summary.imageUrl ?? set.imageUrl,
+								};
+							} catch {
+								return set;
+							}
+						})
+					);
+					setsFromBL = [...enriched, ...setsFromBL.slice(top.length)];
+				} catch {}
+				if (process.env.NODE_ENV !== 'production') {
+					try {
+						console.log('identify: BL fallback (no RB candidates)', {
+							blPart: blCand.bricklinkId,
+							colorCount: blAvailableColors.length,
+							setCount: setsFromBL.length,
+						});
+					} catch {}
+				}
+				return NextResponse.json({
+					part: {
+						partNum: blCand.partNum,
+						name: partName,
+						imageUrl: partImage,
+						confidence: blCand.confidence ?? 0,
+						colorId: null,
+						colorName: null,
+					},
+					blPartId: blCand.bricklinkId,
+					blAvailableColors,
+					candidates: [],
+					availableColors: [],
+					selectedColorId: null,
+					sets: setsFromBL,
+				});
 			}
-			return NextResponse.json({ error: 'no_valid_candidate' }, { status: 422 });
+			return NextResponse.json({ error: 'no_valid_candidate' });
 		}
 
 		// Try candidates in order until we find sets; avoid forcing color
@@ -221,44 +247,7 @@ export async function POST(req: NextRequest) {
 
 		// Choose best candidate by sets found; if none, use the first candidate
 		let chosen = valid[0]!;
-		// If chosen has a BrickLink ID, check for assembly components
-		let assemblyComponents: Array<{
-			blPartNo: string;
-			name?: string;
-			imageUrl?: string | null;
-			quantity: number;
-			blColorId?: number;
-			blColorName?: string;
-			rbPartNum?: string;
-		}> = [];
-		if ((chosen as any).bricklinkId) {
-			try {
-				const subsets: BLSubsetItem[] = await blGetPartSubsets((chosen as any).bricklinkId);
-				if (Array.isArray(subsets) && subsets.length > 0) {
-					assemblyComponents = await Promise.all(
-						subsets.map(async (s) => {
-							// Resolve each child to RB part if possible using its BL part no
-							let rbPartNum: string | undefined;
-							try {
-								const childResolved = await resolvePartIdToRebrickable(s.item.no, { bricklinkId: s.item.no });
-								rbPartNum = childResolved?.partNum ?? undefined;
-							} catch {}
-							return {
-								blPartNo: s.item.no,
-								name: s.item.name,
-								imageUrl: s.item.image_url,
-								quantity: s.quantity,
-								blColorId: s.color_id,
-								blColorName: s.color_name,
-								rbPartNum,
-							};
-						})
-					);
-				}
-			} catch {
-				// ignore subsets failures
-			}
-		}
+		// No component list
 		// Determine available colors for the chosen part to auto-select if only one
 		let availableColors: PartAvailableColor[] = [];
 		try {
@@ -269,11 +258,6 @@ export async function POST(req: NextRequest) {
 		// Prefer the sole available RB color (if any), then explicit hint, then the candidate-provided color
 		let chosenColorId = (availableColors.length === 1 ? availableColors[0]!.id : undefined) ?? colorHint ?? chosen.colorId;
 		let sets: PartInSet[] = await fetchCandidateSets(chosen.partNum, chosenColorId);
-		if (process.env.NODE_ENV !== 'production') {
-			try {
-				console.log('identify: chosen', { partNum: chosen.partNum, colors: availableColors.length, chosenColorId, sets: sets.length });
-			} catch {}
-		}
 		if (!sets.length && valid.length > 1) {
 			for (let i = 1; i < Math.min(valid.length, 5); i++) {
 				const cand = valid[i]!;
@@ -292,10 +276,159 @@ export async function POST(req: NextRequest) {
 				if (b.quantity !== a.quantity) return b.quantity - a.quantity;
 				return b.year - a.year;
 			});
-		} else if (process.env.NODE_ENV !== 'production') {
-			console.log('identify: no sets found for candidates', {
-				tried: valid.slice(0, 5).map(v => v.partNum),
-			});
+		} else {
+			if (process.env.NODE_ENV !== 'production') {
+				try {
+					console.log('identify: no RB sets found across candidates', {
+						tried: valid.slice(0, 5).map(v => v.partNum),
+					});
+				} catch {}
+			}
+			// Fallback to BL supersets for the best BL-backed original candidate
+			const blCand = candidates.find(c => (c as any).bricklinkId) as any;
+			if (blCand && blCand.bricklinkId) {
+				let setsFromBL: Array<{ setNumber: string; name: string; year: number; imageUrl: string | null; quantity: number }> = [];
+				let partImage: string | null = chosen.imageUrl ?? null;
+				let partName: string = chosen.name ?? '';
+				try {
+					const supersets: BLSupersetItem[] = await blGetPartSupersets(blCand.bricklinkId);
+					if (Array.isArray(supersets) && supersets.length > 0) {
+						setsFromBL = supersets.map(s => ({
+							setNumber: s.setNumber,
+							name: s.name,
+							year: 0,
+							imageUrl: s.imageUrl,
+							quantity: s.quantity,
+						}));
+					} else {
+						// Try supersets by color variants as a fallback
+						try {
+							const colors = await blGetPartColors(blCand.bricklinkId);
+							for (const c of (colors ?? []).slice(0, 10)) {
+								if (typeof c?.color_id !== 'number') continue;
+								if (process.env.NODE_ENV !== 'production') {
+									try {
+										console.log('identify: BL supersets by color', {
+											bl: blCand.bricklinkId,
+											colorId: c.color_id,
+											colorName: c.color_name ?? null,
+										});
+									} catch {}
+								}
+								const supByColor = await blGetPartSupersets(blCand.bricklinkId, c.color_id);
+								for (const s of supByColor) {
+									setsFromBL.push({
+										setNumber: s.setNumber,
+										name: s.name,
+										year: 0,
+										imageUrl: s.imageUrl,
+										quantity: s.quantity,
+									});
+								}
+								if (setsFromBL.length >= 50) break;
+							}
+							if (setsFromBL.length === 0) {
+								try {
+									const subs = await blGetPartSubsets(blCand.bricklinkId);
+									const uniq = new Map<number, string | undefined>();
+									for (const s of subs ?? []) {
+										if (typeof s?.color_id === 'number') {
+											if (!uniq.has(s.color_id)) uniq.set(s.color_id, s.color_name);
+										}
+									}
+									for (const [cid] of uniq) {
+										if (process.env.NODE_ENV !== 'production') {
+											try {
+												console.log('identify: BL supersets by inferred subset color', {
+													bl: blCand.bricklinkId,
+													colorId: cid,
+												});
+											} catch {}
+										}
+										const supByColor = await blGetPartSupersets(blCand.bricklinkId, cid);
+										for (const s of supByColor) {
+											setsFromBL.push({
+												setNumber: s.setNumber,
+												name: s.name,
+												year: 0,
+												imageUrl: s.imageUrl,
+												quantity: s.quantity,
+											});
+										}
+										if (setsFromBL.length >= 50) break;
+									}
+								} catch {}
+							}
+							// Deduplicate
+							if (setsFromBL.length) {
+								const seen = new Set<string>();
+								setsFromBL = setsFromBL.filter(s => {
+									if (seen.has(s.setNumber)) return false;
+									seen.add(s.setNumber);
+									return true;
+								});
+							}
+						} catch {}
+					}
+				} catch {}
+				try {
+					const meta = await blGetPart(blCand.bricklinkId);
+					partName = meta?.name ?? partName;
+					partImage = (meta as any)?.image_url ?? partImage;
+				} catch {}
+				let blAvailableColors: Array<{ id: number; name: string }> = [];
+				try {
+					const cols = await blGetPartColors(blCand.bricklinkId);
+					blAvailableColors = (cols ?? []).map(c => ({
+						id: c.color_id,
+						name: c.color_name ?? String(c.color_id),
+					}));
+				} catch {}
+				// Enrich BL-derived sets with RB images (and year) when possible
+				try {
+					const top = setsFromBL.slice(0, 20);
+					const enriched = await Promise.all(
+						top.map(async set => {
+							try {
+								const summary = await getSetSummary(set.setNumber);
+								return {
+									...set,
+									year: summary.year ?? set.year,
+									imageUrl: summary.imageUrl ?? set.imageUrl,
+								};
+							} catch {
+								return set;
+							}
+						})
+					);
+					setsFromBL = [...enriched, ...setsFromBL.slice(top.length)];
+				} catch {}
+				if (process.env.NODE_ENV !== 'production') {
+					try {
+						console.log('identify: BL fallback (RB sets empty)', {
+							blPart: blCand.bricklinkId,
+							colorCount: blAvailableColors.length,
+							setCount: setsFromBL.length,
+						});
+					} catch {}
+				}
+				return NextResponse.json({
+					part: {
+						partNum: chosen.partNum,
+						name: partName,
+						imageUrl: partImage,
+						confidence: chosen.confidence,
+						colorId: null,
+						colorName: null,
+					},
+					blPartId: blCand.bricklinkId,
+					blAvailableColors,
+					candidates: valid.slice(0, 5),
+					availableColors: [],
+					selectedColorId: null,
+					sets: setsFromBL,
+				});
+			}
 		}
 
 		return NextResponse.json({
@@ -308,17 +441,19 @@ export async function POST(req: NextRequest) {
 				colorName: chosen.colorName ?? null,
 			},
 			candidates: valid.slice(0, 5),
-			assembly: assemblyComponents,
 			availableColors,
 			selectedColorId: chosenColorId ?? null,
 			sets,
 		});
 	} catch (err) {
-		console.error('Identify failed:', {
-			error: err instanceof Error ? err.message : String(err),
-			stack: err instanceof Error ? err.stack : undefined,
-		});
-		return NextResponse.json({ error: 'identify_failed' }, { status: 500 });
+		if (process.env.NODE_ENV !== 'production') {
+			try {
+				console.log('identify failed', {
+					error: err instanceof Error ? err.message : String(err),
+				});
+			} catch {}
+		}
+		return NextResponse.json({ error: 'identify_failed' });
 	}
 }
 
