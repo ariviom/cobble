@@ -259,97 +259,103 @@ export default function IdentifyPage() {
   );
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Identify</h1>
-      <div className="mt-4">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={e => onFileChange(e.target.files?.[0] ?? null)}
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="focus:ring-primary relative block w-full max-w-xs overflow-hidden rounded-md border-2 border-dashed border-neutral-300 bg-neutral-50 hover:bg-neutral-100 focus:ring-2 focus:outline-none"
-          aria-label="Upload or take a photo"
-        >
-          <div className="aspect-square w-full">
-            {imagePreview ? (
-              <div className="h-full w-full overflow-hidden rounded bg-white">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imagePreview}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
+    <>
+      <section className="my-4">
+        <div className="mx-auto w-full max-w-5xl px-4 md:px-6 lg:px-8">
+          <h1 className="mb-4 text-2xl font-semibold">Identify</h1>
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={e => onFileChange(e.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="focus:ring-primary relative block w-full max-w-xs overflow-hidden rounded-md border-2 border-dashed border-neutral-300 bg-neutral-50 hover:bg-neutral-100 focus:ring-2 focus:outline-none"
+              aria-label="Upload or take a photo"
+            >
+              <div className="aspect-square w-full">
+                {imagePreview ? (
+                  <div className="h-full w-full overflow-hidden rounded bg-white">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imagePreview}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-neutral-500">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="h-12 w-12"
+                      aria-hidden="true"
+                    >
+                      <path d="M9 2a1 1 0 0 0-.894.553L7.382 4H5a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-2.382l-.724-1.447A1 1 0 0 0 14 2H9Zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 .002 6.002A3 3 0 0 0 12 9Z" />
+                    </svg>
+                    <div className="text-sm font-medium">
+                      Upload or take a photo
+                    </div>
+                    <div className="text-xs text-neutral-500">
+                      Supports camera on mobile
+                    </div>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-neutral-500">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="h-12 w-12"
-                  aria-hidden="true"
+            </button>
+            {selectedFile && !hasSearched && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={onSearch}
+                  disabled={isLoading}
+                  className="rounded border px-3 py-2 text-sm disabled:opacity-50"
                 >
-                  <path d="M9 2a1 1 0 0 0-.894.553L7.382 4H5a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-2.382l-.724-1.447A1 1 0 0 0 14 2H9Zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 .002 6.002A3 3 0 0 0 12 9Z" />
-                </svg>
-                <div className="text-sm font-medium">
-                  Upload or take a photo
-                </div>
-                <div className="text-xs text-neutral-500">
-                  Supports camera on mobile
-                </div>
+                  {isLoading ? 'Searching…' : 'Search'}
+                </button>
+              </div>
+            )}
+            {selectedFile && hasSearched && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={onClear}
+                  className="rounded border border-brand-red bg-brand-red px-3 py-2 text-sm font-medium text-white hover:bg-brand-red/90 focus:ring-2 focus:ring-brand-red focus:ring-offset-2 focus:outline-none"
+                >
+                  Clear Search
+                </button>
               </div>
             )}
           </div>
-        </button>
-        {selectedFile && !hasSearched && (
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={onSearch}
-              disabled={isLoading}
-              className="rounded border px-3 py-2 text-sm disabled:opacity-50"
-            >
-              {isLoading ? 'Searching…' : 'Search'}
-            </button>
-          </div>
-        )}
-        {selectedFile && hasSearched && (
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={onClear}
-              className="rounded border border-brand-red bg-brand-red px-3 py-2 text-sm font-medium text-white hover:bg-brand-red/90 focus:ring-2 focus:ring-brand-red focus:ring-offset-2 focus:outline-none"
-            >
-              Clear Search
-            </button>
-          </div>
-        )}
-      </div>
-      {isLoading && <div className="mt-4 text-sm">Processing…</div>}
-      {error && (
-        <div className="mt-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          Failed to identify image: {error}
+          {isLoading && <div className="mt-4 text-sm">Processing…</div>}
+          {error && (
+            <div className="mt-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              Failed to identify image: {error}
+            </div>
+          )}
         </div>
-      )}
+      </section>
       {part && (
-        <div className="mt-6">
-          <IdentifyResultCard
-            part={part}
-            candidates={candidates}
-            onSelectCandidate={onSelectCandidate}
-            colorOptions={colorOptions}
-            selectedColorId={selectedColorId}
-            onChangeColor={onChangeColor}
-          />
-          <IdentifySetList items={sets} />
-        </div>
+        <section className="mb-8">
+          <div className="mx-auto w-full max-w-5xl px-4 md:px-6 lg:px-8">
+            <IdentifyResultCard
+              part={part}
+              candidates={candidates}
+              onSelectCandidate={onSelectCandidate}
+              colorOptions={colorOptions}
+              selectedColorId={selectedColorId}
+              onChangeColor={onChangeColor}
+            />
+            <IdentifySetList items={sets} />
+          </div>
+        </section>
       )}
-    </div>
+    </>
   );
 }
