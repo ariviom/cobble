@@ -1,7 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { identifyWithBrickognize, extractCandidatePartNumbers } from '@/app/lib/brickognize';
-import { getSetsForPart, resolvePartIdToRebrickable, type PartInSet, getPartColorsForPart, type PartAvailableColor, getSetSummary } from '@/app/lib/rebrickable';
-import { blGetPart, blGetPartSupersets, blGetPartColors, blGetPartSubsets, type BLSupersetItem } from '@/app/lib/bricklink';
+import {
+	getSetsForPart,
+	resolvePartIdToRebrickable,
+	type PartInSet,
+	getPartColorsForPart,
+	type PartAvailableColor,
+	getSetSummary,
+	getColors,
+} from '@/app/lib/rebrickable';
+import {
+	blGetPart,
+	blGetPartSupersets,
+	blGetPartColors,
+	blGetPartSubsets,
+	type BLSupersetItem,
+	type BLColorEntry,
+} from '@/app/lib/bricklink';
+
+async function buildBlAvailableColors(
+	blPartId: string
+): Promise<Array<{ id: number; name: string }>> {
+	let cols: BLColorEntry[] = [];
+	try {
+		cols = await blGetPartColors(blPartId);
+	} catch {
+		// ignore BL colors failures; fall back to ids only
+	}
+	if (!cols.length) return [];
+
+	// Map BL color ids to human-readable names via Rebrickable colors (cached in getColors()).
+	const nameByBlId = new Map<number, string>();
+	try {
+		const rbColors = await getColors();
+		for (const c of rbColors) {
+			const bl = (c.external_ids as { BrickLink?: { ext_ids?: number[] } } | undefined)
+				?.BrickLink;
+			const ids: number[] | undefined = Array.isArray(bl?.ext_ids) ? bl.ext_ids : undefined;
+			if (!ids) continue;
+			for (const blId of ids) {
+				if (!nameByBlId.has(blId)) {
+					nameByBlId.set(blId, c.name);
+				}
+			}
+		}
+	} catch {
+		// ignore RB color mapping failures; we'll fall back to ids
+	}
+
+	return cols.map(c => ({
+		id: c.color_id,
+		name: nameByBlId.get(c.color_id) ?? String(c.color_id),
+	}));
+}
 
 export async function POST(req: NextRequest) {
 	try {
@@ -184,11 +235,7 @@ export async function POST(req: NextRequest) {
 				// Include available BL colors for UI dropdown
 				let blAvailableColors: Array<{ id: number; name: string }> = [];
 				try {
-					const cols = await blGetPartColors(blId);
-					blAvailableColors = (cols ?? []).map(c => ({
-						id: c.color_id,
-						name: c.color_name ?? String(c.color_id),
-					}));
+					blAvailableColors = await buildBlAvailableColors(blId);
 				} catch {}
 				// If still no sets from BL paths, fall back to RB resolution for this BL id
 				// Enrich BL-derived sets with RB images (and year) when possible
@@ -398,11 +445,7 @@ export async function POST(req: NextRequest) {
 				} catch {}
 				let blAvailableColors: Array<{ id: number; name: string }> = [];
 				try {
-					const cols = await blGetPartColors(blId);
-					blAvailableColors = (cols ?? []).map(c => ({
-						id: c.color_id,
-						name: c.color_name ?? String(c.color_id),
-					}));
+					blAvailableColors = await buildBlAvailableColors(blId);
 				} catch {}
 				// Enrich BL-derived sets with RB images (and year) when possible
 				try {
