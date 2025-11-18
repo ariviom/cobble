@@ -36,29 +36,26 @@ type PersistedShape = {
   showOtherSets: boolean;
 };
 
-function loadInitialState(): Pick<
+type PersistedSubset = Pick<
   PinnedState,
   'pinned' | 'meta' | 'autoUnpin' | 'showOtherSets'
-> {
-  if (typeof window === 'undefined') {
-    return {
-      pinned: {},
-      meta: {},
-      autoUnpin: false,
-      showOtherSets: false,
-    };
+>;
+
+function createEmptyPersistedState(): PersistedSubset {
+  return {
+    pinned: {},
+    meta: {},
+    autoUnpin: false,
+    showOtherSets: false,
+  };
+}
+
+function parsePersisted(raw: string | null): PersistedSubset {
+  if (!raw) {
+    return createEmptyPersistedState();
   }
 
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return {
-        pinned: {},
-        meta: {},
-        autoUnpin: false,
-        showOtherSets: false,
-      };
-    }
     const parsed = JSON.parse(raw) as Partial<PersistedShape>;
 
     const pinned: Record<string, Record<string, true>> = {};
@@ -105,12 +102,23 @@ function loadInitialState(): Pick<
       showOtherSets,
     };
   } catch {
-    return {
-      pinned: {},
-      meta: {},
-      autoUnpin: false,
-      showOtherSets: false,
-    };
+    return createEmptyPersistedState();
+  }
+}
+
+function loadInitialState(): Pick<
+  PinnedState,
+  'pinned' | 'meta' | 'autoUnpin' | 'showOtherSets'
+> {
+  if (typeof window === 'undefined') {
+    return createEmptyPersistedState();
+  }
+
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return parsePersisted(raw);
+  } catch {
+    return createEmptyPersistedState();
   }
 }
 
@@ -245,5 +253,19 @@ export const usePinnedStore = create<PinnedState>((set, get) => ({
     persistState(nextState);
   },
 }));
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', event => {
+    if (event.key !== STORAGE_KEY) return;
+    const next = parsePersisted(event.newValue);
+    usePinnedStore.setState(state => ({
+      ...state,
+      pinned: next.pinned,
+      meta: next.meta,
+      autoUnpin: next.autoUnpin,
+      showOtherSets: next.showOtherSets,
+    }));
+  });
+}
 
 
