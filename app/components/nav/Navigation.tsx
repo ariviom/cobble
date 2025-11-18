@@ -3,6 +3,7 @@
 import { NavLinkItem } from '@/app/components/nav/NavLinkItem';
 import { cn } from '@/app/components/ui/utils';
 import { Camera, Home, Package, Search, User } from 'lucide-react';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export type NavigationTab = 'home' | 'search' | 'sets' | 'identify' | 'profile';
@@ -46,7 +47,7 @@ export function Navigation({
       <div className="relative flex h-nav-height w-full items-center px-2 lg:px-6">
         <div className="relative flex w-full items-center justify-around gap-x-2 lg:justify-center">
           {/* Desktop brand (hidden on mobile) */}
-          <a
+          <Link
             href="/"
             className="hidden items-center gap-3 lg:absolute lg:top-1/2 lg:left-0 lg:flex lg:-translate-y-1/2"
           >
@@ -54,7 +55,7 @@ export function Navigation({
               <Package className="h-5 w-5" />
             </div>
             <h1 className="text-lg font-bold">Cobble</h1>
-          </a>
+          </Link>
           <NavLinkItem
             className="lg:hidden"
             icon={<Home className="h-5 w-5" />}
