@@ -2,6 +2,7 @@
 
 import { useInventory } from '@/app/hooks/useInventory';
 import { useOwnedStore } from '@/app/store/owned';
+import { usePinnedStore } from '@/app/store/pinned';
 import { useEffect, useMemo, useState } from 'react';
 import {
   clampOwned,
@@ -17,6 +18,7 @@ type SortKey = 'name' | 'color' | 'size' | 'category';
 
 export function InventoryTable({
   setNumber,
+  setName,
 }: {
   setNumber: string;
   setName?: string;
@@ -38,6 +40,7 @@ export function InventoryTable({
   // removed legacy top dropdown state
 
   const ownedStore = useOwnedStore();
+  const pinnedStore = usePinnedStore();
   // Subscribe to version changes to trigger re-renders when owned quantities change
   useOwnedStore(state => state._version);
 
@@ -267,6 +270,8 @@ export function InventoryTable({
   return (
     <div className="relative inset-0 pb-2 lg:pl-80">
       <InventoryControls
+        setNumber={setNumber}
+        setName={setName}
         view={view}
         onChangeView={v => setView(v)}
         itemSize={itemSize}
@@ -328,12 +333,24 @@ export function InventoryTable({
                     owned={owned}
                     missing={missing}
                     onOwnedChange={next => {
-                      ownedStore.setOwned(
+                      const clamped = clampOwned(next, r.quantityRequired);
+                      ownedStore.setOwned(setNumber, key, clamped);
+                      if (
+                        pinnedStore.autoUnpin &&
+                        pinnedStore.isPinned(setNumber, key) &&
+                        computeMissing(r.quantityRequired, clamped) === 0
+                      ) {
+                        pinnedStore.setPinned(setNumber, key, false);
+                      }
+                    }}
+                    isPinned={pinnedStore.isPinned(setNumber, key)}
+                    onTogglePinned={() =>
+                      pinnedStore.togglePinned({
                         setNumber,
                         key,
-                        clampOwned(next, r.quantityRequired)
-                      );
-                    }}
+                        setName,
+                      })
+                    }
                   />
                 );
               })}
@@ -376,12 +393,28 @@ export function InventoryTable({
                             owned={owned}
                             missing={missing}
                             onOwnedChange={next => {
-                              ownedStore.setOwned(
+                              const clamped = clampOwned(
+                                next,
+                                r.quantityRequired
+                              );
+                              ownedStore.setOwned(setNumber, key, clamped);
+                              if (
+                                pinnedStore.autoUnpin &&
+                                pinnedStore.isPinned(setNumber, key) &&
+                                computeMissing(r.quantityRequired, clamped) ===
+                                  0
+                              ) {
+                                pinnedStore.setPinned(setNumber, key, false);
+                              }
+                            }}
+                            isPinned={pinnedStore.isPinned(setNumber, key)}
+                            onTogglePinned={() =>
+                              pinnedStore.togglePinned({
                                 setNumber,
                                 key,
-                                clampOwned(next, r.quantityRequired)
-                              );
-                            }}
+                                setName,
+                              })
+                            }
                           />
                         );
                       })}

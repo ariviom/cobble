@@ -29,7 +29,7 @@ export function SidebarColorPanel({
                 key={c}
                 selected={selected}
                 onClick={() => onToggleColor(c)}
-                className="h-10 border-b border-foreground-accent"
+                className="border-b border-foreground-accent"
               >
                 <RowCheckbox checked={selected} />
                 <span>{formatColorLabel(c)}</span>
@@ -40,10 +40,10 @@ export function SidebarColorPanel({
       </DropdownSection>
       {(selectedColors?.length || 0) > 0 && (
         <DropdownSection label="">
-          <div className="flex w-full justify-center border-b border-neutral-300 px-3 py-2">
+          <div className="flex w-full justify-center border-b border-neutral-300">
             <button
               type="button"
-              className="w-32 rounded border border-foreground-accent bg-neutral-00 px-2 py-1 text-xs hover:bg-neutral-100"
+              className="h-full w-full cursor-pointer py-4 hover:bg-neutral-100"
               onClick={onClear}
             >
               Clear All

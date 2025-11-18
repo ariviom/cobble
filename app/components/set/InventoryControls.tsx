@@ -20,6 +20,8 @@ import type {
 } from './types';
 
 type Props = {
+  setNumber: string;
+  setName?: string;
   view: ViewType;
   onChangeView: (v: ViewType) => void;
   itemSize: ItemSize;
@@ -40,6 +42,8 @@ type Props = {
 };
 
 export function InventoryControls({
+  setNumber,
+  setName,
   view,
   onChangeView,
   itemSize,
@@ -93,6 +97,20 @@ export function InventoryControls({
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
+
+  // When the pinned panel is open, prevent scrolling on the root to make it feel modal-like
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    const isPinnedOpen = openDropdownId === 'pinned';
+    const prevOverflow = root.style.overflow;
+    if (isPinnedOpen) {
+      root.style.overflow = 'hidden';
+    }
+    return () => {
+      root.style.overflow = prevOverflow;
+    };
+  }, [openDropdownId]);
 
   const handleDropdownToggle = (id: string) => {
     if (isDesktop && (id === 'parent' || id === 'color')) {
@@ -148,9 +166,11 @@ export function InventoryControls({
   return (
     <div
       ref={containerRef}
-      className="fixed top-topnav-height z-50 no-scrollbar flex h-controls-height w-full max-w-screen flex-nowrap items-center gap-2 overflow-x-auto border-b border-neutral-300 bg-neutral-50 px-2 lg:top-filter-offset lg:overflow-visible"
+      className="fixed top-topnav-height z-50 flex h-controls-height w-full max-w-screen flex-nowrap items-center gap-2 overflow-x-auto border-b border-neutral-300 bg-neutral-50 px-2 no-scrollbar lg:top-filter-offset lg:overflow-visible"
     >
       <TopBarControls
+        setNumber={setNumber}
+        setName={setName}
         view={view}
         onChangeView={onChangeView}
         itemSize={itemSize}

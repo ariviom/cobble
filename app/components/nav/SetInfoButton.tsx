@@ -23,7 +23,9 @@ export function SetInfoButton({ setNumber, setName, imageUrl }: Props) {
   const ownedStore = useOwnedStore();
 
   return (
-    <div className="relative h-topnav-height w-full">
+    <div
+      className={`relative h-topnav-height w-full ${open ? 'expanded-topnav' : ''}`}
+    >
       <button
         type="button"
         onClick={() => setOpen(o => !o)}

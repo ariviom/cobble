@@ -23,7 +23,7 @@ export function RecentlyViewedSets() {
   }, []);
   return (
     <section className="mb-8">
-      <div className="mx-auto w-full max-w-5xl px-4 md:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl">
         {items.length > 0 ? (
           <div className="my-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Recently viewed sets</h2>

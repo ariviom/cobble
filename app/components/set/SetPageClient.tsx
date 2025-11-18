@@ -29,7 +29,7 @@ export function SetPageClient({
     });
   }, [setNumber, setName, year, imageUrl, numParts]);
 
-  return <InventoryTable setNumber={setNumber} />;
+  return <InventoryTable setNumber={setNumber} setName={setName} />;
 }
 
 

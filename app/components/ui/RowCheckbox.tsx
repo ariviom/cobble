@@ -37,7 +37,10 @@ export const RowCheckbox = forwardRef<HTMLInputElement, Props>(
         aria-hidden="true"
         readOnly
         tabIndex={tabIndex ?? -1}
-        className={cn('size-5 border-neutral-300', className)}
+        className={cn(
+          'size-5 border-neutral-300 accent-theme-primary',
+          className
+        )}
         {...rest}
       />
     );

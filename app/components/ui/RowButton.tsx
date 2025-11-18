@@ -4,15 +4,16 @@ import { cn } from '@/app/components/ui/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 const rowButtonVariants = cva(
-  'flex w-full h-full items-center bg-background px-3 text-left text-foreground hover:bg-neutral-100 selected:bg-blue-50 selected:text-blue-700 cursor-pointer',
+  'flex w-full h-full items-center bg-background px-3 text-left text-foreground hover:bg-neutral-100 selected:bg-theme-primary/10 selected:text-theme-primary cursor-pointer',
   {
     variants: {
       size: {
         sm: 'gap-3 py-2 text-sm',
+        md: 'gap-3 py-4 text-base',
       },
     },
     defaultVariants: {
-      size: 'sm',
+      size: 'md',
     },
   }
 );

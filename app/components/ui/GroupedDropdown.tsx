@@ -25,7 +25,7 @@ export type DropdownTriggerProps = {
 };
 
 const triggerVariants = cva(
-  'min-w-fit rounded-lg border border-foreground-accent bg-neutral-00 px-3 py-1.5 text-sm',
+  'min-w-fit rounded-lg border border-foreground-accent bg-neutral-00 px-3 py-1.5 text-sm cursor-pointer',
   {
     variants: {
       variant: {
@@ -148,7 +148,7 @@ export function DropdownSection({
           {label}
         </div>
       )}
-      <div>{children}</div>
+      {children}
     </div>
   );
 }

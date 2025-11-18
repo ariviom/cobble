@@ -44,7 +44,7 @@ export function Navigation({
         className
       )}
     >
-      <div className="relative flex h-nav-height w-full items-center px-2 lg:px-6">
+      <div className="relative flex h-nav-height w-full items-center px-2">
         <div className="relative flex w-full items-center justify-around gap-x-2 lg:justify-center">
           {/* Desktop brand (hidden on mobile) */}
           <Link

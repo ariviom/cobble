@@ -35,7 +35,7 @@ export function SearchBar() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl">
+    <div className="mx-auto w-full max-w-3xl">
       <label
         className="mb-2 block text-sm font-medium text-foreground"
         htmlFor="global-search"

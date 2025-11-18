@@ -1,0 +1,249 @@
+'use client';
+
+import { create } from 'zustand';
+
+export type PinnedMeta = {
+  setNumber: string;
+  setName?: string;
+};
+
+type PinnedState = {
+  pinned: Record<string, Record<string, true>>; // setNumber -> { pieceKey: true }
+  meta: Record<string, PinnedMeta>;
+  autoUnpin: boolean;
+  showOtherSets: boolean;
+  togglePinned: (args: { setNumber: string; key: string; setName?: string }) => void;
+  setPinned: (
+    setNumber: string,
+    key: string,
+    value: boolean,
+    setName?: string
+  ) => void;
+  isPinned: (setNumber: string, key: string) => boolean;
+  getPinnedKeysForSet: (setNumber: string) => string[];
+  getPinnedSets: () => string[];
+  getMetaForSet: (setNumber: string) => PinnedMeta | undefined;
+  setAutoUnpin: (value: boolean) => void;
+  setShowOtherSets: (value: boolean) => void;
+};
+
+const STORAGE_KEY = 'cobble_pinned_v1';
+
+type PersistedShape = {
+  pinned: Record<string, string[]>; // setNumber -> piece keys
+  meta: Record<string, PinnedMeta>;
+  autoUnpin: boolean;
+  showOtherSets: boolean;
+};
+
+function loadInitialState(): Pick<
+  PinnedState,
+  'pinned' | 'meta' | 'autoUnpin' | 'showOtherSets'
+> {
+  if (typeof window === 'undefined') {
+    return {
+      pinned: {},
+      meta: {},
+      autoUnpin: false,
+      showOtherSets: false,
+    };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return {
+        pinned: {},
+        meta: {},
+        autoUnpin: false,
+        showOtherSets: false,
+      };
+    }
+    const parsed = JSON.parse(raw) as Partial<PersistedShape>;
+
+    const pinned: Record<string, Record<string, true>> = {};
+    if (parsed.pinned && typeof parsed.pinned === 'object') {
+      for (const [setNumber, keys] of Object.entries(parsed.pinned)) {
+        if (!Array.isArray(keys)) continue;
+        const map: Record<string, true> = {};
+        for (const key of keys) {
+          if (typeof key === 'string' && key.length > 0) {
+            map[key] = true;
+          }
+        }
+        if (Object.keys(map).length > 0) {
+          pinned[setNumber] = map;
+        }
+      }
+    }
+
+    const meta: Record<string, PinnedMeta> = {};
+    if (parsed.meta && typeof parsed.meta === 'object') {
+      for (const [setNumber, value] of Object.entries(parsed.meta)) {
+        if (!value || typeof value !== 'object') continue;
+        const m = value as Partial<PinnedMeta>;
+        if (!m.setNumber || typeof m.setNumber !== 'string') continue;
+        meta[setNumber] = {
+          setNumber: m.setNumber,
+          setName:
+            typeof m.setName === 'string' && m.setName.length > 0
+              ? m.setName
+              : undefined,
+        };
+      }
+    }
+
+    const autoUnpin =
+      typeof parsed.autoUnpin === 'boolean' ? parsed.autoUnpin : false;
+    const showOtherSets =
+      typeof parsed.showOtherSets === 'boolean' ? parsed.showOtherSets : false;
+
+    return {
+      pinned,
+      meta,
+      autoUnpin,
+      showOtherSets,
+    };
+  } catch {
+    return {
+      pinned: {},
+      meta: {},
+      autoUnpin: false,
+      showOtherSets: false,
+    };
+  }
+}
+
+function persistState(state: PinnedState): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const payload: PersistedShape = {
+      pinned: {},
+      meta: state.meta,
+      autoUnpin: state.autoUnpin,
+      showOtherSets: state.showOtherSets,
+    };
+
+    for (const [setNumber, keysMap] of Object.entries(state.pinned)) {
+      const keys = Object.keys(keysMap);
+      if (keys.length > 0) {
+        payload.pinned[setNumber] = keys;
+      }
+    }
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore persistence errors
+  }
+}
+
+export const usePinnedStore = create<PinnedState>((set, get) => ({
+  ...loadInitialState(),
+  togglePinned: ({ setNumber, key, setName }) => {
+    const { pinned, meta } = get();
+    const existingForSet = pinned[setNumber] ?? {};
+    const isCurrentlyPinned = !!existingForSet[key];
+
+    const nextForSet = { ...existingForSet };
+    if (isCurrentlyPinned) {
+      delete nextForSet[key];
+    } else {
+      nextForSet[key] = true;
+    }
+
+    const nextPinned = { ...pinned };
+    if (Object.keys(nextForSet).length === 0) {
+      delete nextPinned[setNumber];
+    } else {
+      nextPinned[setNumber] = nextForSet;
+    }
+
+    const nextMeta: Record<string, PinnedMeta> = { ...meta };
+    if (!isCurrentlyPinned) {
+      // only update meta when pinning, not when unpinning
+      nextMeta[setNumber] = {
+        setNumber,
+        setName: setName ?? meta[setNumber]?.setName,
+      };
+    } else if (!nextPinned[setNumber]) {
+      // clean up meta when no pins remain for this set
+      delete nextMeta[setNumber];
+    }
+
+    const nextState: PinnedState = {
+      ...get(),
+      pinned: nextPinned,
+      meta: nextMeta,
+    };
+    set(nextState);
+    persistState(nextState);
+  },
+  setPinned: (setNumber, key, value, setName) => {
+    const { pinned, meta } = get();
+    const existingForSet = pinned[setNumber] ?? {};
+    const nextForSet = { ...existingForSet };
+
+    if (value) {
+      nextForSet[key] = true;
+    } else {
+      delete nextForSet[key];
+    }
+
+    const nextPinned = { ...pinned };
+    if (Object.keys(nextForSet).length === 0) {
+      delete nextPinned[setNumber];
+    } else {
+      nextPinned[setNumber] = nextForSet;
+    }
+
+    const nextMeta: Record<string, PinnedMeta> = { ...meta };
+    if (value) {
+      nextMeta[setNumber] = {
+        setNumber,
+        setName: setName ?? meta[setNumber]?.setName,
+      };
+    } else if (!nextPinned[setNumber]) {
+      delete nextMeta[setNumber];
+    }
+
+    const nextState: PinnedState = {
+      ...get(),
+      pinned: nextPinned,
+      meta: nextMeta,
+    };
+    set(nextState);
+    persistState(nextState);
+  },
+  isPinned: (setNumber, key) => {
+    const map = get().pinned[setNumber];
+    return !!map && !!map[key];
+  },
+  getPinnedKeysForSet: (setNumber: string) => {
+    const map = get().pinned[setNumber];
+    return map ? Object.keys(map) : [];
+  },
+  getPinnedSets: () => {
+    return Object.keys(get().pinned);
+  },
+  getMetaForSet: (setNumber: string) => {
+    return get().meta[setNumber];
+  },
+  setAutoUnpin: (value: boolean) => {
+    const nextState: PinnedState = {
+      ...get(),
+      autoUnpin: value,
+    };
+    set(nextState);
+    persistState(nextState);
+  },
+  setShowOtherSets: (value: boolean) => {
+    const nextState: PinnedState = {
+      ...get(),
+      showOtherSets: value,
+    };
+    set(nextState);
+    persistState(nextState);
+  },
+}));
+
+

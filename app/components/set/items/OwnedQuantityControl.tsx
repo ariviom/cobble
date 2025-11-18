@@ -75,9 +75,6 @@ export function OwnedQuantityControl({
           max={required}
           step={1}
         />
-        {/* <span className="pointer-events-none absolute top-1/2 right-[calc(50%+5px)] translate-x-full -translate-y-1/2 pl-1 font-bold whitespace-nowrap tabular-nums">
-          / {required}
-        </span> */}
       </div>
       <Button
         onClick={() => onChange(clampOwned(owned + 1, required))}

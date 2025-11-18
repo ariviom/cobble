@@ -1,5 +1,6 @@
 'use client';
 
+import { Pin } from 'lucide-react';
 import type { InventoryRow } from '../types';
 import { OwnedQuantityControl } from './OwnedQuantityControl';
 
@@ -8,9 +9,17 @@ type Props = {
   owned: number;
   missing: number;
   onOwnedChange: (next: number) => void;
+  isPinned?: boolean;
+  onTogglePinned?: () => void;
 };
 
-export function InventoryItem({ row, owned, onOwnedChange }: Props) {
+export function InventoryItem({
+  row,
+  owned,
+  onOwnedChange,
+  isPinned,
+  onTogglePinned,
+}: Props) {
   const isMinifig = row.parentCategory === 'Minifigure';
   const isFigId =
     typeof row.partId === 'string' && row.partId.startsWith('fig:');
@@ -20,7 +29,26 @@ export function InventoryItem({ row, owned, onOwnedChange }: Props) {
     typeof displayId === 'string' &&
     !displayId.startsWith('unknown-');
   return (
-    <div className="flex w-full justify-start gap-6 rounded-lg border border-neutral-200 bg-white p-4 dark:bg-background grid:flex-col">
+    <div className="relative flex w-full justify-start gap-6 rounded-lg border border-neutral-200 bg-white p-4 dark:bg-background grid:flex-col">
+      {onTogglePinned ? (
+        <button
+          type="button"
+          aria-label={isPinned ? 'Unpin piece' : 'Pin piece'}
+          aria-pressed={isPinned ? 'true' : 'false'}
+          className={`absolute top-3 right-4 z-10 inline-flex size-9 cursor-pointer items-center justify-center rounded-full border text-xs ${
+            isPinned
+              ? 'border-brand-blue bg-brand-blue/10 text-brand-blue'
+              : 'border-neutral-300 bg-background text-neutral-500 hover:bg-neutral-100'
+          }`}
+          onClick={event => {
+            event.stopPropagation();
+            onTogglePinned();
+          }}
+        >
+          <div className="absolute top-1/2 left-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 pointer-fine:hidden"></div>
+          <Pin size={18} />
+        </button>
+      ) : null}
       <div
         className={`relative grow-0 justify-center rounded-lg list:flex list:items-center grid:w-full list:item-sm:h-16 list:item-sm:w-16 list:item-md:h-24 list:item-md:w-24 list:item-lg:h-36 list:item-lg:w-36`}
       >
@@ -64,7 +92,7 @@ export function InventoryItem({ row, owned, onOwnedChange }: Props) {
         </div>
       </div>
       <div className="flex h-full w-full flex-col justify-between gap-x-6 gap-y-3 sm:flex-row sm:items-center grid:flex-col">
-        <div className="h-full">
+        <div className="h-full list:pr-12 lg:list:pr-0">
           <p className="line-clamp-1 w-full overflow-hidden font-medium lg:line-clamp-2">
             {row.partName}
           </p>
@@ -81,7 +109,7 @@ export function InventoryItem({ row, owned, onOwnedChange }: Props) {
           </p>
         </div>
         <div className="w-full sm:list:w-auto">
-          <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36">
+          <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36 lg:list:pt-6">
             <p className="text-foreground-muted">
               {owned}/{row.quantityRequired}
             </p>

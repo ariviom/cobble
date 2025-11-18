@@ -1,18 +1,16 @@
 'use client';
 
-import {
-  DropdownSection,
-} from '@/app/components/ui/GroupedDropdown';
+import { DropdownSection } from '@/app/components/ui/GroupedDropdown';
 import { RowButton } from '@/app/components/ui/RowButton';
 import { RowCheckbox } from '@/app/components/ui/RowCheckbox';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import type { InventoryFilter } from '../types';
 import {
+  clearParentSubcategories,
   getParentState,
   toggleParent,
   toggleSubcategory,
-  clearParentSubcategories,
 } from './categoryFilterHelpers';
 
 type Props = {
@@ -54,7 +52,7 @@ export function SidebarCategoryPanel({
           return (
             <div
               key={parent}
-              className="relative flex h-10 border-b border-foreground-accent"
+              className="relative flex border-b border-foreground-accent"
             >
               <RowButton
                 selected={selected}
@@ -91,10 +89,10 @@ export function SidebarCategoryPanel({
           );
         })}
         {(filter.parents?.length || 0) > 0 ? (
-          <div className="flex w-full justify-center border-b border-neutral-300 px-3 py-2">
+          <div className="flex w-full justify-center border-b border-neutral-300">
             <button
               type="button"
-              className="w-32 rounded border border-foreground-accent bg-neutral-00 px-2 py-1 text-xs hover:bg-neutral-100"
+              className="h-full w-full cursor-pointer py-4 hover:bg-neutral-100"
               onClick={() =>
                 onChangeFilter({
                   ...filter,
@@ -127,7 +125,9 @@ export function SidebarCategoryPanel({
       <DropdownSection>
         <div>
           {(subcategoriesByParent[activeParent] ?? []).map(sub => {
-            const parentSelected = (filter.parents || []).includes(activeParent);
+            const parentSelected = (filter.parents || []).includes(
+              activeParent
+            );
             const explicit = filter.subcategoriesByParent?.[activeParent];
             const isEffectivelySelected =
               parentSelected &&
@@ -146,10 +146,10 @@ export function SidebarCategoryPanel({
               </RowButton>
             );
           })}
-          <div className="flex w-full justify-center border-b border-neutral-300 px-3 py-2">
+          <div className="flex w-full justify-center border-b border-neutral-300">
             <button
               type="button"
-              className="w-32 rounded border border-foreground-accent bg-neutral-00 px-2 py-1 text-xs hover:bg-neutral-100"
+              className="h-full w-full cursor-pointer py-4 hover:bg-neutral-100"
               onClick={() => {
                 if (!activeParent) return;
                 onChangeFilter(clearParentSubcategories(filter, activeParent));
