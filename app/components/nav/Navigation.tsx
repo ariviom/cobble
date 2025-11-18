@@ -3,6 +3,7 @@
 import { NavLinkItem } from '@/app/components/nav/NavLinkItem';
 import { cn } from '@/app/components/ui/utils';
 import { Camera, Home, Package, Search, User } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 export type NavigationTab = 'home' | 'search' | 'sets' | 'identify' | 'profile';
 
@@ -14,9 +15,23 @@ export type NavigationProps = {
 
 export function Navigation({
   className,
-  activeTab = 'home',
+  activeTab,
   onTabChange,
 }: NavigationProps) {
+  const pathname = usePathname() ?? '/';
+
+  const inferredTab: NavigationTab = (() => {
+    if (pathname === '/' || pathname.startsWith('/?')) return 'home';
+    if (pathname.startsWith('/search')) return 'search';
+    if (pathname.startsWith('/identify')) return 'identify';
+    if (pathname.startsWith('/sets') || pathname.startsWith('/set/'))
+      return 'sets';
+    if (pathname.startsWith('/account')) return 'profile';
+    return 'home';
+  })();
+
+  const currentTab: NavigationTab = activeTab ?? inferredTab;
+
   const handleTabClick = (tab: NavigationTab) => () => {
     onTabChange?.(tab);
   };
@@ -31,18 +46,22 @@ export function Navigation({
       <div className="relative flex h-nav-height w-full items-center px-2 lg:px-6">
         <div className="relative flex w-full items-center justify-around gap-x-2 lg:justify-center">
           {/* Desktop brand (hidden on mobile) */}
-          <div className="hidden items-center gap-3 lg:absolute lg:top-1/2 lg:left-0 lg:flex lg:-translate-y-1/2">
+          <a
+            href="/"
+            className="hidden items-center gap-3 lg:absolute lg:top-1/2 lg:left-0 lg:flex lg:-translate-y-1/2"
+          >
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-900 text-neutral-00">
               <Package className="h-5 w-5" />
             </div>
             <h1 className="text-lg font-bold">Cobble</h1>
-          </div>
+          </a>
           <NavLinkItem
+            className="lg:hidden"
             icon={<Home className="h-5 w-5" />}
             ariaLabel="Home"
             labelMobile="Home"
             href="/"
-            active={activeTab === 'home'}
+            active={currentTab === 'home'}
             onClick={handleTabClick('home')}
           />
           <NavLinkItem
@@ -50,7 +69,7 @@ export function Navigation({
             ariaLabel="Sets"
             labelMobile="Sets"
             href="/sets"
-            active={activeTab === 'sets'}
+            active={currentTab === 'sets'}
             onClick={handleTabClick('sets')}
           />
           <NavLinkItem
@@ -58,7 +77,7 @@ export function Navigation({
             ariaLabel="Search"
             labelMobile="Search"
             href="/search"
-            active={activeTab === 'search'}
+            active={currentTab === 'search'}
             onClick={handleTabClick('search')}
           />
           <NavLinkItem
@@ -66,7 +85,7 @@ export function Navigation({
             ariaLabel="Identify"
             labelMobile="Identify"
             href="/identify"
-            active={activeTab === 'identify'}
+            active={currentTab === 'identify'}
             onClick={handleTabClick('identify')}
           />
           <NavLinkItem
@@ -75,7 +94,7 @@ export function Navigation({
             labelMobile="Profile"
             labelDesktop="Account"
             href="/account"
-            active={activeTab === 'profile'}
+            active={currentTab === 'profile'}
             onClick={handleTabClick('profile')}
             className="lg:absolute lg:top-1/2 lg:right-0 lg:-translate-y-1/2"
           />

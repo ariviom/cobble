@@ -8,7 +8,7 @@ export function SearchResultListItem({ result }: { result: SearchResult }) {
   return (
     <div className="group overflow-hidden rounded-lg border border-neutral-200 bg-white dark:bg-background">
       <Link
-        href={`/set/${encodeURIComponent(result.setNumber)}`}
+        href={`/sets/${encodeURIComponent(result.setNumber)}`}
         className="block w-full"
       >
         <div className="w-full">

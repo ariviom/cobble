@@ -45,6 +45,7 @@ export function NavLinkItem({
       <Link
         href={href}
         aria-label={ariaLabel}
+        aria-current={active ? 'page' : undefined}
         onClick={onClick}
         className={classes}
       >
@@ -57,6 +58,7 @@ export function NavLinkItem({
   return (
     <button
       aria-label={ariaLabel}
+      aria-current={active ? 'page' : undefined}
       onClick={onClick}
       className={classes}
       type="button"

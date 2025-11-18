@@ -6,7 +6,7 @@ export function IdentifySetListItem({ item }: { item: IdentifySet }) {
   return (
     <div className="group overflow-hidden rounded-lg border border-neutral-200 bg-white dark:bg-background">
       <Link
-        href={`/set/${encodeURIComponent(item.setNumber)}`}
+        href={`/sets/${encodeURIComponent(item.setNumber)}`}
         className="block w-full"
       >
         <div className="w-full">
