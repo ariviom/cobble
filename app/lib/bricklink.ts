@@ -2,7 +2,6 @@ import 'server-only';
 import crypto from 'crypto';
 
 const BL_STORE_BASE = 'https://api.bricklink.com/api/store/v1';
-const BL_CATALOG_BASE = 'https://api.bricklink.com/api/catalog/v1';
 // BrickLink Store v1 uses uppercase type segments in the URI (e.g., /items/PART/{no})
 const STORE_ITEM_TYPE_PART = 'PART';
 
@@ -58,7 +57,7 @@ function buildOAuthHeader(method: string, url: string, extraParams: Record<strin
 	const signingKey = `${rfc3986encode(consumerSecret)}&${rfc3986encode(tokenSecret)}`;
 	const signature = crypto.createHmac('sha1', signingKey).update(baseString).digest('base64');
 
-	const headerParams = {
+	const headerParams: Record<string, string> = {
 		...oauthParams,
 		oauth_signature: signature,
 	};
@@ -89,43 +88,6 @@ async function blGet<T>(path: string, params?: Record<string, string | number>):
 	if (process.env.NODE_ENV !== 'production') {
 		try {
 			console.log('BL store GET', {
-				path: url.pathname,
-				query: url.search,
-			});
-		} catch {}
-	}
-	if (!res.ok) {
-		const text = await res.text().catch(() => '');
-		throw new Error(`BrickLink ${res.status}: ${text.slice(0, 200)}`);
-	}
-	type BLResponse = { meta?: { code?: number; message?: string }; data: T };
-	const json = (await res.json()) as BLResponse;
-	if (json?.meta && json.meta.code && json.meta.code !== 200) {
-		throw new Error(`BrickLink meta ${json.meta.code}: ${json.meta.message ?? 'error'}`);
-	}
-	return json.data;
-}
-
-async function blCatalogGet<T>(path: string, params?: Record<string, string | number>): Promise<T> {
-	const url = new URL(`${BL_CATALOG_BASE}${path}`);
-	if (params) {
-		for (const [k, v] of Object.entries(params)) {
-			if (v === undefined || v === null) continue;
-			url.searchParams.set(k, String(v));
-		}
-	}
-	const authHeader = buildOAuthHeader('GET', url.origin + url.pathname, Object.fromEntries(url.searchParams.entries()));
-	const res = await fetch(url, {
-		method: 'GET',
-		headers: {
-			Authorization: authHeader,
-			Accept: 'application/json',
-		},
-		next: { revalidate: 60 * 60 },
-	});
-	if (process.env.NODE_ENV !== 'production') {
-		try {
-			console.log('BL catalog GET', {
 				path: url.pathname,
 				query: url.search,
 			});
@@ -224,13 +186,20 @@ export async function blGetPartSubsets(no: string, colorId?: number): Promise<BL
 	);
 	const raw: unknown[] = Array.isArray(data)
 		? data
-		: Array.isArray((data as any)?.entries)
-		? (data as any).entries
+		: Array.isArray((data as { entries?: unknown[] }).entries)
+		? (data as { entries?: unknown[] }).entries ?? []
 		: [];
 	const list: BLSubsetItem[] = raw
-		.flatMap((group: any) =>
-			Array.isArray(group?.entries) ? (group.entries as BLSubsetItem[]) : ([group] as BLSubsetItem[])
-		)
+		.flatMap((group) => {
+			if (
+				group &&
+				typeof group === 'object' &&
+				Array.isArray((group as { entries?: unknown[] }).entries)
+			) {
+				return (group as { entries: BLSubsetItem[] }).entries;
+			}
+			return [group as BLSubsetItem];
+		})
 		.filter(Boolean) as BLSubsetItem[];
 	if (process.env.NODE_ENV !== 'production') {
 		try {
@@ -256,27 +225,50 @@ export async function blGetPartSupersets(no: string, colorId?: number): Promise<
 	);
 	const raw: unknown[] = Array.isArray(data)
 		? data
-		: Array.isArray((data as any)?.entries)
-		? (data as any).entries
+		: Array.isArray((data as { entries?: unknown[] }).entries)
+		? (data as { entries?: unknown[] }).entries ?? []
 		: [];
 	// Each element is either a group { color_id, entries: [...] } or a direct entry.
-	const flatEntries: any[] = raw.flatMap((group: any) =>
-		Array.isArray(group?.entries) ? group.entries : [group]
-	);
+	const flatEntries: unknown[] = raw.flatMap(group => {
+		if (
+			group &&
+			typeof group === 'object' &&
+			Array.isArray((group as { entries?: unknown[] }).entries)
+		) {
+			return (group as { entries: unknown[] }).entries;
+		}
+		return [group];
+	});
 	const list: BLSupersetItem[] = flatEntries
-		.map((r: any): BLSupersetItem | null => {
-			if (!r) return null;
-			const item = r.item ?? r;
-			const setNumber = typeof item?.no === 'string' ? item.no : '';
+		.map((r): BLSupersetItem | null => {
+			if (!r || typeof r !== 'object') return null;
+			type ItemLike = {
+				no?: unknown;
+				name?: unknown;
+				image_url?: unknown;
+				quantity?: unknown;
+			};
+			const record = r as {
+				item?: ItemLike;
+				quantity?: unknown;
+			} & ItemLike;
+			const item: ItemLike = record.item ?? record;
+			const setNumber =
+				item && typeof item.no === 'string'
+					? item.no
+					: '';
 			if (!setNumber) return null;
-			const name = typeof item?.name === 'string' ? item.name : '';
+			const name =
+				item && typeof item.name === 'string'
+					? item.name
+					: '';
 			const imageUrl =
-				typeof item?.image_url === 'string' ? item.image_url : null;
+				item && typeof item.image_url === 'string' ? item.image_url : null;
 			// Supersets entries always imply at least one occurrence in a set; default missing quantity to 1.
 			const quantity =
-				typeof r.quantity === 'number'
-					? r.quantity
-					: typeof item?.quantity === 'number'
+				typeof record.quantity === 'number'
+					? record.quantity
+					: item && typeof item.quantity === 'number'
 					? item.quantity
 					: 1;
 			return { setNumber, name, imageUrl, quantity };
@@ -306,8 +298,8 @@ export async function blGetPartColors(no: string): Promise<BLColorEntry[]> {
 	let list: BLColorEntry[] = [];
 	if (Array.isArray(data)) {
 		list = data;
-	} else if (Array.isArray((data as any)?.entries)) {
-		list = (data as any).entries;
+	} else if (Array.isArray((data as { entries?: BLColorEntry[] }).entries)) {
+		list = (data as { entries: BLColorEntry[] }).entries ?? [];
 	}
 	if (process.env.NODE_ENV !== 'production') {
 		try {
@@ -327,7 +319,11 @@ export async function blGetColor(colorId: number): Promise<{ color_id: number; c
 	);
 	if (process.env.NODE_ENV !== 'production') {
 		try {
-			console.log('BL color', { colorId, name: (data as any)?.color_name ?? null });
+			console.log('BL color', {
+				colorId,
+				name:
+					typeof data.color_name === 'string' ? data.color_name : null,
+			});
 		} catch {}
 	}
 	return data;
@@ -339,7 +335,14 @@ export async function blGetPartImageUrl(no: string, colorId: number): Promise<{ 
 	);
 	if (process.env.NODE_ENV !== 'production') {
 		try {
-			console.log('BL image', { no, colorId, thumbnail: (data as any)?.thumbnail_url ?? null });
+			console.log('BL image', {
+				no,
+				colorId,
+				thumbnail:
+					typeof data.thumbnail_url === 'string' || data.thumbnail_url === null
+						? data.thumbnail_url
+						: null,
+			});
 		} catch {}
 	}
 	return data;

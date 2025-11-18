@@ -178,7 +178,7 @@ const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
 const SEARCH_AGG_PAGE_SIZE = 200;
 const SEARCH_AGG_CAP = 1000;
 
-let aggregatedSearchCache: Map<string, { at: number; items: SimpleSet[] }> =
+const aggregatedSearchCache: Map<string, { at: number; items: SimpleSet[] }> =
   new Map();
 
 function normalizeText(s: string): string {
@@ -648,12 +648,10 @@ export async function getSetsForPart(
           pn,
           color,
           path,
-          count: Array.isArray((first as any)?.results)
-            ? (first as any).results.length
-            : undefined,
-          next: (first as any)?.next ?? null,
-          sample: Array.isArray((first as any)?.results)
-            ? (first as any).results[0]
+          count: Array.isArray(first?.results) ? first.results.length : undefined,
+          next: first?.next ?? null,
+          sample: Array.isArray(first?.results)
+            ? first.results[0]
             : undefined,
         });
       } catch {
@@ -670,10 +668,8 @@ export async function getSetsForPart(
             pn,
             color,
             nextUrl,
-            count: Array.isArray((page as any)?.results)
-              ? (page as any).results.length
-              : undefined,
-            next: (page as any)?.next ?? null,
+            count: Array.isArray(page?.results) ? page.results.length : undefined,
+            next: page?.next ?? null,
           });
         } catch {
           // ignore logging errors
@@ -932,7 +928,8 @@ export async function mapBrickLinkColorIdToRebrickableColorId(
 ): Promise<number | null> {
   const all = await getColors();
   for (const c of all) {
-    const bl = (c.external_ids as any)?.BrickLink;
+    const bl = (c.external_ids as { BrickLink?: { ext_ids?: number[] } } | undefined)
+      ?.BrickLink;
     const ids: number[] | undefined = Array.isArray(bl?.ext_ids)
       ? bl.ext_ids
       : undefined;

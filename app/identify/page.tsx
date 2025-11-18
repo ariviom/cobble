@@ -83,10 +83,12 @@ export default function IdentifyPage() {
         setSelectedColorId(null);
       }
       // BL fallback color options
-      const blCols = (data as any).blAvailableColors as
-        | Array<{ id: number; name: string }>
-        | undefined;
-      const blPid = (data as any).blPartId as string | undefined;
+      const dataWithBL = data as IdentifyResponse & {
+        blAvailableColors?: Array<{ id: number; name: string }>;
+        blPartId?: string;
+      };
+      const blCols = dataWithBL.blAvailableColors;
+      const blPid = dataWithBL.blPartId;
       if (Array.isArray(blCols) && blCols.length > 0 && blPid) {
         setBlPartId(blPid);
         setBlColors(blCols);
@@ -119,9 +121,6 @@ export default function IdentifyPage() {
       fileInputRef.current.value = '';
     }
   }, []);
-
-  // Global colors no longer used for Identify; colors come from API per-part
-  const loadColors = useCallback(async () => {}, []);
 
   const onSelectCandidate = useCallback(
     async (c: IdentifyCandidate) => {

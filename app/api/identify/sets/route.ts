@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPart, getSetsForPart, getPartColorsForPart, type PartAvailableColor, mapBrickLinkColorIdToRebrickableColorId, resolvePartIdToRebrickable } from '@/app/lib/rebrickable';
+import { getPart, getSetsForPart, getPartColorsForPart, type PartAvailableColor, type PartInSet, mapBrickLinkColorIdToRebrickableColorId, resolvePartIdToRebrickable } from '@/app/lib/rebrickable';
 
 export async function GET(req: NextRequest) {
 	const { searchParams } = new URL(req.url);
@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
 	const colorIdRaw = searchParams.get('colorId');
 	const blColorIdRaw = searchParams.get('blColorId');
 	if (!part) return NextResponse.json({ error: 'missing_part' });
-	let colorId =
+	const colorId =
 		colorIdRaw && colorIdRaw.trim() !== '' ? Number(colorIdRaw) : undefined;
 	let rbPart = part;
 	try {
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
 				if (typeof mapped === 'number') selectedColorId = mapped;
 			} catch {}
 		}
-		let sets = [];
+		let sets: PartInSet[] = [];
 		try {
 			sets = await getSetsForPart(rbPart, selectedColorId);
 		} catch (e) {

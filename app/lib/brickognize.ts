@@ -123,11 +123,17 @@ export function extractCandidatePartNumbers(payload: BrickognizeResponse): Array
 
 	// Common arrays observed: candidates, results, matches
 	const arrays: unknown[] = [];
-	if (Array.isArray((payload as any).candidates)) arrays.push(...(payload as any).candidates);
-	if (Array.isArray((payload as any).results)) arrays.push(...(payload as any).results);
-	if (Array.isArray((payload as any).matches)) arrays.push(...(payload as any).matches);
+	const payloadWithArrays = payload as {
+		candidates?: unknown[];
+		results?: unknown[];
+		matches?: unknown[];
+		items?: unknown[];
+	};
+	if (Array.isArray(payloadWithArrays.candidates)) arrays.push(...payloadWithArrays.candidates);
+	if (Array.isArray(payloadWithArrays.results)) arrays.push(...payloadWithArrays.results);
+	if (Array.isArray(payloadWithArrays.matches)) arrays.push(...payloadWithArrays.matches);
 	// Legacy predict shape: items[]
-	if (Array.isArray((payload as any).items)) arrays.push(...(payload as any).items);
+	if (Array.isArray(payloadWithArrays.items)) arrays.push(...payloadWithArrays.items);
 
 	if (arrays.length) {
 		for (const anyC of arrays) {
@@ -142,7 +148,7 @@ export function extractCandidatePartNumbers(payload: BrickognizeResponse): Array
 				(typeof c.partNum === 'string' && c.partNum) ||
 				(typeof c.id === 'string' && c.id) ||
 				(typeof c.part_num === 'string' && c.part_num) ||
-				(typeof (c as any).partNumber === 'string' && (c as any).partNumber) ||
+				(typeof c.partNumber === 'string' && c.partNumber) ||
 				(typeof c.rebrickable_part_num === 'string' && c.rebrickable_part_num) ||
 				(typeof c.bricklink_part_num === 'string' && c.bricklink_part_num) ||
 				(typeof c.bricklink_part_num === 'number' && String(c.bricklink_part_num)) ||
@@ -151,8 +157,8 @@ export function extractCandidatePartNumbers(payload: BrickognizeResponse): Array
 			const confidence =
 				typeof c.confidence === 'number'
 					? c.confidence
-					: typeof (c as any).score === 'number'
-					? (c as any).score
+					: typeof c.score === 'number'
+					? c.score
 					: 0;
 			const colorId = (c.colorId as number) ?? (c.color_id as number) ?? undefined;
 			const colorName = (c.colorName as string) ?? (c.color_name as string) ?? undefined;
@@ -211,10 +217,10 @@ export function extractCandidatePartNumbers(payload: BrickognizeResponse): Array
 
 	// De-duplicate by partNum keeping highest confidence
 	const bestByPart = new Map<string, { partNum: string; confidence: number; colorId?: number; colorName?: string; imageUrl?: string }>();
-	for (const c of out) {
-		const prev = bestByPart.get(c.partNum);
-		if (!prev || c.confidence > prev.confidence) {
-			bestByPart.set(c.partNum, c);
+	for (const cand of out) {
+		const prev = bestByPart.get(cand.partNum);
+		if (!prev || cand.confidence > prev.confidence) {
+			bestByPart.set(cand.partNum, cand);
 		}
 	}
 	return [...bestByPart.values()];

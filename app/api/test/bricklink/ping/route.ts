@@ -24,7 +24,11 @@ export async function GET(req: NextRequest) {
 		const item = await blGetPart(part);
 		result.partOk = true;
 		result.partName = item?.name ?? '';
-		result.partImageUrl = (item as any)?.image_url ?? null;
+		const itemWithImage = item as { image_url?: unknown } | null;
+		result.partImageUrl =
+			itemWithImage && typeof itemWithImage.image_url === 'string'
+				? itemWithImage.image_url
+				: null;
 	} catch (e) {
 		result.partOk = false;
 		result.partError = e instanceof Error ? e.message : String(e);
@@ -80,7 +84,10 @@ export async function GET(req: NextRequest) {
 			const img = await blGetPartImageUrl(part, effectiveColorId);
 			result.imageForColor = {
 				colorId: effectiveColorId,
-				thumbnailUrl: (img as any)?.thumbnail_url ?? null,
+				thumbnailUrl:
+					typeof img.thumbnail_url === 'string' || img.thumbnail_url === null
+						? img.thumbnail_url
+						: null,
 			};
 		} catch (e) {
 			result.imageForColorError = e instanceof Error ? e.message : String(e);
