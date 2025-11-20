@@ -390,9 +390,19 @@ export async function getSetInventory(
   return [...partRows, ...minifigRows];
 }
 
-let setSummaryCache:
-  | { at: number; items: Map<string, { setNumber: string; name: string; year: number; numParts: number; imageUrl: string | null }> }
-  | null = null;
+let setSummaryCache: {
+  at: number;
+  items: Map<
+    string,
+    {
+      setNumber: string;
+      name: string;
+      year: number;
+      numParts: number;
+      imageUrl: string | null;
+    }
+  >;
+} | null = null;
 
 export async function getSetSummary(setNumber: string): Promise<{
   setNumber: string;
@@ -588,7 +598,8 @@ export async function getSetsForPart(
     __RB_SETS_NEG_CACHE__?: Map<string, { at: number }>;
   };
   if (!globalAny.__RB_SETS_CACHE__) globalAny.__RB_SETS_CACHE__ = new Map();
-  if (!globalAny.__RB_SETS_NEG_CACHE__) globalAny.__RB_SETS_NEG_CACHE__ = new Map();
+  if (!globalAny.__RB_SETS_NEG_CACHE__)
+    globalAny.__RB_SETS_NEG_CACHE__ = new Map();
   const posCache = globalAny.__RB_SETS_CACHE__!;
   const negCache = globalAny.__RB_SETS_NEG_CACHE__!;
   const cacheKey = `${partNum.trim().toLowerCase()}::${typeof colorId === 'number' ? colorId : ''}`;
@@ -597,7 +608,11 @@ export async function getSetsForPart(
   if (hit && now - hit.at < SETS_TTL_MS) {
     if (process.env.NODE_ENV !== 'production') {
       try {
-        console.log('rb sets cache hit', { partNum, colorId, count: hit.items.length });
+        console.log('rb sets cache hit', {
+          partNum,
+          colorId,
+          count: hit.items.length,
+        });
       } catch {}
     }
     return hit.items;
@@ -648,11 +663,11 @@ export async function getSetsForPart(
           pn,
           color,
           path,
-          count: Array.isArray(first?.results) ? first.results.length : undefined,
-          next: first?.next ?? null,
-          sample: Array.isArray(first?.results)
-            ? first.results[0]
+          count: Array.isArray(first?.results)
+            ? first.results.length
             : undefined,
+          next: first?.next ?? null,
+          sample: Array.isArray(first?.results) ? first.results[0] : undefined,
         });
       } catch {
         // ignore logging errors
@@ -668,7 +683,9 @@ export async function getSetsForPart(
             pn,
             color,
             nextUrl,
-            count: Array.isArray(page?.results) ? page.results.length : undefined,
+            count: Array.isArray(page?.results)
+              ? page.results.length
+              : undefined,
             next: page?.next ?? null,
           });
         } catch {
@@ -928,8 +945,9 @@ export async function mapBrickLinkColorIdToRebrickableColorId(
 ): Promise<number | null> {
   const all = await getColors();
   for (const c of all) {
-    const bl = (c.external_ids as { BrickLink?: { ext_ids?: number[] } } | undefined)
-      ?.BrickLink;
+    const bl = (
+      c.external_ids as { BrickLink?: { ext_ids?: number[] } } | undefined
+    )?.BrickLink;
     const ids: number[] | undefined = Array.isArray(bl?.ext_ids)
       ? bl.ext_ids
       : undefined;

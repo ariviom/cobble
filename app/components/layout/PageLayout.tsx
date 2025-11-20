@@ -4,15 +4,22 @@ import type { PropsWithChildren, ReactNode } from 'react';
 
 type PageLayoutProps = PropsWithChildren<{
   topBar?: ReactNode;
+  noPadding?: boolean;
   className?: string;
 }>;
 
-export function PageLayout({ topBar, className, children }: PageLayoutProps) {
+export function PageLayout({
+  topBar,
+  noPadding,
+  className,
+  children,
+}: PageLayoutProps) {
   return (
     <>
       <main
         className={cn(
           'min-h-screen w-full pb-[var(--spacing-nav-height)] lg:pt-[var(--spacing-nav-height)] lg:pb-0',
+          noPadding ? '' : 'px-4',
           className
         )}
       >

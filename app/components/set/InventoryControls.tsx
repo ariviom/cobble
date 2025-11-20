@@ -166,7 +166,7 @@ export function InventoryControls({
   return (
     <div
       ref={containerRef}
-      className="fixed top-topnav-height z-50 flex h-controls-height w-full max-w-screen flex-nowrap items-center gap-2 overflow-x-auto border-b border-neutral-300 bg-neutral-50 px-2 no-scrollbar lg:top-filter-offset lg:overflow-visible"
+      className="fixed top-topnav-height z-50 flex h-controls-height w-full max-w-screen flex-nowrap items-center gap-2 overflow-x-auto border-b border-neutral-300 bg-neutral-50 px-2 transition-[top] no-scrollbar lg:top-filter-offset lg:overflow-visible"
     >
       <TopBarControls
         setNumber={setNumber}

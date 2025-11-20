@@ -11,6 +11,7 @@ export default async function SetLayout({
   const summary = await getSetSummary(setNumber);
   return (
     <PageLayout
+      noPadding
       topBar={
         <SetTopBar
           setNumber={setNumber}

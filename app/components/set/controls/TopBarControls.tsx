@@ -304,7 +304,7 @@ function PinnedPanelContent({
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto">
         {!hasAnyPins ? (
-          <div className="p-4 text-sm text-foreground-muted">
+          <div className="flex h-64 w-full items-center justify-center p-4 text-sm text-foreground-muted">
             No pinned pieces yet. Use the pin icon on any piece to add it here.
           </div>
         ) : (

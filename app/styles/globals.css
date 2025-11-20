@@ -45,11 +45,46 @@
   --breakpoint-xs: 23.5rem;
 }
 
+.expanded-topnav {
+  --spacing-topnav-height: 12rem;
+  --spacing-filter-offset: calc(
+    var(--spacing-nav-height) + var(--spacing-topnav-height)
+  );
+  --spacing-inventory-offset: calc(
+    var(--spacing-topnav-height) + var(--spacing-controls-height)
+  );
+  --spacing-sticky-label: calc(
+    var(--spacing-topnav-height) + var(--spacing-controls-height)
+  );
+  --spacing-pinned-panel-height: calc(
+    100dvh - var(--spacing-topnav-height) - var(--spacing-controls-height) -
+      var(--spacing-nav-height)
+  );
+}
+
 @media (min-width: 1024px) {
   :root {
     --spacing-topnav-height: 6rem;
     --spacing-sticky-label: calc(
       var(--spacing-topnav-height) + var(--spacing-controls-height) +
+        var(--spacing-nav-height)
+    );
+  }
+
+  .expanded-topnav {
+    --spacing-topnav-height: 16rem;
+    --spacing-filter-offset: calc(
+      var(--spacing-nav-height) + var(--spacing-topnav-height)
+    );
+    --spacing-inventory-offset: calc(
+      var(--spacing-topnav-height) + var(--spacing-controls-height)
+    );
+    --spacing-sticky-label: calc(
+      var(--spacing-topnav-height) + var(--spacing-controls-height) +
+        var(--spacing-nav-height)
+    );
+    --spacing-pinned-panel-height: calc(
+      100dvh - var(--spacing-topnav-height) - var(--spacing-controls-height) -
         var(--spacing-nav-height)
     );
   }
@@ -115,6 +150,12 @@
   }
 }
 
+@custom-variant expanded-topnav {
+  &:where(.expanded-topnav *) {
+    @slot;
+  }
+}
+
 input.hide-arrows::-webkit-outer-spin-button,
 input.hide-arrows::-webkit-inner-spin-button {
   /* display: none; <- Crashes Chrome on hover */
@@ -124,10 +165,6 @@ input.hide-arrows::-webkit-inner-spin-button {
 
 input.hide-arrows[type='number'] {
   -moz-appearance: textfield; /* Firefox */
-}
-
-html {
-  scrollbar-gutter: stable;
 }
 
 body {

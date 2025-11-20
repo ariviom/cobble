@@ -304,8 +304,8 @@ export function InventoryTable({
         }}
       />
 
-      <div className="pt-inventory-offset lg:pl-2">
-        <div className="flex flex-col">
+      <div className="bg-neutral-50 pt-inventory-offset transition-[padding] will-change-transform">
+        <div className="flex flex-col p-2">
           {error ? (
             <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">
               {/* Placeholder error message - will be styled later */}
