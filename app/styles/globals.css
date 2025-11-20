@@ -45,23 +45,6 @@
   --breakpoint-xs: 23.5rem;
 }
 
-.expanded-topnav {
-  --spacing-topnav-height: 12rem;
-  --spacing-filter-offset: calc(
-    var(--spacing-nav-height) + var(--spacing-topnav-height)
-  );
-  --spacing-inventory-offset: calc(
-    var(--spacing-topnav-height) + var(--spacing-controls-height)
-  );
-  --spacing-sticky-label: calc(
-    var(--spacing-topnav-height) + var(--spacing-controls-height)
-  );
-  --spacing-pinned-panel-height: calc(
-    100dvh - var(--spacing-topnav-height) - var(--spacing-controls-height) -
-      var(--spacing-nav-height)
-  );
-}
-
 @media (min-width: 1024px) {
   :root {
     --spacing-topnav-height: 6rem;
@@ -72,7 +55,7 @@
   }
 
   .expanded-topnav {
-    --spacing-topnav-height: 16rem;
+    --spacing-topnav-height: 12rem;
     --spacing-filter-offset: calc(
       var(--spacing-nav-height) + var(--spacing-topnav-height)
     );

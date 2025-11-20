@@ -61,7 +61,7 @@ export function InventoryItem({
             data-knockout="true"
           />
         ) : (
-          <div className="text-xs text-foreground-muted">no img</div>
+          <div className="text-xs text-foreground-muted">No Image</div>
         )}
         <div
           className={`absolute right-0 bottom-0 flex h-6 min-w-6 translate-x-3 translate-y-1/2 items-center justify-center rounded-full grid:h-8 grid:min-w-8 ${owned === row.quantityRequired ? 'border-2 border-brand-green bg-background text-brand-green' : ''}`}
@@ -109,7 +109,7 @@ export function InventoryItem({
           </p>
         </div>
         <div className="w-full sm:list:w-auto">
-          <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36 lg:list:pt-6">
+          <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36 lg:list:pt-7">
             <p className="text-foreground-muted">
               {owned}/{row.quantityRequired}
             </p>

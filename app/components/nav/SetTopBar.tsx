@@ -27,7 +27,7 @@ function NavButton({
   className,
 }: NavButtonProps) {
   const base = cn(
-    'flex h-topnav-height w-topnav-height min-w-min flex-shrink-0 items-center justify-center gap-2 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black'
+    'group flex h-12 w-12 cursor-pointer items-center justify-center gap-4 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-black lg:w-auto lg:pr-4'
   );
 
   if (href) {
@@ -41,6 +41,11 @@ function NavButton({
           className
         )}
       >
+        {label && (
+          <span className="hidden min-w-max group-hover:underline lg:block">
+            {label}
+          </span>
+        )}
         {icon}
       </Link>
     );
@@ -54,7 +59,11 @@ function NavButton({
       disabled={disabled}
       className={cn(base, className)}
     >
-      {label && <span className="hidden min-w-max lg:block">{label}</span>}
+      {label && (
+        <span className="hidden min-w-max group-hover:underline lg:block">
+          {label}
+        </span>
+      )}
       {icon}
     </button>
   );
@@ -85,116 +94,93 @@ export function SetTopBar({ setNumber, setName, imageUrl }: SetTopBarProps) {
     <>
       <div
         className={cn(
-          'fixed top-0 right-0 z-30 flex h-topnav-height w-full items-center justify-between gap-0 border-b border-foreground-accent bg-neutral-00 py-0 transition-[height] lg:top-[var(--spacing-nav-height)] lg:w-[calc(100%-20rem)]'
+          'fixed top-0 right-0 z-60 flex h-topnav-height w-full items-center justify-between gap-0 border-b border-foreground-accent transition-[height] lg:top-[var(--spacing-nav-height)] lg:w-[calc(100%-20rem)]'
         )}
       >
-        <div className="flex w-full items-center justify-between">
-          <NavButton
-            className="absolute top-6 left-6 lg:hidden"
-            ariaLabel="Go back"
-            icon={<ArrowLeft className="h-5 w-5" />}
-            onClick={() => router.back()}
-          />
-          <div className="relative h-full w-full pr-16 lg:pr-0">
-            <button
-              type="button"
-              onClick={() => setOpen(o => !o)}
-              className="flex h-full w-full items-center justify-between p-2"
-              aria-expanded={open}
-              aria-controls="setinfo-panel"
-            >
-              <div className="flex">
-                {imageUrl ? (
-                  <div className="mr-2 flex-shrink-0">
-                    {/* aspect-square, fixed size, do not grow */}
-                    <div className="aspect-squareoverflow-hidden h-full w-full rounded-sm border">
-                      <Image
-                        src={imageUrl}
-                        alt="Set thumbnail"
-                        width={92}
-                        height={92}
-                        className="aspect-square h-16 w-16 object-cover transition-[width,height] expanded-topnav:h-36 expanded-topnav:w-36 lg:expanded-topnav:h-48 lg:expanded-topnav:w-48"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mr-2 h-8 w-8 flex-shrink-0 rounded-sm border bg-neutral-100" />
-                )}
-                <div className="flex min-w-0 flex-col items-start text-left">
-                  <div className="flex max-w-[40vw] items-center truncate text-sm font-medium sm:max-w-[50vw]">
-                    {setName}
-                    <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0 text-foreground-muted" />
-                  </div>
-                  <div className="text-xs text-foreground-muted">
-                    {isLoading
-                      ? 'Computing…'
-                      : `${ownedTotal} owned / ${totalMissing} missing`}
-                  </div>
-                </div>
+        <NavButton
+          className="absolute top-2 left-0 lg:top-0 lg:hidden"
+          ariaLabel="Go back"
+          icon={<ArrowLeft className="h-5 w-5" />}
+          onClick={() => router.back()}
+        />
+        <div
+          onClick={() => setOpen(o => !o)}
+          className="group set flex h-full w-full cursor-pointer gap-3 bg-background px-14 py-2 lg:px-2"
+          role="button"
+          aria-label="Open set information"
+          aria-expanded={open}
+          aria-controls="setinfo-panel"
+        >
+          <div className="overflow-hidden rounded-sm border border-foreground-accent">
+            {imageUrl ? (
+              <Image
+                src={imageUrl}
+                alt="Set thumbnail"
+                width={240}
+                height={240}
+                className="h-12 w-12 object-cover transition-[width,height] will-change-[width,height] lg:size-20 lg:expanded-topnav:h-44 lg:expanded-topnav:w-auto"
+              />
+            ) : (
+              <div className="flex size-[calc(var(--spacing-topnav-height)-1rem)] flex-shrink-0 items-center justify-center rounded-sm border bg-neutral-100">
+                No Image
               </div>
-            </button>
-            {/* {open && (
-              <div
-                id="setinfo-panel"
-                className="absolute right-0 left-0 z-20 mt-2 rounded-md border bg-background p-3"
-              >
-                <div className="flex items-center gap-3">
-                  {imageUrl ? (
-                    <div className="h-16 w-16 overflow-hidden rounded-sm border">
-                      <Image
-                        src={imageUrl}
-                        alt="Set thumbnail large"
-                        width={64}
-                        height={64}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="h-16 w-16 rounded-sm border bg-neutral-100" />
-                  )}
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <div className="truncate text-sm font-semibold">
-                      {setName}
-                    </div>
-                    <div className="text-xs text-foreground-muted">
-                      {isLoading
-                        ? 'Computing…'
-                        : `${ownedTotal} owned / ${totalMissing} missing (of ${totalRequired})`}
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-100"
-                    onClick={() => {
-                      ownedStore.markAllAsOwned(setNumber, keys, required);
-                      setOpen(false);
-                    }}
-                  >
-                    Mark all owned
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-100"
-                    onClick={() => {
-                      ownedStore.clearAll(setNumber);
-                      setOpen(false);
-                    }}
-                  >
-                    Mark none owned
-                  </button>
-                </div>
-              </div>
-            )} */}
+            )}
           </div>
-          <NavButton
-            className="absolute top-0 right-0 lg:hidden"
-            ariaLabel="Export missing"
-            icon={<Download className="h-5 w-5" />}
-            onClick={() => setExportOpen(true)}
-          />
+          <div className="flex min-w-0 flex-col items-start text-left">
+            <div className="lg:font-base flex max-w-[40vw] origin-left items-center truncate text-sm font-medium transition-[font-size] sm:max-w-[50vw] lg:text-base lg:expanded-topnav:text-xl">
+              <span className="group-hover:underline">{setName}</span>
+              <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0 text-foreground-muted transition-transform expanded-topnav:rotate-180" />
+            </div>
+            <div className="text-xs text-foreground-muted lg:text-sm">
+              {isLoading
+                ? 'Computing…'
+                : `${ownedTotal} owned / ${totalMissing} missing`}
+            </div>
+            {/* Set info panel */}
+            <div
+              id="setinfo-panel"
+              className="absolute inset-x-0 bottom-0 -z-10 origin-top-left rounded-md border border-foreground-accent bg-background p-3 transition-transform lg:pointer-events-none lg:static lg:z-auto lg:!translate-y-0 lg:scale-75 lg:border-none lg:bg-transparent lg:p-0 lg:opacity-0 lg:transition-[transform,opacity] expanded-topnav:translate-y-full lg:expanded-topnav:pointer-events-auto lg:expanded-topnav:scale-100 lg:expanded-topnav:opacity-100"
+            >
+              <div className="lg:hidden">
+                <Image
+                  src={imageUrl ?? ''}
+                  alt="Set thumbnail"
+                  width={512}
+                  height={512}
+                />
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-100"
+                  onClick={() => {
+                    ownedStore.markAllAsOwned(setNumber, keys, required);
+                    setOpen(false);
+                  }}
+                >
+                  Mark all owned
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-100"
+                  onClick={() => {
+                    ownedStore.clearAll(setNumber);
+                    setOpen(false);
+                  }}
+                >
+                  Mark none owned
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
+        <NavButton
+          className="absolute top-2 right-0 lg:top-0"
+          ariaLabel="Export missing"
+          label="Export Parts"
+          icon={<Download className="h-5 w-5" />}
+          onClick={() => setExportOpen(true)}
+        />
       </div>
       <ExportModal
         open={exportOpen}

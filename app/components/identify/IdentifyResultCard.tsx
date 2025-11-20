@@ -28,7 +28,7 @@ export function IdentifyResultCard({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="text-xs text-foreground-muted">no img</div>
+            <div className="text-xs text-foreground-muted">No Image</div>
           )}
         </div>
         <div className="min-w-0 flex-1">

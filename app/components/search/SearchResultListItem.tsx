@@ -23,7 +23,7 @@ export function SearchResultListItem({ result }: { result: SearchResult }) {
                   className="h-full w-full object-contain"
                 />
               ) : (
-                <div className="text-xs text-foreground-muted">no img</div>
+                <div className="text-xs text-foreground-muted">No Image</div>
               )}
             </div>
           </div>
