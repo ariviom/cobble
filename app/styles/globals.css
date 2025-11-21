@@ -27,7 +27,7 @@
   --color-theme-accent: mix(var(--color-theme-primary), white, 10%);
   --font-sans: var(--font-cera-pro);
   --spacing-nav-height: 4rem;
-  --spacing-topnav-height: 4rem;
+  --spacing-topnav-height: 5rem;
   --spacing-controls-height: 3rem;
   --spacing-filter-offset: calc(
     var(--spacing-nav-height) + var(--spacing-topnav-height)

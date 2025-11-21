@@ -1,12 +1,13 @@
 'use client';
 
+import { SetStatusMenu } from '@/app/components/set/SetStatusMenu';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { SearchResult } from './types';
 
 export function SearchResultListItem({ result }: { result: SearchResult }) {
   return (
-    <div className="group overflow-hidden rounded-lg border border-neutral-200 bg-white dark:bg-background">
+    <div className="group relative overflow-hidden rounded-lg border border-neutral-200 bg-white dark:bg-background">
       <Link
         href={`/sets/${encodeURIComponent(result.setNumber)}`}
         className="block w-full"
@@ -27,13 +28,23 @@ export function SearchResultListItem({ result }: { result: SearchResult }) {
               )}
             </div>
           </div>
-          <div className="px-3 py-3">
-            <div className="line-clamp-1 w-full overflow-hidden text-sm font-medium">
-              {result.name}
+          <div className="flex items-start justify-between gap-2 px-3 py-3">
+            <div className="min-w-0">
+              <div className="line-clamp-1 w-full overflow-hidden text-sm font-medium">
+                {result.name}
+              </div>
+              <div className="mt-1 w-full text-xs text-foreground-muted">
+                {result.setNumber} | {result.year} | {result.numParts} parts
+              </div>
             </div>
-            <div className="mt-1 w-full text-xs text-foreground-muted">
-              {result.setNumber} | {result.year} | {result.numParts} parts
-            </div>
+            <SetStatusMenu
+              setNumber={result.setNumber}
+              name={result.name}
+              year={result.year}
+              imageUrl={result.imageUrl}
+              numParts={result.numParts}
+              themeId={result.themeId}
+            />
           </div>
         </div>
       </Link>

@@ -5,17 +5,25 @@ import { cn } from '@/app/components/ui/utils';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useIsDesktop } from '@/app/hooks/useMediaQuery';
 import { useOwnedStore } from '@/app/store/owned';
+import {
+  EMPTY_SET_STATUS,
+  useUserSetsStore,
+  type SetStatusKey,
+} from '@/app/store/user-sets';
 import { ArrowLeft, ChevronDown, Download } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { MouseEventHandler, ReactNode } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type SetTopBarProps = {
   setNumber: string;
   setName: string;
   imageUrl: string | null;
+  year?: number;
+  numParts?: number;
+  themeId?: number | null;
   expanded?: boolean;
   onToggleExpanded?: () => void;
 };
@@ -76,6 +84,9 @@ export function SetTopBar({
   setNumber,
   setName,
   imageUrl,
+  year,
+  numParts,
+  themeId,
   expanded = false,
   onToggleExpanded,
 }: SetTopBarProps) {
@@ -83,6 +94,7 @@ export function SetTopBar({
   const isDesktop = useIsDesktop();
   const [exportOpen, setExportOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const {
     isLoading,
     keys,
@@ -92,6 +104,33 @@ export function SetTopBar({
     computeMissingRows,
   } = useInventory(setNumber);
   const ownedStore = useOwnedStore();
+  const normKey = setNumber.trim().toLowerCase();
+  const status = useUserSetsStore(state => {
+    const entry = state.sets[normKey];
+    return entry?.status ?? EMPTY_SET_STATUS;
+  });
+  const setStatus = useUserSetsStore(state => state.setStatus);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const handleToggleStatus = (key: SetStatusKey) => {
+    const nextValue = !status[key];
+    setStatus({
+      setNumber,
+      key,
+      value: nextValue,
+      meta: {
+        setNumber,
+        name: setName,
+        year: typeof year === 'number' ? year : 0,
+        imageUrl: imageUrl ?? null,
+        numParts: typeof numParts === 'number' ? numParts : 0,
+        themeId: typeof themeId === 'number' ? themeId : null,
+      },
+    });
+  };
 
   const handleToggleExpanded = () => {
     if (isDesktop) {
@@ -149,6 +188,26 @@ export function SetTopBar({
                 ? 'Computing…'
                 : `${ownedTotal} owned / ${totalMissing} missing`}
             </div>
+            {mounted &&
+              (status.owned || status.canBuild || status.wantToBuild) && (
+                <div className="mt-1 flex flex-wrap gap-1 text-[11px] lg:text-xs">
+                  {status.owned && (
+                    <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-brand-green">
+                      Owned
+                    </span>
+                  )}
+                  {status.canBuild && (
+                    <span className="rounded-full bg-brand-blue/10 px-2 py-0.5 text-brand-blue">
+                      Can build
+                    </span>
+                  )}
+                  {status.wantToBuild && (
+                    <span className="rounded-full bg-brand-purple/10 px-2 py-0.5 text-brand-purple">
+                      Want to build
+                    </span>
+                  )}
+                </div>
+              )}
             {/* Set info panel */}
             <div
               id="setinfo-panel"
@@ -162,27 +221,73 @@ export function SetTopBar({
                   height={512}
                 />
               </div>
-              <div className="mt-3 flex flex-col items-center gap-2 lg:flex-row">
-                <button
-                  type="button"
-                  className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-100"
-                  onClick={() => {
-                    ownedStore.markAllAsOwned(setNumber, keys, required);
-                    onToggleExpanded?.();
-                  }}
-                >
-                  Mark all owned
-                </button>
-                <button
-                  type="button"
-                  className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-100"
-                  onClick={() => {
-                    ownedStore.clearAll(setNumber);
-                    onToggleExpanded?.();
-                  }}
-                >
-                  Mark none owned
-                </button>
+              <div className="mt-3 flex flex-col items-center gap-3 lg:flex-row lg:items-start">
+                <div className="flex flex-wrap justify-center gap-2 lg:justify-start">
+                  <button
+                    type="button"
+                    className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-100"
+                    onClick={() => {
+                      ownedStore.markAllAsOwned(setNumber, keys, required);
+                      onToggleExpanded?.();
+                    }}
+                  >
+                    Mark all owned
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-100"
+                    onClick={() => {
+                      ownedStore.clearAll(setNumber);
+                      onToggleExpanded?.();
+                    }}
+                  >
+                    Mark none owned
+                  </button>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2 lg:justify-start">
+                  <button
+                    type="button"
+                    className={`rounded-md border px-3 py-1 text-sm ${
+                      status.owned
+                        ? 'border-brand-green bg-brand-green/10 text-brand-green'
+                        : 'hover:bg-neutral-100'
+                    }`}
+                    onClick={event => {
+                      event.stopPropagation();
+                      handleToggleStatus('owned');
+                    }}
+                  >
+                    Own this set
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-md border px-3 py-1 text-sm ${
+                      status.canBuild
+                        ? 'border-brand-blue bg-brand-blue/10 text-brand-blue'
+                        : 'hover:bg-neutral-100'
+                    }`}
+                    onClick={event => {
+                      event.stopPropagation();
+                      handleToggleStatus('canBuild');
+                    }}
+                  >
+                    Can build
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-md border px-3 py-1 text-sm ${
+                      status.wantToBuild
+                        ? 'border-brand-purple bg-brand-purple/10 text-brand-purple'
+                        : 'hover:bg-neutral-100'
+                    }`}
+                    onClick={event => {
+                      event.stopPropagation();
+                      handleToggleStatus('wantToBuild');
+                    }}
+                  >
+                    Want to build
+                  </button>
+                </div>
               </div>
             </div>
           </div>

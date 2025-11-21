@@ -18,6 +18,7 @@ export default async function SetPage({
       year={summary.year}
       imageUrl={summary.imageUrl}
       numParts={summary.numParts}
+      themeId={summary.themeId ?? null}
     />
   );
 }

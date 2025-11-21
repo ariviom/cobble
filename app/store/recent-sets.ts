@@ -6,6 +6,7 @@ export type RecentSetEntry = {
   year: number;
   imageUrl: string | null;
   numParts: number;
+  themeId?: number | null;
   lastViewedAt: number;
 };
 
@@ -22,7 +23,9 @@ function loadRecentSetsUnsafe(): RecentSetEntry[] {
     return parsed
       .map((it): RecentSetEntry | null => {
         if (!it || typeof it !== 'object') return null;
-        const obj = it as Partial<RecentSetEntry>;
+        const obj = it as Partial<RecentSetEntry> & {
+          themeId?: unknown;
+        };
         if (
           !obj.setNumber ||
           typeof obj.setNumber !== 'string' ||
@@ -43,6 +46,10 @@ function loadRecentSetsUnsafe(): RecentSetEntry[] {
           typeof obj.imageUrl === 'string' || obj.imageUrl === null
             ? obj.imageUrl
             : null;
+        const themeId =
+          typeof obj.themeId === 'number' && Number.isFinite(obj.themeId)
+            ? obj.themeId
+            : null;
         const lastViewedAt =
           typeof obj.lastViewedAt === 'number' && Number.isFinite(obj.lastViewedAt)
             ? obj.lastViewedAt
@@ -53,6 +60,7 @@ function loadRecentSetsUnsafe(): RecentSetEntry[] {
           year,
           imageUrl,
           numParts,
+          themeId,
           lastViewedAt,
         };
       })
@@ -76,6 +84,7 @@ export function addRecentSet(entry: {
   year: number;
   imageUrl: string | null;
   numParts: number;
+  themeId?: number | null;
 }): void {
   if (typeof window === 'undefined') return;
   try {
@@ -90,6 +99,19 @@ export function addRecentSet(entry: {
       },
       ...filtered,
     ].slice(0, MAX_RECENT);
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function removeRecentSet(setNumber: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = loadRecentSetsUnsafe();
+    const next = existing.filter(
+      it => it.setNumber.toLowerCase() !== setNumber.toLowerCase()
+    );
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch {
     // ignore storage errors

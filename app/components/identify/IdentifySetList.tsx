@@ -3,7 +3,12 @@
 import { IdentifySetListItem } from './IdentifySetListItem';
 import type { IdentifySet } from './types';
 
-export function IdentifySetList({ items }: { items: IdentifySet[] }) {
+type Props = {
+  items: IdentifySet[];
+  onRemoveItem?: (setNumber: string) => void;
+};
+
+export function IdentifySetList({ items, onRemoveItem }: Props) {
   if (!items.length) {
     return (
       <div className="mt-4 text-sm text-foreground-muted">
@@ -21,6 +26,7 @@ export function IdentifySetList({ items }: { items: IdentifySet[] }) {
           <IdentifySetListItem
             key={`${it.setNumber}-${it.quantity}`}
             item={it}
+            onRemove={onRemoveItem}
           />
         ))}
       </div>

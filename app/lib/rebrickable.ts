@@ -172,6 +172,7 @@ type SimpleSet = {
   year: number;
   numParts: number;
   imageUrl: string | null;
+  themeId?: number | null;
 };
 
 const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -303,6 +304,10 @@ export async function getAggregatedSearchResults(
       year: r.year,
       numParts: r.num_parts,
       imageUrl: r.set_img_url,
+      themeId:
+        typeof r.theme_id === 'number' && Number.isFinite(r.theme_id)
+          ? r.theme_id
+          : null,
     }));
 
   const sorted = sortAggregatedResults(mapped, sort, query);
@@ -410,6 +415,7 @@ export async function getSetSummary(setNumber: string): Promise<{
   year: number;
   numParts: number;
   imageUrl: string | null;
+  themeId?: number | null;
 }> {
   const now = Date.now();
   const ttl = 60 * 60 * 1000; // 1h
@@ -426,6 +432,10 @@ export async function getSetSummary(setNumber: string): Promise<{
     year: d.year,
     numParts: d.num_parts,
     imageUrl: d.set_img_url,
+    themeId:
+      typeof d.theme_id === 'number' && Number.isFinite(d.theme_id)
+        ? d.theme_id
+        : null,
   };
   if (!setSummaryCache || now - setSummaryCache.at >= ttl) {
     setSummaryCache = { at: now, items: new Map() };

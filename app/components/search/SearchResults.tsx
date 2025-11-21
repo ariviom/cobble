@@ -23,6 +23,7 @@ async function fetchSearchPage(
 export function SearchResults() {
   const params = useSearchParams();
   const q = params.get('q') ?? '';
+  const hasQuery = q.trim().length > 0;
   const [sort, setSort] = useState<SortOption>('relevance');
   const [pageSize, setPageSize] = useState<number>(20);
   const query = useInfiniteQuery<
@@ -37,7 +38,7 @@ export function SearchResults() {
       fetchSearchPage(q, sort, pageParam as number, pageSize),
     getNextPageParam: (lastPage: SearchPage) => lastPage.nextPage,
     initialPageParam: 1,
-    enabled: q.length > 0,
+    enabled: hasQuery,
   });
   const {
     data,
@@ -48,7 +49,9 @@ export function SearchResults() {
     isFetchingNextPage,
   } = query;
 
-  if (!q) return null;
+  if (!hasQuery) {
+    return null;
+  }
   const pages = (data?.pages as SearchPage[] | undefined) ?? [];
   const results = pages.flatMap((p: SearchPage) => p.results) ?? [];
   return (

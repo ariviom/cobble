@@ -4,6 +4,7 @@ export type SearchResult = {
   year: number;
   numParts: number;
   imageUrl: string | null;
+  themeId?: number | null;
 };
 
 export type SortOption =

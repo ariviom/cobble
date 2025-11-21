@@ -12,6 +12,7 @@ type SetPageClientProps = {
   year: number;
   imageUrl: string | null;
   numParts: number;
+  themeId?: number | null;
 };
 
 export function SetPageClient({
@@ -20,6 +21,7 @@ export function SetPageClient({
   year,
   imageUrl,
   numParts,
+  themeId,
 }: SetPageClientProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -30,8 +32,9 @@ export function SetPageClient({
       year,
       imageUrl,
       numParts,
+      themeId: themeId ?? null,
     });
-  }, [setNumber, setName, year, imageUrl, numParts]);
+  }, [setNumber, setName, year, imageUrl, numParts, themeId]);
 
   return (
     <div
@@ -47,6 +50,9 @@ export function SetPageClient({
         setNumber={setNumber}
         setName={setName}
         imageUrl={imageUrl}
+        year={year}
+        numParts={numParts}
+        themeId={themeId ?? null}
         expanded={expanded}
         onToggleExpanded={() => setExpanded(prev => !prev)}
       />

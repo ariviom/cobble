@@ -1,10 +1,17 @@
 'use client';
+
+import { SetStatusMenu } from '@/app/components/set/SetStatusMenu';
 import Link from 'next/link';
 import type { IdentifySet } from './types';
 
-export function IdentifySetListItem({ item }: { item: IdentifySet }) {
+type Props = {
+  item: IdentifySet;
+  onRemove?: (setNumber: string) => void;
+};
+
+export function IdentifySetListItem({ item, onRemove }: Props) {
   return (
-    <div className="group overflow-hidden rounded-lg border border-neutral-200 bg-white dark:bg-background">
+    <div className="group relative overflow-hidden rounded-lg border border-neutral-200 bg-white dark:bg-background">
       <Link
         href={`/sets/${encodeURIComponent(item.setNumber)}`}
         className="block w-full"
@@ -24,13 +31,30 @@ export function IdentifySetListItem({ item }: { item: IdentifySet }) {
               )}
             </div>
           </div>
-          <div className="px-3 py-3">
-            <div className="line-clamp-1 w-full overflow-hidden text-sm font-medium">
-              {item.name}
+          <div className="flex items-start justify-between gap-2 px-3 py-3">
+            <div className="min-w-0">
+              <div className="line-clamp-1 w-full overflow-hidden text-sm font-medium">
+                {item.name}
+              </div>
+              <div className="mt-1 w-full text-xs text-foreground-muted">
+                {item.setNumber} | {item.year} | qty in set: {item.quantity}
+              </div>
             </div>
-            <div className="mt-1 w-full text-xs text-foreground-muted">
-              {item.setNumber} | {item.year} | qty in set: {item.quantity}
-            </div>
+            <SetStatusMenu
+              setNumber={item.setNumber}
+              name={item.name}
+              year={item.year}
+              imageUrl={item.imageUrl}
+              // Identify sets only expose total quantity in this context; pass as numParts surrogate.
+              numParts={item.quantity}
+              onRemove={
+                onRemove
+                  ? () => {
+                      onRemove(item.setNumber);
+                    }
+                  : undefined
+              }
+            />
           </div>
         </div>
       </Link>

@@ -2,7 +2,7 @@
 
 import { IdentifySetList } from '@/app/components/identify/IdentifySetList';
 import type { IdentifySet } from '@/app/components/identify/types';
-import { getRecentSets } from '@/app/store/recent-sets';
+import { getRecentSets, removeRecentSet } from '@/app/store/recent-sets';
 import { useEffect, useState } from 'react';
 
 export function RecentlyViewedSets() {
@@ -21,6 +21,11 @@ export function RecentlyViewedSets() {
     }));
     setItems(mapped);
   }, []);
+
+  const handleRemove = (setNumber: string) => {
+    setItems(prev => prev.filter(it => it.setNumber !== setNumber));
+    removeRecentSet(setNumber);
+  };
   return (
     <section className="mb-8">
       <div className="mx-auto w-full max-w-7xl">
@@ -41,7 +46,9 @@ export function RecentlyViewedSets() {
             to get started.
           </div>
         )}
-        {items.length > 0 && <IdentifySetList items={items} />}
+        {items.length > 0 && (
+          <IdentifySetList items={items} onRemoveItem={handleRemove} />
+        )}
       </div>
     </section>
   );
