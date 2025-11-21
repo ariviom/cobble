@@ -268,7 +268,7 @@ export function InventoryTable({
   }, [rows, keys, filter, parentByIndex, ownedStore, setNumber]);
 
   return (
-    <div className="relative inset-0 pb-2 lg:pl-80">
+    <div className="pb-2 lg:grid lg:h-full lg:grid-rows-[var(--spacing-controls-height)_minmax(0,1fr)]">
       <InventoryControls
         setNumber={setNumber}
         setName={setName}
@@ -304,7 +304,7 @@ export function InventoryTable({
         }}
       />
 
-      <div className="bg-neutral-50 pt-inventory-offset transition-[padding] will-change-transform">
+      <div className="bg-neutral-50 pt-inventory-offset transition-[padding] lg:overflow-y-auto lg:pt-0">
         <div className="flex flex-col p-2">
           {error ? (
             <div className="rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">

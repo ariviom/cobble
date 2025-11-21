@@ -3,18 +3,21 @@
 import { ExportModal } from '@/app/components/export/ExportModal';
 import { cn } from '@/app/components/ui/utils';
 import { useInventory } from '@/app/hooks/useInventory';
+import { useIsDesktop } from '@/app/hooks/useMediaQuery';
 import { useOwnedStore } from '@/app/store/owned';
 import { ArrowLeft, ChevronDown, Download } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { MouseEventHandler, ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 
 type SetTopBarProps = {
   setNumber: string;
   setName: string;
   imageUrl: string | null;
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
 };
 
 function NavButton({
@@ -69,32 +72,42 @@ function NavButton({
   );
 }
 
-export function SetTopBar({ setNumber, setName, imageUrl }: SetTopBarProps) {
+export function SetTopBar({
+  setNumber,
+  setName,
+  imageUrl,
+  expanded = false,
+  onToggleExpanded,
+}: SetTopBarProps) {
   const router = useRouter();
-  const { computeMissingRows } = useInventory(setNumber);
+  const isDesktop = useIsDesktop();
   const [exportOpen, setExportOpen] = useState(false);
-  const [open, setOpen] = useState(false);
-  const { isLoading, keys, required, totalRequired, totalMissing } =
-    useInventory(setNumber);
-  const ownedTotal = useMemo(
-    () => totalRequired - totalMissing,
-    [totalRequired, totalMissing]
-  );
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const {
+    isLoading,
+    keys,
+    required,
+    totalMissing,
+    ownedTotal,
+    computeMissingRows,
+  } = useInventory(setNumber);
   const ownedStore = useOwnedStore();
 
-  useEffect(() => {
-    if (open) {
-      document.body.classList.add('expanded-topnav');
+  const handleToggleExpanded = () => {
+    if (isDesktop) {
+      onToggleExpanded?.();
     } else {
-      document.body.classList.remove('expanded-topnav');
+      setMobileOpen(prev => !prev);
     }
-  }, [open]);
+  };
 
   return (
     <>
       <div
         className={cn(
-          'fixed top-0 right-0 z-60 flex h-topnav-height w-full items-center justify-between gap-0 border-b border-foreground-accent transition-[height] lg:top-[var(--spacing-nav-height)] lg:w-[calc(100%-20rem)]'
+          'fixed top-0 right-0 z-60 flex h-topnav-height w-full items-center justify-between border-b border-foreground-accent',
+          'lg:relative lg:h-full lg:w-full',
+          !isDesktop && mobileOpen && 'expanded-topnav'
         )}
       >
         <NavButton
@@ -104,11 +117,11 @@ export function SetTopBar({ setNumber, setName, imageUrl }: SetTopBarProps) {
           onClick={() => router.back()}
         />
         <div
-          onClick={() => setOpen(o => !o)}
+          onClick={handleToggleExpanded}
           className="group set flex h-full w-full cursor-pointer gap-3 bg-background px-14 py-2 lg:px-2"
           role="button"
           aria-label="Open set information"
-          aria-expanded={open}
+          aria-expanded={isDesktop ? expanded : false}
           aria-controls="setinfo-panel"
         >
           <div className="overflow-hidden rounded-sm border border-foreground-accent">
@@ -118,7 +131,7 @@ export function SetTopBar({ setNumber, setName, imageUrl }: SetTopBarProps) {
                 alt="Set thumbnail"
                 width={240}
                 height={240}
-                className="h-12 w-12 object-cover transition-[width,height] will-change-[width,height] lg:size-20 lg:expanded-topnav:h-44 lg:expanded-topnav:w-auto"
+                className="h-full w-auto object-cover transition-transform"
               />
             ) : (
               <div className="flex size-[calc(var(--spacing-topnav-height)-1rem)] flex-shrink-0 items-center justify-center rounded-sm border bg-neutral-100">
@@ -127,7 +140,7 @@ export function SetTopBar({ setNumber, setName, imageUrl }: SetTopBarProps) {
             )}
           </div>
           <div className="flex min-w-0 flex-col items-start text-left">
-            <div className="lg:font-base flex max-w-[40vw] origin-left items-center truncate text-sm font-medium transition-[font-size] sm:max-w-[50vw] lg:text-base lg:expanded-topnav:text-xl">
+            <div className="lg:font-base flex h-5 shrink-0 origin-left items-center truncate text-sm font-medium lg:text-base">
               <span className="group-hover:underline">{setName}</span>
               <ChevronDown className="ml-2 h-4 w-4 flex-shrink-0 text-foreground-muted transition-transform expanded-topnav:rotate-180" />
             </div>
@@ -149,13 +162,13 @@ export function SetTopBar({ setNumber, setName, imageUrl }: SetTopBarProps) {
                   height={512}
                 />
               </div>
-              <div className="mt-3 flex items-center gap-2">
+              <div className="mt-3 flex flex-col items-center gap-2 lg:flex-row">
                 <button
                   type="button"
                   className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-100"
                   onClick={() => {
                     ownedStore.markAllAsOwned(setNumber, keys, required);
-                    setOpen(false);
+                    onToggleExpanded?.();
                   }}
                 >
                   Mark all owned
@@ -165,7 +178,7 @@ export function SetTopBar({ setNumber, setName, imageUrl }: SetTopBarProps) {
                   className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-100"
                   onClick={() => {
                     ownedStore.clearAll(setNumber);
-                    setOpen(false);
+                    onToggleExpanded?.();
                   }}
                 >
                   Mark none owned
@@ -177,7 +190,7 @@ export function SetTopBar({ setNumber, setName, imageUrl }: SetTopBarProps) {
         <NavButton
           className="absolute top-2 right-0 lg:top-0"
           ariaLabel="Export missing"
-          label="Export Parts"
+          label="Parts List"
           icon={<Download className="h-5 w-5" />}
           onClick={() => setExportOpen(true)}
         />
