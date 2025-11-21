@@ -115,6 +115,8 @@ export function SetTopBar({
     setMounted(true);
   }, []);
 
+  const uiStatus = mounted ? status : EMPTY_SET_STATUS;
+
   const handleToggleStatus = (key: SetStatusKey) => {
     const nextValue = !status[key];
     setStatus({
@@ -189,19 +191,19 @@ export function SetTopBar({
                 : `${ownedTotal} owned / ${totalMissing} missing`}
             </div>
             {mounted &&
-              (status.owned || status.canBuild || status.wantToBuild) && (
+              (uiStatus.owned || uiStatus.canBuild || uiStatus.wantToBuild) && (
                 <div className="mt-1 flex flex-wrap gap-1 text-[11px] lg:text-xs">
-                  {status.owned && (
+                  {uiStatus.owned && (
                     <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-brand-green">
                       Owned
                     </span>
                   )}
-                  {status.canBuild && (
+                  {uiStatus.canBuild && (
                     <span className="rounded-full bg-brand-blue/10 px-2 py-0.5 text-brand-blue">
                       Can build
                     </span>
                   )}
-                  {status.wantToBuild && (
+                  {uiStatus.wantToBuild && (
                     <span className="rounded-full bg-brand-purple/10 px-2 py-0.5 text-brand-purple">
                       Want to build
                     </span>
@@ -225,30 +227,8 @@ export function SetTopBar({
                 <div className="flex flex-wrap justify-center gap-2 lg:justify-start">
                   <button
                     type="button"
-                    className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-100"
-                    onClick={() => {
-                      ownedStore.markAllAsOwned(setNumber, keys, required);
-                      onToggleExpanded?.();
-                    }}
-                  >
-                    Mark all owned
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-md border px-3 py-1 text-sm hover:bg-neutral-100"
-                    onClick={() => {
-                      ownedStore.clearAll(setNumber);
-                      onToggleExpanded?.();
-                    }}
-                  >
-                    Mark none owned
-                  </button>
-                </div>
-                <div className="flex flex-wrap justify-center gap-2 lg:justify-start">
-                  <button
-                    type="button"
                     className={`rounded-md border px-3 py-1 text-sm ${
-                      status.owned
+                      uiStatus.owned
                         ? 'border-brand-green bg-brand-green/10 text-brand-green'
                         : 'hover:bg-neutral-100'
                     }`}
@@ -262,7 +242,7 @@ export function SetTopBar({
                   <button
                     type="button"
                     className={`rounded-md border px-3 py-1 text-sm ${
-                      status.canBuild
+                      uiStatus.canBuild
                         ? 'border-brand-blue bg-brand-blue/10 text-brand-blue'
                         : 'hover:bg-neutral-100'
                     }`}
@@ -276,7 +256,7 @@ export function SetTopBar({
                   <button
                     type="button"
                     className={`rounded-md border px-3 py-1 text-sm ${
-                      status.wantToBuild
+                      uiStatus.wantToBuild
                         ? 'border-brand-purple bg-brand-purple/10 text-brand-purple'
                         : 'hover:bg-neutral-100'
                     }`}

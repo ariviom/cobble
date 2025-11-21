@@ -7,21 +7,34 @@ import {
   DropdownTrigger,
   GroupedList,
   SingleSelectList,
+  formatMultiSelectLabel,
 } from '@/app/components/ui/GroupedDropdown';
+import { RowButton } from '@/app/components/ui/RowButton';
 import { useInventory } from '@/app/hooks/useInventory';
-import { useIsDesktop } from '@/app/hooks/useMediaQuery';
 import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
-import { Filter, Grid, List, Pin, SortAsc } from 'lucide-react';
+import {
+  CheckSquare,
+  Filter,
+  FolderTree,
+  Grid,
+  List,
+  Palette,
+  Pin,
+  SortAsc,
+} from 'lucide-react';
 import { useState } from 'react';
 import { clampOwned, computeMissing } from '../inventory-utils';
 import type {
   GroupBy,
+  InventoryFilter,
   InventoryRow,
   ItemSize,
   SortKey,
   ViewType,
 } from '../types';
+import { SidebarCategoryPanel } from './SidebarCategoryPanel';
+import { SidebarColorPanel } from './SidebarColorPanel';
 
 type Props = {
   setNumber: string;
@@ -40,7 +53,20 @@ type Props = {
   onChangeDisplay: (next: 'all' | 'missing' | 'owned') => void;
   openDropdownId: string | null;
   onToggleDropdown: (id: string) => void;
-  onCloseDropdown: (id: 'display' | 'sort' | 'view') => void;
+  onCloseDropdown: (id: string) => void;
+  pinnedCount: number;
+  onMarkAllMissing: () => void;
+  onMarkAllComplete: () => void;
+  filter: InventoryFilter;
+  onChangeFilter: (f: InventoryFilter) => void;
+  parentOptions: string[];
+  parentCounts?: Record<string, number>;
+  subcategoriesByParent: Record<string, string[]>;
+  colorOptions: string[];
+  onToggleColor: (color: string) => void;
+  isDesktop: boolean;
+  isParentOpen: boolean;
+  isColorOpen: boolean;
 };
 
 export function TopBarControls({
@@ -61,10 +87,23 @@ export function TopBarControls({
   openDropdownId,
   onToggleDropdown,
   onCloseDropdown,
+  pinnedCount,
+  onMarkAllMissing,
+  onMarkAllComplete,
+  filter,
+  onChangeFilter,
+  parentOptions,
+  parentCounts,
+  subcategoriesByParent,
+  colorOptions,
+  onToggleColor,
+  isDesktop,
+  isParentOpen,
+  isColorOpen,
 }: Props) {
-  const isDesktop = useIsDesktop();
-  const pinnedState = usePinnedStore();
-  const pinnedCount = pinnedState.getPinnedKeysForSet(setNumber).length;
+  const getColorLabel = () =>
+    formatMultiSelectLabel('Colors', filter.colors || []);
+
   return (
     <>
       <div className="lg:relative">
@@ -264,6 +303,124 @@ export function TopBarControls({
           </DropdownPanelFrame>
         )}
       </div>
+      {/* Sidebar Group Triggers */}
+      <div className="sidebar relative min-w-fit border-neutral-300 lg:fixed lg:top-nav-height lg:left-0 lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-neutral-00">
+        <div className="flex flex-nowrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-1">
+          {parentOptions.length > 0 ? (
+            <div className="lg:relative">
+              <DropdownTrigger
+                id="parent-trigger"
+                panelId="parent-panel"
+                label={formatMultiSelectLabel('Pieces', filter.parents || [])}
+                labelIcon={<FolderTree size={16} />}
+                isOpen={isDesktop ? isParentOpen : openDropdownId === 'parent'}
+                onToggle={() => onToggleDropdown('parent')}
+                variant="sidebar"
+              />
+              {(isDesktop ? isParentOpen : openDropdownId === 'parent') && (
+                <DropdownPanelFrame
+                  id="parent-panel"
+                  labelledBy="parent-trigger"
+                  isOpen={true}
+                  variant="sidebar"
+                >
+                  <SidebarCategoryPanel
+                    filter={filter}
+                    onChangeFilter={onChangeFilter}
+                    parentOptions={parentOptions}
+                    subcategoriesByParent={subcategoriesByParent}
+                    parentCounts={parentCounts}
+                  />
+                </DropdownPanelFrame>
+              )}
+            </div>
+          ) : null}
+
+          {colorOptions && colorOptions.length > 0 ? (
+            <div className="lg:relative">
+              <DropdownTrigger
+                id="color-trigger"
+                panelId="color-panel"
+                label={
+                  isDesktop ? (
+                    <span>
+                      Colors
+                      {(filter.colors?.length || 0) > 0 ? (
+                        <span className="ml-2 text-sm text-neutral-400">
+                          ({filter.colors!.join(', ')})
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : (
+                    getColorLabel()
+                  )
+                }
+                labelIcon={<Palette size={16} />}
+                isOpen={isDesktop ? isColorOpen : openDropdownId === 'color'}
+                onToggle={() => onToggleDropdown('color')}
+                variant="sidebar"
+              />
+              {(isDesktop ? isColorOpen : openDropdownId === 'color') && (
+                <DropdownPanelFrame
+                  id="color-panel"
+                  labelledBy="color-trigger"
+                  isOpen={true}
+                  variant="sidebar"
+                >
+                  <SidebarColorPanel
+                    colorOptions={colorOptions}
+                    selectedColors={filter.colors || []}
+                    onToggleColor={onToggleColor}
+                    onClear={() => onChangeFilter({ ...filter, colors: [] })}
+                  />
+                </DropdownPanelFrame>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div className="lg:relative">
+        <DropdownTrigger
+          id="markall-trigger"
+          panelId="markall-panel"
+          label="Mark All"
+          labelIcon={<CheckSquare size={16} />}
+          isOpen={openDropdownId === 'markAll'}
+          onToggle={() => onToggleDropdown('markAll')}
+        />
+        {openDropdownId === 'markAll' && (
+          <DropdownPanelFrame
+            id="markall-panel"
+            labelledBy="markall-trigger"
+            isOpen={true}
+            className={
+              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
+            }
+            variant={isDesktop ? 'default' : 'sidebar'}
+          >
+            <DropdownSection label="Mark All">
+              <RowButton
+                size="sm"
+                onClick={() => {
+                  onMarkAllMissing();
+                  onCloseDropdown('markAll');
+                }}
+              >
+                <span>Missing</span>
+              </RowButton>
+              <RowButton
+                size="sm"
+                onClick={() => {
+                  onMarkAllComplete();
+                  onCloseDropdown('markAll');
+                }}
+              >
+                <span>Complete</span>
+              </RowButton>
+            </DropdownSection>
+          </DropdownPanelFrame>
+        )}
+      </div>
     </>
   );
 }
@@ -426,7 +583,7 @@ function PinnedSetSection({
   if (rows.length === 0) return null;
 
   const keyToIndex = new Map<string, number>();
-  keys.forEach((k, idx) => {
+  keys.forEach((k: string, idx: number) => {
     keyToIndex.set(k, idx);
   });
 

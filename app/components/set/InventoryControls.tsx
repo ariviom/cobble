@@ -1,15 +1,10 @@
 'use client';
 
-import {
-  DropdownPanelFrame,
-  DropdownTrigger,
-  formatMultiSelectLabel,
-} from '@/app/components/ui/GroupedDropdown';
+import { useInventory } from '@/app/hooks/useInventory';
 import { useIsDesktop } from '@/app/hooks/useMediaQuery';
-import { FolderTree, Palette } from 'lucide-react';
+import { useOwnedStore } from '@/app/store/owned';
+import { usePinnedStore } from '@/app/store/pinned';
 import { useEffect, useRef, useState } from 'react';
-import { SidebarCategoryPanel } from './controls/SidebarCategoryPanel';
-import { SidebarColorPanel } from './controls/SidebarColorPanel';
 import { TopBarControls } from './controls/TopBarControls';
 import type {
   GroupBy,
@@ -67,6 +62,10 @@ export function InventoryControls({
   const isDesktop = useIsDesktop();
   const [isParentOpen, setIsParentOpen] = useState(false);
   const [isColorOpen, setIsColorOpen] = useState(false);
+  const ownedStore = useOwnedStore();
+  const { keys, required } = useInventory(setNumber);
+  const pinnedState = usePinnedStore();
+  const pinnedCount = pinnedState.getPinnedKeysForSet(setNumber).length;
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -157,12 +156,6 @@ export function InventoryControls({
     }
   };
 
-  // Helper function to get color dropdown label
-  const getColorLabel = () =>
-    formatMultiSelectLabel('Colors', filter.colors || []);
-
-  // Removed legacy category helpers; encapsulated in SidebarCategoryPanel
-
   return (
     <div
       ref={containerRef}
@@ -170,7 +163,6 @@ export function InventoryControls({
     >
       <TopBarControls
         setNumber={setNumber}
-        setName={setName}
         view={view}
         onChangeView={onChangeView}
         itemSize={itemSize}
@@ -190,84 +182,22 @@ export function InventoryControls({
         onCloseDropdown={id =>
           setOpenDropdownId(prev => (prev === id ? null : prev))
         }
+        pinnedCount={pinnedCount}
+        onMarkAllMissing={() => ownedStore.clearAll(setNumber)}
+        onMarkAllComplete={() =>
+          ownedStore.markAllAsOwned(setNumber, keys, required)
+        }
+        filter={filter}
+        onChangeFilter={onChangeFilter}
+        parentOptions={parentOptions}
+        parentCounts={parentCounts}
+        subcategoriesByParent={subcategoriesByParent}
+        colorOptions={colorOptions}
+        onToggleColor={onToggleColor}
+        isDesktop={isDesktop}
+        isParentOpen={isParentOpen}
+        isColorOpen={isColorOpen}
       />
-      {/* Sidebar Group Triggers */}
-      <div className="sidebar relative min-w-fit border-neutral-300 lg:fixed lg:top-nav-height lg:left-0 lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-neutral-00">
-        <div className="flex flex-nowrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-1">
-          {/* display panel is rendered by TopBarControls; removed duplicate */}
-          {parentOptions.length > 0 ? (
-            <div className="lg:relative">
-              <DropdownTrigger
-                id="parent-trigger"
-                panelId="parent-panel"
-                label={formatMultiSelectLabel('Pieces', filter.parents || [])}
-                labelIcon={<FolderTree size={16} />}
-                isOpen={isDesktop ? isParentOpen : openDropdownId === 'parent'}
-                onToggle={() => handleDropdownToggle('parent')}
-                variant="sidebar"
-              />
-              {(isDesktop ? isParentOpen : openDropdownId === 'parent') && (
-                <DropdownPanelFrame
-                  id="parent-panel"
-                  labelledBy="parent-trigger"
-                  isOpen={true}
-                  variant="sidebar"
-                >
-                  <SidebarCategoryPanel
-                    filter={filter}
-                    onChangeFilter={onChangeFilter}
-                    parentOptions={parentOptions}
-                    subcategoriesByParent={subcategoriesByParent}
-                    parentCounts={parentCounts}
-                  />
-                </DropdownPanelFrame>
-              )}
-            </div>
-          ) : null}
-
-          {colorOptions && colorOptions.length > 0 ? (
-            <div className="lg:relative">
-              <DropdownTrigger
-                id="color-trigger"
-                panelId="color-panel"
-                label={
-                  isDesktop ? (
-                    <span>
-                      Colors
-                      {(filter.colors?.length || 0) > 0 ? (
-                        <span className="ml-2 text-sm text-neutral-400">
-                          ({filter.colors!.join(', ')})
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : (
-                    getColorLabel()
-                  )
-                }
-                labelIcon={<Palette size={16} />}
-                isOpen={isDesktop ? isColorOpen : openDropdownId === 'color'}
-                onToggle={() => handleDropdownToggle('color')}
-                variant="sidebar"
-              />
-              {(isDesktop ? isColorOpen : openDropdownId === 'color') && (
-                <DropdownPanelFrame
-                  id="color-panel"
-                  labelledBy="color-trigger"
-                  isOpen={true}
-                  variant="sidebar"
-                >
-                  <SidebarColorPanel
-                    colorOptions={colorOptions}
-                    selectedColors={filter.colors || []}
-                    onToggleColor={onToggleColor}
-                    onClear={() => onChangeFilter({ ...filter, colors: [] })}
-                  />
-                </DropdownPanelFrame>
-              )}
-            </div>
-          ) : null}
-        </div>
-      </div>
     </div>
   );
 }
