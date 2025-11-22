@@ -4,11 +4,27 @@ import { Pin } from 'lucide-react';
 import type { InventoryRow } from '../types';
 import { OwnedQuantityControl } from './OwnedQuantityControl';
 
+function formatCurrency(amount: number, currencyCode: string): string {
+  try {
+    const formatter = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: 2,
+    });
+    return formatter.format(amount);
+  } catch {
+    return `${currencyCode} ${amount.toFixed(2)}`;
+  }
+}
+
 type Props = {
   row: InventoryRow;
   owned: number;
   missing: number;
   unitPrice?: number | null;
+  minPrice?: number | null;
+  maxPrice?: number | null;
+  currency?: string | null;
   bricklinkColorId?: number | null;
   isPricePending?: boolean;
   onOwnedChange: (next: number) => void;
@@ -20,6 +36,9 @@ export function InventoryItem({
   row,
   owned,
   unitPrice,
+  minPrice,
+  maxPrice,
+  currency,
   bricklinkColorId,
   isPricePending,
   onOwnedChange,
@@ -42,6 +61,13 @@ export function InventoryItem({
     ? `https://www.bricklink.com/v2/catalog/catalogitem.page?M=${encodeURIComponent(displayId)}${linkHash}`
     : `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(displayId)}${linkHash}`;
   const hasPrice = typeof unitPrice === 'number' && Number.isFinite(unitPrice);
+  const hasRange =
+    typeof minPrice === 'number' &&
+    Number.isFinite(minPrice) &&
+    typeof maxPrice === 'number' &&
+    Number.isFinite(maxPrice) &&
+    maxPrice >= minPrice;
+  const currencyCode = currency ?? 'USD';
   return (
     <div className="relative flex w-full justify-start gap-6 rounded-lg border border-neutral-200 bg-white p-4 dark:bg-background grid:flex-col">
       {onTogglePinned ? (
@@ -118,7 +144,7 @@ export function InventoryItem({
             ) : (
               <span className="text-sm">
                 {displayId} | {row.colorName}
-                {hasPrice ? (
+                {hasRange ? (
                   <>
                     {' '}
                     |{' '}
@@ -128,7 +154,21 @@ export function InventoryItem({
                       rel="noreferrer noopener"
                       className="underline hover:text-brand-blue"
                     >
-                      ${unitPrice.toFixed(2)}
+                      {formatCurrency(minPrice as number, currencyCode)} –{' '}
+                      {formatCurrency(maxPrice as number, currencyCode)}
+                    </a>
+                  </>
+                ) : hasPrice ? (
+                  <>
+                    {' '}
+                    |{' '}
+                    <a
+                      href={bricklinkUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="underline hover:text-brand-blue"
+                    >
+                      {formatCurrency(unitPrice as number, currencyCode)}
                     </a>
                   </>
                 ) : isPricePending ? (
@@ -145,7 +185,7 @@ export function InventoryItem({
           </p>
         </div>
         <div className="w-full sm:list:w-auto">
-          <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36 sm:list:pt-7">
+          <div className="smt:list:pt-7 mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36">
             <p className="text-foreground-muted">
               {owned}/{row.quantityRequired}
             </p>

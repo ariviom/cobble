@@ -29,6 +29,8 @@ type SetTopBarProps = {
   priceStatus?: 'idle' | 'loading' | 'loaded' | 'error';
   priceSummary?: {
     total: number;
+    minTotal: number | null;
+    maxTotal: number | null;
     currency: string | null;
     pricedItemCount: number;
   } | null;
@@ -152,14 +154,43 @@ export function SetTopBar({
 
   const formattedPrice = useMemo(() => {
     if (!priceSummary) return null;
+    const currency = priceSummary.currency ?? 'USD';
+    const hasRange =
+      typeof priceSummary.minTotal === 'number' &&
+      Number.isFinite(priceSummary.minTotal) &&
+      typeof priceSummary.maxTotal === 'number' &&
+      Number.isFinite(priceSummary.maxTotal) &&
+      priceSummary.maxTotal >= priceSummary.minTotal;
     try {
       const formatter = new Intl.NumberFormat('en-US', {
         style: 'currency',
-        currency: priceSummary.currency ?? 'USD',
+        currency,
         minimumFractionDigits: 2,
       });
+      if (hasRange) {
+        const minFormatted = formatter.format(priceSummary.minTotal as number);
+        const maxFormatted = formatter.format(priceSummary.maxTotal as number);
+        return `${minFormatted} – ${maxFormatted}`;
+      }
       return formatter.format(priceSummary.total);
     } catch {
+      if (hasRange) {
+        const minFormatted = (priceSummary.minTotal as number).toLocaleString(
+          'en-US',
+          {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }
+        );
+        const maxFormatted = (priceSummary.maxTotal as number).toLocaleString(
+          'en-US',
+          {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }
+        );
+        return `${minFormatted} – ${maxFormatted}`;
+      }
       return priceSummary.total.toLocaleString('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,

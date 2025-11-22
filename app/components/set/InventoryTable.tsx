@@ -22,6 +22,8 @@ import type {
 
 type PriceSummary = {
   total: number;
+  minTotal: number | null;
+  maxTotal: number | null;
   currency: string | null;
   pricedItemCount: number;
 };
@@ -59,6 +61,8 @@ export function InventoryTable({
 
   type PriceInfo = {
     unitPrice: number | null;
+    minPrice: number | null;
+    maxPrice: number | null;
     currency: string | null;
     bricklinkColorId: number | null;
     itemType: 'PART' | 'MINIFIG';
@@ -169,13 +173,33 @@ export function InventoryTable({
       return;
     }
     let total = 0;
+    let minTotal: number | null = null;
+    let maxTotal: number | null = null;
     let currency: string | null = null;
     let counted = 0;
     for (let i = 0; i < rows.length; i += 1) {
       const key = keys[i]!;
       const info = pricesByKey[key];
       if (!info || typeof info.unitPrice !== 'number') continue;
-      total += info.unitPrice * rows[i]!.quantityRequired;
+      const qty = rows[i]!.quantityRequired;
+      total += info.unitPrice * qty;
+
+      const partMin =
+        typeof info.minPrice === 'number' && Number.isFinite(info.minPrice)
+          ? info.minPrice
+          : info.unitPrice;
+      const partMax =
+        typeof info.maxPrice === 'number' && Number.isFinite(info.maxPrice)
+          ? info.maxPrice
+          : info.unitPrice;
+
+      if (typeof partMin === 'number' && Number.isFinite(partMin)) {
+        minTotal = (minTotal ?? 0) + partMin * qty;
+      }
+      if (typeof partMax === 'number' && Number.isFinite(partMax)) {
+        maxTotal = (maxTotal ?? 0) + partMax * qty;
+      }
+
       currency = currency ?? info.currency ?? 'USD';
       counted += 1;
     }
@@ -185,6 +209,8 @@ export function InventoryTable({
     }
     onPriceTotalsChange({
       total,
+      minTotal,
+      maxTotal,
       currency,
       pricedItemCount: counted,
     });
@@ -509,6 +535,9 @@ export function InventoryTable({
                     owned={owned}
                     missing={missing}
                     unitPrice={priceInfo?.unitPrice ?? null}
+                    minPrice={priceInfo?.minPrice ?? null}
+                    maxPrice={priceInfo?.maxPrice ?? null}
+                    currency={priceInfo?.currency ?? null}
                     bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
                     isPricePending={pricesStatus === 'loading'}
                     onOwnedChange={next => {
@@ -573,6 +602,9 @@ export function InventoryTable({
                             owned={owned}
                             missing={missing}
                             unitPrice={priceInfo?.unitPrice ?? null}
+                            minPrice={priceInfo?.minPrice ?? null}
+                            maxPrice={priceInfo?.maxPrice ?? null}
+                            currency={priceInfo?.currency ?? null}
                             bricklinkColorId={
                               priceInfo?.bricklinkColorId ?? null
                             }

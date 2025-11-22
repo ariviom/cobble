@@ -14,6 +14,8 @@ type PriceRequestBody = {
 
 type PriceResponseEntry = {
   unitPrice: number | null;
+  minPrice: number | null;
+  maxPrice: number | null;
   currency: string | null;
   bricklinkColorId: number | null;
   itemType: 'PART' | 'MINIFIG';
@@ -83,6 +85,8 @@ export async function POST(req: NextRequest) {
           );
           prices[item.key] = {
             unitPrice: pg.unitPriceUsed,
+            minPrice: pg.minPriceUsed,
+            maxPrice: pg.maxPriceUsed,
             currency: pg.currencyCode,
             bricklinkColorId: mapped.colorId ?? null,
             itemType: mapped.itemType,

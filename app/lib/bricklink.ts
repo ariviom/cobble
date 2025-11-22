@@ -169,6 +169,8 @@ export type BLColorEntry = {
 export type BLPriceGuide = {
   unitPriceUsed: number | null;
   unitPriceNew: number | null;
+  minPriceUsed: number | null;
+  maxPriceUsed: number | null;
   currencyCode: string | null;
 };
 
@@ -416,6 +418,7 @@ type BLPriceGuideRaw = {
   qty_avg_price?: number | string;
   unit_price?: number | string;
   min_price?: number | string;
+  max_price?: number | string;
   price_detail?: BLPriceGuideDetail[];
 };
 
@@ -485,6 +488,9 @@ async function fetchPriceGuide(
     data.unit_price,
     data.min_price
   );
+  let minPriceUsed = parsePriceValue(data.min_price);
+  let maxPriceUsed = parsePriceValue(data.max_price);
+
   if (
     unitPriceUsed == null &&
     Array.isArray(data.price_detail) &&
@@ -503,10 +509,26 @@ async function fetchPriceGuide(
       unitPriceUsed = sum / count;
     }
   }
+
+  if (Array.isArray(data.price_detail) && data.price_detail.length > 0) {
+    for (const entry of data.price_detail) {
+      const val = parsePriceValue(entry.unit_price);
+      if (val == null) continue;
+      if (minPriceUsed == null || val < minPriceUsed) {
+        minPriceUsed = val;
+      }
+      if (maxPriceUsed == null || val > maxPriceUsed) {
+        maxPriceUsed = val;
+      }
+    }
+  }
+
   const unitPriceNew = null;
   const pg: BLPriceGuide = {
     unitPriceUsed,
     unitPriceNew,
+    minPriceUsed,
+    maxPriceUsed,
     currencyCode: data.currency_code ?? 'USD',
   };
 

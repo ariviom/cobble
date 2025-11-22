@@ -29,6 +29,8 @@ export function SetPageClient({
   >('idle');
   const [priceSummary, setPriceSummary] = useState<{
     total: number;
+    minTotal: number | null;
+    maxTotal: number | null;
     currency: string | null;
     pricedItemCount: number;
   } | null>(null);

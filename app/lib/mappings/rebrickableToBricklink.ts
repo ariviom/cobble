@@ -48,32 +48,13 @@ async function fetchColorMapping(): Promise<Record<number, number>> {
 
 async function fetchPartMapping(partId: string): Promise<string | null> {
   if (partMappingCache.has(partId)) return partMappingCache.get(partId)!;
-  const base = getApiBaseUrl();
-  try {
-    const res = await fetch(
-      `${base}/api/parts/bricklink?part=${encodeURIComponent(partId)}`,
-      { cache: 'force-cache' }
-    );
-    if (!res.ok) {
-      throw new Error(`part_map_${res.status}`);
-    }
-    const data = (await res.json()) as { itemNo: string | null };
-    const normalized =
-      typeof data.itemNo === 'string' && data.itemNo.trim().length > 0
-        ? data.itemNo.trim()
-        : null;
-    partMappingCache.set(partId, normalized);
-    return normalized;
-  } catch (err) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('[mapToBrickLink] part mapping failed', {
-        partId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-    partMappingCache.set(partId, null);
-    return null;
-  }
+  // NOTE: We intentionally avoid calling the server-side /api/parts/bricklink
+  // endpoint here, because it performs Rebrickable part lookups that can be
+  // heavily throttled (429) and introduce long backoffs for pricing requests.
+  // For now we rely on the raw Rebrickable part id as a best-effort BrickLink
+  // item number and treat explicit mappings as an optional future enhancement.
+  partMappingCache.set(partId, null);
+  return null;
 }
 
 type BrickLinkMapResult = {
