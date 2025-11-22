@@ -1,3 +1,13 @@
+export type ParentRelation = {
+  parentKey: string;
+  quantity: number;
+};
+
+export type ComponentRelation = {
+  key: string;
+  quantity: number;
+};
+
 export type InventoryRow = {
   setNumber: string;
   partId: string;
@@ -9,9 +19,12 @@ export type InventoryRow = {
   partCategoryId?: number;
   partCategoryName?: string;
   parentCategory?: string;
+  inventoryKey: string;
+  parentRelations?: ParentRelation[];
+  componentRelations?: ComponentRelation[];
 };
 
-export type SortKey = 'name' | 'color' | 'size' | 'category';
+export type SortKey = 'name' | 'color' | 'size' | 'category' | 'price';
 
 export type ViewType = 'list' | 'grid';
 

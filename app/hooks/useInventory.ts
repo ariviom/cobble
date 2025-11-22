@@ -33,7 +33,10 @@ export function useInventory(setNumber: string): UseInventoryResult {
     queryFn: () => fetchInventory(setNumber),
   });
   const rows = useMemo(() => data ?? [], [data]);
-  const keys = useMemo(() => rows.map(r => `${r.partId}:${r.colorId}`), [rows]);
+  const keys = useMemo(
+    () => rows.map(r => r.inventoryKey ?? `${r.partId}:${r.colorId}`),
+    [rows]
+  );
   const required = useMemo(() => rows.map(r => r.quantityRequired), [rows]);
   const totalRequired = useMemo(
     () => required.reduce((acc, n) => acc + n, 0),

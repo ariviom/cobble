@@ -24,6 +24,14 @@ export function SetPageClient({
   themeId,
 }: SetPageClientProps) {
   const [expanded, setExpanded] = useState(false);
+  const [priceStatus, setPriceStatus] = useState<
+    'idle' | 'loading' | 'loaded' | 'error'
+  >('idle');
+  const [priceSummary, setPriceSummary] = useState<{
+    total: number;
+    currency: string | null;
+    pricedItemCount: number;
+  } | null>(null);
 
   useEffect(() => {
     addRecentSet({
@@ -53,10 +61,17 @@ export function SetPageClient({
         year={year}
         numParts={numParts}
         themeId={themeId ?? null}
+        priceStatus={priceStatus}
+        priceSummary={priceSummary}
         expanded={expanded}
         onToggleExpanded={() => setExpanded(prev => !prev)}
       />
-      <InventoryTable setNumber={setNumber} setName={setName} />
+      <InventoryTable
+        setNumber={setNumber}
+        setName={setName}
+        onPriceStatusChange={setPriceStatus}
+        onPriceTotalsChange={setPriceSummary}
+      />
     </div>
   );
 }

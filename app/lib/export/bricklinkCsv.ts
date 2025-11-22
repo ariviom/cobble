@@ -33,9 +33,9 @@ export async function generateBrickLinkCsv(
       continue;
     }
     body.push([
-      'P', // Item Type: Part
+      mapped.itemType === 'MINIFIG' ? 'M' : 'P',
       mapped.itemNo,
-      mapped.colorId,
+      mapped.colorId ?? 0,
       r.quantityMissing,
       opts.condition ?? 'U',
       `${opts.wantedListName}`,

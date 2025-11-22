@@ -24,6 +24,8 @@ Target test sets:
 - 40597 — Scary Pirate Island
 - 21322 — Pirates of Barracuda Bay
 
+- BrickLink pricing requests use USD + `country_code=US` by default; plan to expose currency/country as a future user preference setting.
+
 ## Recent Changes
 
 - Next.js scaffold in place with global layout and React Query provider.

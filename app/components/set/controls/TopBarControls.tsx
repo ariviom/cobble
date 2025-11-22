@@ -177,6 +177,7 @@ export function TopBarControls({
                     { key: 'color', text: 'Color' },
                     { key: 'size', text: 'Size' },
                     { key: 'category', text: 'Category' },
+                    { key: 'price', text: 'Price' },
                   ],
                   selectedKey: sortKey,
                   onChange: k => {

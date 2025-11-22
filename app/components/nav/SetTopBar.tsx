@@ -15,7 +15,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { MouseEventHandler, ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type SetTopBarProps = {
   setNumber: string;
@@ -26,6 +26,12 @@ type SetTopBarProps = {
   themeId?: number | null;
   expanded?: boolean;
   onToggleExpanded?: () => void;
+  priceStatus?: 'idle' | 'loading' | 'loaded' | 'error';
+  priceSummary?: {
+    total: number;
+    currency: string | null;
+    pricedItemCount: number;
+  } | null;
 };
 
 function NavButton({
@@ -89,6 +95,8 @@ export function SetTopBar({
   themeId,
   expanded = false,
   onToggleExpanded,
+  priceStatus = 'idle',
+  priceSummary,
 }: SetTopBarProps) {
   const router = useRouter();
   const isDesktop = useIsDesktop();
@@ -142,6 +150,23 @@ export function SetTopBar({
     }
   };
 
+  const formattedPrice = useMemo(() => {
+    if (!priceSummary) return null;
+    try {
+      const formatter = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: priceSummary.currency ?? 'USD',
+        minimumFractionDigits: 2,
+      });
+      return formatter.format(priceSummary.total);
+    } catch {
+      return priceSummary.total.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    }
+  }, [priceSummary]);
+
   return (
     <>
       <div
@@ -165,7 +190,7 @@ export function SetTopBar({
           aria-expanded={isDesktop ? expanded : false}
           aria-controls="setinfo-panel"
         >
-          <div className="overflow-hidden rounded-sm border border-foreground-accent">
+          <div className="aspect-square overflow-hidden rounded-sm border border-foreground-accent lg:aspect-auto">
             {imageUrl ? (
               <Image
                 src={imageUrl}
@@ -189,6 +214,13 @@ export function SetTopBar({
               {isLoading
                 ? 'Computing…'
                 : `${ownedTotal} owned / ${totalMissing} missing`}
+              {priceStatus === 'loading'
+                ? ' · Getting price…'
+                : priceStatus === 'error'
+                  ? ' · Price unavailable'
+                  : formattedPrice
+                    ? ` · Total ${formattedPrice}`
+                    : null}
             </div>
             {mounted &&
               (uiStatus.owned || uiStatus.canBuild || uiStatus.wantToBuild) && (

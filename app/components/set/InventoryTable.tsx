@@ -3,7 +3,7 @@
 import { useInventory } from '@/app/hooks/useInventory';
 import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   clampOwned,
   computeMissing,
@@ -12,17 +12,35 @@ import {
 } from './inventory-utils';
 import { InventoryControls } from './InventoryControls';
 import { InventoryItem } from './items/InventoryItem';
-import type { GroupBy, InventoryFilter, ItemSize, ViewType } from './types';
+import type {
+  GroupBy,
+  InventoryFilter,
+  ItemSize,
+  SortKey,
+  ViewType,
+} from './types';
 
-type SortKey = 'name' | 'color' | 'size' | 'category';
+type PriceSummary = {
+  total: number;
+  currency: string | null;
+  pricedItemCount: number;
+};
+
+type InventoryTableProps = {
+  setNumber: string;
+  setName?: string;
+  onPriceStatusChange?: (
+    status: 'idle' | 'loading' | 'loaded' | 'error'
+  ) => void;
+  onPriceTotalsChange?: (summary: PriceSummary | null) => void;
+};
 
 export function InventoryTable({
   setNumber,
   setName,
-}: {
-  setNumber: string;
-  setName?: string;
-}) {
+  onPriceStatusChange,
+  onPriceTotalsChange,
+}: InventoryTableProps) {
   const { rows, isLoading, error, keys } = useInventory(setNumber);
 
   // UI state
@@ -38,6 +56,18 @@ export function InventoryTable({
   const [itemSize, setItemSize] = useState<ItemSize>('md');
   const [groupBy, setGroupBy] = useState<GroupBy>('none');
   // removed legacy top dropdown state
+
+  type PriceInfo = {
+    unitPrice: number | null;
+    currency: string | null;
+    bricklinkColorId: number | null;
+    itemType: 'PART' | 'MINIFIG';
+  };
+  const [pricesByKey, setPricesByKey] = useState<Record<string, PriceInfo>>({});
+  const [pricesStatus, setPricesStatus] = useState<
+    'idle' | 'loading' | 'loaded' | 'error'
+  >('idle');
+  const [pricesError, setPricesError] = useState<string | null>(null);
 
   const ownedStore = useOwnedStore();
   const pinnedStore = usePinnedStore();
@@ -65,6 +95,117 @@ export function InventoryTable({
     () => rows.map(r => r.parentCategory ?? 'Misc'),
     [rows]
   );
+
+  const loadPrices = useCallback(async () => {
+    if (!rows.length) return;
+    if (pricesStatus === 'loading' || pricesStatus === 'loaded') return;
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[InventoryTable] loading BrickLink prices', {
+        setNumber,
+        itemCount: keys.length,
+      });
+    }
+    setPricesStatus('loading');
+    setPricesError(null);
+    try {
+      const res = await fetch('/api/prices/bricklink', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: keys.map((key, idx) => ({
+            key,
+            partId: rows[idx]!.partId,
+            colorId: rows[idx]!.colorId,
+          })),
+        }),
+      });
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[InventoryTable] prices response meta', {
+          ok: res.ok,
+          status: res.status,
+        });
+      }
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as {
+        prices: Record<string, PriceInfo>;
+      };
+      const count = data.prices ? Object.keys(data.prices).length : 0;
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[InventoryTable] prices parsed', {
+          setNumber,
+          pricedCount: count,
+        });
+      }
+      setPricesByKey(data.prices ?? {});
+      setPricesStatus('loaded');
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[InventoryTable] price load failed', err);
+      }
+      setPricesStatus('error');
+      setPricesError(err instanceof Error ? err.message : String(err));
+    }
+  }, [keys, rows, pricesStatus, setNumber]);
+
+  // Reset prices when switching sets
+  useEffect(() => {
+    setPricesByKey({});
+    setPricesStatus('idle');
+    setPricesError(null);
+  }, [setNumber]);
+
+  useEffect(() => {
+    onPriceStatusChange?.(pricesStatus);
+  }, [pricesStatus, onPriceStatusChange]);
+
+  useEffect(() => {
+    if (!onPriceTotalsChange) return;
+    if (pricesStatus !== 'loaded') {
+      onPriceTotalsChange(null);
+      return;
+    }
+    let total = 0;
+    let currency: string | null = null;
+    let counted = 0;
+    for (let i = 0; i < rows.length; i += 1) {
+      const key = keys[i]!;
+      const info = pricesByKey[key];
+      if (!info || typeof info.unitPrice !== 'number') continue;
+      total += info.unitPrice * rows[i]!.quantityRequired;
+      currency = currency ?? info.currency ?? 'USD';
+      counted += 1;
+    }
+    if (counted === 0) {
+      onPriceTotalsChange(null);
+      return;
+    }
+    onPriceTotalsChange({
+      total,
+      currency,
+      pricedItemCount: counted,
+    });
+  }, [pricesByKey, rows, keys, pricesStatus, onPriceTotalsChange]);
+
+  // Defer initial price loading slightly to keep first paint fast
+  useEffect(() => {
+    if (!rows.length) return;
+    if (pricesStatus !== 'idle') return;
+    const timeout = window.setTimeout(() => {
+      void loadPrices();
+    }, 800);
+    return () => window.clearTimeout(timeout);
+  }, [rows, pricesStatus, loadPrices]);
+
+  // Ensure prices start loading as soon as user chooses price sort
+  useEffect(() => {
+    if (sortKey === 'price' && pricesStatus === 'idle') {
+      void loadPrices();
+    }
+  }, [sortKey, pricesStatus, loadPrices]);
 
   const visibleIndices = useMemo(() => {
     const idxs = rows.map((_, i) => i);
@@ -119,6 +260,31 @@ export function InventoryTable({
       const ra = rows[a]!;
       const rb = rows[b]!;
 
+      if (sortKey === 'price') {
+        const keyA = keys[a]!;
+        const keyB = keys[b]!;
+        const paRaw = pricesByKey[keyA]?.unitPrice;
+        const pbRaw = pricesByKey[keyB]?.unitPrice;
+        const hasA = typeof paRaw === 'number' && Number.isFinite(paRaw);
+        const hasB = typeof pbRaw === 'number' && Number.isFinite(pbRaw);
+
+        // Always push rows with no price data to the bottom, regardless of sortDir
+        if (!hasA && !hasB) return 0;
+        if (!hasA) return 1;
+        if (!hasB) return -1;
+
+        const pa = paRaw as number;
+        const pb = pbRaw as number;
+        const diff = pa - pb;
+        if (diff === 0) {
+          // Stable tie-breaker on name
+          const nameCmp = ra.partName.localeCompare(rb.partName);
+          if (nameCmp !== 0) return nameCmp;
+          return 0;
+        }
+        return sortDir === 'asc' ? diff : -diff;
+      }
+
       let base = 0;
       switch (sortKey) {
         case 'name':
@@ -152,7 +318,16 @@ export function InventoryTable({
     idxs.sort(cmp);
 
     return idxs;
-  }, [rows, sortKey, sortDir, sizeByIndex, categoryByIndex, visibleIndices]);
+  }, [
+    rows,
+    sortKey,
+    sortDir,
+    sizeByIndex,
+    categoryByIndex,
+    visibleIndices,
+    keys,
+    pricesByKey,
+  ]);
 
   const groupKeyByIndex = useMemo(() => {
     if (groupBy === 'none') return null;
@@ -326,12 +501,16 @@ export function InventoryTable({
                 const key = keys[originalIndex]!;
                 const owned = ownedStore.getOwned(setNumber, key);
                 const missing = computeMissing(r.quantityRequired, owned);
+                const priceInfo = pricesByKey[key];
                 return (
                   <InventoryItem
                     key={key}
                     row={r}
                     owned={owned}
                     missing={missing}
+                    unitPrice={priceInfo?.unitPrice ?? null}
+                    bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
+                    isPricePending={pricesStatus === 'loading'}
                     onOwnedChange={next => {
                       const clamped = clampOwned(next, r.quantityRequired);
                       ownedStore.setOwned(setNumber, key, clamped);
@@ -370,7 +549,7 @@ export function InventoryTable({
                 sections.sort((a, b) => a.key.localeCompare(b.key));
                 return sections.map(sec => (
                   <div key={sec.key} className="flex flex-col gap-2">
-                    <div className="sticky top-sticky-label z-10 bg-background/90 px-1 py-2 text-sm font-semibold text-foreground">
+                    <div className="sticky top-sticky-label z-10 bg-background/90 px-1 py-2 text-sm font-semibold text-foreground lg:top-0">
                       {sec.key === 'Minifig' ? 'Minifigures' : sec.key}
                     </div>
                     <div
@@ -386,12 +565,18 @@ export function InventoryTable({
                           r.quantityRequired,
                           owned
                         );
+                        const priceInfo = pricesByKey[key];
                         return (
                           <InventoryItem
                             key={key}
                             row={r}
                             owned={owned}
                             missing={missing}
+                            unitPrice={priceInfo?.unitPrice ?? null}
+                            bricklinkColorId={
+                              priceInfo?.bricklinkColorId ?? null
+                            }
+                            isPricePending={pricesStatus === 'loading'}
                             onOwnedChange={next => {
                               const clamped = clampOwned(
                                 next,

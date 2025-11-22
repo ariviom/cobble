@@ -37,6 +37,20 @@ type RebrickableSetMinifigItem = {
   };
 };
 
+type RebrickableMinifigComponent = {
+  part: {
+    part_num: string;
+    name?: string;
+    part_img_url?: string | null;
+    part_cat_id?: number;
+  };
+  color?: {
+    id: number;
+    name: string;
+  };
+  quantity: number;
+};
+
 export type InventoryRow = {
   setNumber: string;
   partId: string;
@@ -59,6 +73,9 @@ export type InventoryRow = {
     | 'Technic'
     | 'Wheels'
     | 'Misc';
+  inventoryKey: string;
+  parentRelations?: Array<{ parentKey: string; quantity: number }>;
+  componentRelations?: Array<{ key: string; quantity: number }>;
 };
 
 const BASE = 'https://rebrickable.com/api/v3' as const;
@@ -233,33 +250,84 @@ export async function getAggregatedSearchResults(
   query: string,
   sort: string
 ): Promise<SimpleSet[]> {
-  const key = `${sort}::${query.trim().toLowerCase()}`;
+  const normalizedQuery = query.trim();
+  const cacheKey = `${sort}::${normalizedQuery.toLowerCase()}`;
   const now = Date.now();
-  const cached = aggregatedSearchCache.get(key);
+  const cached = aggregatedSearchCache.get(cacheKey);
   if (cached && now - cached.at < SEARCH_CACHE_TTL_MS) {
     return cached.items;
   }
+
+  if (!normalizedQuery) return [];
 
   // Fetch pages from Rebrickable up to cap
   let first = true;
   let nextUrl: string | null = null;
   const collected: RebrickableSetSearchResult[] = [];
 
-  while (first || nextUrl) {
-    const page: { results: RebrickableSetSearchResult[]; next: string | null } =
-      first
+  try {
+    while (first || nextUrl) {
+      const page: {
+        results: RebrickableSetSearchResult[];
+        next: string | null;
+      } = first
         ? await rbFetch<{
             results: RebrickableSetSearchResult[];
             next: string | null;
-          }>('/lego/sets/', { search: query, page_size: SEARCH_AGG_PAGE_SIZE })
+          }>('/lego/sets/', {
+            search: normalizedQuery,
+            page_size: SEARCH_AGG_PAGE_SIZE,
+          })
         : await rbFetchAbsolute<{
             results: RebrickableSetSearchResult[];
             next: string | null;
           }>(nextUrl!);
-    collected.push(...page.results);
-    nextUrl = page.next;
-    first = false;
-    if (collected.length >= SEARCH_AGG_CAP) break;
+      collected.push(...page.results);
+      nextUrl = page.next;
+      first = false;
+      if (collected.length >= SEARCH_AGG_CAP) break;
+    }
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      err.message?.includes('403') &&
+      /\s/.test(normalizedQuery)
+    ) {
+      const tokens = normalizedQuery
+        .split(/\s+/)
+        .map(tok => tok.trim().toLowerCase())
+        .filter(Boolean);
+      if (tokens.length === 0) return [];
+      const union = new Map<string, SimpleSet>();
+      for (const token of tokens) {
+        try {
+          const page = await searchSets(token, sort, 1, 40);
+          for (const result of page.results) {
+            if (!union.has(result.setNumber)) {
+              union.set(result.setNumber, {
+                setNumber: result.setNumber,
+                name: result.name,
+                year: result.year,
+                numParts: result.numParts,
+                imageUrl: result.imageUrl,
+                themeId: null,
+              });
+            }
+          }
+        } catch (innerErr) {
+          console.error('Tokenized search failed', {
+            token,
+            error: innerErr instanceof Error ? innerErr.message : innerErr,
+          });
+        }
+      }
+      const filtered = [...union.values()].filter(set =>
+        tokens.every(tok => set.name.toLowerCase().includes(tok))
+      );
+      aggregatedSearchCache.set(cacheKey, { at: now, items: filtered });
+      return filtered;
+    }
+    throw err;
   }
 
   // Load themes to exclude non-set categories like Books and Gear
@@ -310,8 +378,8 @@ export async function getAggregatedSearchResults(
           : null,
     }));
 
-  const sorted = sortAggregatedResults(mapped, sort, query);
-  aggregatedSearchCache.set(key, { at: now, items: sorted });
+  const sorted = sortAggregatedResults(mapped, sort, normalizedQuery);
+  aggregatedSearchCache.set(cacheKey, { at: now, items: sorted });
   return sorted;
 }
 
@@ -341,6 +409,7 @@ export async function getSetInventory(
     .map(i => {
       const catId = i.part.part_cat_id;
       const catName = catId != null ? idToName.get(catId) : undefined;
+      const inventoryKey = `${i.part.part_num}:${i.color.id}`;
       return {
         setNumber,
         partId: i.part.part_num,
@@ -352,8 +421,12 @@ export async function getSetInventory(
         partCategoryId: catId,
         partCategoryName: catName,
         parentCategory: catName ? mapCategoryNameToParent(catName) : undefined,
+        inventoryKey,
       } satisfies InventoryRow;
     });
+
+  const partRowMap = new Map<string, InventoryRow>();
+  partRows.forEach(row => partRowMap.set(row.inventoryKey, row));
 
   // Fetch all minifigs for the set (separate endpoint) and map them into rows
   type MinifigPage = {
@@ -372,28 +445,108 @@ export async function getSetInventory(
     nextMinUrl = pg.next;
   }
 
-  const minifigRows: InventoryRow[] = allMinifigs.map((i, idx) => {
+  const minifigParents: InventoryRow[] = [];
+  const orphanComponents: InventoryRow[] = [];
+
+  for (let idx = 0; idx < allMinifigs.length; idx++) {
+    const entry = allMinifigs[idx]!;
     const rawId =
-      i.set_num ?? i.fig_num ?? i.minifig?.fig_num ?? i.minifig?.set_num ?? '';
-    const figNum = rawId && rawId.trim() ? rawId : `unknown-${idx + 1}`;
-    const figName = i.name ?? i.set_name ?? i.minifig?.name ?? 'Minifigure';
-    const imgUrl = i.set_img_url ?? i.minifig?.set_img_url ?? null;
-    return {
+      entry.fig_num ??
+      entry.set_num ??
+      entry.minifig?.fig_num ??
+      entry.minifig?.set_num ??
+      '';
+    const figNum = rawId && rawId.trim() ? rawId.trim() : `unknown-${idx + 1}`;
+    const parentKey = `fig:${figNum}`;
+    const figName =
+      entry.name ?? entry.set_name ?? entry.minifig?.name ?? 'Minifigure';
+    const imgUrl = entry.set_img_url ?? entry.minifig?.set_img_url ?? null;
+    const parentQuantity = entry.quantity ?? 1;
+    const parentRow: InventoryRow = {
       setNumber,
-      partId: `fig:${figNum}`,
+      partId: parentKey,
       partName: figName,
       colorId: 0,
       colorName: '—',
-      quantityRequired: i.quantity,
+      quantityRequired: parentQuantity,
       imageUrl: imgUrl,
       partCategoryId: undefined,
       partCategoryName: 'Minifig',
       parentCategory: 'Minifigure',
-    } satisfies InventoryRow;
-  });
+      inventoryKey: parentKey,
+      componentRelations: [],
+    };
 
-  return [...partRows, ...minifigRows];
+    if (figNum && !figNum.startsWith('unknown')) {
+      try {
+        const components = await getMinifigPartsCached(figNum);
+        for (const component of components) {
+          if (!component?.part?.part_num) continue;
+          const perParentQty = Math.max(1, Math.floor(component.quantity ?? 1));
+          const colorId =
+            component.color && typeof component.color.id === 'number'
+              ? component.color.id
+              : 0;
+          const colorName =
+            component.color && typeof component.color.name === 'string'
+              ? component.color.name
+              : '—';
+          const baseKey = `${component.part.part_num}:${colorId}`;
+          const existingRow = partRowMap.get(baseKey);
+          if (existingRow) {
+            existingRow.parentRelations = [
+              ...(existingRow.parentRelations ?? []),
+              { parentKey, quantity: perParentQty },
+            ];
+            parentRow.componentRelations!.push({
+              key: existingRow.inventoryKey,
+              quantity: perParentQty,
+            });
+          } else {
+            const inventoryKey = `${baseKey}:parent=${parentKey}`;
+            const childRow: InventoryRow = {
+              setNumber,
+              partId: component.part.part_num,
+              partName: component.part.name ?? component.part.part_num,
+              colorId,
+              colorName,
+              quantityRequired: perParentQty * parentQuantity,
+              imageUrl: component.part.part_img_url ?? null,
+              partCategoryId: component.part.part_cat_id,
+              partCategoryName: component.part.part_cat_id
+                ? idToName.get(component.part.part_cat_id)
+                : 'Minifig Component',
+              parentCategory: 'Minifigure',
+              inventoryKey,
+              parentRelations: [{ parentKey, quantity: perParentQty }],
+            };
+            parentRow.componentRelations!.push({
+              key: inventoryKey,
+              quantity: perParentQty,
+            });
+            partRowMap.set(inventoryKey, childRow);
+            orphanComponents.push(childRow);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch minifig parts', {
+          figNum,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    minifigParents.push(parentRow);
+  }
+
+  return [...partRows, ...orphanComponents, ...minifigParents];
 }
+
+const minifigPartsCache = new Map<
+  string,
+  { at: number; parts: RebrickableMinifigComponent[] }
+>();
+const ONE_HOUR_MS = 60 * 60 * 1000;
 
 let setSummaryCache: {
   at: number;
@@ -900,6 +1053,46 @@ function mapCategoryNameToParent(
   if (n.startsWith('brick') || n.includes('bracket') || n.includes('arch'))
     return 'Brick';
   return 'Misc';
+}
+
+async function getMinifigPartsCached(
+  figNum: string
+): Promise<RebrickableMinifigComponent[]> {
+  const cached = minifigPartsCache.get(figNum);
+  const now = Date.now();
+  if (cached && now - cached.at < ONE_HOUR_MS) return cached.parts;
+
+  const parts: RebrickableMinifigComponent[] = [];
+  let nextUrl: string | null = null;
+  let firstPage = true;
+  while (firstPage || nextUrl) {
+    let response:
+      | {
+          results: RebrickableMinifigComponent[];
+          next: string | null;
+        }
+      | undefined;
+    if (firstPage) {
+      response = await rbFetch<{
+        results: RebrickableMinifigComponent[];
+        next: string | null;
+      }>(`/lego/minifigs/${encodeURIComponent(figNum)}/parts/`, {
+        page_size: 1000,
+      });
+    } else if (nextUrl) {
+      response = await rbFetchAbsolute<{
+        results: RebrickableMinifigComponent[];
+        next: string | null;
+      }>(nextUrl);
+    }
+    if (!response) break;
+    parts.push(...response.results);
+    nextUrl = response.next;
+    firstPage = false;
+  }
+
+  minifigPartsCache.set(figNum, { at: now, parts });
+  return parts;
 }
 
 export type RebrickableColor = {

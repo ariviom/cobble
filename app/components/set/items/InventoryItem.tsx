@@ -8,6 +8,9 @@ type Props = {
   row: InventoryRow;
   owned: number;
   missing: number;
+  unitPrice?: number | null;
+  bricklinkColorId?: number | null;
+  isPricePending?: boolean;
   onOwnedChange: (next: number) => void;
   isPinned?: boolean;
   onTogglePinned?: () => void;
@@ -16,18 +19,29 @@ type Props = {
 export function InventoryItem({
   row,
   owned,
+  unitPrice,
+  bricklinkColorId,
+  isPricePending,
   onOwnedChange,
   isPinned,
   onTogglePinned,
 }: Props) {
-  const isMinifig = row.parentCategory === 'Minifigure';
   const isFigId =
     typeof row.partId === 'string' && row.partId.startsWith('fig:');
+  const isMinifig = row.parentCategory === 'Minifigure' && isFigId;
   const displayId = isFigId ? row.partId.replace(/^fig:/, '') : row.partId;
   const hasRealFigId =
     isFigId &&
     typeof displayId === 'string' &&
     !displayId.startsWith('unknown-');
+  const linkHash =
+    !isFigId && typeof bricklinkColorId === 'number'
+      ? `#T=S&C=${bricklinkColorId}`
+      : '#T=S';
+  const bricklinkUrl = isFigId
+    ? `https://www.bricklink.com/v2/catalog/catalogitem.page?M=${encodeURIComponent(displayId)}${linkHash}`
+    : `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(displayId)}${linkHash}`;
+  const hasPrice = typeof unitPrice === 'number' && Number.isFinite(unitPrice);
   return (
     <div className="relative flex w-full justify-start gap-6 rounded-lg border border-neutral-200 bg-white p-4 dark:bg-background grid:flex-col">
       {onTogglePinned ? (
@@ -104,12 +118,34 @@ export function InventoryItem({
             ) : (
               <span className="text-sm">
                 {displayId} | {row.colorName}
+                {hasPrice ? (
+                  <>
+                    {' '}
+                    |{' '}
+                    <a
+                      href={bricklinkUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="underline hover:text-brand-blue"
+                    >
+                      ${unitPrice.toFixed(2)}
+                    </a>
+                  </>
+                ) : isPricePending ? (
+                  <>
+                    {' '}
+                    |{' '}
+                    <span className="text-neutral-400 italic">
+                      Getting price…
+                    </span>
+                  </>
+                ) : null}
               </span>
             )}
           </p>
         </div>
         <div className="w-full sm:list:w-auto">
-          <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36 lg:list:pt-7">
+          <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36 sm:list:pt-7">
             <p className="text-foreground-muted">
               {owned}/{row.quantityRequired}
             </p>
