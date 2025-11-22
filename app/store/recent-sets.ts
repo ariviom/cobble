@@ -12,7 +12,7 @@ export type RecentSetEntry = {
   lastViewedAt: number;
 };
 
-const STORAGE_KEY = 'cobble_recent_sets_v1';
+const STORAGE_KEY = 'quarry_recent_sets_v1';
 const MAX_RECENT = 100;
 
 function loadRecentSetsUnsafe(): RecentSetEntry[] {

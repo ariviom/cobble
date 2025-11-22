@@ -15,7 +15,7 @@ type OwnedState = {
   _version: number; // Version counter for triggering re-renders
 };
 
-const STORAGE_PREFIX = 'cobble_owned_';
+const STORAGE_PREFIX = 'quarry_owned_';
 const STORAGE_VERSION_SUFFIX = '_v1';
 const WRITE_DEBOUNCE_MS = 500; // longer debounce per UX guidance
 

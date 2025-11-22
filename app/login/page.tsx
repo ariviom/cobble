@@ -14,7 +14,7 @@ export default function LoginPage() {
       <section className="rounded-lg border border-neutral-200 bg-background p-4 shadow-sm">
         <h2 className="text-sm font-medium text-foreground">Sign in with Google</h2>
         <p className="mt-1 text-xs text-foreground-muted">
-          Recommended. Cobble will use your Google account as your primary identity.
+          Recommended. Quarry will use your Google account as your primary identity.
         </p>
         <button
           type="button"

@@ -9,7 +9,7 @@ export default function AccountPage() {
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
         <p className="mt-2 text-sm text-foreground-muted">
-          Manage your sign-in, profile, and default Cobble behavior.
+          Manage your sign-in, profile, and default Quarry behavior.
         </p>
       </header>
 
@@ -44,7 +44,7 @@ export default function AccountPage() {
                 Sign-in & identity
               </h2>
               <p className="mt-1 text-xs text-foreground-muted">
-                Cobble will support both email/password and Google Sign-In. Rebrickable
+                Quarry will support both email/password and Google Sign-In. Rebrickable
                 and BrickLink are used only as data sources, not as login providers.
               </p>
             </div>
@@ -125,7 +125,7 @@ export default function AccountPage() {
               Rebrickable account (optional)
             </h3>
             <p className="mt-1 text-xs text-foreground-muted">
-              In the future you’ll be able to link your Rebrickable account so Cobble
+              In the future you’ll be able to link your Rebrickable account so Quarry
               can read your existing collection (via a Rebrickable user token).
             </p>
             <div className="mt-2 grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -168,7 +168,7 @@ export default function AccountPage() {
                 Display & behavior
               </h2>
               <p className="mt-1 text-xs text-foreground-muted">
-                Control how Cobble behaves by default. These settings will be stored
+                Control how Quarry behaves by default. These settings will be stored
                 per account once authentication is wired up.
               </p>
             </div>
@@ -207,7 +207,7 @@ export default function AccountPage() {
                 Theme accent color
               </label>
               <p className="text-xs text-foreground-muted">
-                Choose Cobble&apos;s primary accent color. These map to the brand
+                Choose Quarry&apos;s primary accent color. These map to the brand
                 colors defined in the global theme.
               </p>
               <div className="mt-1 flex flex-wrap gap-3 text-xs">

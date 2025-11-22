@@ -11,7 +11,7 @@ export type RecentSearchEntry = {
   lastSearchedAt: number;
 };
 
-const STORAGE_KEY = 'cobble_recent_searches_v1';
+const STORAGE_KEY = 'quarry_recent_searches_v1';
 const MAX_RECENT = 50;
 
 function loadRecentSearchesUnsafe(): RecentSearchEntry[] {

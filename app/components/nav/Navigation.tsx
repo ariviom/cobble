@@ -54,7 +54,7 @@ export function Navigation({
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-900 text-neutral-00">
               <Package className="h-5 w-5" />
             </div>
-            <h1 className="text-lg font-bold">Cobble</h1>
+            <h1 className="text-lg font-bold">Quarry</h1>
           </Link>
           <NavLinkItem
             className="lg:hidden"

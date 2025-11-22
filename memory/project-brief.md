@@ -1,7 +1,7 @@
 # Project Brief
 
 ## Project Purpose
-Cobble — LEGO Set Piece Picker. A Next.js web app that lets a user enter a LEGO set number, fetch the set’s full parts inventory from Rebrickable (server-side), mark quantities they already own, compute missing quantities, and export a missing-parts list compatible with Rebrickable CSV and BrickLink CSV wanted list formats.
+Quarry — LEGO Set Piece Picker. A Next.js web app that lets a user enter a LEGO set number, fetch the set’s full parts inventory from Rebrickable (server-side), mark quantities they already own, compute missing quantities, and export a missing-parts list compatible with Rebrickable CSV and BrickLink CSV wanted list formats.
 
 ## Core Requirements
 - Search by set number with autocomplete and validation (Rebrickable search). Fallback to direct lookup when a code is nonstandard.

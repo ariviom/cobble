@@ -1,5 +1,5 @@
 {
-  "name": "@cobble/web",
+  "name": "@quarry/web",
   "version": "0.1.0",
   "private": "true",
   "scripts": {

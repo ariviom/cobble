@@ -53,7 +53,7 @@ type UserSetsState = {
   clearAllStatusesForSet: (setNumber: string) => void;
 };
 
-const STORAGE_KEY = 'cobble_user_sets_v1';
+const STORAGE_KEY = 'quarry_user_sets_v1';
 
 type PersistedUserSet = {
   setNumber: string;
