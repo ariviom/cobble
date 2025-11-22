@@ -5,6 +5,12 @@ export type MissingRow = {
   partId: string;
   colorId: number;
   quantityMissing: number;
+  /**
+   * Optional LEGO element ID for this part/color, when known.
+   * Not required for Rebrickable / BrickLink exports but used for
+   * LEGO Pick-a-Brick CSV export.
+   */
+  elementId?: string | null;
 };
 
 // Rebrickable import spec generally supports headers: part_num,color_id,quantity

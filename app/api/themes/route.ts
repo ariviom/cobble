@@ -1,9 +1,9 @@
-import { getThemes } from '@/app/lib/rebrickable';
+import { fetchThemes } from '@/app/lib/services/themes';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const themes = await getThemes();
+    const themes = await fetchThemes();
     return NextResponse.json({ themes });
   } catch (err) {
     console.error('Themes fetch failed:', {

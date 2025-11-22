@@ -13,9 +13,9 @@
 
 ## Key Technical Decisions
 
-- No authentication in MVP; local-only persistence.
+- No authentication in MVP; local-only persistence. Simple user accounts via Supabase are planned next.
 - Server-only Rebrickable access; never expose `REBRICKABLE_API` in the client.
-- Omit pricing and rarity in MVP; defer to future versions.
+- Pricing: optional BrickLink-based price lookup is supported via a manual per-set "Get prices" action; advanced analytics/rarity remain out of scope.
 - Export formats supported in MVP: Rebrickable CSV, BrickLink CSV (wanted list). BrickOwl deferred.
 - Wanted list naming: "{setNumber} — {setName} — mvp". Condition defaults accepted; toggle for new/used later.
 - Virtualized table to handle large inventories.
@@ -32,10 +32,14 @@
 - UI components:
   - Tabbed filter bar (`InventoryFilterTabs`) provides filtering across All/Missing/Owned and categories, with horizontal scroll and arrow controls and enlarged touch targets.
   - Search bar uses inline clear control with large touch target and label positioned above input.
+  - Set top bar composes set metadata, owned/missing summary, user-set status chips, and price actions (manual "Get prices" trigger plus aggregate price display).
+- Inventory view-model hook (`useInventoryViewModel`) centralizes sorting/filtering/grouping and derived metadata, keeping `InventoryTable` mostly presentational.
+- Error domain helpers (`AppError`, `throwAppErrorFromResponse`) normalize HTTP failure handling across client fetchers.
 
 ## Gaps / Opportunities
 - Export validation against Rebrickable/BrickLink importers pending.
 - Category taxonomy derived from part name is heuristic; could benefit from a curated mapping for parent categories.
+- Supabase integration for auth and persistence still to be designed and wired into existing stores without overcomplicating the data layer.
 
 ## Performance Optimization Opportunities
 

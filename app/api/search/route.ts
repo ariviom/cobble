@@ -1,4 +1,4 @@
-import { getAggregatedSearchResults } from '@/app/lib/rebrickable';
+import { searchSetsPage } from '@/app/lib/services/search';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
@@ -11,11 +11,12 @@ export async function GET(req: NextRequest) {
   const allowedSizes = new Set([20, 40, 60, 80, 100]);
   const pageSize = allowedSizes.has(requestedSize) ? requestedSize : 20;
   try {
-    const all = await getAggregatedSearchResults(q, sort);
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
-    const slice = all.slice(start, end);
-    const nextPage = end < all.length ? page + 1 : null;
+    const { slice, nextPage } = await searchSetsPage({
+      query: q,
+      sort,
+      page,
+      pageSize,
+    });
     return NextResponse.json({ results: slice, nextPage });
   } catch (err) {
     console.error('Search failed:', {

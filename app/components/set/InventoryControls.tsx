@@ -16,7 +16,7 @@ import type {
 
 type Props = {
   setNumber: string;
-  setName?: string;
+  setName?: string | undefined;
   view: ViewType;
   onChangeView: (v: ViewType) => void;
   itemSize: ItemSize;
@@ -30,33 +30,33 @@ type Props = {
   filter: InventoryFilter;
   onChangeFilter: (f: InventoryFilter) => void;
   parentOptions: string[];
-  parentCounts?: Record<string, number>;
+  parentCounts?: Record<string, number> | undefined;
   subcategoriesByParent: Record<string, string[]>;
   colorOptions: string[];
   onToggleColor: (color: string) => void;
 };
 
-export function InventoryControls({
-  setNumber,
-  setName,
-  view,
-  onChangeView,
-  itemSize,
-  onChangeItemSize,
-  sortKey,
-  onChangeSortKey,
-  sortDir,
-  onToggleSortDir,
-  groupBy,
-  onChangeGroupBy,
-  filter,
-  onChangeFilter,
-  parentOptions,
-  parentCounts,
-  subcategoriesByParent,
-  colorOptions,
-  onToggleColor,
-}: Props) {
+export function InventoryControls(props: Props) {
+  const {
+    setNumber,
+    view,
+    onChangeView,
+    itemSize,
+    onChangeItemSize,
+    sortKey,
+    onChangeSortKey,
+    sortDir,
+    onToggleSortDir,
+    groupBy,
+    onChangeGroupBy,
+    filter,
+    onChangeFilter,
+    parentOptions,
+    parentCounts,
+    subcategoriesByParent,
+    colorOptions,
+    onToggleColor,
+  } = props;
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDesktop = useIsDesktop();
@@ -163,6 +163,7 @@ export function InventoryControls({
     >
       <TopBarControls
         setNumber={setNumber}
+        setName={props.setName}
         view={view}
         onChangeView={onChangeView}
         itemSize={itemSize}

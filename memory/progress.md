@@ -8,24 +8,24 @@
   - `app/api/search/route.ts` (set search)
   - `app/api/inventory/route.ts` (set inventory)
 - `lib/rebrickable.ts` wrapper with `searchSets`, `getSetInventory`, `getSetSummary` using server-only env and caching.
-- Set search UI with debounce and result linking (`components/search/set-search.tsx`).
+- Set search UI with debounce and result linking (`app/components/search`).
 - Search bar label moved above input; inline clear “x” appears when text entered with touch-friendly target.
-- Set page `app/set/[setNumber]/page.tsx` renders inventory for a set.
-- Virtualized inventory table with images, per-row owned input, bulk actions, and total missing (`components/set/inventory-table.tsx`).
-- Tabbed filters for inventory: All (default), Missing, Owned, and per-category tabs with horizontal scroll and arrow controls.
- - Tabbed filters for inventory: All (default), Missing, Owned, and per-category tabs with horizontal scroll and arrow controls.
- - Owned-quantity persistence via `app/store/owned.ts` with in-memory cache, versioned localStorage key, and debounced writes.
+- Set page `app/sets/[setNumber]/page.tsx` renders inventory for a set using `SetPageClient`.
+- Virtualized inventory table with images, per-row owned input, bulk actions, missing totals, and a refactored `useInventoryViewModel` hook that centralizes sorting/filtering/grouping.
+- Inventory controls support sorting by name/color/size/category, grouping, and filters for All/Missing/Owned, parent categories, and colors.
+- Owned-quantity persistence via `app/store/owned.ts` with in-memory cache, versioned localStorage key, and debounced writes.
+- Export modal (`ExportModal`) supports Rebrickable CSV and BrickLink wanted list CSV generation, including basic unmapped-row reporting.
+- Optional BrickLink pricing via `/api/prices/bricklink` and `useInventoryPrices`, now triggered manually per set through a "Get prices" action in the set top bar, with per-part BrickLink links and aggregate totals/ranges.
 
 ## What's Left to Build
 
-- Sorting for inventory table columns (name, color, size). (Required/Owned/Missing handled by filters.)
-- Export generators: Rebrickable CSV and BrickLink CSV (wanted list) named "{setNumber} — {setName} — mvp"; add ID/color mapping module.
-- Persist last viewed set in `localStorage` and restore on home.
-- Error states and retries for search and inventory requests; surface query errors in UI.
+- Simple auth and user accounts (Supabase), with a path to sync local state (owned, pinned, user sets) to the backend.
+- Error states and retries for search and inventory requests are partially implemented; error codes are normalized via `AppError`, but the UI still uses mostly generic messages.
+- Tests for export generators (Rebrickable + BrickLink) and for Rebrickable client retry/backoff behavior.
 
 ## Current Status
 
-Implementation in progress with core data flow working via server proxies and virtualized table. Owned persistence is implemented; remaining to reach MVP are sorting and export features.
+Implementation in progress with core data flow working via server proxies and virtualized table. Owned persistence, sorting, filters, exports, and manual pricing are implemented; remaining to reach the next milestone are auth/Supabase integration and hardening of exports and error handling.
 
 ## Known Issues / Risks
 

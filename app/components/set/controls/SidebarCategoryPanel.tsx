@@ -18,7 +18,7 @@ type Props = {
   onChangeFilter: (f: InventoryFilter) => void;
   parentOptions: string[];
   subcategoriesByParent: Record<string, string[]>;
-  parentCounts?: Record<string, number>;
+  parentCounts?: Record<string, number> | undefined;
 };
 
 export function SidebarCategoryPanel({

@@ -1,4 +1,4 @@
-import { getSetInventory } from '@/app/lib/rebrickable';
+import { getSetInventoryRows } from '@/app/lib/services/inventory';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
   const set = searchParams.get('set');
   if (!set) return NextResponse.json({ error: 'missing_set' }, { status: 400 });
   try {
-    const rows = await getSetInventory(set);
+    const rows = await getSetInventoryRows(set);
     return NextResponse.json({ rows });
   } catch (err) {
     console.error('Inventory fetch failed:', {

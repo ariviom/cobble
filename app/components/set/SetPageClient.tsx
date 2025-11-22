@@ -34,6 +34,7 @@ export function SetPageClient({
     currency: string | null;
     pricedItemCount: number;
   } | null>(null);
+  const [pricesEnabled, setPricesEnabled] = useState(false);
 
   useEffect(() => {
     addRecentSet({
@@ -65,12 +66,15 @@ export function SetPageClient({
         themeId={themeId ?? null}
         priceStatus={priceStatus}
         priceSummary={priceSummary}
+        onRequestPrices={() => setPricesEnabled(true)}
         expanded={expanded}
         onToggleExpanded={() => setExpanded(prev => !prev)}
       />
       <InventoryTable
         setNumber={setNumber}
         setName={setName}
+        pricesEnabled={pricesEnabled}
+        onRequestPrices={() => setPricesEnabled(true)}
         onPriceStatusChange={setPriceStatus}
         onPriceTotalsChange={setPriceSummary}
       />

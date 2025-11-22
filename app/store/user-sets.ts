@@ -1,5 +1,6 @@
 'use client';
 
+import { readStorage, writeStorage } from '@/app/lib/persistence/storage';
 import { create } from 'zustand';
 
 export type SetStatusKey = 'owned' | 'canBuild' | 'wantToBuild';
@@ -160,7 +161,6 @@ function parsePersisted(raw: string | null): Pick<UserSetsState, 'sets'> {
 }
 
 function persistState(state: UserSetsState): void {
-  if (typeof window === 'undefined') return;
   try {
     const payload: PersistedShape = { sets: {} };
     for (const [key, value] of Object.entries(state.sets)) {
@@ -176,18 +176,15 @@ function persistState(state: UserSetsState): void {
       };
       payload.sets[key] = entry;
     }
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    writeStorage(STORAGE_KEY, JSON.stringify(payload));
   } catch {
     // ignore persistence errors
   }
 }
 
 function loadInitialState(): Pick<UserSetsState, 'sets'> {
-  if (typeof window === 'undefined') {
-    return createEmptyState();
-  }
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = readStorage(STORAGE_KEY);
     return parsePersisted(raw);
   } catch {
     return createEmptyState();

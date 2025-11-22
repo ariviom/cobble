@@ -3,6 +3,7 @@
 import { IdentifySetList } from '@/app/components/identify/IdentifySetList';
 import type { IdentifySet } from '@/app/components/identify/types';
 import { getRecentSets, removeRecentSet } from '@/app/store/recent-sets';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 export function RecentlyViewedSets() {
@@ -36,13 +37,13 @@ export function RecentlyViewedSets() {
         ) : (
           <div className="my-4">
             <h2 className="text-lg font-semibold">Jump Back In</h2>
-            <a className="text-brand-blue underline" href="/search">
+            <Link className="text-brand-blue underline" href="/search">
               Search for a set
-            </a>{' '}
+            </Link>{' '}
             or{' '}
-            <a className="text-brand-blue underline" href="/identify">
+            <Link className="text-brand-blue underline" href="/identify">
               upload a photo
-            </a>{' '}
+            </Link>{' '}
             to get started.
           </div>
         )}

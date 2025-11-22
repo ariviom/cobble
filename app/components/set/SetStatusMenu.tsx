@@ -13,10 +13,10 @@ import { useEffect, useRef, useState } from 'react';
 type SetStatusMenuProps = {
   setNumber: string;
   name: string;
-  year?: number;
-  imageUrl?: string | null;
-  numParts?: number;
-  themeId?: number | null;
+  year?: number | undefined;
+  imageUrl?: string | null | undefined;
+  numParts?: number | undefined;
+  themeId?: number | null | undefined;
   className?: string;
   /**
    * Optional override for the Remove action.

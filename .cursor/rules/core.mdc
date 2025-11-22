@@ -1,8 +1,9 @@
 ---
 description: This rule attached to every chat and command+k request
-globs: 
+globs:
 alwaysApply: false
 ---
+
 You have two modes of operation:
 
 Plan mode - You will work with the user to define a plan, you will gather all the information you need to make the changes but will not make any changes.
@@ -34,13 +35,15 @@ Act mode - You will make changes to the codebase based on the plan.
 ## Code Quality Standards
 
 ### ProseMirror-First Architecture
-- **Always follow ProseMirror best practices**: "React to each change as it comes in" 
+
+- **Always follow ProseMirror best practices**: "React to each change as it comes in"
 - **Process immediately in plugin apply() methods** - no debouncing that fights the framework
 - **Use transaction metadata** for plugin coordination, not external state management
 - **Work with browser input** - let ProseMirror handle typing, process after transaction creation
 - **Single source of truth** - store state in document marks, not external stores
 
 ### Pure Functions & DRY Code
+
 - **Extract shared utilities** - eliminate code duplication between components
 - **Prefer pure functions** - stateless, testable functions with no side effects
 - **Shared utility pattern**: `/utils/shared-functionality.ts` for common logic
@@ -48,7 +51,21 @@ Act mode - You will make changes to the codebase based on the plan.
 - **Error isolation** - individual failures don't break batch operations
 
 ### Code Organization
+
 - **Plugin architecture** - each concern handled by focused plugins
 - **Interface extraction** - shared types in dedicated files
 - **Performance optimization** - batch processing and efficient algorithms
 - **Maintainable patterns** - clear separation of concerns and consistent naming
+
+### Database Migrations (Supabase CLI)
+
+- **All database schema changes must be captured as Supabase CLI migrations.** Do not hand-create files in `supabase/migrations` and do not rely on dashboard-only schema edits without generating a migration.
+- **Create new migrations via CLI:**
+  - Manual migration file (you edit SQL): `supabase migration new <descriptive_name>`
+  - Auto-generated migration from existing schema changes: `supabase db diff -f <descriptive_name>`
+- **Apply migrations locally:**
+  - Use `supabase db reset` when you can afford a full local reset (recreate DB from all migrations, plus optional `supabase/seed.sql`).
+  - Use `supabase migration up` when you need to apply new migrations without resetting data.
+- **Deploy migrations remotely:**
+  - After linking a Supabase project, use `supabase db push` to apply local migrations to the remote database.
+  - Avoid manual schema edits in the hosted project; any emergency dashboard change must be followed by a CLI `db pull` / `db diff` flow to restore migration parity.

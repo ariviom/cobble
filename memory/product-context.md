@@ -20,8 +20,9 @@ Help builders complete LEGO sets efficiently. Many users own partial inventories
 - Owned quantities and the last active set are saved to localStorage so the session resumes on return.
 
 ## Current UX Details
-- Inventory filtering via tabs: All (default), Missing, Owned, and per-category tabs; horizontally scrollable with arrow controls for small screens.
+- Inventory filtering via tabs/controls: All (default), Missing, Owned, and per-category filters, plus color filters; horizontally scrollable with sidebar-style controls on desktop.
 - Search form: label above the input; inline clear button appears when text is present with large touch target.
+- Set page top bar shows set thumbnail, owned/missing summary, user status chips (Owned / Can build / Want to build), and a manual "Get prices" action that fetches BrickLink prices for all parts and displays an aggregate total/range.
 
 ## User Experience Goals
 

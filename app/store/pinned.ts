@@ -1,5 +1,6 @@
 'use client';
 
+import { readStorage, writeStorage } from '@/app/lib/persistence/storage';
 import { create } from 'zustand';
 
 export type PinnedMeta = {
@@ -12,7 +13,11 @@ type PinnedState = {
   meta: Record<string, PinnedMeta>;
   autoUnpin: boolean;
   showOtherSets: boolean;
-  togglePinned: (args: { setNumber: string; key: string; setName?: string }) => void;
+  togglePinned: (args: {
+    setNumber: string;
+    key: string;
+    setName?: string | undefined;
+  }) => void;
   setPinned: (
     setNumber: string,
     key: string,
@@ -110,12 +115,8 @@ function loadInitialState(): Pick<
   PinnedState,
   'pinned' | 'meta' | 'autoUnpin' | 'showOtherSets'
 > {
-  if (typeof window === 'undefined') {
-    return createEmptyPersistedState();
-  }
-
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = readStorage(STORAGE_KEY);
     return parsePersisted(raw);
   } catch {
     return createEmptyPersistedState();
@@ -123,7 +124,6 @@ function loadInitialState(): Pick<
 }
 
 function persistState(state: PinnedState): void {
-  if (typeof window === 'undefined') return;
   try {
     const payload: PersistedShape = {
       pinned: {},
@@ -139,7 +139,7 @@ function persistState(state: PinnedState): void {
       }
     }
 
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    writeStorage(STORAGE_KEY, JSON.stringify(payload));
   } catch {
     // ignore persistence errors
   }

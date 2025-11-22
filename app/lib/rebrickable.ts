@@ -17,6 +17,14 @@ type RebrickableSetInventoryItem = {
     part_img_url: string | null;
     part_cat_id?: number; // Not always present in parts listing; may require extra fetch if missing
   };
+  /**
+   * LEGO element ID for this part/color combination when provided by
+   * Rebrickable's `/lego/sets/{set_num}/parts/` endpoint.
+   *
+   * We keep this optional because older API responses or non-standard
+   * rows may omit it. When present, it feeds Pick-a-Brick CSV export.
+   */
+  element_id?: string | null;
   quantity: number;
   is_spare: boolean;
 };
@@ -59,6 +67,7 @@ export type InventoryRow = {
   colorName: string;
   quantityRequired: number;
   imageUrl: string | null;
+  elementId?: string | null;
   partCategoryId?: number;
   partCategoryName?: string;
   parentCategory?:
@@ -617,6 +626,8 @@ export async function getSetInventory(
     .map(i => {
       const catId = i.part.part_cat_id;
       const catName = catId != null ? idToName.get(catId) : undefined;
+      const parentCategory =
+        catName != null ? mapCategoryNameToParent(catName) : undefined;
       const inventoryKey = `${i.part.part_num}:${i.color.id}`;
       return {
         setNumber,
@@ -626,9 +637,10 @@ export async function getSetInventory(
         colorName: i.color.name,
         quantityRequired: i.quantity,
         imageUrl: i.part.part_img_url,
-        partCategoryId: catId,
-        partCategoryName: catName,
-        parentCategory: catName ? mapCategoryNameToParent(catName) : undefined,
+        elementId: i.element_id ?? null,
+        ...(catId != null && { partCategoryId: catId }),
+        ...(catName && { partCategoryName: catName }),
+        ...(parentCategory && { parentCategory }),
         inventoryKey,
       } satisfies InventoryRow;
     });
@@ -678,7 +690,6 @@ export async function getSetInventory(
       colorName: '—',
       quantityRequired: parentQuantity,
       imageUrl: imgUrl,
-      partCategoryId: undefined,
       partCategoryName: 'Minifig',
       parentCategory: 'Minifigure',
       inventoryKey: parentKey,
@@ -712,6 +723,12 @@ export async function getSetInventory(
             });
           } else {
             const inventoryKey = `${baseKey}:parent=${parentKey}`;
+            const catId = component.part.part_cat_id;
+            const resolvedCategoryName =
+              catId != null
+                ? (idToName.get(catId) ?? 'Minifig Component')
+                : 'Minifig Component';
+
             const childRow: InventoryRow = {
               setNumber,
               partId: component.part.part_num,
@@ -720,10 +737,8 @@ export async function getSetInventory(
               colorName,
               quantityRequired: perParentQty * parentQuantity,
               imageUrl: component.part.part_img_url ?? null,
-              partCategoryId: component.part.part_cat_id,
-              partCategoryName: component.part.part_cat_id
-                ? idToName.get(component.part.part_cat_id)
-                : 'Minifig Component',
+              ...(catId != null && { partCategoryId: catId }),
+              partCategoryName: resolvedCategoryName,
               parentCategory: 'Minifigure',
               inventoryKey,
               parentRelations: [{ parentKey, quantity: perParentQty }],

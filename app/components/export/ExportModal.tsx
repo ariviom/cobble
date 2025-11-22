@@ -6,6 +6,7 @@ import { Select } from '@/app/components/ui/Select';
 import { generateBrickLinkCsv } from '@/app/lib/export/bricklinkCsv';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
 import { generateRebrickableCsv } from '@/app/lib/export/rebrickableCsv';
+import { generatePickABrickCsv } from '@/app/lib/export/pickABrickCsv';
 import { useState } from 'react';
 
 type Props = {
@@ -23,9 +24,9 @@ export function ExportModal({
   setName,
   getMissingRows,
 }: Props) {
-  const [target, setTarget] = useState<'rebrickable' | 'bricklink'>(
-    'rebrickable'
-  );
+  const [target, setTarget] = useState<
+    'rebrickable' | 'bricklink' | 'pickABrick'
+  >('rebrickable');
   const [error, setError] = useState<string | null>(null);
 
   function downloadCsv(filename: string, csv: string) {
@@ -44,6 +45,17 @@ export function ExportModal({
     if (target === 'rebrickable') {
       const csv = generateRebrickableCsv(missingRows);
       downloadCsv(`${setNumber}_missing_rebrickable.csv`, csv);
+      onClose();
+      return;
+    }
+    if (target === 'pickABrick') {
+      const { csv, unmapped } = generatePickABrickCsv(missingRows);
+      if (unmapped.length > 0) {
+        setError(
+          `${unmapped.length} rows are missing LEGO Element IDs and were skipped from the Pick-a-Brick export.`
+        );
+      }
+      downloadCsv(`${setNumber}_missing_pick_a_brick.csv`, csv);
       onClose();
       return;
     }
@@ -75,11 +87,14 @@ export function ExportModal({
         <Select
           value={target}
           onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-            setTarget(e.target.value as 'rebrickable' | 'bricklink')
+            setTarget(
+              e.target.value as 'rebrickable' | 'bricklink' | 'pickABrick'
+            )
           }
         >
           <option value="rebrickable">Rebrickable CSV</option>
           <option value="bricklink">BrickLink Wanted List CSV</option>
+          <option value="pickABrick">LEGO Pick-a-Brick CSV</option>
         </Select>
         {error && <div className="text-xs text-red-600">{error}</div>}
         <div className="mt-2 flex justify-end gap-2">

@@ -16,6 +16,12 @@ export type InventoryRow = {
   colorName: string;
   quantityRequired: number;
   imageUrl: string | null;
+  /**
+   * LEGO element ID for this exact part+color combination when available.
+   * Sourced from Rebrickable set inventory (`element_id`) and used for
+   * LEGO Pick-a-Brick CSV export.
+   */
+  elementId?: string | null;
   partCategoryId?: number;
   partCategoryName?: string;
   parentCategory?: string;

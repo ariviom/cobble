@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  readStorage,
+  removeStorage,
+  writeStorage,
+} from '@/app/lib/persistence/storage';
+
 export type RecentSearchEntry = {
   query: string;
   lastSearchedAt: number;
@@ -9,10 +15,9 @@ const STORAGE_KEY = 'cobble_recent_searches_v1';
 const MAX_RECENT = 50;
 
 function loadRecentSearchesUnsafe(): RecentSearchEntry[] {
-  if (typeof window === 'undefined') return [];
+  const raw = readStorage(STORAGE_KEY);
+  if (!raw) return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
     return parsed
@@ -44,7 +49,6 @@ export function getRecentSearches(): RecentSearchEntry[] {
 }
 
 export function addRecentSearch(query: string): void {
-  if (typeof window === 'undefined') return;
   const trimmed = query.trim();
   if (!trimmed) return;
   try {
@@ -60,16 +64,15 @@ export function addRecentSearch(query: string): void {
       },
       ...filtered,
     ].slice(0, MAX_RECENT);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    writeStorage(STORAGE_KEY, JSON.stringify(next));
   } catch {
     // ignore storage errors
   }
 }
 
 export function clearRecentSearches(): void {
-  if (typeof window === 'undefined') return;
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    removeStorage(STORAGE_KEY);
   } catch {
     // ignore storage errors
   }

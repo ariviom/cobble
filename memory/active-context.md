@@ -2,17 +2,14 @@
 
 ## Current Focus
 
-Implement MVP for set search, parts inventory display, owned quantities, missing computation, and CSV exports (Rebrickable + BrickLink) with local persistence.
+Prepare the app for simple user accounts and Supabase-backed persistence while keeping the existing MVP solid: search, inventory display, owned quantities, missing computation, CSV exports (Rebrickable + BrickLink), and optional BrickLink pricing.
 
 ## Immediate Next Steps
 
-- Fix search JSON parsing in `components/search/set-search.tsx` (parse `res.json()` before returning `data.results`).
-- Add sorting controls to the inventory table for name, color, size. (Required/Owned/Missing replaced by filter tabs)
-- Implement export generators:
-  - Rebrickable CSV.
-  - BrickLink CSV wanted list named "{setNumber} — {setName} — mvp" with ID/color mapping.
-- Persist last viewed set in `localStorage` and restore on home page.
-- Add error states and retries for search/inventory; keep the basic loading UI.
+- Add simple auth and user accounts (Supabase) while preserving local-only behavior for unauthenticated users.
+- Wire Supabase-backed persistence for user sets/status and, optionally, server-side sync of owned quantities and pinned pieces.
+- Tighten pricing UX around the new manual "Get prices" action (set-level BrickLink lookup) and validate pricing totals on a handful of test sets.
+- Add tests for CSV export generators (Rebrickable + BrickLink) and for Rebrickable client retry/backoff behavior.
 
 ## Notes
 
@@ -32,18 +29,23 @@ Target test sets:
 - Rebrickable proxy Route Handlers implemented for search and inventory.
 - Set search UI with debounce and link to set pages.
 - Virtualized inventory table with images, owned input, bulk actions, and total missing.
-- Replaced sort keys for required/owned/missing and the group-by-category toggle with a new tabbed filter bar (All, Missing, Owned, plus per-category tabs) with horizontal scroll and arrow controls.
+- Inventory controls refactored into an `useInventoryViewModel` hook that centralizes filtering, sorting, grouping, and derived metadata, keeping `InventoryTable` mostly presentational.
+- Inventory table now sorts by name, color, size, category, and supports grouping, with filtering by missing/owned, parent categories, and colors.
 - Search bar: moved label above, added inline clear “x” with enlarged touch target.
 - Owned persistence implemented in `app/store/owned.ts` with versioned storage key, cache-first reads, and debounced writes using `requestIdleCallback` when available.
+- Export modal implemented with Rebrickable CSV and BrickLink wanted list CSV generation.
+- Optional BrickLink pricing implemented via `/api/prices/bricklink` and `useInventoryPrices`, now triggered manually per set via a "Get prices" action in the set top bar.
 
 ## Next Steps
 
-Finish search parsing fix, then validate CSV exports against Rebrickable and BrickLink import validators. Iterate on tab filtering UX and performance if needed.
+- Validate CSV exports against Rebrickable and BrickLink import validators and adjust mappings as needed.
+- Implement and harden Supabase auth and persistence (initially for user sets/status, with a migration path for owned/pinned data).
+- Iterate on pricing performance and UX if test sets show noticeable lag or confusing totals.
 
 ## Active Decisions and Considerations
 
-- No auth, no external account linking.
-- Pricing and rarity deferred.
+- No auth, no external account linking in the current deployed MVP; Supabase-backed simple accounts are the next major feature.
+- Pricing and rarity: only a coarse BrickLink-based price estimate is in scope; advanced analytics and rarity metrics remain out of scope.
 - BrickOwl export deferred; focus on Rebrickable + BrickLink CSV.
 - Server-only Rebrickable access; no client key exposure; no scraping.
-- Accessibility: basic keyboard navigation acceptable for MVP.
+- Accessibility: basic keyboard navigation acceptable for MVP; dropdowns/sheets still use custom keyboard handling and should be audited post-auth.

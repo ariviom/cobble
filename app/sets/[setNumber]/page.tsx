@@ -5,9 +5,9 @@ import { notFound } from 'next/navigation';
 export default async function SetPage({
   params,
 }: {
-  params: Promise<{ setNumber: string }>;
+  params: { setNumber: string };
 }) {
-  const { setNumber } = await params;
+  const { setNumber } = params;
   if (!setNumber) notFound();
   const summary = await getSetSummary(setNumber).catch(() => null);
   if (!summary) notFound();

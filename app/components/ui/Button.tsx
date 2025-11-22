@@ -5,7 +5,7 @@ import { ButtonHTMLAttributes, forwardRef } from 'react';
 import { cn } from './utils';
 
 const buttonVariants = cva(
-  'border rounded inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer',
+  'inline-flex items-center justify-center rounded border cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black',
   {
     variants: {
       variant: {

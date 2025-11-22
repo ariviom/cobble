@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { readStorage, writeStorage } from '@/app/lib/persistence/storage';
 
 type OwnedState = {
   getOwned: (setNumber: string, key: string) => number;
@@ -31,10 +32,8 @@ const writeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
 function flushWriteNow(setNumber: string) {
   const data = pendingWrites.get(setNumber);
-  if (!data || typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(storageKey(setNumber), JSON.stringify(data));
-  } catch {}
+  if (!data) return;
+  writeStorage(storageKey(setNumber), JSON.stringify(data));
 }
 
 function scheduleWrite(setNumber: string) {
@@ -70,10 +69,10 @@ function scheduleWrite(setNumber: string) {
 function read(setNumber: string): Record<string, number> {
   const cached = cache.get(setNumber);
   if (cached) return cached;
-  if (typeof window === 'undefined') return {};
+  const raw = readStorage(storageKey(setNumber));
+  if (!raw) return {};
   try {
-    const raw = window.localStorage.getItem(storageKey(setNumber));
-    const parsed = raw ? (JSON.parse(raw) as Record<string, number>) : {};
+    const parsed = JSON.parse(raw) as Record<string, number>;
     cache.set(setNumber, parsed);
     return parsed;
   } catch {
@@ -82,7 +81,6 @@ function read(setNumber: string): Record<string, number> {
 }
 
 function write(setNumber: string, data: Record<string, number>) {
-  if (typeof window === 'undefined') return;
   // Update in-memory cache immediately for responsive reads
   cache.set(setNumber, data);
   pendingWrites.set(setNumber, data);

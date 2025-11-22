@@ -1,6 +1,10 @@
 'use client';
 
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
+import { EmptyState } from '@/app/components/ui/EmptyState';
+import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
+import { Spinner } from '@/app/components/ui/Spinner';
+import { AppError, throwAppErrorFromResponse } from '@/app/lib/domain/errors';
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { SearchResultListItem } from './SearchResultListItem';
@@ -15,7 +19,9 @@ async function fetchSearchPage(
   if (!q) return { results: [], nextPage: null };
   const url = `/api/search?q=${encodeURIComponent(q)}&sort=${sort}&page=${page}&pageSize=${pageSize}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error('search_failed');
+  if (!res.ok) {
+    await throwAppErrorFromResponse(res, 'search_failed');
+  }
   const data = (await res.json()) as SearchPage;
   return data;
 }
@@ -28,7 +34,7 @@ export function SearchResults() {
   const [pageSize, setPageSize] = useState<number>(20);
   const query = useInfiniteQuery<
     SearchPage,
-    Error,
+    AppError,
     InfiniteData<SearchPage, number>,
     string[],
     number
@@ -83,12 +89,14 @@ export function SearchResults() {
           <option value={100}>100</option>
         </select>
       </div>
-      {isLoading && <div className="mt-2 text-sm">Loading…</div>}
+      {isLoading && (
+        <Spinner className="mt-2" label="Loading search results…" />
+      )}
       {error && (
-        <div className="mt-2 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          {/* Placeholder error message - will be styled later */}
-          Failed to load search results. Please try again.
-        </div>
+        <ErrorBanner
+          className="mt-2"
+          message="Failed to load search results. Please try again."
+        />
       )}
       {!isLoading && !error && results.length > 0 && (
         <div className="mt-2">
@@ -117,9 +125,10 @@ export function SearchResults() {
         </div>
       )}
       {!isLoading && !error && results.length === 0 && (
-        <div className="mt-4 text-sm text-foreground-muted">
-          No results found. Try different keywords or check spelling.
-        </div>
+        <EmptyState
+          className="mt-4"
+          message="No results found. Try different keywords or check spelling."
+        />
       )}
     </div>
   );

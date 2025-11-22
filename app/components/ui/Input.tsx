@@ -4,17 +4,20 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { forwardRef, InputHTMLAttributes } from 'react';
 import { cn } from './utils';
 
-const inputVariants = cva('border rounded px-2 py-1 text-sm', {
-  variants: {
-    size: {
-      sm: 'text-sm',
-      md: 'text-sm',
+const inputVariants = cva(
+  'border rounded px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black',
+  {
+    variants: {
+      size: {
+        sm: 'text-sm',
+        md: 'text-sm',
+      },
     },
-  },
-  defaultVariants: {
-    size: 'md',
-  },
-});
+    defaultVariants: {
+      size: 'md',
+    },
+  }
+);
 
 type Props = InputHTMLAttributes<HTMLInputElement> &
   VariantProps<typeof inputVariants>;

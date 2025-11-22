@@ -4,18 +4,13 @@ import { ExportModal } from '@/app/components/export/ExportModal';
 import { cn } from '@/app/components/ui/utils';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useIsDesktop } from '@/app/hooks/useMediaQuery';
-import { useOwnedStore } from '@/app/store/owned';
-import {
-  EMPTY_SET_STATUS,
-  useUserSetsStore,
-  type SetStatusKey,
-} from '@/app/store/user-sets';
+import { useSetStatus } from '@/app/hooks/useSetStatus';
 import { ArrowLeft, ChevronDown, Download } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { MouseEventHandler, ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 type SetTopBarProps = {
   setNumber: string;
@@ -34,6 +29,7 @@ type SetTopBarProps = {
     currency: string | null;
     pricedItemCount: number;
   } | null;
+  onRequestPrices?: () => void;
 };
 
 function NavButton({
@@ -99,50 +95,22 @@ export function SetTopBar({
   onToggleExpanded,
   priceStatus = 'idle',
   priceSummary,
+  onRequestPrices,
 }: SetTopBarProps) {
   const router = useRouter();
   const isDesktop = useIsDesktop();
   const [exportOpen, setExportOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  const {
-    isLoading,
-    keys,
-    required,
-    totalMissing,
-    ownedTotal,
-    computeMissingRows,
-  } = useInventory(setNumber);
-  const ownedStore = useOwnedStore();
-  const normKey = setNumber.trim().toLowerCase();
-  const status = useUserSetsStore(state => {
-    const entry = state.sets[normKey];
-    return entry?.status ?? EMPTY_SET_STATUS;
+  const { isLoading, totalMissing, ownedTotal, computeMissingRows } =
+    useInventory(setNumber);
+  const { status: uiStatus, toggleStatus } = useSetStatus({
+    setNumber,
+    name: setName,
+    year,
+    imageUrl,
+    numParts,
+    themeId,
   });
-  const setStatus = useUserSetsStore(state => state.setStatus);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const uiStatus = mounted ? status : EMPTY_SET_STATUS;
-
-  const handleToggleStatus = (key: SetStatusKey) => {
-    const nextValue = !status[key];
-    setStatus({
-      setNumber,
-      key,
-      value: nextValue,
-      meta: {
-        setNumber,
-        name: setName,
-        year: typeof year === 'number' ? year : 0,
-        imageUrl: imageUrl ?? null,
-        numParts: typeof numParts === 'number' ? numParts : 0,
-        themeId: typeof themeId === 'number' ? themeId : null,
-      },
-    });
-  };
 
   const handleToggleExpanded = () => {
     if (isDesktop) {
@@ -244,35 +212,48 @@ export function SetTopBar({
             <div className="text-xs text-foreground-muted lg:text-sm">
               {isLoading
                 ? 'Computing…'
-                : `${ownedTotal} owned / ${totalMissing} missing`}
-              {priceStatus === 'loading'
-                ? ' · Getting price…'
-                : priceStatus === 'error'
-                  ? ' · Price unavailable'
-                  : formattedPrice
-                    ? ` · Total ${formattedPrice}`
-                    : null}
-            </div>
-            {mounted &&
-              (uiStatus.owned || uiStatus.canBuild || uiStatus.wantToBuild) && (
-                <div className="mt-1 flex flex-wrap gap-1 text-[11px] lg:text-xs">
-                  {uiStatus.owned && (
-                    <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-brand-green">
-                      Owned
-                    </span>
-                  )}
-                  {uiStatus.canBuild && (
-                    <span className="rounded-full bg-brand-blue/10 px-2 py-0.5 text-brand-blue">
-                      Can build
-                    </span>
-                  )}
-                  {uiStatus.wantToBuild && (
-                    <span className="rounded-full bg-brand-purple/10 px-2 py-0.5 text-brand-purple">
-                      Want to build
-                    </span>
-                  )}
-                </div>
+                : `${ownedTotal} / ${totalMissing} parts`}
+              {priceStatus === 'loading' && ' · Getting price…'}
+              {priceStatus === 'loaded' && formattedPrice
+                ? ` · Total ${formattedPrice}`
+                : null}
+              {priceStatus === 'idle' && !formattedPrice && onRequestPrices && (
+                <>
+                  {' '}
+                  ·{' '}
+                  <button
+                    type="button"
+                    className="underline hover:text-brand-blue/80"
+                    onClick={event => {
+                      event.stopPropagation();
+                      onRequestPrices();
+                    }}
+                  >
+                    Get price
+                  </button>
+                </>
               )}
+              {priceStatus === 'error' && ' · Price unavailable'}
+            </div>
+            {(uiStatus.owned || uiStatus.canBuild || uiStatus.wantToBuild) && (
+              <div className="mt-1 flex flex-wrap gap-1 text-[11px] lg:text-xs">
+                {uiStatus.owned && (
+                  <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-brand-green">
+                    Owned
+                  </span>
+                )}
+                {uiStatus.canBuild && (
+                  <span className="rounded-full bg-brand-blue/10 px-2 py-0.5 text-brand-blue">
+                    Can build
+                  </span>
+                )}
+                {uiStatus.wantToBuild && (
+                  <span className="rounded-full bg-brand-purple/10 px-2 py-0.5 text-brand-purple">
+                    Want to build
+                  </span>
+                )}
+              </div>
+            )}
             {/* Set info panel */}
             <div
               id="setinfo-panel"
@@ -297,7 +278,7 @@ export function SetTopBar({
                     }`}
                     onClick={event => {
                       event.stopPropagation();
-                      handleToggleStatus('owned');
+                      toggleStatus('owned');
                     }}
                   >
                     Own this set
@@ -311,7 +292,7 @@ export function SetTopBar({
                     }`}
                     onClick={event => {
                       event.stopPropagation();
-                      handleToggleStatus('canBuild');
+                      toggleStatus('canBuild');
                     }}
                   >
                     Can build
@@ -325,7 +306,7 @@ export function SetTopBar({
                     }`}
                     onClick={event => {
                       event.stopPropagation();
-                      handleToggleStatus('wantToBuild');
+                      toggleStatus('wantToBuild');
                     }}
                   >
                     Want to build

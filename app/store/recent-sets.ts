@@ -1,5 +1,7 @@
 'use client';
 
+import { readStorage, writeStorage } from '@/app/lib/persistence/storage';
+
 export type RecentSetEntry = {
   setNumber: string;
   name: string;
@@ -14,10 +16,9 @@ const STORAGE_KEY = 'cobble_recent_sets_v1';
 const MAX_RECENT = 100;
 
 function loadRecentSetsUnsafe(): RecentSetEntry[] {
-  if (typeof window === 'undefined') return [];
+  const raw = readStorage(STORAGE_KEY);
+  if (!raw) return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
     return parsed
@@ -86,7 +87,6 @@ export function addRecentSet(entry: {
   numParts: number;
   themeId?: number | null;
 }): void {
-  if (typeof window === 'undefined') return;
   try {
     const existing = loadRecentSetsUnsafe();
     const filtered = existing.filter(
@@ -99,20 +99,19 @@ export function addRecentSet(entry: {
       },
       ...filtered,
     ].slice(0, MAX_RECENT);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    writeStorage(STORAGE_KEY, JSON.stringify(next));
   } catch {
     // ignore storage errors
   }
 }
 
 export function removeRecentSet(setNumber: string): void {
-  if (typeof window === 'undefined') return;
   try {
     const existing = loadRecentSetsUnsafe();
     const next = existing.filter(
       it => it.setNumber.toLowerCase() !== setNumber.toLowerCase()
     );
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    writeStorage(STORAGE_KEY, JSON.stringify(next));
   } catch {
     // ignore storage errors
   }

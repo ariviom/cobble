@@ -1,8 +1,9 @@
 'use client';
 
 import type { InventoryRow } from '@/app/components/set/types';
+import { useOwnedSnapshot } from '@/app/hooks/useOwnedSnapshot';
+import { throwAppErrorFromResponse } from '@/app/lib/domain/errors';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
-import { useOwnedStore } from '@/app/store/owned';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
@@ -15,6 +16,7 @@ export type UseInventoryResult = {
   totalRequired: number;
   totalMissing: number;
   ownedTotal: number;
+  ownedByKey: Record<string, number>;
   computeMissingRows: () => MissingRow[];
 };
 
@@ -22,7 +24,9 @@ async function fetchInventory(setNumber: string): Promise<InventoryRow[]> {
   const res = await fetch(
     `/api/inventory?set=${encodeURIComponent(setNumber)}`
   );
-  if (!res.ok) throw new Error('inventory_failed');
+  if (!res.ok) {
+    await throwAppErrorFromResponse(res, 'inventory_failed');
+  }
   const data = (await res.json()) as { rows: InventoryRow[] };
   return data.rows;
 }
@@ -43,16 +47,16 @@ export function useInventory(setNumber: string): UseInventoryResult {
     [required]
   );
 
-  const ownedStore = useOwnedStore();
+  const ownedByKey = useOwnedSnapshot(setNumber, keys);
 
   const totalMissing = useMemo(() => {
     return rows.reduce((acc, r, idx) => {
       const k = keys[idx]!;
-      const own = ownedStore.getOwned(setNumber, k);
+      const own = ownedByKey[k] ?? 0;
       const missing = Math.max(0, r.quantityRequired - own);
       return acc + missing;
     }, 0);
-  }, [rows, keys, setNumber, ownedStore]);
+  }, [rows, keys, ownedByKey]);
 
   const ownedTotal = useMemo(
     () => totalRequired - totalMissing,
@@ -64,7 +68,7 @@ export function useInventory(setNumber: string): UseInventoryResult {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
       const k = keys[i]!;
-      const own = ownedStore.getOwned(setNumber, k);
+      const own = ownedByKey[k] ?? 0;
       const missing = Math.max(0, r.quantityRequired - own);
       if (missing > 0) {
         result.push({
@@ -72,6 +76,7 @@ export function useInventory(setNumber: string): UseInventoryResult {
           partId: r.partId,
           colorId: r.colorId,
           quantityMissing: missing,
+          elementId: r.elementId ?? null,
         });
       }
     }
@@ -87,6 +92,7 @@ export function useInventory(setNumber: string): UseInventoryResult {
     totalRequired,
     totalMissing,
     ownedTotal,
+    ownedByKey,
     computeMissingRows,
   };
 }

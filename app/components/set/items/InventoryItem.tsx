@@ -27,9 +27,11 @@ type Props = {
   currency?: string | null;
   bricklinkColorId?: number | null;
   isPricePending?: boolean;
+  canRequestPrice?: boolean;
   onOwnedChange: (next: number) => void;
   isPinned?: boolean;
   onTogglePinned?: () => void;
+  onRequestPrice?: (() => void) | undefined;
 };
 
 export function InventoryItem({
@@ -44,6 +46,8 @@ export function InventoryItem({
   onOwnedChange,
   isPinned,
   onTogglePinned,
+  canRequestPrice,
+  onRequestPrice,
 }: Props) {
   const isFigId =
     typeof row.partId === 'string' && row.partId.startsWith('fig:');
@@ -69,7 +73,7 @@ export function InventoryItem({
     maxPrice >= minPrice;
   const currencyCode = currency ?? 'USD';
   return (
-    <div className="relative flex w-full justify-start gap-6 rounded-lg border border-neutral-200 bg-white p-4 dark:bg-background grid:flex-col">
+    <div className="relative flex w-full justify-start gap-6 rounded-lg border border-neutral-200 bg-background p-4 grid:flex-col">
       {onTogglePinned ? (
         <button
           type="button"
@@ -179,13 +183,28 @@ export function InventoryItem({
                       Getting price…
                     </span>
                   </>
+                ) : canRequestPrice && onRequestPrice ? (
+                  <>
+                    {' '}
+                    |{' '}
+                    <button
+                      type="button"
+                      className="underline hover:text-brand-blue"
+                      onClick={event => {
+                        event.stopPropagation();
+                        onRequestPrice();
+                      }}
+                    >
+                      Get price
+                    </button>
+                  </>
                 ) : null}
               </span>
             )}
           </p>
         </div>
         <div className="w-full sm:list:w-auto">
-          <div className="smt:list:pt-7 mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36">
+          <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36 sm:list:pt-7">
             <p className="text-foreground-muted">
               {owned}/{row.quantityRequired}
             </p>
