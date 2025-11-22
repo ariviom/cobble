@@ -12,5 +12,3 @@ export async function GET() {
     return NextResponse.json({ error: 'themes_failed' }, { status: 500 });
   }
 }
-
-

@@ -7,23 +7,21 @@ async function resolveBrickLinkId(
 ): Promise<string | null> {
   if (depth > 4) return null;
   const part = await getPart(partId);
-  const external = (part.external_ids as
-    | {
-        BrickLink?: {
-          ext_ids?: Array<string | number>;
-        };
-      }
-    | null
-    | undefined)?.BrickLink;
+  const external = (
+    part.external_ids as
+      | {
+          BrickLink?: {
+            ext_ids?: Array<string | number>;
+          };
+        }
+      | null
+      | undefined
+  )?.BrickLink;
   const ids = Array.isArray(external?.ext_ids) ? external!.ext_ids : [];
   const normalized =
     ids
       .map(id =>
-        typeof id === 'number'
-          ? String(id)
-          : typeof id === 'string'
-            ? id
-            : null
+        typeof id === 'number' ? String(id) : typeof id === 'string' ? id : null
       )
       .find(id => id && id.trim().length > 0) ?? null;
   if (normalized) return normalized;
@@ -53,11 +51,6 @@ export async function GET(req: NextRequest) {
         error: err instanceof Error ? err.message : String(err),
       });
     }
-    return NextResponse.json(
-      { error: 'part_lookup_failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'part_lookup_failed' }, { status: 500 });
   }
 }
-
-
