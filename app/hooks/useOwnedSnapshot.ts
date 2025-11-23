@@ -11,6 +11,9 @@ export function useOwnedSnapshot(
   const getOwned = useOwnedStore(state => state.getOwned);
 
   const ownedByKey = useMemo(() => {
+    // Touch version so React Hooks exhaustive-deps understands this dependency
+    // is intentional: we want to recompute whenever the owned store changes.
+    void version;
     const result: Record<string, number> = {};
     for (const key of keys) {
       result[key] = getOwned(setNumber, key);

@@ -43,7 +43,9 @@ export function SearchResultListItem({ result }: { result: SearchResult }) {
               year={result.year}
               imageUrl={result.imageUrl}
               numParts={result.numParts}
-              themeId={result.themeId}
+              {...(typeof result.themeId === 'number'
+                ? { themeId: result.themeId }
+                : {})}
             />
           </div>
         </div>

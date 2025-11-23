@@ -18,7 +18,7 @@ type Props = {
   onChangeFilter: (f: InventoryFilter) => void;
   parentOptions: string[];
   subcategoriesByParent: Record<string, string[]>;
-  parentCounts?: Record<string, number> | undefined;
+  parentCounts?: Record<string, number>;
 };
 
 export function SidebarCategoryPanel({
@@ -31,7 +31,7 @@ export function SidebarCategoryPanel({
   const [activeParent, setActiveParent] = useState<string | null>(null);
 
   function toggleParentCheckbox(parent: string) {
-    onChangeFilter(toggleParent(filter, subcategoriesByParent, parent));
+    onChangeFilter(toggleParent(filter, parent));
   }
 
   function toggleSubcategoryForActive(sub: string) {

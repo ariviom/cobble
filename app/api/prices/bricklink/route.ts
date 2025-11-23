@@ -61,7 +61,6 @@ export async function POST(req: NextRequest) {
   // Simple batched concurrency limiter to avoid hammering BrickLink
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const batch = items.slice(i, i + BATCH_SIZE);
-    // eslint-disable-next-line no-await-in-loop
     await Promise.all(
       batch.map(async item => {
         try {

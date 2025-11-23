@@ -36,6 +36,7 @@
     "@tanstack/eslint-plugin-query": "^5.91.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.19.19",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.1",

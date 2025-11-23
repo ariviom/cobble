@@ -26,7 +26,9 @@ export function IdentifySetList({ items, onRemoveItem }: Props) {
           <IdentifySetListItem
             key={`${it.setNumber}-${it.quantity}`}
             item={it}
-            onRemove={onRemoveItem}
+            {...(onRemoveItem
+              ? { onRemove: onRemoveItem }
+              : {})}
           />
         ))}
       </div>

@@ -2,7 +2,7 @@
 
 import { cn } from '@/app/components/ui/utils';
 import Link from 'next/link';
-import type { MouseEventHandler, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 export type NavLinkItemProps = {
   icon: ReactNode;
@@ -11,7 +11,7 @@ export type NavLinkItemProps = {
   labelDesktop?: string;
   active: boolean;
   href?: string;
-  onClick?: MouseEventHandler<HTMLButtonElement | HTMLAnchorElement>;
+  onClick?: () => void;
   className?: string;
 };
 
@@ -46,7 +46,13 @@ export function NavLinkItem({
         href={href}
         aria-label={ariaLabel}
         aria-current={active ? 'page' : undefined}
-        onClick={onClick}
+        {...(onClick
+          ? {
+              onClick: () => {
+                onClick();
+              },
+            }
+          : {})}
         className={classes}
       >
         {icon}
@@ -59,7 +65,13 @@ export function NavLinkItem({
     <button
       aria-label={ariaLabel}
       aria-current={active ? 'page' : undefined}
-      onClick={onClick}
+      {...(onClick
+        ? {
+            onClick: () => {
+              onClick();
+            },
+          }
+        : {})}
       className={classes}
       type="button"
     >

@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -98,7 +97,6 @@ export default function AccountPage() {
       setProfile(null);
     }
   };
-
   const subscriptionTier =
     profile?.subscription_tier && profile.subscription_tier.length > 0
       ? profile.subscription_tier
@@ -161,6 +159,11 @@ export default function AccountPage() {
               <p className="text-sm font-medium text-foreground">
                 {isLoading ? 'Checking…' : isLoggedIn ? 'Signed in' : 'Not signed in'}
               </p>
+              {isLoggedIn && (
+                <p className="text-[11px] text-foreground-muted">
+                  Plan: {subscriptionTier}
+                </p>
+              )}
               {isLoggedIn && (
                 <button
                   type="button"

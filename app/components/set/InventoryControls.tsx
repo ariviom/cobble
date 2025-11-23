@@ -16,7 +16,7 @@ import type {
 
 type Props = {
   setNumber: string;
-  setName?: string | undefined;
+  setName?: string;
   view: ViewType;
   onChangeView: (v: ViewType) => void;
   itemSize: ItemSize;
@@ -30,7 +30,7 @@ type Props = {
   filter: InventoryFilter;
   onChangeFilter: (f: InventoryFilter) => void;
   parentOptions: string[];
-  parentCounts?: Record<string, number> | undefined;
+  parentCounts?: Record<string, number>;
   subcategoriesByParent: Record<string, string[]>;
   colorOptions: string[];
   onToggleColor: (color: string) => void;
@@ -163,7 +163,7 @@ export function InventoryControls(props: Props) {
     >
       <TopBarControls
         setNumber={setNumber}
-        setName={props.setName}
+        {...(props.setName ? { setName: props.setName } : {})}
         view={view}
         onChangeView={onChangeView}
         itemSize={itemSize}
@@ -191,7 +191,7 @@ export function InventoryControls(props: Props) {
         filter={filter}
         onChangeFilter={onChangeFilter}
         parentOptions={parentOptions}
-        parentCounts={parentCounts}
+        {...(parentCounts ? { parentCounts } : {})}
         subcategoriesByParent={subcategoriesByParent}
         colorOptions={colorOptions}
         onToggleColor={onToggleColor}

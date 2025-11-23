@@ -224,14 +224,18 @@ export function extractCandidatePartNumbers(
           }
         }
       }
-      out.push({
+      const base = {
         partNum,
         confidence,
         colorId,
         colorName,
         imageUrl,
-        bricklinkId,
-      });
+      };
+      if (bricklinkId && bricklinkId.length > 0) {
+        out.push({ ...base, bricklinkId });
+      } else {
+        out.push(base);
+      }
     }
   }
 

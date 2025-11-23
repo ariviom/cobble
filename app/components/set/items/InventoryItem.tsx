@@ -31,7 +31,7 @@ type Props = {
   onOwnedChange: (next: number) => void;
   isPinned?: boolean;
   onTogglePinned?: () => void;
-  onRequestPrice?: (() => void) | undefined;
+  onRequestPrice?: () => void;
 };
 
 export function InventoryItem({

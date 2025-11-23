@@ -106,10 +106,10 @@ export function SetTopBar({
   const { status: uiStatus, toggleStatus } = useSetStatus({
     setNumber,
     name: setName,
-    year,
+    ...(typeof year === 'number' ? { year } : {}),
     imageUrl,
-    numParts,
-    themeId,
+    ...(typeof numParts === 'number' ? { numParts } : {}),
+    ...(typeof themeId === 'number' ? { themeId } : {}),
   });
 
   const handleToggleExpanded = () => {

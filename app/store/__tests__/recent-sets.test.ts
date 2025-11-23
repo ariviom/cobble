@@ -1,13 +1,9 @@
 'use client';
 
-import {
-  addRecentSet,
-  getRecentSets,
-} from '@/app/store/recent-sets';
-import { writeStorage } from '@/app/lib/persistence/storage';
+import { addRecentSet, getRecentSets } from '@/app/store/recent-sets';
 
 vi.mock('@/app/lib/persistence/storage', () => {
-  let store: Record<string, string> = {};
+  const store: Record<string, string> = {};
   return {
     readStorage: (key: string) => store[key] ?? null,
     writeStorage: (key: string, value: string) => {

@@ -7,7 +7,7 @@ import {
 } from '@/app/store/recent-searches';
 
 vi.mock('@/app/lib/persistence/storage', () => {
-  let store: Record<string, string> = {};
+  const store: Record<string, string> = {};
   return {
     readStorage: (key: string) => store[key] ?? null,
     writeStorage: (key: string, value: string) => {

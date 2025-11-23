@@ -1,9 +1,5 @@
 import { act } from '@testing-library/react';
-import {
-  EMPTY_SET_STATUS,
-  type SetStatusKey,
-  useUserSetsStore,
-} from '@/app/store/user-sets';
+import { type SetStatusKey, useUserSetsStore } from '@/app/store/user-sets';
 
 function setStatus(
   setNumber: string,

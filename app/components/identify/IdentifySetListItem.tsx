@@ -47,13 +47,13 @@ export function IdentifySetListItem({ item, onRemove }: Props) {
               imageUrl={item.imageUrl}
               // Identify sets only expose total quantity in this context; pass as numParts surrogate.
               numParts={item.quantity}
-              onRemove={
-                onRemove
-                  ? () => {
+              {...(onRemove
+                ? {
+                    onRemove: () => {
                       onRemove(item.setNumber);
-                    }
-                  : undefined
-              }
+                    },
+                  }
+                : {})}
             />
           </div>
         </div>

@@ -15,10 +15,10 @@ import type { Enums } from '@/supabase/types';
 type UseSetStatusArgs = {
   setNumber: string;
   name: string;
-  year?: number | undefined;
-  imageUrl?: string | null | undefined;
-  numParts?: number | undefined;
-  themeId?: number | null | undefined;
+  year?: number;
+  imageUrl?: string | null;
+  numParts?: number;
+  themeId?: number | null;
 };
 
 type UseSetStatusResult = {
@@ -55,14 +55,17 @@ export function useSetStatus({
 
   const status = mounted ? rawStatus : EMPTY_SET_STATUS;
 
-  const meta: UserSetMeta = {
-    setNumber,
-    name,
-    year: typeof year === 'number' ? year : 0,
-    imageUrl: imageUrl ?? null,
-    numParts: typeof numParts === 'number' ? numParts : 0,
-    themeId: typeof themeId === 'number' ? themeId : null,
-  };
+  const meta: UserSetMeta = useMemo(
+    () => ({
+      setNumber,
+      name,
+      year: typeof year === 'number' ? year : 0,
+      imageUrl: imageUrl ?? null,
+      numParts: typeof numParts === 'number' ? numParts : 0,
+      themeId: typeof themeId === 'number' ? themeId : null,
+    }),
+    [setNumber, name, year, imageUrl, numParts, themeId]
+  );
 
   // Map DB enum to local SetStatus shape.
   function dbStatusToLocal(status: Enums<'set_status'>): SetStatus {

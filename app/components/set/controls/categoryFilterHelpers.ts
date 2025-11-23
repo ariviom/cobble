@@ -21,7 +21,6 @@ export function getParentState(
 
 export function toggleParent(
   filter: InventoryFilter,
-  allSubcategoriesByParent: Record<string, string[]>,
   parent: string
 ): InventoryFilter {
   if (parent === '__all__') {

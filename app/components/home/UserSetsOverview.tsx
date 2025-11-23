@@ -62,7 +62,7 @@ function useThemesForUserSets(
     return () => {
       cancelled = true;
     };
-  }, [themeIds.join(',')]);
+  }, [themeIds]);
 
   return { themeMap, isLoading };
 }

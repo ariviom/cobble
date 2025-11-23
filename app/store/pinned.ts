@@ -16,7 +16,7 @@ type PinnedState = {
   togglePinned: (args: {
     setNumber: string;
     key: string;
-    setName?: string | undefined;
+    setName?: string;
   }) => void;
   setPinned: (
     setNumber: string,
@@ -85,13 +85,11 @@ function parsePersisted(raw: string | null): PersistedSubset {
         if (!value || typeof value !== 'object') continue;
         const m = value as Partial<PinnedMeta>;
         if (!m.setNumber || typeof m.setNumber !== 'string') continue;
-        meta[setNumber] = {
-          setNumber: m.setNumber,
-          setName:
-            typeof m.setName === 'string' && m.setName.length > 0
-              ? m.setName
-              : undefined,
-        };
+        const entry: PinnedMeta = { setNumber: m.setNumber };
+        if (typeof m.setName === 'string' && m.setName.length > 0) {
+          entry.setName = m.setName;
+        }
+        meta[setNumber] = entry;
       }
     }
 
@@ -169,10 +167,11 @@ export const usePinnedStore = create<PinnedState>((set, get) => ({
     const nextMeta: Record<string, PinnedMeta> = { ...meta };
     if (!isCurrentlyPinned) {
       // only update meta when pinning, not when unpinning
-      nextMeta[setNumber] = {
-        setNumber,
-        setName: setName ?? meta[setNumber]?.setName,
-      };
+      const resolvedName = setName ?? meta[setNumber]?.setName;
+      nextMeta[setNumber] =
+        resolvedName && resolvedName.length > 0
+          ? { setNumber, setName: resolvedName }
+          : { setNumber };
     } else if (!nextPinned[setNumber]) {
       // clean up meta when no pins remain for this set
       delete nextMeta[setNumber];
@@ -206,10 +205,11 @@ export const usePinnedStore = create<PinnedState>((set, get) => ({
 
     const nextMeta: Record<string, PinnedMeta> = { ...meta };
     if (value) {
-      nextMeta[setNumber] = {
-        setNumber,
-        setName: setName ?? meta[setNumber]?.setName,
-      };
+      const resolvedName = setName ?? meta[setNumber]?.setName;
+      nextMeta[setNumber] =
+        resolvedName && resolvedName.length > 0
+          ? { setNumber, setName: resolvedName }
+          : { setNumber };
     } else if (!nextPinned[setNumber]) {
       delete nextMeta[setNumber];
     }

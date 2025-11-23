@@ -82,8 +82,8 @@ export function InventoryTable({
     keys,
     sortKey,
     enabled: pricesEnabled,
-    onPriceStatusChange,
-    onPriceTotalsChange,
+    ...(onPriceStatusChange ? { onPriceStatusChange } : {}),
+    ...(onPriceTotalsChange ? { onPriceTotalsChange } : {}),
   });
 
   const ownedStore = useOwnedStore();
@@ -135,7 +135,7 @@ export function InventoryTable({
     <div className="pb-2 lg:grid lg:h-full lg:grid-rows-[var(--spacing-controls-height)_minmax(0,1fr)]">
       <InventoryControls
         setNumber={setNumber}
-        setName={setName}
+        {...(setName ? { setName } : {})}
         view={view}
         onChangeView={(v: ViewType) => setView(v)}
         itemSize={itemSize}
@@ -149,7 +149,7 @@ export function InventoryTable({
         filter={filter}
         onChangeFilter={(f: InventoryFilter) => setFilter(f)}
         parentOptions={parentOptions}
-        parentCounts={countsByParent}
+        {...(countsByParent ? { parentCounts: countsByParent } : {})}
         subcategoriesByParent={subcategoriesByParent}
         colorOptions={colorOptions}
         onToggleColor={color => {
@@ -198,7 +198,7 @@ export function InventoryTable({
                     bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
                     isPricePending={pricesStatus === 'loading'}
                     canRequestPrice={!pricesEnabled && pricesStatus === 'idle'}
-                    onRequestPrice={onRequestPrices}
+                    {...(onRequestPrices ? { onRequestPrice: onRequestPrices } : {})}
                     onOwnedChange={next => {
                       const clamped = clampOwned(next, r.quantityRequired);
                       ownedStore.setOwned(setNumber, key, clamped);
@@ -215,7 +215,7 @@ export function InventoryTable({
                       pinnedStore.togglePinned({
                         setNumber,
                         key,
-                        setName,
+                        ...(setName ? { setName } : {}),
                       })
                     }
                   />
@@ -271,7 +271,9 @@ export function InventoryTable({
                             canRequestPrice={
                               !pricesEnabled && pricesStatus === 'idle'
                             }
-                            onRequestPrice={onRequestPrices}
+                            {...(onRequestPrices
+                              ? { onRequestPrice: onRequestPrices }
+                              : {})}
                             onOwnedChange={next => {
                               const clamped = clampOwned(
                                 next,
@@ -292,7 +294,7 @@ export function InventoryTable({
                               pinnedStore.togglePinned({
                                 setNumber,
                                 key,
-                                setName,
+                                ...(setName ? { setName } : {}),
                               })
                             }
                           />

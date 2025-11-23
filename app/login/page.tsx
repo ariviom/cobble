@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import { useState } from 'react';
@@ -13,14 +12,16 @@ export default function LoginPage() {
     setError(null);
     setIsLoading(true);
     try {
+      if (typeof window === 'undefined') {
+        setError('Google sign-in is only available in the browser.');
+        setIsLoading(false);
+        return;
+      }
       const supabase = getSupabaseBrowserClient();
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo:
-            typeof window !== 'undefined'
-              ? `${window.location.origin}/account`
-              : undefined,
+          redirectTo: `${window.location.origin}/account`,
         },
       });
 

@@ -32,7 +32,7 @@ import { SidebarColorPanel } from './SidebarColorPanel';
 
 type Props = {
   setNumber: string;
-  setName?: string | undefined;
+  setName?: string;
   view: ViewType;
   onChangeView: (v: ViewType) => void;
   itemSize: ItemSize;
@@ -54,7 +54,7 @@ type Props = {
   filter: InventoryFilter;
   onChangeFilter: (f: InventoryFilter) => void;
   parentOptions: string[];
-  parentCounts?: Record<string, number> | undefined;
+  parentCounts?: Record<string, number>;
   subcategoriesByParent: Record<string, string[]>;
   colorOptions: string[];
   onToggleColor: (color: string) => void;
@@ -324,7 +324,7 @@ export function TopBarControls({
                     onChangeFilter={onChangeFilter}
                     parentOptions={parentOptions}
                     subcategoriesByParent={subcategoriesByParent}
-                    parentCounts={parentCounts}
+                    {...(parentCounts ? { parentCounts } : {})}
                   />
                 </DropdownPanelFrame>
               )}

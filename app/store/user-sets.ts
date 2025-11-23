@@ -23,7 +23,7 @@ export type UserSetMeta = {
   year: number;
   imageUrl: string | null;
   numParts: number;
-  themeId?: number | null;
+  themeId: number | null;
 };
 
 export type UserSet = UserSetMeta & {
@@ -61,7 +61,7 @@ type PersistedUserSet = {
   year: number;
   imageUrl: string | null;
   numParts: number;
-  themeId?: number | null;
+  themeId: number | null;
   status: SetStatus;
   lastUpdatedAt: number;
 };
@@ -80,7 +80,7 @@ function normalizeKey(setNumber: string): string {
 
 function coerceStatus(raw: unknown): SetStatus {
   const obj = (raw ?? {}) as Partial<SetStatus>;
-  let owned = !!obj.owned;
+  const owned = !!obj.owned;
   let canBuild = !!obj.canBuild;
   let wantToBuild = !!obj.wantToBuild;
 
@@ -102,7 +102,7 @@ function parsePersisted(raw: string | null): Pick<UserSetsState, 'sets'> {
     const sets: Record<string, UserSet> = {};
 
     if (parsed && parsed.sets && typeof parsed.sets === 'object') {
-      for (const [key, value] of Object.entries(parsed.sets)) {
+      for (const value of Object.values(parsed.sets)) {
         if (!value || typeof value !== 'object') continue;
         const v = value as Partial<PersistedUserSet>;
         if (
@@ -147,7 +147,7 @@ function parsePersisted(raw: string | null): Pick<UserSetsState, 'sets'> {
           year,
           imageUrl,
           numParts,
-          themeId: themeId ?? undefined,
+          themeId,
           status,
           lastUpdatedAt,
         };
@@ -197,8 +197,6 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
     const normKey = normalizeKey(setNumber);
     set(prevState => {
       const prevEntry = prevState.sets[normKey];
-      const prevStatus = prevEntry?.status ?? EMPTY_SET_STATUS;
-
       let nextStatus: SetStatus;
       if (value) {
         // Turning a status "on" makes it the sole active status.
@@ -223,10 +221,11 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
         !nextStatus.canBuild &&
         !nextStatus.wantToBuild
       ) {
-        const { [normKey]: _removed, ...rest } = prevState.sets;
+        const nextSets = { ...prevState.sets };
+        delete nextSets[normKey];
         const nextState: UserSetsState = {
           ...prevState,
-          sets: rest,
+          sets: nextSets,
         };
         persistState(nextState);
         return nextState;
@@ -254,7 +253,7 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
         themeId:
           typeof meta?.themeId === 'number'
             ? meta.themeId
-            : prevEntry?.themeId,
+            : prevEntry?.themeId ?? null,
       };
 
       const nextEntry: UserSet = {
@@ -279,10 +278,11 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
   clearAllStatusesForSet: (setNumber: string) => {
     const normKey = normalizeKey(setNumber);
     set(prevState => {
-      const { [normKey]: _removed, ...rest } = prevState.sets;
+      const nextSets = { ...prevState.sets };
+      delete nextSets[normKey];
       const nextState: UserSetsState = {
         ...prevState,
-        sets: rest,
+        sets: nextSets,
       };
       persistState(nextState);
       return nextState;

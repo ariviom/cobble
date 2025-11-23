@@ -21,7 +21,7 @@ export type PriceSummary = {
   pricedItemCount: number;
 };
 
-type UseInventoryPricesArgs<TPriceInfo extends BasePriceInfo> = {
+type UseInventoryPricesArgs = {
   setNumber: string;
   rows: InventoryRow[];
   keys: string[];
@@ -31,8 +31,8 @@ type UseInventoryPricesArgs<TPriceInfo extends BasePriceInfo> = {
    * Callers can flip this to true (e.g. from a "Get prices" button) to trigger loading.
    */
   enabled?: boolean;
-  onPriceStatusChange?: ((status: PriceStatus) => void) | undefined;
-  onPriceTotalsChange?: ((summary: PriceSummary | null) => void) | undefined;
+  onPriceStatusChange?: (status: PriceStatus) => void;
+  onPriceTotalsChange?: (summary: PriceSummary | null) => void;
 };
 
 type UseInventoryPricesResult<TPriceInfo extends BasePriceInfo> = {
@@ -49,7 +49,7 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
   enabled = true,
   onPriceStatusChange,
   onPriceTotalsChange,
-}: UseInventoryPricesArgs<TPriceInfo>): UseInventoryPricesResult<TPriceInfo> {
+}: UseInventoryPricesArgs): UseInventoryPricesResult<TPriceInfo> {
   const [pricesByKey, setPricesByKey] = useState<Record<string, TPriceInfo>>(
     {}
   );

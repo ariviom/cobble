@@ -54,7 +54,7 @@ export function PinnedPanelContent({
             {currentSetKeys.length > 0 && (
               <PinnedSetSection
                 setNumber={currentSetNumber}
-                setName={currentSetName}
+                {...(currentSetName ? { setName: currentSetName } : {})}
                 pinnedKeys={currentSetKeys}
                 view={view}
                 itemSize={itemSize}
@@ -223,7 +223,7 @@ function PinnedSetSection({
                 pinnedState.togglePinned({
                   setNumber,
                   key,
-                  setName,
+                  ...(setName ? { setName } : {}),
                 })
               }
             />
