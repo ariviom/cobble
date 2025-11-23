@@ -1,13 +1,47 @@
+/* eslint-disable @next/next/no-img-element */
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
+import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 
 export default function LoginPage() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setIsLoading(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo:
+            typeof window !== 'undefined'
+              ? `${window.location.origin}/account`
+              : undefined,
+        },
+      });
+
+      if (authError) {
+        setError(authError.message);
+        setIsLoading(false);
+      }
+      // On success, Supabase will redirect; no further state update needed here.
+    } catch {
+      setError('Failed to start Google sign-in. Please try again.');
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-10 lg:px-6">
+    <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-10 lg:px-6">
       <header className="text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Login</h1>
         <p className="mt-2 text-sm text-foreground-muted">
-          Authentication is not wired up yet; this page is a preview of the flows
-          we&apos;ll support.
+          Sign in with your Google account. Email/password and other providers will be added
+          later.
         </p>
       </header>
 
@@ -18,11 +52,17 @@ export default function LoginPage() {
         </p>
         <button
           type="button"
-          disabled
+          onClick={handleGoogleLogin}
+          disabled={isLoading}
           className="mt-3 inline-flex w-full items-center justify-center rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-neutral-900 disabled:cursor-not-allowed disabled:bg-neutral-900/70"
         >
-          Continue with Google (coming soon)
+          {isLoading ? 'Redirecting…' : 'Continue with Google'}
         </button>
+        {error && (
+          <p className="mt-2 text-xs text-red-600" role="alert">
+            {error}
+          </p>
+        )}
       </section>
 
       <section className="rounded-lg border border-neutral-200 bg-background p-4 shadow-sm">
@@ -70,8 +110,9 @@ export default function LoginPage() {
           Back to sets
         </Link>
       </div>
-    </main>
+    </div>
   );
 }
+
 
 

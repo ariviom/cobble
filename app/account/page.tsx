@@ -1,11 +1,112 @@
+/* eslint-disable @next/next/no-img-element */
+'use client';
+
+import { useEffect, useState } from 'react';
+import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
+import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import type { Tables } from '@/supabase/types';
+
+type UserProfileRow = Tables<'user_profiles'>;
 
 export default function AccountPage() {
-  // TODO: Replace this with real auth state when Supabase is wired in.
-  const isLoggedIn = false;
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfileRow | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const isLoggedIn = !!user;
+
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError) {
+          setError(userError.message);
+          setUser(null);
+          setProfile(null);
+          return;
+        }
+
+        if (!user) {
+          setUser(null);
+          setProfile(null);
+          return;
+        }
+
+        setUser(user);
+
+        const { data: existingProfile, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          setError(profileError.message);
+        }
+
+        if (!existingProfile) {
+          const displayName =
+            (user.user_metadata &&
+              (user.user_metadata.full_name as string | undefined)) ||
+            user.email ||
+            null;
+
+          const { data: createdProfile, error: insertError } = await supabase
+            .from('user_profiles')
+            .insert({
+              user_id: user.id,
+              display_name: displayName,
+            })
+            .select('*')
+            .maybeSingle();
+
+          if (insertError) {
+            setError(insertError.message);
+          } else if (createdProfile) {
+            setProfile(createdProfile);
+          }
+        } else {
+          setProfile(existingProfile);
+        }
+      } catch {
+        setError('Failed to load account information.');
+        setUser(null);
+        setProfile(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void load();
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      const supabase = getSupabaseBrowserClient();
+      await supabase.auth.signOut();
+    } finally {
+      setUser(null);
+      setProfile(null);
+    }
+  };
+
+  const subscriptionTier =
+    profile?.subscription_tier && profile.subscription_tier.length > 0
+      ? profile.subscription_tier
+      : 'Free';
+  const googleEmail = user?.email ?? 'not connected';
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 lg:px-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 lg:px-6">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
         <p className="mt-2 text-sm text-foreground-muted">
@@ -13,7 +114,7 @@ export default function AccountPage() {
         </p>
       </header>
 
-      {!isLoggedIn && (
+      {!isLoading && !isLoggedIn && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p>
@@ -27,6 +128,11 @@ export default function AccountPage() {
               Go to login
             </Link>
           </div>
+        </div>
+      )}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-900">
+          {error}
         </div>
       )}
 
@@ -44,8 +150,8 @@ export default function AccountPage() {
                 Sign-in & identity
               </h2>
               <p className="mt-1 text-xs text-foreground-muted">
-                Quarry will support both email/password and Google Sign-In. Rebrickable
-                and BrickLink are used only as data sources, not as login providers.
+                Quarry supports Google Sign-In. Rebrickable and BrickLink are used only as
+                data sources, not as login providers.
               </p>
             </div>
             <div className="flex flex-col items-end gap-1 text-right">
@@ -53,8 +159,17 @@ export default function AccountPage() {
                 Status
               </p>
               <p className="text-sm font-medium text-foreground">
-                {isLoggedIn ? 'Signed in' : 'Not signed in'}
+                {isLoading ? 'Checking…' : isLoggedIn ? 'Signed in' : 'Not signed in'}
               </p>
+              {isLoggedIn && (
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="mt-1 rounded-md border border-neutral-300 bg-background px-2 py-1 text-[11px] text-foreground hover:bg-neutral-50"
+                >
+                  Sign out
+                </button>
+              )}
             </div>
           </div>
 
@@ -64,7 +179,7 @@ export default function AccountPage() {
                 Email &amp; password
               </h3>
               <p className="text-xs text-foreground-muted">
-                When you sign in with email and password, these fields will be editable.
+                Email/password sign-in will be added later. For now, use Google Sign-In.
               </p>
               <label className="mt-1 text-[11px] font-medium text-foreground">
                 Username
@@ -107,16 +222,20 @@ export default function AccountPage() {
               <input
                 type="email"
                 disabled
-                placeholder="not connected"
-                className="w-full rounded-md border border-neutral-300 bg-neutral-50 px-2 py-1 text-xs text-neutral-500"
+                value={googleEmail}
+                className="w-full rounded-md border border-neutral-300 bg-neutral-50 px-2 py-1 text-xs text-neutral-700"
               />
-              <button
-                type="button"
-                disabled
-                className="mt-3 inline-flex items-center rounded-md border border-neutral-300 bg-neutral-50 px-3 py-1.5 text-xs text-neutral-500"
-              >
-                Connect Google (coming soon)
-              </button>
+              {!isLoggedIn && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = '/login';
+                  }}
+                  className="mt-3 inline-flex items-center rounded-md border border-neutral-300 bg-background px-3 py-1.5 text-xs text-foreground hover:bg-neutral-50"
+                >
+                  Connect Google
+                </button>
+              )}
             </div>
           </div>
 
@@ -349,6 +468,6 @@ export default function AccountPage() {
           </div>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

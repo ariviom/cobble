@@ -1,16 +1,38 @@
 {
-    "editor.formatOnSave": true,
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "prettier.prettierPath": "./node_modules/prettier",
-    "prettier.configPath": ".prettierrc",
-    "editor.codeActionsOnSave": {
-      "source.organizeImports": "explicit"
-    },
-    "tailwindCSS.experimental.configFile": "app/styles/globals.css",
-    "tailwindCSS.experimental.classRegex": [
-      [
-        "cva\\(((?:[^)(]+|\\((?:[^)(]+|\\([^)(]*\\))*\\))*)\\)\\s*;?",
-        "[\"'`]([^\"'`]*)[\"'`]"
-      ]
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
+  "deno.enablePaths": [
+    "supabase/functions"
+  ],
+  "deno.lint": true,
+  "deno.unstable": [
+    "bare-node-builtins",
+    "byonm",
+    "sloppy-imports",
+    "unsafe-proto",
+    "webgpu",
+    "broadcast-channel",
+    "worker-options",
+    "cron",
+    "kv",
+    "ffi",
+    "fs",
+    "http",
+    "net"
+  ],
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "prettier.configPath": ".prettierrc",
+  "prettier.prettierPath": "./node_modules/prettier",
+  "tailwindCSS.experimental.classRegex": [
+    [
+      "cva\\(((?:[^)(]+|\\((?:[^)(]+|\\([^)(]*\\))*\\))*)\\)\\s*;?",
+      "[\"'`]([^\"'`]*)[\"'`]"
     ]
-  }
+  ],
+  "tailwindCSS.experimental.configFile": "app/styles/globals.css"
+}

@@ -54,3 +54,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'part_lookup_failed' }, { status: 500 });
   }
 }
+

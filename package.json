@@ -9,14 +9,19 @@
     "lint": "next lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest"
+    "test": "vitest",
+    "ingest:rebrickable": "tsx scripts/ingest-rebrickable.ts",
+    "generate-types": "npx supabase gen types typescript --schema public --project-id nrrunazjjrwxaonlvvhh > supabase/types.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
+    "@supabase/supabase-js": "^2.84.0",
     "@tanstack/react-query": "^5.90.2",
     "@tanstack/react-virtual": "^3.13.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "csv-parse": "^6.1.0",
+    "dotenv": "^17.2.3",
     "lucide-react": "^0.545.0",
     "next": "15.5.4",
     "prettier-plugin-tailwindcss": "^0.6.14",
@@ -39,7 +44,9 @@
     "eslint-config-next": "15.5.4",
     "jsdom": "^27.0.1",
     "prettier": "^3.6.2",
+    "supabase": "^2.58.5",
     "tailwindcss": "^4",
+    "tsx": "^4.20.6",
     "typescript": "^5",
     "vitest": "^2.1.4"
   },
