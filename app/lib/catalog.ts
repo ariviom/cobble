@@ -326,7 +326,7 @@ export async function getSetInventoryLocal(
     )
   );
 
-  let categoryMap = new Map<number, { id: number; name: string }>();
+  const categoryMap = new Map<number, { id: number; name: string }>();
   if (categoryIds.length > 0) {
     const { data: categories, error: categoriesError } = await supabase
       .from('rb_part_categories')

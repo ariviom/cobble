@@ -95,7 +95,6 @@ export default function AccountPage() {
 
         if (setsError) {
           // Non-fatal; we still show the rest of the account page.
-          // eslint-disable-next-line no-console
           console.error('Failed to load user_sets for account overview', {
             error: setsError.message,
           });

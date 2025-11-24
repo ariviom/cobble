@@ -124,7 +124,6 @@ export function useSupabaseOwned({
     if (error) {
       // We log but do not surface an inline error yet; the UI still reflects local state.
       // Future iterations can add a non-intrusive toast if needed.
-      // eslint-disable-next-line no-console
       console.error(
         'Supabase owned upsert failed',
         JSON.stringify(
@@ -159,9 +158,7 @@ export function useSupabaseOwned({
         window.clearTimeout(flushTimeoutRef.current);
         flushTimeoutRef.current = null;
       }
-      if (pendingRef.current.size > 0) {
-        void flushNow();
-      }
+      void flushNow();
     };
   }, [flushNow]);
 
@@ -196,13 +193,12 @@ export function useSupabaseOwned({
       const { data, error } = await supabase
         .from('user_set_parts')
         .select('part_num, color_id, is_spare, owned_quantity')
-        .eq('user_id', userId)
+        .eq('user_id', userId as string)
         .eq('set_num', setNumber);
 
       if (cancelled) return;
 
       if (error) {
-        // eslint-disable-next-line no-console
         console.error('Failed to load user_set_parts for hydration', {
           setNumber,
           error: error.message,
@@ -254,7 +250,9 @@ export function useSupabaseOwned({
 
       let existingDecision: string | null = null;
       try {
-        existingDecision = window.localStorage.getItem(migrationDecisionKey);
+        existingDecision = window.localStorage.getItem(
+          migrationDecisionKey as string
+        );
       } catch {
         existingDecision = null;
       }
@@ -263,7 +261,10 @@ export function useSupabaseOwned({
         // In sync; nothing to prompt about. Ensure future sessions skip the prompt.
         if (!existingDecision) {
           try {
-            window.localStorage.setItem(migrationDecisionKey, 'synced');
+            window.localStorage.setItem(
+              migrationDecisionKey as string,
+              'synced'
+            );
           } catch {
             // ignore
           }
@@ -369,14 +370,16 @@ export function useSupabaseOwned({
       }
 
       try {
-        window.localStorage.setItem(migrationDecisionKey, 'local_to_supabase');
+        window.localStorage.setItem(
+          migrationDecisionKey as string,
+          'local_to_supabase'
+        );
       } catch {
         // ignore
       }
 
       setMigration(null);
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('Owned migration (local → Supabase) failed', {
         setNumber,
         error: err instanceof Error ? err.message : String(err),
@@ -397,7 +400,7 @@ export function useSupabaseOwned({
       const { data, error } = await supabase
         .from('user_set_parts')
         .select('part_num, color_id, is_spare, owned_quantity')
-        .eq('user_id', userId)
+        .eq('user_id', userId as string)
         .eq('set_num', setNumber);
 
       if (error) {
@@ -422,12 +425,14 @@ export function useSupabaseOwned({
       markAllAsOwned(setNumber, allKeys, quantities);
 
       try {
-        window.localStorage.setItem(migrationDecisionKey, 'supabase_kept');
+        window.localStorage.setItem(
+          migrationDecisionKey as string,
+          'supabase_kept'
+        );
       } catch {
         // ignore
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('Owned migration keepCloudData failed', {
         setNumber,
         error: err instanceof Error ? err.message : String(err),

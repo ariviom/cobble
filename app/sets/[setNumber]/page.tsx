@@ -11,7 +11,7 @@ export default async function SetPage({ params }: SetPageProps) {
   const { setNumber } = await params;
   if (!setNumber) notFound();
   // Prefer Supabase-backed catalog summary when available.
-  let summary =
+  const summary =
     (await getSetSummaryLocal(setNumber).catch(() => null)) ??
     (await getSetSummary(setNumber).catch(() => null));
   if (!summary) notFound();

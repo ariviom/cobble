@@ -28,7 +28,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
       console.error('bricklink-set price failed', {
         setNumber,
         error: err instanceof Error ? err.message : String(err),
