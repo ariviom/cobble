@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { readStorage, writeStorage } from '@/app/lib/persistence/storage';
 
-type OwnedState = {
+export type OwnedState = {
   getOwned: (setNumber: string, key: string) => number;
   setOwned: (setNumber: string, key: string, qty: number) => void;
   clearAll: (setNumber: string) => void;

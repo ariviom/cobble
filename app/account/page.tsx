@@ -4,15 +4,24 @@ import { useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import type { Tables } from '@/supabase/types';
+import type { Enums, Tables } from '@/supabase/types';
 
 type UserProfileRow = Tables<'user_profiles'>;
+
+type DbSetStatus = Enums<'set_status'>;
+
+type SetCounts = {
+  owned: number;
+  canBuild: number;
+  wantToBuild: number;
+};
 
 export default function AccountPage() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfileRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [setCounts, setSetCounts] = useState<SetCounts | null>(null);
 
   const isLoggedIn = !!user;
 
@@ -37,6 +46,7 @@ export default function AccountPage() {
         if (!user) {
           setUser(null);
           setProfile(null);
+            setSetCounts(null);
           return;
         }
 
@@ -76,10 +86,41 @@ export default function AccountPage() {
         } else {
           setProfile(existingProfile);
         }
+
+        // Load basic set counts for this user.
+        const { data: sets, error: setsError } = await supabase
+          .from('user_sets')
+          .select('status')
+          .eq('user_id', user.id);
+
+        if (setsError) {
+          // Non-fatal; we still show the rest of the account page.
+          // eslint-disable-next-line no-console
+          console.error('Failed to load user_sets for account overview', {
+            error: setsError.message,
+          });
+        } else if (sets) {
+          let owned = 0;
+          let canBuild = 0;
+          let wantToBuild = 0;
+
+          for (const row of sets) {
+            const status = row.status as DbSetStatus;
+            if (status === 'owned') owned += 1;
+            else if (status === 'can_build') canBuild += 1;
+            else {
+              // Treat both 'want' and 'partial' as "want to build" for this summary.
+              wantToBuild += 1;
+            }
+          }
+
+          setSetCounts({ owned, canBuild, wantToBuild });
+        }
       } catch {
         setError('Failed to load account information.');
         setUser(null);
         setProfile(null);
+        setSetCounts(null);
       } finally {
         setIsLoading(false);
       }
@@ -469,6 +510,61 @@ export default function AccountPage() {
               </select>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section
+        aria-labelledby="account-sets-heading"
+        className="rounded-lg border border-neutral-200 bg-background p-4 shadow-sm"
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2
+                id="account-sets-heading"
+                className="text-sm font-medium text-foreground"
+              >
+                Your sets
+              </h2>
+              <p className="mt-1 text-xs text-foreground-muted">
+                Counts of sets you&apos;ve marked as owned, can-build, or want
+                to build.
+              </p>
+            </div>
+          </div>
+
+          {!isLoggedIn ? (
+            <p className="mt-1 text-xs text-foreground-muted">
+              Sign in to track your sets across devices.
+            </p>
+          ) : (
+            <div className="mt-2 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-neutral-500">
+                  Owned
+                </p>
+                <p className="mt-1 text-lg font-semibold text-foreground">
+                  {setCounts ? setCounts.owned.toLocaleString() : '—'}
+                </p>
+              </div>
+              <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-neutral-500">
+                  Can build
+                </p>
+                <p className="mt-1 text-lg font-semibold text-foreground">
+                  {setCounts ? setCounts.canBuild.toLocaleString() : '—'}
+                </p>
+              </div>
+              <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-neutral-500">
+                  Want to build
+                </p>
+                <p className="mt-1 text-lg font-semibold text-foreground">
+                  {setCounts ? setCounts.wantToBuild.toLocaleString() : '—'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </div>

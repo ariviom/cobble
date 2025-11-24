@@ -24,17 +24,17 @@ export function SetPageClient({
   themeId,
 }: SetPageClientProps) {
   const [expanded, setExpanded] = useState(false);
-  const [priceStatus, setPriceStatus] = useState<
+  const [setPriceStatus, setSetPriceStatus] = useState<
     'idle' | 'loading' | 'loaded' | 'error'
   >('idle');
-  const [priceSummary, setPriceSummary] = useState<{
+  const [setPriceSummary, setSetPriceSummary] = useState<{
     total: number;
     minTotal: number | null;
     maxTotal: number | null;
     currency: string | null;
     pricedItemCount: number;
   } | null>(null);
-  const [pricesEnabled, setPricesEnabled] = useState(false);
+  const [partPricesEnabled, setPartPricesEnabled] = useState(false);
 
   useEffect(() => {
     addRecentSet({
@@ -46,6 +46,43 @@ export function SetPageClient({
       themeId: themeId ?? null,
     });
   }, [setNumber, setName, year, imageUrl, numParts, themeId]);
+
+  async function handleRequestSetPrice() {
+    if (setPriceStatus === 'loading') return;
+    try {
+      setSetPriceStatus('loading');
+      setSetPriceSummary(null);
+      const res = await fetch('/api/prices/bricklink-set', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ setNumber }),
+      });
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as {
+        total: number | null;
+        minPrice: number | null;
+        maxPrice: number | null;
+        currency: string | null;
+      };
+      const currency = data.currency ?? 'USD';
+      const total = data.total ?? 0;
+      setSetPriceSummary({
+        total,
+        minTotal: data.minPrice,
+        maxTotal: data.maxPrice,
+        currency,
+        pricedItemCount: 1,
+      });
+      setSetPriceStatus('loaded');
+    } catch {
+      setSetPriceStatus('error');
+      setSetPriceSummary(null);
+    }
+  }
 
   return (
     <div
@@ -64,19 +101,17 @@ export function SetPageClient({
         year={year}
         numParts={numParts}
         themeId={themeId ?? null}
-        priceStatus={priceStatus}
-        priceSummary={priceSummary}
-        onRequestPrices={() => setPricesEnabled(true)}
+        priceStatus={setPriceStatus}
+        priceSummary={setPriceSummary}
+        onRequestPrices={handleRequestSetPrice}
         expanded={expanded}
         onToggleExpanded={() => setExpanded(prev => !prev)}
       />
       <InventoryTable
         setNumber={setNumber}
         setName={setName}
-        pricesEnabled={pricesEnabled}
-        onRequestPrices={() => setPricesEnabled(true)}
-        onPriceStatusChange={setPriceStatus}
-        onPriceTotalsChange={setPriceSummary}
+        partPricesEnabled={partPricesEnabled}
+        onRequestPartPrices={() => setPartPricesEnabled(true)}
       />
     </div>
   );

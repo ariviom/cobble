@@ -19,8 +19,8 @@ export function SearchResultListItem({ result }: { result: SearchResult }) {
                 <Image
                   src={result.imageUrl}
                   alt=""
-                  width={100}
-                  height={100}
+                  width={512}
+                  height={512}
                   className="h-full w-full object-contain"
                 />
               ) : (

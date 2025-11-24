@@ -18,6 +18,7 @@ function formatCurrency(amount: number, currencyCode: string): string {
 }
 
 type Props = {
+  setNumber: string;
   row: InventoryRow;
   owned: number;
   missing: number;
@@ -35,6 +36,7 @@ type Props = {
 };
 
 export function InventoryItem({
+  setNumber,
   row,
   owned,
   unitPrice,
@@ -143,7 +145,24 @@ export function InventoryItem({
           <p className="mt-1 w-full text-sm text-neutral-400">
             {isMinifig ? (
               hasRealFigId ? (
-                <span>Minifigure ID: {displayId}</span>
+                <span className="text-sm">
+                  Minifigure ID: {displayId}
+                  {' '}
+                  ·{' '}
+                  <a
+                    href={`https://www.bricklink.com/catalogItemInv.asp?S=${encodeURIComponent(
+                      setNumber
+                    )}&viewItemType=M`}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="underline hover:text-brand-blue"
+                    onClick={event => {
+                      event.stopPropagation();
+                    }}
+                  >
+                    View minifigs
+                  </a>
+                </span>
               ) : null
             ) : (
               <span className="text-sm">

@@ -1,4 +1,5 @@
 import { SetPageClient } from '@/app/components/set/SetPageClient';
+import { getSetSummaryLocal } from '@/app/lib/catalog';
 import { getSetSummary } from '@/app/lib/rebrickable';
 import { notFound } from 'next/navigation';
 
@@ -9,7 +10,10 @@ type SetPageProps = {
 export default async function SetPage({ params }: SetPageProps) {
   const { setNumber } = await params;
   if (!setNumber) notFound();
-  const summary = await getSetSummary(setNumber).catch(() => null);
+  // Prefer Supabase-backed catalog summary when available.
+  let summary =
+    (await getSetSummaryLocal(setNumber).catch(() => null)) ??
+    (await getSetSummary(setNumber).catch(() => null));
   if (!summary) notFound();
   return (
     <SetPageClient

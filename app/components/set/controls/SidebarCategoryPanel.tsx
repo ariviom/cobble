@@ -75,7 +75,7 @@ export function SidebarCategoryPanel({
               {subCount > 1 && (
                 <button
                   type="button"
-                  className="flex h-10 w-10 cursor-pointer items-center justify-center border-l border-foreground-accent text-foreground-muted hover:bg-neutral-100 hover:text-foreground"
+                  className="flex h-14 w-14 cursor-pointer items-center justify-center border-l border-foreground-accent text-foreground-muted hover:bg-neutral-100 hover:text-foreground"
                   onClick={e => {
                     e.stopPropagation();
                     setActiveParent(parent);

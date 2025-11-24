@@ -215,7 +215,7 @@ export function SetTopBar({
                 : `${ownedTotal} / ${totalMissing} parts`}
               {priceStatus === 'loading' && ' · Getting price…'}
               {priceStatus === 'loaded' && formattedPrice
-                ? ` · Total ${formattedPrice}`
+                ? ` · ${formattedPrice}`
                 : null}
               {priceStatus === 'idle' && !formattedPrice && onRequestPrices && (
                 <>

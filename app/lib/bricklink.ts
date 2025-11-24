@@ -5,6 +5,7 @@ const BL_STORE_BASE = 'https://api.bricklink.com/api/store/v1';
 // BrickLink Store v1 uses uppercase type segments in the URI (e.g., /items/PART/{no})
 const STORE_ITEM_TYPE_PART = 'PART';
 const STORE_ITEM_TYPE_MINIFIG = 'MINIFIG';
+const STORE_ITEM_TYPE_SET = 'SET';
 
 function getEnv(name: string): string {
   const val = process.env[name] ?? '';
@@ -443,7 +444,7 @@ function parsePriceValue(
 async function fetchPriceGuide(
   no: string,
   colorId: number | null | undefined,
-  itemType: 'PART' | 'MINIFIG',
+  itemType: 'PART' | 'MINIFIG' | 'SET',
   guideType: 'stock' | 'sold'
 ): Promise<BLPriceGuide> {
   const key = makeKey(
@@ -454,7 +455,11 @@ async function fetchPriceGuide(
   if (cached) return cached;
 
   const typeSegment =
-    itemType === 'MINIFIG' ? STORE_ITEM_TYPE_MINIFIG : STORE_ITEM_TYPE_PART;
+    itemType === 'MINIFIG'
+      ? STORE_ITEM_TYPE_MINIFIG
+      : itemType === 'SET'
+        ? STORE_ITEM_TYPE_SET
+        : STORE_ITEM_TYPE_PART;
   const data = await blGet<BLPriceGuideRaw>(
     `/items/${typeSegment}/${encodeURIComponent(no)}/price`,
     {
@@ -539,7 +544,7 @@ async function fetchPriceGuide(
 export async function blGetPartPriceGuide(
   no: string,
   colorId: number | null | undefined,
-  itemType: 'PART' | 'MINIFIG' = 'PART'
+  itemType: 'PART' | 'MINIFIG' | 'SET' = 'PART'
 ): Promise<BLPriceGuide> {
   const primary = await fetchPriceGuide(no, colorId, itemType, 'stock');
   if (primary.unitPriceUsed != null) return primary;
@@ -552,4 +557,11 @@ export async function blGetPartPriceGuide(
     });
   }
   return fallback;
+}
+
+export async function blGetSetPriceGuide(
+  setNumber: string
+): Promise<BLPriceGuide> {
+  // Sets do not use color scoping for price guides.
+  return blGetPartPriceGuide(setNumber, null, 'SET');
 }

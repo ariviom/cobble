@@ -204,6 +204,7 @@ function PinnedSetSection({
           return (
             <InventoryItem
               key={key}
+              setNumber={setNumber}
               row={row}
               owned={owned}
               missing={missing}

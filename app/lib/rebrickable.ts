@@ -343,6 +343,7 @@ export async function searchSets(
     year: number;
     numParts: number;
     imageUrl: string | null;
+    themeId?: number | null;
   }>;
   nextPage: number | null;
 }> {
@@ -361,6 +362,10 @@ export async function searchSets(
       year: r.year,
       numParts: r.num_parts,
       imageUrl: r.set_img_url,
+      themeId:
+        typeof r.theme_id === 'number' && Number.isFinite(r.theme_id)
+          ? r.theme_id
+          : null,
     }));
 
   // Reorder slightly for set-number-like queries: prefix matches first, keep others
@@ -400,13 +405,22 @@ export async function searchSets(
 
 // ---- Aggregated search (server-side pagination & stable sorting) ----
 
-type SimpleSet = {
+export type SimpleSet = {
   setNumber: string;
   name: string;
   year: number;
   numParts: number;
   imageUrl: string | null;
   themeId?: number | null;
+  /**
+   * Human-readable theme for this set, when available. Derived from theme_id.
+   */
+  themeName?: string | null;
+  /**
+   * Full theme path including parents, e.g. "Star Wars / Episode IV-VI".
+   * Used for matching theme + subtheme keywords in search.
+   */
+  themePath?: string | null;
 };
 
 const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -416,7 +430,7 @@ const SEARCH_AGG_CAP = 1000;
 const aggregatedSearchCache: Map<string, { at: number; items: SimpleSet[] }> =
   new Map();
 
-function normalizeText(s: string): string {
+export function normalizeText(s: string): string {
   return s
     .toLowerCase()
     .normalize('NFKD')
@@ -426,7 +440,7 @@ function normalizeText(s: string): string {
     .replace(/\s+/g, ' ');
 }
 
-function sortAggregatedResults(
+export function sortAggregatedResults(
   items: SimpleSet[],
   sort: string,
   query: string
@@ -450,10 +464,21 @@ function sortAggregatedResults(
       const num = it.setNumber.toLowerCase();
       const nameN = normalizeText(it.name);
       const numN = normalizeText(it.setNumber);
+      const themeNameN =
+        typeof it.themeName === 'string' && it.themeName
+          ? normalizeText(it.themeName)
+          : '';
+      const themePathN =
+        typeof it.themePath === 'string' && it.themePath
+          ? normalizeText(it.themePath)
+          : '';
       let score = 0;
       if (num.startsWith(query.toLowerCase())) score += 3;
       if (nameN.includes(qn)) score += 2;
       if (numN.includes(qn)) score += 1;
+      // Theme-based relevance boosts: allow theme + subtheme keywords to surface sets.
+      if (themeNameN && themeNameN.includes(qn)) score += 2;
+      if (themePathN && themePathN.includes(qn)) score += 2;
       return { it, idx, score };
     })
     .sort((a, b) => {
@@ -468,6 +493,8 @@ export async function getAggregatedSearchResults(
   sort: string
 ): Promise<SimpleSet[]> {
   const normalizedQuery = query.trim();
+  const normalizedQueryText = normalizeText(normalizedQuery);
+  const compactQueryText = normalizedQueryText.replace(/\s+/g, '');
   const cacheKey = `${sort}::${normalizedQuery.toLowerCase()}`;
   const now = Date.now();
   const cached = aggregatedSearchCache.get(cacheKey);
@@ -521,13 +548,18 @@ export async function getAggregatedSearchResults(
           const page = await searchSets(token, sort, 1, 40);
           for (const result of page.results) {
             if (!union.has(result.setNumber)) {
+              const themeId =
+                typeof result.themeId === 'number' &&
+                Number.isFinite(result.themeId)
+                  ? result.themeId
+                  : null;
               union.set(result.setNumber, {
                 setNumber: result.setNumber,
                 name: result.name,
                 year: result.year,
                 numParts: result.numParts,
                 imageUrl: result.imageUrl,
-                themeId: null,
+                themeId,
               });
             }
           }
@@ -547,11 +579,13 @@ export async function getAggregatedSearchResults(
     throw err;
   }
 
-  // Load themes to exclude non-set categories like Books and Gear
+  // Load themes to (a) support theme-based keyword matching and (b) exclude
+  // non-set categories like Books and Gear.
   const themes = await getThemes();
-  const themeIdToName = new Map<number, string>(
-    themes.map(t => [t.id, t.name])
+  const themeById = new Map<number, RebrickableTheme>(
+    themes.map(t => [t.id, t])
   );
+  const themePathCache = new Map<number, string>();
   const EXCLUDED_THEME_KEYWORDS = [
     'book',
     'books',
@@ -573,27 +607,187 @@ export async function getAggregatedSearchResults(
     'games',
   ];
 
+  // Expand results for pure theme- and subtheme-style queries by matching the
+  // query against the full theme path (e.g., "Star Wars / Episode IV-VI") and
+  // then loading sets for those themes directly. This is especially important
+  // for themes like "Aquazone" where the theme name may not appear in set
+  // names, so Rebrickable's built-in search returns no results.
+  if (compactQueryText.length >= 3) {
+    const matchingThemeIds = new Set<number>();
+
+    function getThemeMeta(
+      themeId: number | null | undefined
+    ): { themeName: string | null; themePath: string | null } {
+      if (themeId == null || !Number.isFinite(themeId)) {
+        return { themeName: null, themePath: null };
+      }
+      const id = themeId as number;
+      const theme = themeById.get(id);
+      const themeName = theme?.name ?? null;
+
+      let path: string | null = null;
+      if (themePathCache.has(id)) {
+        path = themePathCache.get(id) ?? null;
+      } else if (theme) {
+        const names: string[] = [];
+        const visited = new Set<number>();
+        let current: RebrickableTheme | null | undefined = theme;
+        while (current && !visited.has(current.id)) {
+          names.unshift(current.name);
+          visited.add(current.id);
+          if (current.parent_id != null) {
+            current = themeById.get(current.parent_id) ?? null;
+          } else {
+            current = null;
+          }
+        }
+        path = names.length > 0 ? names.join(' / ') : null;
+        if (path != null) {
+          themePathCache.set(id, path);
+        }
+      }
+
+      return { themeName, themePath: path };
+    }
+
+    for (const t of themes) {
+      const { themeName, themePath } = getThemeMeta(t.id);
+      const raw = themePath ?? themeName ?? '';
+      if (!raw) continue;
+      const norm = normalizeText(raw);
+      const compact = norm.replace(/\s+/g, '');
+      if (
+        norm.includes(normalizedQueryText) ||
+        compact.includes(compactQueryText)
+      ) {
+        matchingThemeIds.add(t.id);
+      }
+    }
+
+    if (matchingThemeIds.size > 0) {
+      const seenSetNums = new Set<string>(
+        collected.map(r => r.set_num.toLowerCase())
+      );
+      for (const themeId of matchingThemeIds) {
+        try {
+          let firstTheme = true;
+          let nextThemeUrl: string | null = null;
+          while (firstTheme || nextThemeUrl) {
+            const page:
+              | {
+                  results: RebrickableSetSearchResult[];
+                  next: string | null;
+                }
+              | undefined = firstTheme
+              ? await rbFetch<{
+                  results: RebrickableSetSearchResult[];
+                  next: string | null;
+                }>('/lego/sets/', {
+                  theme_id: themeId,
+                  page_size: SEARCH_AGG_PAGE_SIZE,
+                })
+              : await rbFetchAbsolute<{
+                  results: RebrickableSetSearchResult[];
+                  next: string | null;
+                }>(nextThemeUrl!);
+
+            if (!page) break;
+            for (const r of page.results) {
+              const key = r.set_num.toLowerCase();
+              if (!seenSetNums.has(key)) {
+                collected.push(r);
+                seenSetNums.add(key);
+              }
+              if (collected.length >= SEARCH_AGG_CAP) break;
+            }
+            if (collected.length >= SEARCH_AGG_CAP || !page.next) break;
+            nextThemeUrl = page.next;
+            firstTheme = false;
+          }
+        } catch (err) {
+          // Theme-based expansion is best-effort; log and continue on failure.
+          if (process.env.NODE_ENV !== 'production') {
+            try {
+              console.error('Theme-based set fetch failed', {
+                themeId,
+                error: err instanceof Error ? err.message : String(err),
+              });
+            } catch {
+              // ignore logging failures
+            }
+          }
+        }
+        if (collected.length >= SEARCH_AGG_CAP) break;
+      }
+    }
+  }
+
+  function getThemeMeta(
+    themeId: number | null | undefined
+  ): { themeName: string | null; themePath: string | null } {
+    if (themeId == null || !Number.isFinite(themeId)) {
+      return { themeName: null, themePath: null };
+    }
+    const id = themeId as number;
+    const theme = themeById.get(id);
+    const themeName = theme?.name ?? null;
+
+    let path: string | null = null;
+    if (themePathCache.has(id)) {
+      path = themePathCache.get(id) ?? null;
+    } else if (theme) {
+      const names: string[] = [];
+      const visited = new Set<number>();
+      let current: RebrickableTheme | null | undefined = theme;
+      while (current && !visited.has(current.id)) {
+        names.unshift(current.name);
+        visited.add(current.id);
+        if (current.parent_id != null) {
+          current = themeById.get(current.parent_id) ?? null;
+        } else {
+          current = null;
+        }
+      }
+      path = names.length > 0 ? names.join(' / ') : null;
+      if (path != null) {
+        themePathCache.set(id, path);
+      }
+    }
+
+    return { themeName, themePath: path };
+  }
+
   const mapped: SimpleSet[] = collected
     .filter(r => r.num_parts > 0)
     .filter(r => {
-      const themeName =
-        r.theme_id != null ? themeIdToName.get(r.theme_id) : undefined;
-      if (!themeName) return true;
-      const tn = themeName.toLowerCase();
+      const themeId =
+        typeof r.theme_id === 'number' && Number.isFinite(r.theme_id)
+          ? r.theme_id
+          : null;
+      const { themeName, themePath } = getThemeMeta(themeId);
+      const haystack = (themePath ?? themeName ?? '').toLowerCase();
+      if (!haystack) return true;
+      const tn = haystack;
       return !EXCLUDED_THEME_KEYWORDS.some(k => tn.includes(k));
     })
     .slice(0, SEARCH_AGG_CAP)
-    .map(r => ({
-      setNumber: r.set_num,
-      name: r.name,
-      year: r.year,
-      numParts: r.num_parts,
-      imageUrl: r.set_img_url,
-      themeId:
+    .map(r => {
+      const themeId =
         typeof r.theme_id === 'number' && Number.isFinite(r.theme_id)
           ? r.theme_id
-          : null,
-    }));
+          : null;
+      const { themeName, themePath } = getThemeMeta(themeId);
+      return {
+        setNumber: r.set_num,
+        name: r.name,
+        year: r.year,
+        numParts: r.num_parts,
+        imageUrl: r.set_img_url,
+        themeId,
+        themeName,
+        themePath,
+      };
+    });
 
   const sorted = sortAggregatedResults(mapped, sort, normalizedQuery);
   aggregatedSearchCache.set(cacheKey, { at: now, items: sorted });
@@ -1236,7 +1430,7 @@ export async function getSetsForPart(
   return sets;
 }
 
-function mapCategoryNameToParent(
+export function mapCategoryNameToParent(
   name: string
 ):
   | 'Brick'

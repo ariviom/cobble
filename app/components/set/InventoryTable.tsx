@@ -3,8 +3,11 @@
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Spinner } from '@/app/components/ui/Spinner';
+import { Button } from '@/app/components/ui/Button';
+import { Modal } from '@/app/components/ui/Modal';
 import { useInventoryPrices } from '@/app/hooks/useInventoryPrices';
 import { useInventoryViewModel } from '@/app/hooks/useInventoryViewModel';
+import { useSupabaseOwned } from '@/app/hooks/useSupabaseOwned';
 import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
 import { useEffect, useMemo } from 'react';
@@ -24,21 +27,21 @@ type PriceSummary = {
 type InventoryTableProps = {
   setNumber: string;
   setName?: string;
-  pricesEnabled?: boolean;
+  partPricesEnabled?: boolean;
   onPriceStatusChange?: (
     status: 'idle' | 'loading' | 'loaded' | 'error'
   ) => void;
   onPriceTotalsChange?: (summary: PriceSummary | null) => void;
-  onRequestPrices?: () => void;
+  onRequestPartPrices?: () => void;
 };
 
 export function InventoryTable({
   setNumber,
   setName,
-  pricesEnabled = false,
+  partPricesEnabled = false,
   onPriceStatusChange,
   onPriceTotalsChange,
-  onRequestPrices,
+  onRequestPartPrices,
 }: InventoryTableProps) {
   const {
     rows,
@@ -81,13 +84,35 @@ export function InventoryTable({
     rows,
     keys,
     sortKey,
-    enabled: pricesEnabled,
+    enabled: partPricesEnabled,
     ...(onPriceStatusChange ? { onPriceStatusChange } : {}),
     ...(onPriceTotalsChange ? { onPriceTotalsChange } : {}),
   });
 
   const ownedStore = useOwnedStore();
   const pinnedStore = usePinnedStore();
+
+  const {
+    handleOwnedChange,
+    migration,
+    isMigrating,
+    confirmMigration,
+    keepCloudData,
+  } = useSupabaseOwned({
+    setNumber,
+    rows,
+    keys,
+  });
+
+  const rowByKey = useMemo(() => {
+    const map = new Map<string, (typeof rows)[number]>();
+    for (let i = 0; i < rows.length; i += 1) {
+      const k = keys[i];
+      if (!k) continue;
+      map.set(k, rows[i]!);
+    }
+    return map;
+  }, [rows, keys]);
 
   const effectiveSortedIndices = useMemo(() => {
     if (sortKey !== 'price') return sortedIndices;
@@ -133,6 +158,60 @@ export function InventoryTable({
   // Do not early-return to preserve hooks order
   return (
     <div className="pb-2 lg:grid lg:h-full lg:grid-rows-[var(--spacing-controls-height)_minmax(0,1fr)]">
+      {migration?.open && (
+        <Modal
+          open={migration.open}
+          onClose={() => {
+            void keepCloudData();
+          }}
+          title="Sync owned pieces for this set?"
+        >
+          <div className="flex flex-col gap-3 text-sm">
+            <p>
+              We found owned-piece data for this set saved on this device that
+              differs from what&apos;s stored in your account.
+            </p>
+            <p className="text-xs text-foreground-muted">
+              This device:{' '}
+              <span className="font-semibold">
+                {migration.localTotal.toLocaleString()}
+              </span>{' '}
+              pieces
+              <br />
+              Cloud:{' '}
+              <span className="font-semibold">
+                {migration.supabaseTotal.toLocaleString()}
+              </span>{' '}
+              pieces
+            </p>
+            <p className="text-xs text-foreground-muted">
+              Choose whether to keep the cloud version or replace it with the
+              data on this device for this set.
+            </p>
+            <div className="mt-2 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  void keepCloudData();
+                }}
+              >
+                Keep cloud data
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                disabled={isMigrating}
+                onClick={() => {
+                  void confirmMigration();
+                }}
+              >
+                {isMigrating ? 'Syncing…' : 'Use this device data'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
       <InventoryControls
         setNumber={setNumber}
         {...(setName ? { setName } : {})}
@@ -188,6 +267,7 @@ export function InventoryTable({
                 return (
                   <InventoryItem
                     key={key}
+                    setNumber={setNumber}
                     row={r}
                     owned={owned}
                     missing={missing}
@@ -197,11 +277,45 @@ export function InventoryTable({
                     currency={priceInfo?.currency ?? null}
                     bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
                     isPricePending={pricesStatus === 'loading'}
-                    canRequestPrice={!pricesEnabled && pricesStatus === 'idle'}
-                    {...(onRequestPrices ? { onRequestPrice: onRequestPrices } : {})}
+                    canRequestPrice={
+                      !partPricesEnabled && pricesStatus === 'idle'
+                    }
+                    {...(onRequestPartPrices
+                      ? { onRequestPrice: onRequestPartPrices }
+                      : {})}
                     onOwnedChange={next => {
                       const clamped = clampOwned(next, r.quantityRequired);
-                      ownedStore.setOwned(setNumber, key, clamped);
+                      const prevOwned = ownedByKey[key] ?? 0;
+                      const delta = clamped - prevOwned;
+
+                      handleOwnedChange(key, clamped);
+
+                      // When a whole minifigure row changes, propagate the delta
+                      // to its component rows (subparts).
+                      const isFigId =
+                        typeof r.partId === 'string' &&
+                        r.partId.startsWith('fig:');
+                      const isMinifigParent =
+                        r.parentCategory === 'Minifigure' && isFigId;
+
+                      if (
+                        delta !== 0 &&
+                        isMinifigParent &&
+                        Array.isArray(r.componentRelations)
+                      ) {
+                        for (const rel of r.componentRelations) {
+                          const childKey = rel.key;
+                          const childRow = rowByKey.get(childKey);
+                          if (!childRow) continue;
+                          const childOwned = ownedByKey[childKey] ?? 0;
+                          const nextChildOwned = clampOwned(
+                            childOwned + delta * rel.quantity,
+                            childRow.quantityRequired
+                          );
+                          handleOwnedChange(childKey, nextChildOwned);
+                        }
+                      }
+
                       if (
                         pinnedStore.autoUnpin &&
                         pinnedStore.isPinned(setNumber, key) &&
@@ -257,6 +371,7 @@ export function InventoryTable({
                         return (
                           <InventoryItem
                             key={key}
+                            setNumber={setNumber}
                             row={r}
                             owned={owned}
                             missing={missing}
@@ -269,17 +384,45 @@ export function InventoryTable({
                             }
                             isPricePending={pricesStatus === 'loading'}
                             canRequestPrice={
-                              !pricesEnabled && pricesStatus === 'idle'
+                              !partPricesEnabled && pricesStatus === 'idle'
                             }
-                            {...(onRequestPrices
-                              ? { onRequestPrice: onRequestPrices }
+                            {...(onRequestPartPrices
+                              ? { onRequestPrice: onRequestPartPrices }
                               : {})}
                             onOwnedChange={next => {
                               const clamped = clampOwned(
                                 next,
                                 r.quantityRequired
                               );
-                              ownedStore.setOwned(setNumber, key, clamped);
+                              const prevOwned = ownedByKey[key] ?? 0;
+                              const delta = clamped - prevOwned;
+
+                              handleOwnedChange(key, clamped);
+
+                              const isFigId =
+                                typeof r.partId === 'string' &&
+                                r.partId.startsWith('fig:');
+                              const isMinifigParent =
+                                r.parentCategory === 'Minifigure' && isFigId;
+
+                              if (
+                                delta !== 0 &&
+                                isMinifigParent &&
+                                Array.isArray(r.componentRelations)
+                              ) {
+                                for (const rel of r.componentRelations) {
+                                  const childKey = rel.key;
+                                  const childRow = rowByKey.get(childKey);
+                                  if (!childRow) continue;
+                                  const childOwned = ownedByKey[childKey] ?? 0;
+                                  const nextChildOwned = clampOwned(
+                                    childOwned + delta * rel.quantity,
+                                    childRow.quantityRequired
+                                  );
+                                  handleOwnedChange(childKey, nextChildOwned);
+                                }
+                              }
+
                               if (
                                 pinnedStore.autoUnpin &&
                                 pinnedStore.isPinned(setNumber, key) &&
