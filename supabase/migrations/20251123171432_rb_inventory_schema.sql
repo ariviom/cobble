@@ -46,3 +46,4 @@ create index if not exists rb_inventory_minifigs_inventory_id_idx
   on public.rb_inventory_minifigs (inventory_id);
 
 
+

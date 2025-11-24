@@ -19,15 +19,24 @@
 
 - **Supabase (Postgres + Auth + Realtime)**:
   - **Catalog schema** (internal copy of Rebrickable data):
-    - `rb_sets` — set metadata (set_num, name, year, theme_id, num_parts, image_url, etc.).
-    - `rb_parts` — part metadata (part_num, name, part_cat_id, image_url, etc.).
-    - `rb_set_parts` — set inventories (set_num, part_num, color_id, quantity, is_spare).
-    - `rb_themes`, `rb_colors` — supporting lookup tables.
+    - **Implemented**:
+      - `rb_themes`, `rb_colors` — supporting lookup tables.
+      - `rb_part_categories` — Rebrickable part categories.
+      - `rb_parts` — part metadata (part_num, name, part_cat_id, image_url, etc.).
+      - `rb_sets` — set metadata (set_num, name, year, theme_id, num_parts, image_url, etc.).
+      - `rb_minifigs` — minifig metadata.
+      - `rb_inventories` — inventory headers (id, version, set_num nullable; FK to `rb_sets` was dropped because some inventories are minifig-based).
+      - `rb_inventory_parts` — inventory → parts (inventory_id, part_num, color_id, quantity, is_spare, element_id).
+      - `rb_inventory_minifigs` — inventory → minifigs (inventory_id, fig_num, quantity).
+      - `rb_set_parts` — denormalized per-set inventories (still populated for existing app code; conceptually derivable from the inventory tables and may be deprecated later).
+      - `rb_download_versions` — tracks which CSV URLs/versions have been ingested per source.
   - **User & app data**:
-    - `users` (optional profile layer on top of Supabase `auth.users`).
-    - `user_preferences` — per-user UI and behavior flags (theme, default filters, etc.).
-    - `user_owned_sets` — high-level per-set metadata: whether the user owns/wants/can-build.
-    - `user_owned_rows` — per-set, per-inventory-row owned quantities keyed by set + inventory key.
+    - **Implemented** (names adjusted vs original plan):
+      - `user_profiles` — profile layer on top of Supabase `auth.users` (display name, subscription tier, etc.).
+      - `user_preferences` — per-user UI and behavior flags (theme, default filters, etc.).
+      - `user_sets` — high-level per-set metadata: whether the user owns / can-build / wants to build.
+      - `user_set_parts` — per-set, per-part owned quantities keyed by (user_id, set_num, part_num, color_id, is_spare).
+      - `user_parts_inventory` — per-user global parts pool (part_num, color_id, quantity) for future cross-set features.
   - **Group-build / “search together”**:
     - `group_sessions` — sessions for collaborative builds (id, host_user_id, set_number, created_at, is_active).
     - `group_session_participants` — optional table for tracking participants (session_id, user_id nullable, joined_at, display_name, role).
@@ -139,6 +148,7 @@
 5. **Group-build skeleton**:
    - Define route structure and minimal UI for creating/joining sessions.
    - Defer realtime wiring until Supabase Realtime is in place.
+
 
 
 

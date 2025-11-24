@@ -22,3 +22,4 @@ grant select on table public.rb_set_parts to anon, authenticated;
 
 
 
+
