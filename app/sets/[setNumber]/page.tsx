@@ -23,6 +23,7 @@ export default async function SetPage({ params }: SetPageProps) {
       imageUrl={summary.imageUrl}
       numParts={summary.numParts}
       themeId={summary.themeId ?? null}
+      themeName={summary.themeName ?? null}
     />
   );
 }

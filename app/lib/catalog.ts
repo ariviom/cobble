@@ -380,6 +380,10 @@ export async function getSetSummaryLocal(setNumber: string): Promise<{
   numParts: number;
   imageUrl: string | null;
   themeId: number | null;
+  /**
+   * Root theme name for this set, when available (e.g., top-level parent theme).
+   */
+  themeName: string | null;
 } | null> {
   const trimmed = setNumber.trim();
   if (!trimmed) return null;
@@ -399,13 +403,47 @@ export async function getSetSummaryLocal(setNumber: string): Promise<{
 
   if (!data) return null;
 
+  // Resolve root theme name using cached local themes, when a theme_id is present.
+  let themeName: string | null = null;
+  const rawThemeId =
+    typeof data.theme_id === 'number' && Number.isFinite(data.theme_id)
+      ? data.theme_id
+      : null;
+  if (rawThemeId != null) {
+    try {
+      const themes = await getThemesLocal();
+      const themeById = new Map<number, LocalTheme>(
+        (themes ?? []).map(t => [t.id, t])
+      );
+      let current: LocalTheme | null | undefined = themeById.get(rawThemeId);
+      if (current) {
+        const visited = new Set<number>();
+        while (current && !visited.has(current.id)) {
+          visited.add(current.id);
+          if (current.parent_id != null) {
+            const parent = themeById.get(current.parent_id);
+            if (!parent) break;
+            current = parent;
+          } else {
+            break;
+          }
+        }
+        themeName = current?.name ?? null;
+      }
+    } catch {
+      // If theme lookup fails, fall back to null without breaking summary.
+      themeName = null;
+    }
+  }
+
   return {
     setNumber: data.set_num,
     name: data.name,
     year: data.year ?? 0,
     numParts: data.num_parts ?? 0,
     imageUrl: data.image_url ?? null,
-    themeId: data.theme_id ?? null,
+    themeId: rawThemeId,
+    themeName,
   };
 }
 

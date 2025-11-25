@@ -1,6 +1,6 @@
 'use client';
 
-import { SetStatusMenu } from '@/app/components/set/SetStatusMenu';
+import { SetDisplayCard } from '@/app/components/set/SetDisplayCard';
 import { cn } from '@/app/components/ui/utils';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import { useEffect, useMemo, useState } from 'react';
@@ -16,9 +16,10 @@ type GroupBy = 'status' | 'theme';
 
 type ThemeMap = Map<number, ThemeInfo>;
 
-function useThemesForUserSets(
-  themeIds: number[]
-): { themeMap: ThemeMap; isLoading: boolean } {
+function useThemesForUserSets(themeIds: number[]): {
+  themeMap: ThemeMap;
+  isLoading: boolean;
+} {
   const [themeMap, setThemeMap] = useState<ThemeMap>(new Map());
   const [isLoading, setIsLoading] = useState(false);
 
@@ -129,16 +130,12 @@ export function UserSetsOverview() {
     [sets]
   );
 
-  const { themeMap, isLoading: themesLoading } =
-    useThemesForUserSets(themeIds);
+  const { themeMap, isLoading: themesLoading } = useThemesForUserSets(themeIds);
 
   const themeOptions = useMemo(() => {
     const names = new Map<number, string>();
     for (const set of sets) {
-      if (
-        typeof set.themeId === 'number' &&
-        Number.isFinite(set.themeId)
-      ) {
+      if (typeof set.themeId === 'number' && Number.isFinite(set.themeId)) {
         const rootId = getRootThemeId(set.themeId, themeMap);
         const name = getRootThemeName(set.themeId, themeMap);
         names.set(rootId, name);
@@ -154,14 +151,10 @@ export function UserSetsOverview() {
       const { status } = set;
       if (statusFilter === 'owned' && !status.owned) return false;
       if (statusFilter === 'canBuild' && !status.canBuild) return false;
-      if (statusFilter === 'wantToBuild' && !status.wantToBuild)
-        return false;
+      if (statusFilter === 'wantToBuild' && !status.wantToBuild) return false;
 
       if (themeFilter !== 'all') {
-        if (
-          typeof set.themeId !== 'number' ||
-          !Number.isFinite(set.themeId)
-        ) {
+        if (typeof set.themeId !== 'number' || !Number.isFinite(set.themeId)) {
           return false;
         }
         const rootId = getRootThemeId(set.themeId, themeMap);
@@ -178,10 +171,7 @@ export function UserSetsOverview() {
       if (groupBy === 'status') {
         key = getPrimaryStatusLabel(set.status);
       } else {
-        if (
-          typeof set.themeId === 'number' &&
-          Number.isFinite(set.themeId)
-        ) {
+        if (typeof set.themeId === 'number' && Number.isFinite(set.themeId)) {
           key = getRootThemeName(set.themeId, themeMap);
         } else {
           key = 'Unknown theme';
@@ -251,9 +241,7 @@ export function UserSetsOverview() {
                       setThemeFilter('all');
                     } else {
                       const parsed = Number(v);
-                      setThemeFilter(
-                        Number.isFinite(parsed) ? parsed : 'all'
-                      );
+                      setThemeFilter(Number.isFinite(parsed) ? parsed : 'all');
                     }
                   }}
                 >
@@ -272,8 +260,7 @@ export function UserSetsOverview() {
                     type="button"
                     className={cn(
                       'px-2 py-1',
-                      groupBy === 'status' &&
-                        'bg-neutral-200 font-medium'
+                      groupBy === 'status' && 'bg-neutral-200 font-medium'
                     )}
                     onClick={() => setGroupBy('status')}
                   >
@@ -283,8 +270,7 @@ export function UserSetsOverview() {
                     type="button"
                     className={cn(
                       'px-2 py-1',
-                      groupBy === 'theme' &&
-                        'bg-neutral-200 font-medium'
+                      groupBy === 'theme' && 'bg-neutral-200 font-medium'
                     )}
                     onClick={() => setGroupBy('theme')}
                   >
@@ -298,8 +284,8 @@ export function UserSetsOverview() {
 
         {!hasAnySets && (
           <div className="mt-2 text-sm text-foreground-muted">
-            You have no tracked sets yet. Use the status menu on search
-            results or set pages to mark sets as{' '}
+            You have no tracked sets yet. Use the status menu on search results
+            or set pages to mark sets as{' '}
             <span className="font-medium">Owned</span>,{' '}
             <span className="font-medium">Can build</span>, or{' '}
             <span className="font-medium">Want to build</span>.
@@ -316,61 +302,29 @@ export function UserSetsOverview() {
           <div className="mt-4 flex flex-col gap-6">
             {grouped.map(group => (
               <div key={group.label} className="flex flex-col gap-2">
-                <div className="px-1 py-1 text-xs font-semibold uppercase tracking-wide text-foreground-muted">
+                <div className="px-1 py-1 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
                   {group.label}
                 </div>
                 <div
                   data-item-size="md"
-                  className="grid grid-cols-1 gap-2 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+                  className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
                 >
                   {group.items.map(set => (
-                    <div
+                    <SetDisplayCard
                       key={set.setNumber}
-                      className="group relative overflow-hidden rounded-lg border border-neutral-200 bg-white dark:bg-background"
-                    >
-                      <a
-                        href={`/sets/${encodeURIComponent(set.setNumber)}`}
-                        className="block w-full"
-                      >
-                        <div className="w-full">
-                          <div className="relative w-full bg-neutral-50">
-                            <div className="relative mx-auto aspect-square w-full max-w-full bg-white p-2">
-                              {set.imageUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={set.imageUrl}
-                                  alt=""
-                                  className="h-full w-full object-contain"
-                                />
-                              ) : (
-                                <div className="text-xs text-foreground-muted">
-                                  No Image
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-start justify-between gap-2 px-3 py-3">
-                            <div className="min-w-0">
-                              <div className="line-clamp-1 w-full overflow-hidden text-sm font-medium">
-                                {set.name}
-                              </div>
-                              <div className="mt-1 w-full text-xs text-foreground-muted">
-                                {set.setNumber} | {set.year} | {set.numParts}{' '}
-                                parts
-                              </div>
-                            </div>
-                            <SetStatusMenu
-                              setNumber={set.setNumber}
-                              name={set.name}
-                              year={set.year}
-                              imageUrl={set.imageUrl}
-                              numParts={set.numParts}
-                              themeId={set.themeId}
-                            />
-                          </div>
-                        </div>
-                      </a>
-                    </div>
+                      setNumber={set.setNumber}
+                      name={set.name}
+                      year={set.year}
+                      imageUrl={set.imageUrl}
+                      numParts={set.numParts}
+                      themeId={set.themeId}
+                      themeLabel={
+                        typeof set.themeId === 'number' &&
+                        Number.isFinite(set.themeId)
+                          ? getRootThemeName(set.themeId, themeMap)
+                          : null
+                      }
+                    />
                   ))}
                 </div>
               </div>
@@ -387,5 +341,3 @@ export function UserSetsOverview() {
     </section>
   );
 }
-
-

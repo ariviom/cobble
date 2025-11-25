@@ -9,6 +9,7 @@ export type RecentSetEntry = {
   imageUrl: string | null;
   numParts: number;
   themeId?: number | null;
+  themeName?: string | null;
   lastViewedAt: number;
 };
 
@@ -26,6 +27,7 @@ function loadRecentSetsUnsafe(): RecentSetEntry[] {
         if (!it || typeof it !== 'object') return null;
         const obj = it as Partial<RecentSetEntry> & {
           themeId?: unknown;
+          themeName?: unknown;
         };
         if (
           !obj.setNumber ||
@@ -51,6 +53,8 @@ function loadRecentSetsUnsafe(): RecentSetEntry[] {
           typeof obj.themeId === 'number' && Number.isFinite(obj.themeId)
             ? obj.themeId
             : null;
+        const themeName =
+          typeof obj.themeName === 'string' ? obj.themeName : null;
         const lastViewedAt =
           typeof obj.lastViewedAt === 'number' && Number.isFinite(obj.lastViewedAt)
             ? obj.lastViewedAt
@@ -62,6 +66,7 @@ function loadRecentSetsUnsafe(): RecentSetEntry[] {
           imageUrl,
           numParts,
           themeId,
+          themeName,
           lastViewedAt,
         };
       })
@@ -86,6 +91,7 @@ export function addRecentSet(entry: {
   imageUrl: string | null;
   numParts: number;
   themeId?: number | null;
+  themeName?: string | null;
 }): void {
   try {
     const existing = loadRecentSetsUnsafe();

@@ -19,6 +19,8 @@ export function RecentlyViewedSets() {
       imageUrl: it.imageUrl,
       // Reuse "quantity" field to display a count; here we use total parts in the set.
       quantity: it.numParts,
+      themeId: it.themeId ?? null,
+      themeName: it.themeName ?? null,
     }));
     setItems(mapped);
   }, []);

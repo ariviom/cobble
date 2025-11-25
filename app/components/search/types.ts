@@ -5,6 +5,14 @@ export type SearchResult = {
   numParts: number;
   imageUrl: string | null;
   themeId?: number | null;
+  /**
+   * Optional human-readable theme name for this set, when available.
+   */
+  themeName?: string | null;
+  /**
+   * Optional full theme path (e.g., "Star Wars / Episode IV-VI").
+   */
+  themePath?: string | null;
 };
 
 export type SortOption =

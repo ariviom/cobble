@@ -530,6 +530,77 @@ export type Database = {
           },
         ]
       }
+      user_collections: {
+        Row: {
+          created_at: string
+          id: string
+          is_system: boolean
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_collections_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      user_collection_sets: {
+        Row: {
+          collection_id: string
+          created_at: string
+          set_num: string
+          user_id: string
+        }
+        Insert: {
+          collection_id: string
+          created_at?: string
+          set_num: string
+          user_id: string
+        }
+        Update: {
+          collection_id?: string
+          created_at?: string
+          set_num?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_collection_sets_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "user_collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_collection_sets_set_num_fkey"
+            columns: ["set_num"]
+            isOneToOne: false
+            referencedRelation: "rb_sets"
+            referencedColumns: ["set_num"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

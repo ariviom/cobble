@@ -13,6 +13,7 @@ type SetPageClientProps = {
   imageUrl: string | null;
   numParts: number;
   themeId?: number | null;
+  themeName?: string | null;
 };
 
 export function SetPageClient({
@@ -22,6 +23,7 @@ export function SetPageClient({
   imageUrl,
   numParts,
   themeId,
+  themeName,
 }: SetPageClientProps) {
   const [expanded, setExpanded] = useState(false);
   const [setPriceStatus, setSetPriceStatus] = useState<
@@ -44,8 +46,9 @@ export function SetPageClient({
       imageUrl,
       numParts,
       themeId: themeId ?? null,
+      themeName: themeName ?? null,
     });
-  }, [setNumber, setName, year, imageUrl, numParts, themeId]);
+  }, [setNumber, setName, year, imageUrl, numParts, themeId, themeName]);
 
   async function handleRequestSetPrice() {
     if (setPriceStatus === 'loading') return;

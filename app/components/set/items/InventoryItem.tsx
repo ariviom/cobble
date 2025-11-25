@@ -96,14 +96,14 @@ export function InventoryItem({
         </button>
       ) : null}
       <div
-        className={`relative grow-0 justify-center rounded-lg list:flex list:items-center grid:w-full list:item-sm:h-16 list:item-sm:w-16 list:item-md:h-24 list:item-md:w-24 list:item-lg:h-36 list:item-lg:w-36`}
+        className={`relative overflow-hidden rounded-lg border border-foreground-accent list:grow-0 list:items-center grid:w-full list:item-sm:size-16 list:item-md:size-20 list:item-lg:size-32`}
       >
         {row.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={row.imageUrl}
             alt=""
-            className={`mx-auto h-full w-full overflow-hidden rounded-lg object-contain grid:item-sm:max-w-24 ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : ''}`}
+            className={`mx-auto h-full w-full object-contain grid:item-sm:max-w-24 ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : ''}`}
             data-knockout="true"
           />
         ) : (
@@ -137,18 +137,16 @@ export function InventoryItem({
           )}
         </div>
       </div>
-      <div className="flex h-full w-full flex-col justify-between gap-x-6 gap-y-3 sm:flex-row sm:items-center grid:flex-col">
+      <div className="flex h-full max-h-min w-full flex-1 flex-col justify-between gap-x-6 gap-y-3 sm:flex-row sm:items-center grid:flex-col">
         <div className="h-full list:pr-12 lg:list:pr-0">
           <p className="line-clamp-1 w-full overflow-hidden font-medium lg:line-clamp-2">
             {row.partName}
           </p>
-          <p className="mt-1 w-full text-sm text-neutral-400">
+          <div className="mt-1 w-full text-sm text-neutral-400">
             {isMinifig ? (
               hasRealFigId ? (
-                <span className="text-sm">
-                  Minifigure ID: {displayId}
-                  {' '}
-                  ·{' '}
+                <p className="flex flex-col text-sm">
+                  <span>Minifigure ID: {displayId}</span>
                   <a
                     href={`https://www.bricklink.com/catalogItemInv.asp?S=${encodeURIComponent(
                       setNumber
@@ -160,67 +158,63 @@ export function InventoryItem({
                       event.stopPropagation();
                     }}
                   >
-                    View minifigs
+                    View set minifigs
                   </a>
-                </span>
+                </p>
               ) : null
             ) : (
-              <span className="text-sm">
-                {displayId} | {row.colorName}
-                {hasRange ? (
-                  <>
-                    {' '}
-                    |{' '}
-                    <a
-                      href={bricklinkUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="underline hover:text-brand-blue"
-                    >
-                      {formatCurrency(minPrice as number, currencyCode)} –{' '}
-                      {formatCurrency(maxPrice as number, currencyCode)}
-                    </a>
-                  </>
-                ) : hasPrice ? (
-                  <>
-                    {' '}
-                    |{' '}
-                    <a
-                      href={bricklinkUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="underline hover:text-brand-blue"
-                    >
-                      {formatCurrency(unitPrice as number, currencyCode)}
-                    </a>
-                  </>
-                ) : isPricePending ? (
-                  <>
-                    {' '}
-                    |{' '}
-                    <span className="text-neutral-400 italic">
-                      Getting price…
-                    </span>
-                  </>
-                ) : canRequestPrice && onRequestPrice ? (
-                  <>
-                    {' '}
-                    |{' '}
-                    <button
-                      type="button"
-                      className="underline hover:text-brand-blue"
-                      onClick={event => {
-                        event.stopPropagation();
-                        onRequestPrice();
-                      }}
-                    >
-                      Get price
-                    </button>
-                  </>
-                ) : null}
-              </span>
+              <p className="flex flex-col text-sm">
+                <span>
+                  {displayId} | {row.colorName}
+                </span>
+                <span>
+                  {hasRange ? (
+                    <>
+                      <a
+                        href={bricklinkUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="underline hover:text-brand-blue"
+                      >
+                        {formatCurrency(minPrice as number, currencyCode)} –{' '}
+                        {formatCurrency(maxPrice as number, currencyCode)}
+                      </a>
+                    </>
+                  ) : hasPrice ? (
+                    <>
+                      <a
+                        href={bricklinkUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="underline hover:text-brand-blue"
+                      >
+                        {formatCurrency(unitPrice as number, currencyCode)}
+                      </a>
+                    </>
+                  ) : isPricePending ? (
+                    <>
+                      <span className="text-neutral-400 italic">
+                        Getting price…
+                      </span>
+                    </>
+                  ) : canRequestPrice && onRequestPrice ? (
+                    <>
+                      <button
+                        type="button"
+                        className="underline hover:text-brand-blue"
+                        onClick={event => {
+                          event.stopPropagation();
+                          onRequestPrice();
+                        }}
+                      >
+                        Get price
+                      </button>
+                    </>
+                  ) : null}
+                </span>
+              </p>
             )}
-          </p>
+          </div>
         </div>
         <div className="w-full sm:list:w-auto">
           <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36 sm:list:pt-7">

@@ -1,10 +1,10 @@
 'use client';
 
-import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Spinner } from '@/app/components/ui/Spinner';
 import { AppError, throwAppErrorFromResponse } from '@/app/lib/domain/errors';
+import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { SearchResultListItem } from './SearchResultListItem';
@@ -102,7 +102,7 @@ export function SearchResults() {
         <div className="mt-2">
           <div
             data-item-size="md"
-            className="grid grid-cols-1 gap-2 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4"
+            className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
           >
             {results.map((r: SearchResult) => (
               <SearchResultListItem

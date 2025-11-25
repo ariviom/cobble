@@ -840,7 +840,11 @@ export async function getSetInventory(
     });
 
   const partRowMap = new Map<string, InventoryRow>();
-  partRows.forEach(row => partRowMap.set(row.inventoryKey, row));
+  const regularInventoryKeys = new Set<string>();
+  partRows.forEach(row => {
+    partRowMap.set(row.inventoryKey, row);
+    regularInventoryKeys.add(row.inventoryKey);
+  });
 
   // Fetch all minifigs for the set (separate endpoint) and map them into rows
   type MinifigPage = {
@@ -861,6 +865,7 @@ export async function getSetInventory(
 
   const minifigParents: InventoryRow[] = [];
   const orphanComponents: InventoryRow[] = [];
+  const addedComponentKeys = new Set<string>();
 
   for (let idx = 0; idx < allMinifigs.length; idx++) {
     const entry = allMinifigs[idx]!;
@@ -907,16 +912,25 @@ export async function getSetInventory(
           const baseKey = `${component.part.part_num}:${colorId}`;
           const existingRow = partRowMap.get(baseKey);
           if (existingRow) {
-            existingRow.parentRelations = [
-              ...(existingRow.parentRelations ?? []),
-              { parentKey, quantity: perParentQty },
-            ];
+            // Part already exists. Check if it came from regular inventory or another minifigure.
+            const isFromRegularInventory = regularInventoryKeys.has(baseKey);
+            if (!isFromRegularInventory) {
+              // Part came from another minifigure, so aggregate quantities across minifigures
+              // Don't multiply by parentQuantity - aggregate per minifigure instance
+              existingRow.quantityRequired += perParentQty;
+            }
+            // Always track parentRelation for minifigure completion logic
+            if (!existingRow.parentRelations) {
+              existingRow.parentRelations = [];
+            }
+            existingRow.parentRelations.push({ parentKey, quantity: perParentQty });
             parentRow.componentRelations!.push({
               key: existingRow.inventoryKey,
               quantity: perParentQty,
             });
           } else {
-            const inventoryKey = `${baseKey}:parent=${parentKey}`;
+            // Create new row using baseKey (same format as regular parts) to avoid duplicates
+            const inventoryKey = baseKey;
             const catId = component.part.part_cat_id;
             const resolvedCategoryName =
               catId != null
@@ -929,7 +943,8 @@ export async function getSetInventory(
               partName: component.part.name ?? component.part.part_num,
               colorId,
               colorName,
-              quantityRequired: perParentQty * parentQuantity,
+              // Don't multiply by parentQuantity - use per minifigure instance quantity
+              quantityRequired: perParentQty,
               imageUrl: component.part.part_img_url ?? null,
               ...(catId != null && { partCategoryId: catId }),
               partCategoryName: resolvedCategoryName,
@@ -942,7 +957,11 @@ export async function getSetInventory(
               quantity: perParentQty,
             });
             partRowMap.set(inventoryKey, childRow);
-            orphanComponents.push(childRow);
+            // Only add to orphanComponents if we haven't added this key yet
+            if (!addedComponentKeys.has(inventoryKey)) {
+              orphanComponents.push(childRow);
+              addedComponentKeys.add(inventoryKey);
+            }
           }
         }
       } catch (err) {
@@ -975,6 +994,8 @@ let setSummaryCache: {
       year: number;
       numParts: number;
       imageUrl: string | null;
+      themeId: number | null;
+      themeName: string | null;
     }
   >;
 } | null = null;
@@ -985,7 +1006,11 @@ export async function getSetSummary(setNumber: string): Promise<{
   year: number;
   numParts: number;
   imageUrl: string | null;
-  themeId?: number | null;
+  themeId: number | null;
+  /**
+   * Root theme name for this set, when available (e.g., top-level parent theme).
+   */
+  themeName: string | null;
 }> {
   const now = Date.now();
   const ttl = 60 * 60 * 1000; // 1h
@@ -996,16 +1021,51 @@ export async function getSetSummary(setNumber: string): Promise<{
   const d = await rbFetch<RebrickableSetSearchResult>(
     `/lego/sets/${encodeURIComponent(setNumber)}/`
   );
+
+  // Normalize theme id first.
+  const rawThemeId =
+    typeof d.theme_id === 'number' && Number.isFinite(d.theme_id)
+      ? d.theme_id
+      : null;
+
+  // Resolve root theme name using cached Rebrickable themes when available.
+  let themeName: string | null = null;
+  if (rawThemeId != null) {
+    try {
+      const themes = await getThemes();
+      const themeById = new Map<number, RebrickableTheme>(
+        themes.map(t => [t.id, t])
+      );
+      let current: RebrickableTheme | null | undefined =
+        themeById.get(rawThemeId) ?? null;
+      if (current) {
+        const visited = new Set<number>();
+        while (current && !visited.has(current.id)) {
+          visited.add(current.id);
+          if (current.parent_id != null) {
+            const parent = themeById.get(current.parent_id);
+            if (!parent) break;
+            current = parent;
+          } else {
+            break;
+          }
+        }
+        themeName = current?.name ?? null;
+      }
+    } catch {
+      // If theme lookup fails, keep themeName as null.
+      themeName = null;
+    }
+  }
+
   const result = {
     setNumber: d.set_num,
     name: d.name,
     year: d.year,
     numParts: d.num_parts,
     imageUrl: d.set_img_url,
-    themeId:
-      typeof d.theme_id === 'number' && Number.isFinite(d.theme_id)
-        ? d.theme_id
-        : null,
+    themeId: rawThemeId,
+    themeName,
   };
   if (!setSummaryCache || now - setSummaryCache.at >= ttl) {
     setSummaryCache = { at: now, items: new Map() };

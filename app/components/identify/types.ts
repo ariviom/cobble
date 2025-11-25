@@ -22,6 +22,8 @@ export type IdentifySet = {
 	year: number;
 	imageUrl: string | null;
 	quantity: number;
+	themeId?: number | null;
+	themeName?: string | null;
 };
 
 export type IdentifyResponse = {
