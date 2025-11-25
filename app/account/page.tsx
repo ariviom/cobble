@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
+import { useTheme } from '@/app/hooks/useTheme';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { Enums, Tables } from '@/supabase/types';
 
@@ -22,6 +23,53 @@ export default function AccountPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [setCounts, setSetCounts] = useState<SetCounts | null>(null);
+  const {
+    theme: selectedTheme,
+    setTheme: updateTheme,
+    themeColor: selectedThemeColor,
+    setThemeColor: updateThemeColor,
+    isLoading: isThemeLoading,
+  } = useTheme();
+
+  const themeOptions = useMemo(
+    () => [
+      { label: 'System', value: 'system' as const },
+      { label: 'Light', value: 'light' as const },
+      { label: 'Dark', value: 'dark' as const },
+    ],
+    []
+  );
+
+  const themeColorOptions = useMemo(
+    () => [
+      {
+        label: 'Blue',
+        value: 'blue' as const,
+        swatchClass: 'bg-[var(--color-brand-blue)]',
+      },
+      {
+        label: 'Yellow',
+        value: 'yellow' as const,
+        swatchClass: 'bg-[var(--color-brand-yellow)]',
+      },
+      {
+        label: 'Purple',
+        value: 'purple' as const,
+        swatchClass: 'bg-[var(--color-brand-purple)]',
+      },
+      {
+        label: 'Red',
+        value: 'red' as const,
+        swatchClass: 'bg-[var(--color-brand-red)]',
+      },
+      {
+        label: 'Green',
+        value: 'green' as const,
+        swatchClass: 'bg-[var(--color-brand-green)]',
+      },
+    ],
+    []
+  );
 
   const isLoggedIn = !!user;
 
@@ -340,27 +388,33 @@ export default function AccountPage() {
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-foreground">Theme</label>
               <p className="text-xs text-foreground-muted">
-                Light / dark / system. (Wired later to user preferences.)
+                Light / dark / system. Preferences sync per account when signed
+                in, or stay on this device otherwise.
               </p>
               <div className="mt-1 inline-flex gap-2 text-xs">
-                <button
-                  type="button"
-                  className="rounded-md border border-neutral-300 px-2 py-1"
-                >
-                  System
-                </button>
-                <button
-                  type="button"
-                  className="rounded-md border border-neutral-200 px-2 py-1"
-                >
-                  Light
-                </button>
-                <button
-                  type="button"
-                  className="rounded-md border border-neutral-200 px-2 py-1"
-                >
-                  Dark
-                </button>
+                {themeOptions.map(option => {
+                  const isActive = selectedTheme === option.value;
+                  const baseClasses =
+                    'rounded-md border px-2 py-1 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-primary';
+                  const activeClasses =
+                    'border-theme-primary bg-theme-primary/10 text-theme-primary';
+                  const inactiveClasses =
+                    'border-neutral-200 text-foreground-muted hover:border-neutral-300';
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`${baseClasses} ${
+                        isActive ? activeClasses : inactiveClasses
+                      }`}
+                      aria-pressed={isActive}
+                      disabled={isThemeLoading}
+                      onClick={() => updateTheme(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -373,56 +427,29 @@ export default function AccountPage() {
                 colors defined in the global theme.
               </p>
               <div className="mt-1 flex flex-wrap gap-3 text-xs">
-                <label className="inline-flex items-center gap-1 text-foreground-muted">
-                  <input
-                    type="radio"
-                    name="theme-accent"
-                    disabled
-                    className="h-3 w-3"
-                  />
-                  <span className="inline-flex h-3 w-3 rounded-full bg-[var(--color-brand-blue)]" />
-                  <span>Blue</span>
-                </label>
-                <label className="inline-flex items-center gap-1 text-foreground-muted">
-                  <input
-                    type="radio"
-                    name="theme-accent"
-                    disabled
-                    className="h-3 w-3"
-                  />
-                  <span className="inline-flex h-3 w-3 rounded-full bg-[var(--color-brand-yellow)]" />
-                  <span>Yellow</span>
-                </label>
-                <label className="inline-flex items-center gap-1 text-foreground-muted">
-                  <input
-                    type="radio"
-                    name="theme-accent"
-                    disabled
-                    className="h-3 w-3"
-                  />
-                  <span className="inline-flex h-3 w-3 rounded-full bg-[var(--color-brand-purple)]" />
-                  <span>Purple</span>
-                </label>
-                <label className="inline-flex items-center gap-1 text-foreground-muted">
-                  <input
-                    type="radio"
-                    name="theme-accent"
-                    disabled
-                    className="h-3 w-3"
-                  />
-                  <span className="inline-flex h-3 w-3 rounded-full bg-[var(--color-brand-red)]" />
-                  <span>Red</span>
-                </label>
-                <label className="inline-flex items-center gap-1 text-foreground-muted">
-                  <input
-                    type="radio"
-                    name="theme-accent"
-                    disabled
-                    className="h-3 w-3"
-                  />
-                  <span className="inline-flex h-3 w-3 rounded-full bg-[var(--color-brand-green)]" />
-                  <span>Green</span>
-                </label>
+                {themeColorOptions.map(option => (
+                  <label
+                    key={option.value}
+                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 ${
+                      selectedThemeColor === option.value
+                        ? 'border-theme-primary text-theme-primary'
+                        : 'border-transparent text-foreground-muted hover:text-foreground'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="theme-accent"
+                      className="h-3 w-3"
+                      checked={selectedThemeColor === option.value}
+                      onChange={() => updateThemeColor(option.value)}
+                      disabled={isThemeLoading}
+                    />
+                    <span
+                      className={`inline-flex h-3 w-3 rounded-full ${option.swatchClass}`}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
               </div>
             </div>
 

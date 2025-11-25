@@ -1,5 +1,7 @@
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { ReactQueryProvider } from '@/app/components/providers/react-query-provider';
+import { ThemeProvider } from '@/app/components/providers/theme-provider';
+import { ThemeScript } from '@/app/components/theme/theme-script';
 import type { Metadata, Viewport } from 'next';
 import './styles/globals.css';
 
@@ -39,11 +41,14 @@ export default function RootLayout({
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <ThemeScript />
       </head>
       <body className="bg-background text-foreground antialiased">
-        <ReactQueryProvider>
-          <ErrorBoundary>{children}</ErrorBoundary>
-        </ReactQueryProvider>
+        <ThemeProvider>
+          <ReactQueryProvider>
+            <ErrorBoundary>{children}</ErrorBoundary>
+          </ReactQueryProvider>
+        </ThemeProvider>
         <svg
           width="0"
           height="0"

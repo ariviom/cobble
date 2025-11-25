@@ -385,6 +385,7 @@ export type Database = {
           default_filter: Json | null
           settings: Json | null
           theme: string | null
+          theme_color: string | null
           updated_at: string
           user_id: string
         }
@@ -393,6 +394,7 @@ export type Database = {
           default_filter?: Json | null
           settings?: Json | null
           theme?: string | null
+          theme_color?: string | null
           updated_at?: string
           user_id: string
         }
@@ -401,6 +403,7 @@ export type Database = {
           default_filter?: Json | null
           settings?: Json | null
           theme?: string | null
+          theme_color?: string | null
           updated_at?: string
           user_id?: string
         }
