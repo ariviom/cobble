@@ -1,5 +1,8 @@
 import 'server-only';
 
+import { filterExactMatches } from '@/app/lib/searchExactMatch';
+import type { MatchType } from '@/app/types/search';
+
 type RebrickableSetSearchResult = {
   set_num: string;
   name: string;
@@ -421,6 +424,10 @@ export type SimpleSet = {
    * Used for matching theme + subtheme keywords in search.
    */
   themePath?: string | null;
+  /**
+   * Whether the result matched directly on set metadata or via a theme match.
+   */
+  matchType?: MatchType;
 };
 
 const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -490,12 +497,16 @@ export function sortAggregatedResults(
 
 export async function getAggregatedSearchResults(
   query: string,
-  sort: string
+  sort: string,
+  options?: { exactMatch?: boolean }
 ): Promise<SimpleSet[]> {
   const normalizedQuery = query.trim();
+  const exactMatch = options?.exactMatch ?? false;
   const normalizedQueryText = normalizeText(normalizedQuery);
   const compactQueryText = normalizedQueryText.replace(/\s+/g, '');
-  const cacheKey = `${sort}::${normalizedQuery.toLowerCase()}`;
+  const cacheKey = `${sort}::${normalizedQuery.toLowerCase()}::${
+    exactMatch ? 'exact' : 'loose'
+  }`;
   const now = Date.now();
   const cached = aggregatedSearchCache.get(cacheKey);
   if (cached && now - cached.at < SEARCH_CACHE_TTL_MS) {
@@ -508,6 +519,19 @@ export async function getAggregatedSearchResults(
   let first = true;
   let nextUrl: string | null = null;
   const collected: RebrickableSetSearchResult[] = [];
+  const matchTypeBySet = new Map<string, MatchType>();
+  const MATCH_PRIORITY: Record<MatchType, number> = {
+    set: 3,
+    subtheme: 2,
+    theme: 1,
+  };
+
+  function setMatchType(key: string, matchType: MatchType) {
+    const existing = matchTypeBySet.get(key);
+    if (!existing || MATCH_PRIORITY[matchType] > MATCH_PRIORITY[existing]) {
+      matchTypeBySet.set(key, matchType);
+    }
+  }
 
   try {
     while (first || nextUrl) {
@@ -527,6 +551,10 @@ export async function getAggregatedSearchResults(
             next: string | null;
           }>(nextUrl!);
       collected.push(...page.results);
+      for (const result of page.results) {
+        const key = result.set_num.toLowerCase();
+        setMatchType(key, 'set');
+      }
       nextUrl = page.next;
       first = false;
       if (collected.length >= SEARCH_AGG_CAP) break;
@@ -560,6 +588,7 @@ export async function getAggregatedSearchResults(
                 numParts: result.numParts,
                 imageUrl: result.imageUrl,
                 themeId,
+                matchType: 'set',
               });
             }
           }
@@ -570,9 +599,12 @@ export async function getAggregatedSearchResults(
           });
         }
       }
-      const filtered = [...union.values()].filter(set =>
+      let filtered = [...union.values()].filter(set =>
         tokens.every(tok => set.name.toLowerCase().includes(tok))
       );
+      if (exactMatch) {
+        filtered = filterExactMatches(filtered, normalizedQuery);
+      }
       aggregatedSearchCache.set(cacheKey, { at: now, items: filtered });
       return filtered;
     }
@@ -698,6 +730,7 @@ export async function getAggregatedSearchResults(
                 collected.push(r);
                 seenSetNums.add(key);
               }
+              setMatchType(key, getMatchTypeForThemeId(themeId));
               if (collected.length >= SEARCH_AGG_CAP) break;
             }
             if (collected.length >= SEARCH_AGG_CAP || !page.next) break;
@@ -757,7 +790,20 @@ export async function getAggregatedSearchResults(
     return { themeName, themePath: path };
   }
 
-  const mapped: SimpleSet[] = collected
+  function getMatchTypeForThemeId(
+    themeId: number | null | undefined
+  ): MatchType {
+    if (themeId == null || !Number.isFinite(themeId)) {
+      return 'theme';
+    }
+    const theme = themeById.get(themeId as number);
+    if (theme && theme.parent_id != null) {
+      return 'subtheme';
+    }
+    return 'theme';
+  }
+
+  let mapped: SimpleSet[] = collected
     .filter(r => r.num_parts > 0)
     .filter(r => {
       const themeId =
@@ -777,6 +823,7 @@ export async function getAggregatedSearchResults(
           ? r.theme_id
           : null;
       const { themeName, themePath } = getThemeMeta(themeId);
+      const key = r.set_num.toLowerCase();
       return {
         setNumber: r.set_num,
         name: r.name,
@@ -786,9 +833,17 @@ export async function getAggregatedSearchResults(
         themeId,
         themeName,
         themePath,
+        matchType: matchTypeBySet.get(key) ?? 'set',
       };
     });
 
+  if (exactMatch) {
+    mapped = filterExactMatches(mapped, normalizedQuery);
+  }
+  if (mapped.length === 0) {
+    aggregatedSearchCache.set(cacheKey, { at: now, items: [] });
+    return [];
+  }
   const sorted = sortAggregatedResults(mapped, sort, normalizedQuery);
   aggregatedSearchCache.set(cacheKey, { at: now, items: sorted });
   return sorted;

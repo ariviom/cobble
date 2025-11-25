@@ -1,3 +1,7 @@
+export type MatchType = 'set' | 'theme' | 'subtheme';
+
+export type FilterType = 'all' | MatchType;
+
 export type SearchResult = {
   setNumber: string;
   name: string;
@@ -13,6 +17,11 @@ export type SearchResult = {
    * Optional full theme path (e.g., "Star Wars / Episode IV-VI").
    */
   themePath?: string | null;
+  /**
+   * Indicates whether this result matched directly on the set metadata,
+   * via a top-level theme, or via a subtheme/child theme.
+   */
+  matchType?: MatchType;
 };
 
 export type SortOption =
@@ -26,3 +35,4 @@ export type SearchPage = {
   results: SearchResult[];
   nextPage: number | null;
 };
+

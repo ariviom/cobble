@@ -1,7 +1,7 @@
 'use client';
 
 import { SetDisplayCard } from '@/app/components/set/SetDisplayCard';
-import type { SearchResult } from './types';
+import type { SearchResult } from '@/app/types/search';
 
 export function SearchResultListItem({ result }: { result: SearchResult }) {
   return (

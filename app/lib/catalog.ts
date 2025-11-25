@@ -1,13 +1,15 @@
 import 'server-only';
 
+import type { InventoryRow } from '@/app/components/set/types';
 import type { SimpleSet } from '@/app/lib/rebrickable';
 import {
-  sortAggregatedResults,
-  mapCategoryNameToParent,
-  normalizeText,
+    mapCategoryNameToParent,
+    normalizeText,
+    sortAggregatedResults,
 } from '@/app/lib/rebrickable';
+import { filterExactMatches } from '@/app/lib/searchExactMatch';
 import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
-import type { InventoryRow } from '@/app/components/set/types';
+import type { MatchType } from '@/app/types/search';
 
 type LocalTheme = {
   id: number;
@@ -49,10 +51,12 @@ export async function getThemesLocal(): Promise<LocalTheme[]> {
 
 export async function searchSetsLocal(
   query: string,
-  sort: string
+  sort: string,
+  options?: { exactMatch?: boolean }
 ): Promise<SimpleSet[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
+  const exactMatch = options?.exactMatch ?? false;
 
   const supabase = getSupabaseServerClient();
 
@@ -118,18 +122,46 @@ export async function searchSetsLocal(
     return { themeName, themePath: path };
   }
 
-  const seen = new Map<string, SimpleSet>();
+  function getMatchTypeForTheme(
+    themeId: number | null | undefined
+  ): MatchType {
+    if (themeId == null || !Number.isFinite(themeId)) {
+      return 'theme';
+    }
+    const theme = themeById.get(themeId as number);
+    if (theme && theme.parent_id != null) {
+      return 'subtheme';
+    }
+    return 'theme';
+  }
 
-  function addRow(row: {
+  const seen = new Map<string, SimpleSet>();
+  const MATCH_PRIORITY: Record<MatchType, number> = {
+    set: 3,
+    subtheme: 2,
+    theme: 1,
+  };
+
+  function addRow(
+    row: {
     set_num: string;
     name: string;
     year: number | null;
     num_parts: number | null;
     image_url: string | null;
     theme_id: number | null;
-  }) {
+    },
+    matchType: MatchType = 'set'
+  ) {
     const key = row.set_num.toLowerCase();
-    if (seen.has(key)) return;
+    const existing = seen.get(key);
+    if (existing) {
+      const existingType = existing.matchType ?? 'theme';
+      if (MATCH_PRIORITY[matchType] > MATCH_PRIORITY[existingType]) {
+        seen.set(key, { ...existing, matchType });
+      }
+      return;
+    }
 
     const rawThemeId =
       typeof row.theme_id === 'number' && Number.isFinite(row.theme_id)
@@ -146,29 +178,36 @@ export async function searchSetsLocal(
       themeId: rawThemeId,
       ...(themeName ? { themeName } : {}),
       ...(themePath ? { themePath } : {}),
+      matchType,
     });
   }
 
   for (const row of bySetNum.data ?? []) {
-    addRow(row as {
+    addRow(
+      row as {
       set_num: string;
       name: string;
       year: number | null;
       num_parts: number | null;
       image_url: string | null;
       theme_id: number | null;
-    });
+      },
+      'set'
+    );
   }
 
   for (const row of byName.data ?? []) {
-    addRow(row as {
+    addRow(
+      row as {
       set_num: string;
       name: string;
       year: number | null;
       num_parts: number | null;
       image_url: string | null;
       theme_id: number | null;
-    });
+      },
+      'set'
+    );
   }
 
   // Theme & subtheme keyword search: include sets whose full theme path matches
@@ -211,20 +250,32 @@ export async function searchSetsLocal(
         );
       } else {
         for (const row of byTheme ?? []) {
-          addRow(row as {
+          const matchTypeForTheme = getMatchTypeForTheme(
+            typeof row.theme_id === 'number' && Number.isFinite(row.theme_id)
+              ? row.theme_id
+              : null
+          );
+          addRow(
+            row as {
             set_num: string;
             name: string;
             year: number | null;
             num_parts: number | null;
             image_url: string | null;
             theme_id: number | null;
-          });
+            },
+            matchTypeForTheme
+          );
         }
       }
     }
   }
 
-  const items = Array.from(seen.values());
+  let items = Array.from(seen.values());
+  if (items.length === 0) return [];
+  if (exactMatch) {
+    items = filterExactMatches(items, trimmed);
+  }
   if (items.length === 0) return [];
 
   return sortAggregatedResults(items, sort, trimmed);

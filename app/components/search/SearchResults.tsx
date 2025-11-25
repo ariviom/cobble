@@ -5,19 +5,30 @@ import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Spinner } from '@/app/components/ui/Spinner';
 import { AppError, throwAppErrorFromResponse } from '@/app/lib/domain/errors';
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
-import { useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { SearchResultListItem } from './SearchResultListItem';
-import type { SearchPage, SearchResult, SortOption } from './types';
+import type {
+  FilterType,
+  SearchPage,
+  SearchResult,
+  SortOption,
+} from '@/app/types/search';
 
 async function fetchSearchPage(
   q: string,
   sort: SortOption = 'relevance',
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  filter: FilterType = 'all',
+  exact: boolean = false
 ): Promise<SearchPage> {
   if (!q) return { results: [], nextPage: null };
-  const url = `/api/search?q=${encodeURIComponent(q)}&sort=${sort}&page=${page}&pageSize=${pageSize}`;
+  const url = `/api/search?q=${encodeURIComponent(
+    q
+  )}&sort=${sort}&page=${page}&pageSize=${pageSize}&filter=${encodeURIComponent(
+    filter
+  )}&exact=${exact ? '1' : '0'}`;
   const res = await fetch(url);
   if (!res.ok) {
     await throwAppErrorFromResponse(res, 'search_failed');
@@ -26,22 +37,90 @@ async function fetchSearchPage(
   return data;
 }
 
+function parseFilterParam(value: string | null): FilterType {
+  if (
+    value === 'set' ||
+    value === 'theme' ||
+    value === 'subtheme' ||
+    value === 'all'
+  ) {
+    return value;
+  }
+  return 'all';
+}
+
+function parseExactParam(value: string | null): boolean {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
 export function SearchResults() {
   const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const q = params.get('q') ?? '';
   const hasQuery = q.trim().length > 0;
   const [sort, setSort] = useState<SortOption>('relevance');
   const [pageSize, setPageSize] = useState<number>(20);
+  const filterFromParams = parseFilterParam(params.get('filter'));
+  const [filter, setFilter] = useState<FilterType>(filterFromParams);
+  const exactFromParams = parseExactParam(params.get('exact'));
+  const [exact, setExact] = useState<boolean>(exactFromParams);
+
+  useEffect(() => {
+    setFilter(filterFromParams);
+  }, [filterFromParams]);
+
+  useEffect(() => {
+    setExact(exactFromParams);
+  }, [exactFromParams]);
+
+  const handleFilterChange = (nextFilter: FilterType) => {
+    if (nextFilter === filter) {
+      return;
+    }
+    setFilter(nextFilter);
+    const sp = new URLSearchParams(Array.from(params.entries()));
+    sp.set('filter', nextFilter);
+    const nextSearch = sp.toString();
+    router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname);
+  };
+
+  const handleExactChange = (nextExact: boolean) => {
+    if (nextExact === exact) {
+      return;
+    }
+    setExact(nextExact);
+    const sp = new URLSearchParams(Array.from(params.entries()));
+    if (nextExact) {
+      sp.set('exact', '1');
+    } else {
+      sp.delete('exact');
+    }
+    const nextSearch = sp.toString();
+    router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname);
+  };
   const query = useInfiniteQuery<
     SearchPage,
     AppError,
     InfiniteData<SearchPage, number>,
-    string[],
+    [string, { q: string; sort: SortOption; pageSize: number; filter: FilterType; exact: boolean }],
     number
   >({
-    queryKey: ['search', q, sort, String(pageSize)],
+    queryKey: [
+      'search',
+      { q, sort, pageSize, filter, exact },
+    ],
     queryFn: ({ pageParam = 1 }) =>
-      fetchSearchPage(q, sort, pageParam as number, pageSize),
+      fetchSearchPage(
+        q,
+        sort,
+        pageParam as number,
+        pageSize,
+        filter,
+        exact
+      ),
     getNextPageParam: (lastPage: SearchPage) => lastPage.nextPage,
     initialPageParam: 1,
     enabled: hasQuery,
@@ -62,7 +141,7 @@ export function SearchResults() {
   const results = pages.flatMap((p: SearchPage) => p.results) ?? [];
   return (
     <div className="w-full">
-      <div className="mb-3 flex flex-wrap items-center gap-1">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <label className="text-xs font-medium">Sort</label>
         <select
           className="rounded border px-2 py-1 text-xs"
@@ -88,7 +167,36 @@ export function SearchResults() {
           <option value={80}>80</option>
           <option value={100}>100</option>
         </select>
+        <span className="mx-1 h-4 w-px bg-neutral-300" />
+        <label className="text-xs font-medium">Filter</label>
+        <select
+          className="rounded border px-2 py-1 text-xs"
+          value={filter}
+          onChange={e => handleFilterChange(e.target.value as FilterType)}
+        >
+          <option value="all">All</option>
+          <option value="set">Set</option>
+          <option value="theme">Theme</option>
+          <option value="subtheme">Subtheme</option>
+        </select>
+        <span className="mx-1 h-4 w-px bg-neutral-300" />
+        <label className="inline-flex items-center gap-1 text-xs font-medium">
+          <input
+            type="checkbox"
+            className="h-3 w-3"
+            checked={exact}
+            onChange={e => handleExactChange(e.target.checked)}
+          />
+          <span>Exact match</span>
+        </label>
       </div>
+      <p className="mb-3 text-[11px] text-foreground-muted">
+        All shows every result, Set limits to direct matches on set number or
+        name, Theme shows sets whose top-level theme matches your query, and
+        Subtheme restricts to child/subtheme matches only. Exact match confines
+        results to sets/themes that match your query exactly (set numbers may
+        include standard &ldquo;-1&rdquo; style suffixes).
+      </p>
       {isLoading && (
         <Spinner className="mt-2" label="Loading search results…" />
       )}
