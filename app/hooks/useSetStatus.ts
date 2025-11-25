@@ -69,21 +69,13 @@ export function useSetStatus({
 
   // Map DB enum to local SetStatus shape.
   function dbStatusToLocal(status: Enums<'set_status'>): SetStatus {
-    if (status === 'owned') return { owned: true, canBuild: false, wantToBuild: false };
-    if (status === 'can_build') {
-      return { owned: false, canBuild: true, wantToBuild: false };
-    }
-    if (status === 'want') {
-      return { owned: false, canBuild: false, wantToBuild: true };
-    }
-    // 'partial' currently treated as "want to build" (has some parts but not enough).
-    return { owned: false, canBuild: false, wantToBuild: true };
+    if (status === 'owned') return { owned: true, wantToBuild: false };
+    // Treat any other value (including legacy ones) as wishlist.
+    return { owned: false, wantToBuild: true };
   }
 
   function localKeyToDbStatus(key: SetStatusKey): Enums<'set_status'> {
-    if (key === 'owned') return 'owned';
-    if (key === 'canBuild') return 'can_build';
-    return 'want';
+    return key === 'owned' ? 'owned' : 'want';
   }
 
   // Hydrate local store from Supabase when a user is logged in.

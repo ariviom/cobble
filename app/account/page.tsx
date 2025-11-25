@@ -13,8 +13,7 @@ type DbSetStatus = Enums<'set_status'>;
 
 type SetCounts = {
   owned: number;
-  canBuild: number;
-  wantToBuild: number;
+  wishlist: number;
 };
 
 export default function AccountPage() {
@@ -148,20 +147,15 @@ export default function AccountPage() {
           });
         } else if (sets) {
           let owned = 0;
-          let canBuild = 0;
-          let wantToBuild = 0;
+          let wishlist = 0;
 
           for (const row of sets) {
             const status = row.status as DbSetStatus;
             if (status === 'owned') owned += 1;
-            else if (status === 'can_build') canBuild += 1;
-            else {
-              // Treat both 'want' and 'partial' as "want to build" for this summary.
-              wantToBuild += 1;
-            }
+            else wishlist += 1;
           }
 
-          setSetCounts({ owned, canBuild, wantToBuild });
+          setSetCounts({ owned, wishlist });
         }
       } catch {
         setError('Failed to load account information.');
@@ -553,8 +547,8 @@ export default function AccountPage() {
                 Your sets
               </h2>
               <p className="mt-1 text-xs text-foreground-muted">
-                Counts of sets you&apos;ve marked as owned, can-build, or want
-                to build.
+                Counts of sets you&apos;ve marked as owned or added to your
+                wishlist.
               </p>
             </div>
           </div>
@@ -564,7 +558,7 @@ export default function AccountPage() {
               Sign in to track your sets across devices.
             </p>
           ) : (
-            <div className="mt-2 grid gap-3 sm:grid-cols-3">
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
               <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2">
                 <p className="text-[11px] uppercase tracking-wide text-neutral-500">
                   Owned
@@ -575,18 +569,10 @@ export default function AccountPage() {
               </div>
               <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2">
                 <p className="text-[11px] uppercase tracking-wide text-neutral-500">
-                  Can build
+                  Wishlist
                 </p>
                 <p className="mt-1 text-lg font-semibold text-foreground">
-                  {setCounts ? setCounts.canBuild.toLocaleString() : '—'}
-                </p>
-              </div>
-              <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2">
-                <p className="text-[11px] uppercase tracking-wide text-neutral-500">
-                  Want to build
-                </p>
-                <p className="mt-1 text-lg font-semibold text-foreground">
-                  {setCounts ? setCounts.wantToBuild.toLocaleString() : '—'}
+                  {setCounts ? setCounts.wishlist.toLocaleString() : '—'}
                 </p>
               </div>
             </div>

@@ -29,6 +29,8 @@
 - Cache-first data fetching with fetch cache and revalidate window for set inventories.
 - Unidirectional data flow: server fetch → query cache → UI state (owned) → derived missing → export.
 - Client-side persistence uses cache-first reads with debounced write-through to localStorage; writes prefer `requestIdleCallback` when available.
+- Local-first, optimistic UX: Zustand/localStorage is the immediate source of truth; Supabase writes are fire-and-forget and reads hydrate once per mount to avoid extra round-trips.
+- Database calls happen only on explicit user actions (e.g., opening a collection) and results are cached in component state to keep the UI responsive.
 - UI components:
   - Tabbed filter bar (`InventoryFilterTabs`) provides filtering across All/Missing/Owned and categories, with horizontal scroll and arrow controls and enlarged touch targets.
   - Search bar uses inline clear control with large touch target and label positioned above input.

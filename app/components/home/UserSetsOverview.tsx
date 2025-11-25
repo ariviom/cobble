@@ -2,6 +2,9 @@
 
 import { SetDisplayCard } from '@/app/components/set/SetDisplayCard';
 import { cn } from '@/app/components/ui/utils';
+import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import { useUserCollections } from '@/app/hooks/useUserCollections';
+import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -11,7 +14,8 @@ type ThemeInfo = {
   parent_id: number | null;
 };
 
-type StatusFilter = 'all' | 'owned' | 'canBuild' | 'wantToBuild';
+type CustomCollectionFilter = `collection:${string}`;
+type CollectionFilter = 'all' | 'owned' | 'wishlist' | CustomCollectionFilter;
 type GroupBy = 'status' | 'theme';
 
 type ThemeMap = Map<number, ThemeInfo>;
@@ -68,14 +72,21 @@ function useThemesForUserSets(themeIds: number[]): {
   return { themeMap, isLoading };
 }
 
+function makeCustomCollectionFilter(id: string): CustomCollectionFilter {
+  return `collection:${id}`;
+}
+
+function extractCollectionId(value: CollectionFilter): string | null {
+  if (value === 'all' || value === 'owned' || value === 'wishlist') return null;
+  return value.replace('collection:', '');
+}
+
 function getPrimaryStatusLabel(status: {
   owned: boolean;
-  canBuild: boolean;
   wantToBuild: boolean;
 }): string {
   if (status.owned) return 'Owned';
-  if (status.canBuild) return 'Can build';
-  if (status.wantToBuild) return 'Want to build';
+  if (status.wantToBuild) return 'Wishlist';
   return 'Uncategorized';
 }
 
@@ -98,14 +109,111 @@ function getRootThemeName(themeId: number, themeMap: ThemeMap): string {
 
 export function UserSetsOverview() {
   const [mounted, setMounted] = useState(false);
+  const { user } = useSupabaseUser();
   const setsRecord = useUserSetsStore(state => state.sets);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const {
+    collections,
+    isLoading: collectionsLoading,
+    error: collectionsError,
+  } = useUserCollections();
+  const [collectionFilter, setCollectionFilter] =
+    useState<CollectionFilter>('all');
   const [groupBy, setGroupBy] = useState<GroupBy>('status');
   const [themeFilter, setThemeFilter] = useState<number | 'all'>('all');
+  const [collectionMembership, setCollectionMembership] = useState<
+    Record<string, string[]>
+  >({});
+  const [collectionMembershipLoading, setCollectionMembershipLoading] =
+    useState<string | null>(null);
+  const [collectionMembershipErrorId, setCollectionMembershipErrorId] =
+    useState<string | null>(null);
+  const [collectionMembershipError, setCollectionMembershipError] = useState<
+    string | null
+  >(null);
+  const selectedCollectionId = useMemo(
+    () => extractCollectionId(collectionFilter),
+    [collectionFilter]
+  );
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setCollectionFilter(prev => {
+        if (prev === 'all' || prev === 'owned' || prev === 'wishlist') {
+          return prev;
+        }
+        return 'all';
+      });
+      setCollectionMembership({});
+      setCollectionMembershipLoading(null);
+      setCollectionMembershipError(null);
+      setCollectionMembershipErrorId(null);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !selectedCollectionId) {
+      return;
+    }
+    if (collectionMembership[selectedCollectionId]) {
+      return;
+    }
+
+    let cancelled = false;
+    const supabase = getSupabaseBrowserClient();
+    const run = async () => {
+      setCollectionMembershipLoading(selectedCollectionId);
+      setCollectionMembershipError(null);
+      setCollectionMembershipErrorId(null);
+      const { data, error } = await supabase
+        .from('user_collection_sets')
+        .select<'set_num'>('set_num')
+        .eq('user_id', user.id)
+        .eq('collection_id', selectedCollectionId);
+
+      if (cancelled) {
+        return;
+      }
+
+      if (error) {
+        console.error('Failed to load collection membership', error);
+        setCollectionMembershipError(
+          error.message ?? 'Failed to load collection'
+        );
+        setCollectionMembershipErrorId(selectedCollectionId);
+        setCollectionMembershipLoading(current =>
+          current === selectedCollectionId ? null : current
+        );
+        return;
+      }
+
+      setCollectionMembership(prev => ({
+        ...prev,
+        [selectedCollectionId]: (data ?? []).map(row => row.set_num),
+      }));
+      if (collectionMembershipErrorId === selectedCollectionId) {
+        setCollectionMembershipError(null);
+        setCollectionMembershipErrorId(null);
+      }
+      setCollectionMembershipLoading(current =>
+        current === selectedCollectionId ? null : current
+      );
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    user,
+    selectedCollectionId,
+    collectionMembership,
+    collectionMembershipErrorId,
+  ]);
 
   const sets = useMemo(
     () =>
@@ -147,11 +255,19 @@ export function UserSetsOverview() {
   }, [sets, themeMap]);
 
   const filteredSets = useMemo(() => {
+    const customCollectionId = selectedCollectionId;
+    const membership = customCollectionId
+      ? collectionMembership[customCollectionId]
+      : null;
     return sets.filter(set => {
       const { status } = set;
-      if (statusFilter === 'owned' && !status.owned) return false;
-      if (statusFilter === 'canBuild' && !status.canBuild) return false;
-      if (statusFilter === 'wantToBuild' && !status.wantToBuild) return false;
+      if (collectionFilter === 'owned' && !status.owned) return false;
+      if (collectionFilter === 'wishlist' && !status.wantToBuild) return false;
+      if (customCollectionId) {
+        if (!membership || !membership.includes(set.setNumber)) {
+          return false;
+        }
+      }
 
       if (themeFilter !== 'all') {
         if (typeof set.themeId !== 'number' || !Number.isFinite(set.themeId)) {
@@ -162,7 +278,14 @@ export function UserSetsOverview() {
       }
       return true;
     });
-  }, [sets, statusFilter, themeFilter, themeMap]);
+  }, [
+    sets,
+    collectionFilter,
+    selectedCollectionId,
+    collectionMembership,
+    themeFilter,
+    themeMap,
+  ]);
 
   const grouped = useMemo(() => {
     const groups = new Map<string, typeof filteredSets>();
@@ -188,6 +311,10 @@ export function UserSetsOverview() {
   }, [filteredSets, groupBy, themeMap]);
 
   const hasAnySets = sets.length > 0;
+  const isCustomCollectionLoading =
+    !!selectedCollectionId &&
+    collectionMembershipLoading === selectedCollectionId &&
+    !collectionMembership[selectedCollectionId];
 
   // Avoid SSR/CSR hydration mismatches: render a static shell until mounted.
   if (!mounted) {
@@ -210,21 +337,28 @@ export function UserSetsOverview() {
           {hasAnySets && (
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <div className="flex items-center gap-2">
-                <label htmlFor="status-filter" className="text-xs">
-                  Status
+                <label htmlFor="collection-filter" className="text-xs">
+                  Collection
                 </label>
                 <select
-                  id="status-filter"
+                  id="collection-filter"
                   className="rounded border border-neutral-300 bg-background px-2 py-1 text-xs"
-                  value={statusFilter}
+                  value={collectionFilter}
                   onChange={event =>
-                    setStatusFilter(event.target.value as StatusFilter)
+                    setCollectionFilter(event.target.value as CollectionFilter)
                   }
                 >
                   <option value="all">All</option>
                   <option value="owned">Owned</option>
-                  <option value="canBuild">Can build</option>
-                  <option value="wantToBuild">Want to build</option>
+                  <option value="wishlist">Wishlist</option>
+                  {collections.map(collection => (
+                    <option
+                      key={collection.id}
+                      value={makeCustomCollectionFilter(collection.id)}
+                    >
+                      {collection.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex items-center gap-2">
@@ -264,7 +398,7 @@ export function UserSetsOverview() {
                     )}
                     onClick={() => setGroupBy('status')}
                   >
-                    Status
+                    Collection
                   </button>
                   <button
                     type="button"
@@ -286,17 +420,44 @@ export function UserSetsOverview() {
           <div className="mt-2 text-sm text-foreground-muted">
             You have no tracked sets yet. Use the status menu on search results
             or set pages to mark sets as{' '}
-            <span className="font-medium">Owned</span>,{' '}
-            <span className="font-medium">Can build</span>, or{' '}
-            <span className="font-medium">Want to build</span>.
+            <span className="font-medium">Owned</span> or add them to your{' '}
+            <span className="font-medium">Wishlist</span>.
           </div>
         )}
 
-        {hasAnySets && filteredSets.length === 0 && (
-          <div className="mt-2 text-sm text-foreground-muted">
-            No sets match the current filters.
+        {collectionsLoading && (
+          <div className="mt-2 text-xs text-foreground-muted">
+            Loading collections…
           </div>
         )}
+
+        {collectionsError && (
+          <div className="mt-2 text-xs text-brand-red">
+            Failed to load collections. Try refreshing the page.
+          </div>
+        )}
+
+        {isCustomCollectionLoading && (
+          <div className="mt-2 text-xs text-foreground-muted">
+            Loading collection…
+          </div>
+        )}
+
+        {selectedCollectionId &&
+          collectionMembershipError &&
+          collectionMembershipErrorId === selectedCollectionId && (
+            <div className="mt-2 text-xs text-brand-red">
+              {collectionMembershipError}
+            </div>
+          )}
+
+        {hasAnySets &&
+          filteredSets.length === 0 &&
+          !isCustomCollectionLoading && (
+            <div className="mt-2 text-sm text-foreground-muted">
+              No sets match the current filters.
+            </div>
+          )}
 
         {hasAnySets && filteredSets.length > 0 && (
           <div className="mt-4 flex flex-col gap-6">

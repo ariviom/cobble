@@ -80,7 +80,7 @@ export function SetStatusMenu({
     });
   };
 
-  const hasAnyStatus = status.owned || status.canBuild || status.wantToBuild;
+  const hasAnyStatus = status.owned || status.wantToBuild;
 
   return (
     <div
@@ -111,7 +111,7 @@ export function SetStatusMenu({
       {open && (
         <div className="absolute -top-4 right-0 z-20 mt-1 w-44 -translate-y-full overflow-hidden rounded-md border border-neutral-200 bg-white text-sm shadow-lg dark:bg-background">
           <div className="border-b px-3 py-2 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
-            Set status
+            Collections
           </div>
           <RowButton
             size="sm"
@@ -127,18 +127,6 @@ export function SetStatusMenu({
           </RowButton>
           <RowButton
             size="sm"
-            selected={status.canBuild}
-            onClick={event => {
-              event.preventDefault();
-              event.stopPropagation();
-              handleToggle('canBuild');
-              setOpen(false);
-            }}
-          >
-            <span>Can build</span>
-          </RowButton>
-          <RowButton
-            size="sm"
             selected={status.wantToBuild}
             onClick={event => {
               event.preventDefault();
@@ -147,7 +135,7 @@ export function SetStatusMenu({
               setOpen(false);
             }}
           >
-            <span>Want to build</span>
+            <span>Wishlist</span>
           </RowButton>
           <RowButton
             size="sm"

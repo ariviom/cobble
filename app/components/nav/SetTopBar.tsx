@@ -235,21 +235,16 @@ export function SetTopBar({
               )}
               {priceStatus === 'error' && ' · Price unavailable'}
             </div>
-            {(uiStatus.owned || uiStatus.canBuild || uiStatus.wantToBuild) && (
+            {(uiStatus.owned || uiStatus.wantToBuild) && (
               <div className="mt-1 flex flex-wrap gap-1 text-[11px] lg:text-xs">
                 {uiStatus.owned && (
                   <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-brand-green">
                     Owned
                   </span>
                 )}
-                {uiStatus.canBuild && (
-                  <span className="rounded-full bg-brand-blue/10 px-2 py-0.5 text-brand-blue">
-                    Can build
-                  </span>
-                )}
                 {uiStatus.wantToBuild && (
                   <span className="rounded-full bg-brand-purple/10 px-2 py-0.5 text-brand-purple">
-                    Want to build
+                    Wishlist
                   </span>
                 )}
               </div>
@@ -286,20 +281,6 @@ export function SetTopBar({
                   <button
                     type="button"
                     className={`rounded-md border px-3 py-1 text-sm ${
-                      uiStatus.canBuild
-                        ? 'border-brand-blue bg-brand-blue/10 text-brand-blue'
-                        : 'hover:bg-neutral-100'
-                    }`}
-                    onClick={event => {
-                      event.stopPropagation();
-                      toggleStatus('canBuild');
-                    }}
-                  >
-                    Can build
-                  </button>
-                  <button
-                    type="button"
-                    className={`rounded-md border px-3 py-1 text-sm ${
                       uiStatus.wantToBuild
                         ? 'border-brand-purple bg-brand-purple/10 text-brand-purple'
                         : 'hover:bg-neutral-100'
@@ -309,7 +290,7 @@ export function SetTopBar({
                       toggleStatus('wantToBuild');
                     }}
                   >
-                    Want to build
+                    Wishlist
                   </button>
                 </div>
               </div>

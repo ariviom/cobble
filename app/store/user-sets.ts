@@ -3,17 +3,15 @@
 import { readStorage, writeStorage } from '@/app/lib/persistence/storage';
 import { create } from 'zustand';
 
-export type SetStatusKey = 'owned' | 'canBuild' | 'wantToBuild';
+export type SetStatusKey = 'owned' | 'wantToBuild';
 
 export type SetStatus = {
   owned: boolean;
-  canBuild: boolean;
   wantToBuild: boolean;
 };
 
 export const EMPTY_SET_STATUS: SetStatus = {
   owned: false,
-  canBuild: false,
   wantToBuild: false,
 };
 
@@ -79,20 +77,16 @@ function normalizeKey(setNumber: string): string {
 }
 
 function coerceStatus(raw: unknown): SetStatus {
-  const obj = (raw ?? {}) as Partial<SetStatus>;
+  const obj = (raw ?? {}) as Partial<SetStatus> & { canBuild?: boolean };
   const owned = !!obj.owned;
-  let canBuild = !!obj.canBuild;
-  let wantToBuild = !!obj.wantToBuild;
+  let wantToBuild = !!obj.wantToBuild || !!obj.canBuild;
 
   // Enforce mutual exclusivity when hydrating persisted state.
   if (owned) {
-    canBuild = false;
-    wantToBuild = false;
-  } else if (canBuild) {
     wantToBuild = false;
   }
 
-  return { owned, canBuild, wantToBuild };
+  return { owned, wantToBuild };
 }
 
 function parsePersisted(raw: string | null): Pick<UserSetsState, 'sets'> {
@@ -137,7 +131,7 @@ function parsePersisted(raw: string | null): Pick<UserSetsState, 'sets'> {
         const status = coerceStatus(v.status);
 
         // Drop entries that have no active status flags.
-        if (!status.owned && !status.canBuild && !status.wantToBuild) {
+        if (!status.owned && !status.wantToBuild) {
           continue;
         }
 
@@ -202,7 +196,6 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
         // Turning a status "on" makes it the sole active status.
         nextStatus = {
           owned: false,
-          canBuild: false,
           wantToBuild: false,
           [key]: true,
         } as SetStatus;
@@ -210,17 +203,12 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
         // Turning a status "off" clears all flags, leaving the set untracked.
         nextStatus = {
           owned: false,
-          canBuild: false,
           wantToBuild: false,
         };
       }
 
       // If all flags are false, remove the entry entirely.
-      if (
-        !nextStatus.owned &&
-        !nextStatus.canBuild &&
-        !nextStatus.wantToBuild
-      ) {
+      if (!nextStatus.owned && !nextStatus.wantToBuild) {
         const nextSets = { ...prevState.sets };
         delete nextSets[normKey];
         const nextState: UserSetsState = {

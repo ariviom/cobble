@@ -12,7 +12,7 @@ export type UserPreferences = {
   theme: 'light' | 'dark' | 'system';
 };
 
-export type UserSetStatus = 'owned' | 'canBuild' | 'wantToBuild';
+export type UserSetStatus = 'owned' | 'wantToBuild';
 
 export type UserSetRecord = {
   userId: UserId;
