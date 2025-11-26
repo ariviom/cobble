@@ -17,21 +17,32 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
+      
+      // Construct redirect URL using current origin (works for both localhost and production)
+      // IMPORTANT: This URL must be configured in Supabase Dashboard > Authentication > URL Configuration
+      // as an allowed redirect URL for OAuth to work in production.
+      const redirectUrl = `${window.location.origin}/account`;
+      
       const supabase = getSupabaseBrowserClient();
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/account`,
+          redirectTo: redirectUrl,
         },
       });
 
       if (authError) {
-        setError(authError.message);
+        // Provide more helpful error messages
+        const errorMessage = authError.message.includes('redirect_uri')
+          ? 'Redirect URL not configured. Please ensure your Netlify URL is added to Supabase allowed redirect URLs.'
+          : authError.message;
+        setError(errorMessage);
         setIsLoading(false);
       }
       // On success, Supabase will redirect; no further state update needed here.
-    } catch {
-      setError('Failed to start Google sign-in. Please try again.');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to start Google sign-in. Please try again.';
+      setError(errorMessage);
       setIsLoading(false);
     }
   };
