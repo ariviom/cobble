@@ -1,8 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import {
+  getAuthRedirectUrl,
+  getSupabaseBrowserClient,
+} from '@/app/lib/supabaseClient';
 import Link from 'next/link';
-import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { useState } from 'react';
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -17,31 +20,51 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
-      
-      // Construct redirect URL using current origin (works for both localhost and production)
-      // IMPORTANT: This URL must be configured in Supabase Dashboard > Authentication > URL Configuration
-      // as an allowed redirect URL for OAuth to work in production.
-      const redirectUrl = `${window.location.origin}/account`;
-      
+
+      // Get redirect URL - automatically uses current origin
+      // In dev: http://localhost:3000/account
+      // In prod: https://brick-party.com/account
+      // IMPORTANT: This exact URL must be configured in Supabase Dashboard > Authentication > URL Configuration
+      // as an allowed redirect URL for OAuth to work.
+      const redirectUrl = getAuthRedirectUrl();
+
+      // Log for debugging (remove in production if needed)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('OAuth redirect URL:', redirectUrl);
+      }
+
       const supabase = getSupabaseBrowserClient();
-      const { error: authError } = await supabase.auth.signInWithOAuth({
+      const { data, error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
+          queryParams: {
+            // Ensure we're explicitly setting the redirect
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
 
       if (authError) {
         // Provide more helpful error messages
-        const errorMessage = authError.message.includes('redirect_uri')
-          ? 'Redirect URL not configured. Please ensure your Netlify URL is added to Supabase allowed redirect URLs.'
-          : authError.message;
+        const errorMessage =
+          authError.message.includes('redirect_uri') ||
+          authError.message.includes('redirect')
+            ? `Redirect URL not configured. Current URL: ${redirectUrl}. Please ensure this exact URL is added to Supabase Dashboard > Authentication > URL Configuration > Redirect URLs.`
+            : authError.message;
         setError(errorMessage);
         setIsLoading(false);
+      } else if (data?.url) {
+        // Supabase returns a URL to redirect to - this should already include our redirectTo
+        // The redirect happens automatically via window.location
       }
       // On success, Supabase will redirect; no further state update needed here.
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to start Google sign-in. Please try again.';
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : 'Failed to start Google sign-in. Please try again.';
       setError(errorMessage);
       setIsLoading(false);
     }
@@ -52,15 +75,18 @@ export default function LoginPage() {
       <header className="text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Login</h1>
         <p className="mt-2 text-sm text-foreground-muted">
-          Sign in with your Google account. Email/password and other providers will be added
-          later.
+          Sign in with your Google account. Email/password and other providers
+          will be added later.
         </p>
       </header>
 
       <section className="rounded-lg border border-neutral-200 bg-background p-4 shadow-sm">
-        <h2 className="text-sm font-medium text-foreground">Sign in with Google</h2>
+        <h2 className="text-sm font-medium text-foreground">
+          Sign in with Google
+        </h2>
         <p className="mt-1 text-xs text-foreground-muted">
-          Recommended. Quarry will use your Google account as your primary identity.
+          Recommended. Quarry will use your Google account as your primary
+          identity.
         </p>
         <button
           type="button"
@@ -82,8 +108,8 @@ export default function LoginPage() {
           Sign in with email &amp; password
         </h2>
         <p className="mt-1 text-xs text-foreground-muted">
-          Optional alternative. These fields are placeholders until auth is wired to
-          Supabase.
+          Optional alternative. These fields are placeholders until auth is
+          wired to Supabase.
         </p>
         <div className="mt-3 flex flex-col gap-2">
           <label className="text-[11px] font-medium text-foreground">
@@ -125,6 +151,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-
-
