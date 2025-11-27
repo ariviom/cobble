@@ -1,7 +1,10 @@
 'use client';
 
 import { SetDisplayCard } from '@/app/components/set/SetDisplayCard';
+import { Button } from '@/app/components/ui/Button';
+import { Select } from '@/app/components/ui/Select';
 import { cn } from '@/app/components/ui/utils';
+import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useUserCollections } from '@/app/hooks/useUserCollections';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
@@ -20,18 +23,57 @@ type GroupBy = 'status' | 'theme';
 
 type ThemeMap = Map<number, ThemeInfo>;
 
-function useThemesForUserSets(themeIds: number[]): {
+function createThemeMap(source?: ThemeInfo[] | null): ThemeMap {
+  const map: ThemeMap = new Map();
+  if (!Array.isArray(source)) {
+    return map;
+  }
+  for (const theme of source) {
+    if (
+      theme &&
+      typeof theme.id === 'number' &&
+      Number.isFinite(theme.id) &&
+      typeof theme.name === 'string'
+    ) {
+      map.set(theme.id, theme);
+    }
+  }
+  return map;
+}
+
+function useThemesForUserSets(
+  themeIds: number[],
+  initialThemes?: ThemeInfo[]
+): {
   themeMap: ThemeMap;
   isLoading: boolean;
 } {
-  const [themeMap, setThemeMap] = useState<ThemeMap>(new Map());
-  const [isLoading, setIsLoading] = useState(false);
+  const [themeMap, setThemeMap] = useState<ThemeMap>(() =>
+    createThemeMap(initialThemes)
+  );
+  const [isLoading, setIsLoading] = useState(
+    themeIds.length > 0 && (!initialThemes || initialThemes.length === 0)
+  );
+
+  const missingThemeCount = useMemo(() => {
+    if (themeIds.length === 0) {
+      return 0;
+    }
+    let missing = 0;
+    for (const id of themeIds) {
+      if (!themeMap.has(id)) {
+        missing += 1;
+      }
+    }
+    return missing;
+  }, [themeIds, themeMap]);
 
   useEffect(() => {
-    if (themeIds.length === 0) {
-      setThemeMap(new Map());
+    if (themeIds.length === 0 || missingThemeCount === 0) {
+      setIsLoading(false);
       return;
     }
+
     let cancelled = false;
     async function load() {
       setIsLoading(true);
@@ -40,23 +82,12 @@ function useThemesForUserSets(themeIds: number[]): {
         if (!res.ok) throw new Error('themes_failed');
         const data = (await res.json()) as { themes?: ThemeInfo[] };
         const all = Array.isArray(data.themes) ? data.themes : [];
-        const map: ThemeMap = new Map();
-        for (const t of all) {
-          if (
-            typeof t.id === 'number' &&
-            Number.isFinite(t.id) &&
-            typeof t.name === 'string'
-          ) {
-            map.set(t.id, t);
-          }
-        }
+        const map = createThemeMap(all);
         if (!cancelled) {
           setThemeMap(map);
         }
       } catch {
-        if (!cancelled) {
-          setThemeMap(new Map());
-        }
+        // ignore fetch errors; keep existing map (likely hydrated via props)
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -67,7 +98,7 @@ function useThemesForUserSets(themeIds: number[]): {
     return () => {
       cancelled = true;
     };
-  }, [themeIds]);
+  }, [themeIds, missingThemeCount]);
 
   return { themeMap, isLoading };
 }
@@ -101,14 +132,19 @@ function getRootThemeId(themeId: number, themeMap: ThemeMap): number {
   return current.id;
 }
 
-function getRootThemeName(themeId: number, themeMap: ThemeMap): string {
+function getRootThemeName(themeId: number, themeMap: ThemeMap): string | null {
   const rootId = getRootThemeId(themeId, themeMap);
   const root = themeMap.get(rootId);
-  return root?.name ?? 'Unknown theme';
+  return root?.name ?? null;
 }
 
-export function UserSetsOverview() {
+type UserSetsOverviewProps = {
+  initialThemes?: ThemeInfo[];
+};
+
+export function UserSetsOverview({ initialThemes }: UserSetsOverviewProps) {
   const [mounted, setMounted] = useState(false);
+  useHydrateUserSets();
   const { user } = useSupabaseUser();
   const setsRecord = useUserSetsStore(state => state.sets);
   const {
@@ -238,7 +274,10 @@ export function UserSetsOverview() {
     [sets]
   );
 
-  const { themeMap, isLoading: themesLoading } = useThemesForUserSets(themeIds);
+  const { themeMap, isLoading: themesLoading } = useThemesForUserSets(
+    themeIds,
+    initialThemes
+  );
 
   const themeOptions = useMemo(() => {
     const names = new Map<number, string>();
@@ -246,7 +285,9 @@ export function UserSetsOverview() {
       if (typeof set.themeId === 'number' && Number.isFinite(set.themeId)) {
         const rootId = getRootThemeId(set.themeId, themeMap);
         const name = getRootThemeName(set.themeId, themeMap);
-        names.set(rootId, name);
+        if (name) {
+          names.set(rootId, name);
+        }
       }
     }
     return Array.from(names.entries())
@@ -294,11 +335,11 @@ export function UserSetsOverview() {
       if (groupBy === 'status') {
         key = getPrimaryStatusLabel(set.status);
       } else {
-        if (typeof set.themeId === 'number' && Number.isFinite(set.themeId)) {
-          key = getRootThemeName(set.themeId, themeMap);
-        } else {
-          key = 'Unknown theme';
-        }
+        const themeName =
+          typeof set.themeId === 'number' && Number.isFinite(set.themeId)
+            ? getRootThemeName(set.themeId, themeMap)
+            : null;
+        key = themeName ?? 'Unknown theme';
       }
       if (!groups.has(key)) {
         groups.set(key, []);
@@ -337,12 +378,20 @@ export function UserSetsOverview() {
           {hasAnySets && (
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <div className="flex items-center gap-2">
-                <label htmlFor="collection-filter" className="text-xs">
-                  Collection
+                <label
+                  htmlFor="collection-filter"
+                  className="flex items-center gap-2 text-xs"
+                >
+                  <span>Collection</span>
+                  {collectionsLoading && collections.length === 0 && (
+                    <span className="text-[10px] text-foreground-muted">
+                      Syncing…
+                    </span>
+                  )}
                 </label>
-                <select
+                <Select
                   id="collection-filter"
-                  className="rounded border border-neutral-300 bg-background px-2 py-1 text-xs"
+                  className="px-2 py-1 text-xs"
                   value={collectionFilter}
                   onChange={event =>
                     setCollectionFilter(event.target.value as CollectionFilter)
@@ -359,15 +408,15 @@ export function UserSetsOverview() {
                       {collection.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="flex items-center gap-2">
                 <label htmlFor="theme-filter" className="text-xs">
                   Theme
                 </label>
-                <select
+                <Select
                   id="theme-filter"
-                  className="rounded border border-neutral-300 bg-background px-2 py-1 text-xs"
+                  className="px-2 py-1 text-xs"
                   value={themeFilter === 'all' ? 'all' : String(themeFilter)}
                   onChange={event => {
                     const v = event.target.value;
@@ -385,31 +434,35 @@ export function UserSetsOverview() {
                       {opt.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs">Group by</span>
-                <div className="inline-flex rounded border border-neutral-300 bg-background text-xs">
-                  <button
+                <div className="inline-flex rounded-md border border-border-subtle bg-card text-xs">
+                  <Button
                     type="button"
+                    size="sm"
+                    variant={groupBy === 'status' ? 'secondary' : 'ghost'}
                     className={cn(
-                      'px-2 py-1',
-                      groupBy === 'status' && 'bg-neutral-200 font-medium'
+                      'rounded-none px-2 py-1 first:rounded-l-md last:rounded-r-md',
+                      groupBy === 'status' && 'font-medium'
                     )}
                     onClick={() => setGroupBy('status')}
                   >
                     Collection
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    size="sm"
+                    variant={groupBy === 'theme' ? 'secondary' : 'ghost'}
                     className={cn(
-                      'px-2 py-1',
-                      groupBy === 'theme' && 'bg-neutral-200 font-medium'
+                      'rounded-none px-2 py-1 first:rounded-l-md last:rounded-r-md',
+                      groupBy === 'theme' && 'font-medium'
                     )}
                     onClick={() => setGroupBy('theme')}
                   >
                     Theme
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -422,12 +475,6 @@ export function UserSetsOverview() {
             or set pages to mark sets as{' '}
             <span className="font-medium">Owned</span> or add them to your{' '}
             <span className="font-medium">Wishlist</span>.
-          </div>
-        )}
-
-        {collectionsLoading && (
-          <div className="mt-2 text-xs text-foreground-muted">
-            Loading collections…
           </div>
         )}
 

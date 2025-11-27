@@ -5,19 +5,25 @@ import { ButtonHTMLAttributes, forwardRef } from 'react';
 import { cn } from './utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center rounded border cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black',
+  'inline-flex items-center justify-center rounded-md border cursor-pointer text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
   {
     variants: {
       variant: {
-        primary: 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700',
+        primary:
+          'bg-theme-primary text-neutral-00 border-theme-primary hover:bg-theme-primary/90',
         secondary:
-          'bg-background text-foreground border-neutral-200 hover:bg-neutral-100',
+          'bg-card text-foreground border-border-subtle hover:bg-card-muted',
         ghost:
-          'bg-transparent text-foreground border-transparent hover:bg-neutral-100',
+          'bg-transparent text-foreground border-transparent hover:bg-background-muted',
+        outline:
+          'bg-transparent text-foreground border-border-subtle hover:bg-card-muted',
+        destructive:
+          'bg-danger text-neutral-00 border-danger hover:bg-danger/90',
       },
       size: {
-        sm: 'px-2 py-1 text-sm',
-        md: 'px-3 py-2 text-sm',
+        sm: 'px-2 py-1 text-xs',
+        md: 'px-3 py-1.5 text-sm',
+        lg: 'px-4 py-2 text-sm',
       },
     },
     defaultVariants: {

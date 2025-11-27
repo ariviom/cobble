@@ -97,7 +97,7 @@ export function SetStatusMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         className={cn(
-          'inline-flex items-center justify-center text-neutral-400 hover:text-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary/60',
+          'inline-flex items-center justify-center text-foreground-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary/60',
           hasAnyStatus && 'text-theme-primary'
         )}
         onClick={event => {
@@ -109,7 +109,7 @@ export function SetStatusMenu({
         <MoreVertical size={20} />
       </button>
       {open && (
-        <div className="absolute -top-4 right-0 z-20 mt-1 w-44 -translate-y-full overflow-hidden rounded-md border border-neutral-200 bg-white text-sm shadow-lg dark:bg-background">
+        <div className="absolute -top-4 right-0 z-20 mt-1 w-44 -translate-y-full overflow-hidden rounded-md border border-border-subtle bg-card text-sm shadow-lg">
           <div className="border-b px-3 py-2 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
             Collections
           </div>

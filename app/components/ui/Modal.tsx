@@ -38,8 +38,8 @@ export function Modal({ open, title, onClose, children }: Props) {
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative mx-4 w-full max-w-md rounded bg-background shadow-lg">
-        <div className="flex items-center justify-between border-b px-4 py-3">
+      <div className="relative mx-4 w-full max-w-md rounded-md bg-card shadow-lg border border-border-subtle">
+        <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3">
           <div
             id={titleId}
             className="text-sm font-semibold text-foreground"

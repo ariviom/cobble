@@ -75,15 +75,7 @@ export type Database = {
           set_num?: string | null
           version?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "rb_inventories_set_num_fkey"
-            columns: ["set_num"]
-            isOneToOne: false
-            referencedRelation: "rb_sets"
-            referencedColumns: ["set_num"]
-          },
-        ]
+        Relationships: []
       }
       rb_inventory_minifigs: {
         Row: {
@@ -340,6 +332,138 @@ export type Database = {
           },
         ]
       }
+      group_sessions: {
+        Row: {
+          id: string
+          host_user_id: string
+          set_num: string
+          slug: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+          ended_at: string | null
+        }
+        Insert: {
+          id?: string
+          host_user_id: string
+          set_num: string
+          slug?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+          ended_at?: string | null
+        }
+        Update: {
+          id?: string
+          host_user_id?: string
+          set_num?: string
+          slug?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+          ended_at?: string | null
+        }
+        Relationships: []
+      }
+      group_session_participants: {
+        Row: {
+          id: string
+          session_id: string
+          user_id: string | null
+          client_token: string
+          display_name: string
+          pieces_found: number
+          joined_at: string
+          last_seen_at: string
+          left_at: string | null
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          user_id?: string | null
+          client_token: string
+          display_name: string
+          pieces_found?: number
+          joined_at?: string
+          last_seen_at?: string
+          left_at?: string | null
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          user_id?: string | null
+          client_token?: string
+          display_name?: string
+          pieces_found?: number
+          joined_at?: string
+          last_seen_at?: string
+          left_at?: string | null
+        }
+        Relationships: []
+      }
+      user_collection_sets: {
+        Row: {
+          collection_id: string
+          created_at: string
+          set_num: string
+          user_id: string
+        }
+        Insert: {
+          collection_id: string
+          created_at?: string
+          set_num: string
+          user_id: string
+        }
+        Update: {
+          collection_id?: string
+          created_at?: string
+          set_num?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_collection_sets_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "user_collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_collection_sets_set_num_fkey"
+            columns: ["set_num"]
+            isOneToOne: false
+            referencedRelation: "rb_sets"
+            referencedColumns: ["set_num"]
+          },
+        ]
+      }
+      user_collections: {
+        Row: {
+          created_at: string
+          id: string
+          is_system: boolean
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_parts_inventory: {
         Row: {
           color_id: number
@@ -411,28 +535,34 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          collections_public: boolean
           created_at: string
           display_name: string | null
           subscription_expires_at: string | null
           subscription_tier: string | null
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
+          collections_public?: boolean
           created_at?: string
           display_name?: string | null
           subscription_expires_at?: string | null
           subscription_tier?: string | null
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
+          collections_public?: boolean
           created_at?: string
           display_name?: string | null
           subscription_expires_at?: string | null
           subscription_tier?: string | null
           updated_at?: string
           user_id?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -471,13 +601,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "rb_colors"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_set_parts_inventory_fk"
-            columns: ["set_num", "part_num", "color_id", "is_spare"]
-            isOneToOne: false
-            referencedRelation: "rb_set_parts"
-            referencedColumns: ["set_num", "part_num", "color_id", "is_spare"]
           },
           {
             foreignKeyName: "user_set_parts_part_num_fkey"
@@ -526,77 +649,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "user_sets_set_num_fkey"
-            columns: ["set_num"]
-            isOneToOne: false
-            referencedRelation: "rb_sets"
-            referencedColumns: ["set_num"]
-          },
-        ]
-      }
-      user_collections: {
-        Row: {
-          created_at: string
-          id: string
-          is_system: boolean
-          name: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_system?: boolean
-          name: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_system?: boolean
-          name?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_collections_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["user_id"]
-          },
-        ]
-      }
-      user_collection_sets: {
-        Row: {
-          collection_id: string
-          created_at: string
-          set_num: string
-          user_id: string
-        }
-        Insert: {
-          collection_id: string
-          created_at?: string
-          set_num: string
-          user_id: string
-        }
-        Update: {
-          collection_id?: string
-          created_at?: string
-          set_num?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_collection_sets_collection_id_fkey"
-            columns: ["collection_id"]
-            isOneToOne: false
-            referencedRelation: "user_collections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_collection_sets_set_num_fkey"
             columns: ["set_num"]
             isOneToOne: false
             referencedRelation: "rb_sets"
@@ -740,7 +792,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      set_status: ["owned", "want"],
+      set_status: ["owned", "want", "can_build", "partial"],
     },
   },
 } as const

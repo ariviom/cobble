@@ -14,3 +14,4 @@ drop type public.set_status;
 
 alter type public.set_status_new rename to set_status;
 
+

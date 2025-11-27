@@ -8,6 +8,9 @@ import type {
   IdentifyResponse,
   IdentifySet,
 } from '@/app/components/identify/types';
+import { Button } from '@/app/components/ui/Button';
+import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
+import { Spinner } from '@/app/components/ui/Spinner';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 export default function IdentifyPage() {
@@ -274,12 +277,12 @@ export default function IdentifyPage() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="focus:ring-primary relative block w-full max-w-xs overflow-hidden rounded-md border-2 border-dashed border-neutral-300 bg-neutral-50 hover:bg-neutral-100 focus:ring-2 focus:outline-none"
+              className="relative block w-full max-w-xs overflow-hidden rounded-md border-2 border-dashed border-border-subtle bg-card-muted hover:bg-background-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               aria-label="Upload or take a photo"
             >
               <div className="aspect-square w-full">
                 {imagePreview ? (
-                  <div className="h-full w-full overflow-hidden rounded bg-white">
+                  <div className="h-full w-full overflow-hidden rounded bg-card">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={imagePreview}
@@ -288,7 +291,7 @@ export default function IdentifyPage() {
                     />
                   </div>
                 ) : (
-                  <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-neutral-500">
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-foreground-muted">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 24 24"
@@ -301,7 +304,7 @@ export default function IdentifyPage() {
                     <div className="text-sm font-medium">
                       Upload or take a photo
                     </div>
-                    <div className="text-xs text-neutral-500">
+                    <div className="text-xs text-foreground-muted">
                       Supports camera on mobile
                     </div>
                   </div>
@@ -310,32 +313,36 @@ export default function IdentifyPage() {
             </button>
             {selectedFile && !hasSearched && (
               <div className="mt-3 flex justify-center">
-                <button
+                <Button
                   type="button"
+                  variant="primary"
                   onClick={onSearch}
                   disabled={isLoading}
-                  className="min-w-32 rounded border px-4 py-3 text-sm disabled:opacity-50"
+                  className="min-w-32"
                 >
                   {isLoading ? 'Searching…' : 'Search'}
-                </button>
+                </Button>
               </div>
             )}
             {selectedFile && hasSearched && (
               <div className="mt-3 flex justify-center">
-                <button
+                <Button
                   type="button"
+                  variant="destructive"
                   onClick={onClear}
-                  className="min-w-32 rounded border border-brand-red px-4 py-3 text-sm font-medium text-brand-red hover:bg-brand-red/90 hover:text-white focus:ring-2 focus:ring-brand-red focus:ring-offset-2 focus:outline-none"
+                  className="min-w-32"
                 >
-                  Clear Search
-                </button>
+                  Clear search
+                </Button>
               </div>
             )}
           </div>
-          {isLoading && <div className="mt-4 text-sm">Processing…</div>}
+          {isLoading && (
+            <Spinner className="mt-4" label="Processing image…" />
+          )}
           {error && (
-            <div className="mt-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-              Failed to identify image: {error}
+            <div className="mt-4">
+              <ErrorBanner message={`Failed to identify image: ${error}`} />
             </div>
           )}
         </div>

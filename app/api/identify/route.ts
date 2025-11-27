@@ -18,13 +18,110 @@ import {
 	type BLColorEntry,
 } from '@/app/lib/bricklink';
 
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set([
+	'image/jpeg',
+	'image/jpg',
+	'image/png',
+	'image/webp',
+	'image/heic',
+	'image/heif',
+]);
+const IDENTIFY_RATE_LIMIT_WINDOW_MS = 60_000;
+const IDENTIFY_RATE_LIMIT_MAX = 12;
+const BL_COLOR_VARIANT_LIMIT = 5;
+const BL_SUPERSET_TOTAL_LIMIT = 40;
+const EXTERNAL_CALL_BUDGET = 40;
+
+type RateLimitEntry = { count: number; resetAt: number };
+const identifyRateLimitStore = new Map<string, RateLimitEntry>();
+
+class ExternalCallBudget {
+	constructor(private remaining: number) {}
+
+	tryConsume(cost = 1) {
+		if (this.remaining < cost) {
+			return false;
+		}
+		this.remaining -= cost;
+		return true;
+	}
+}
+
+async function withBudget<T>(
+	budget: ExternalCallBudget,
+	cb: () => Promise<T>
+): Promise<T> {
+	if (!budget.tryConsume()) {
+		throw new Error('external_budget_exhausted');
+	}
+	return cb();
+}
+
+function isBudgetError(err: unknown): err is Error {
+	return err instanceof Error && err.message === 'external_budget_exhausted';
+}
+
+function getClientIdentifier(req: NextRequest): string {
+	const forwarded = req.headers.get('x-forwarded-for');
+	if (forwarded) {
+		const [first] = forwarded.split(',');
+		if (first?.trim()) {
+			return first.trim();
+		}
+	}
+	const realIp = req.headers.get('x-real-ip');
+	if (realIp) return realIp;
+	// @ts-expect-error: NextRequest may provide ip in runtime environments
+	return req.ip ?? 'anonymous';
+}
+
+function applyIdentifyRateLimit(identifier: string) {
+	const now = Date.now();
+	const entry = identifyRateLimitStore.get(identifier);
+	if (!entry || entry.resetAt < now) {
+		identifyRateLimitStore.set(identifier, {
+			count: 1,
+			resetAt: now + IDENTIFY_RATE_LIMIT_WINDOW_MS,
+		});
+		return { limited: false };
+	}
+
+	if (entry.count >= IDENTIFY_RATE_LIMIT_MAX) {
+		return {
+			limited: true,
+			retryAfter: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
+		};
+	}
+
+	entry.count += 1;
+	return { limited: false };
+}
+
+function validateImageFile(file: File): { error: string; status?: number } | null {
+	if (file.size <= 0) {
+		return { error: 'empty_image', status: 400 };
+	}
+	if (file.size > MAX_IMAGE_BYTES) {
+		return { error: 'image_too_large', status: 413 };
+	}
+	const mime = file.type?.toLowerCase();
+	if (mime && !ALLOWED_IMAGE_TYPES.has(mime)) {
+		return { error: 'unsupported_image_type', status: 415 };
+	}
+	return null;
+}
+
+
 async function buildBlAvailableColors(
-	blPartId: string
+	blPartId: string,
+	budget: ExternalCallBudget
 ): Promise<Array<{ id: number; name: string }>> {
 	let cols: BLColorEntry[] = [];
 	try {
-		cols = await blGetPartColors(blPartId);
-	} catch {
+		cols = await withBudget(budget, () => blGetPartColors(blPartId));
+	} catch (err) {
+		if (isBudgetError(err)) throw err;
 		// ignore BL colors failures; fall back to ids only
 	}
 	if (!cols.length) return [];
@@ -44,7 +141,8 @@ async function buildBlAvailableColors(
 				}
 			}
 		}
-	} catch {
+	} catch (err) {
+		if (isBudgetError(err)) throw err;
 		// ignore RB color mapping failures; we'll fall back to ids
 	}
 
@@ -56,10 +154,30 @@ async function buildBlAvailableColors(
 
 export async function POST(req: NextRequest) {
 	try {
+		const clientIdentifier = getClientIdentifier(req);
+		const rateLimitResult = applyIdentifyRateLimit(clientIdentifier);
+		if (rateLimitResult.limited) {
+			const init: ResponseInit = { status: 429 };
+			if (rateLimitResult.retryAfter) {
+				init.headers = {
+					'Retry-After': String(rateLimitResult.retryAfter),
+				};
+			}
+			return NextResponse.json({ error: 'identify_rate_limited' }, init);
+		}
+
+		const externalBudget = new ExternalCallBudget(EXTERNAL_CALL_BUDGET);
 		const form = await req.formData();
 		const file = form.get('image');
 		if (!(file instanceof File)) {
 			return NextResponse.json({ error: 'missing_image' });
+		}
+		const imageValidation = validateImageFile(file);
+		if (imageValidation) {
+			return NextResponse.json(
+				{ error: imageValidation.error },
+				{ status: imageValidation.status ?? 400 }
+			);
 		}
 		const colorHintRaw = form.get('colorHint');
 		const colorHint =
@@ -81,7 +199,9 @@ export async function POST(req: NextRequest) {
 						? payloadDiag.items.length
 						: undefined,
 				});
-			} catch {}
+			} catch (err) {
+				if (isBudgetError(err)) throw err;
+			}
 		}
 		const candidates = extractCandidatePartNumbers(brickognizePayload)
 			// Prefer higher confidence first
@@ -93,7 +213,9 @@ export async function POST(req: NextRequest) {
 		if (process.env.NODE_ENV !== 'production') {
 			try {
 				console.log('identify: candidates', candidates.slice(0, 5));
-			} catch {}
+			} catch (err) {
+				if (isBudgetError(err)) throw err;
+			}
 		}
 
 		// RB-first flow; BL supersets only as fallback. No component list.
@@ -141,7 +263,10 @@ export async function POST(req: NextRequest) {
 				let partImage: string | null = blCand.imageUrl ?? null;
 				let partName = '';
 				try {
-					const supersets: BLSupersetItem[] = await blGetPartSupersets(blId);
+					const supersets: BLSupersetItem[] = await withBudget(
+						externalBudget,
+						() => blGetPartSupersets(blId)
+					);
 					if (Array.isArray(supersets) && supersets.length > 0) {
 						setsFromBL = supersets.map(s => ({
 							setNumber: s.setNumber,
@@ -153,10 +278,14 @@ export async function POST(req: NextRequest) {
 					} else {
 						// Try supersets by color variants to improve match rate
 						try {
-							const colors = await blGetPartColors(blId);
-							for (const c of (colors ?? []).slice(0, 10)) {
+							const colors = await withBudget(externalBudget, () =>
+								blGetPartColors(blId)
+							);
+							for (const c of (colors ?? []).slice(0, BL_COLOR_VARIANT_LIMIT)) {
 								if (typeof c?.color_id !== 'number') continue;
-								const supByColor = await blGetPartSupersets(blId, c.color_id);
+								const supByColor = await withBudget(externalBudget, () =>
+									blGetPartSupersets(blId, c.color_id)
+								);
 								for (const s of supByColor) {
 									setsFromBL.push({
 										setNumber: s.setNumber,
@@ -166,12 +295,14 @@ export async function POST(req: NextRequest) {
 										quantity: s.quantity,
 									});
 								}
-								if (setsFromBL.length >= 50) break;
+								if (setsFromBL.length >= BL_SUPERSET_TOTAL_LIMIT) break;
 							}
 							// If still empty, infer color ids from subsets entries
 							if (setsFromBL.length === 0) {
 								try {
-									const subs = await blGetPartSubsets(blId);
+									const subs = await withBudget(externalBudget, () =>
+										blGetPartSubsets(blId)
+									);
 									const uniq = new Map<number, string | undefined>();
 									for (const s of subs ?? []) {
 										if (typeof s?.color_id === 'number') {
@@ -185,9 +316,13 @@ export async function POST(req: NextRequest) {
 													bl: blId,
 													colorId: cid,
 												});
-											} catch {}
+											} catch (err) {
+												if (isBudgetError(err)) throw err;
+											}
 										}
-										const supByColor = await blGetPartSupersets(blId, cid);
+										const supByColor = await withBudget(externalBudget, () =>
+											blGetPartSupersets(blId, cid)
+										);
 										for (const s of supByColor) {
 											setsFromBL.push({
 												setNumber: s.setNumber,
@@ -197,9 +332,11 @@ export async function POST(req: NextRequest) {
 												quantity: s.quantity,
 											});
 										}
-										if (setsFromBL.length >= 50) break;
+										if (setsFromBL.length >= BL_SUPERSET_TOTAL_LIMIT) break;
 									}
-								} catch {}
+								} catch (err) {
+									if (isBudgetError(err)) throw err;
+								}
 							}
 							// Deduplicate by setNumber
 							if (setsFromBL.length) {
@@ -210,33 +347,42 @@ export async function POST(req: NextRequest) {
 									return true;
 								});
 							}
-						} catch {}
+						} catch (err) {
+							if (isBudgetError(err)) throw err;
+						}
 					}
 				} catch (e) {
+					if (isBudgetError(e)) throw e;
 					if (process.env.NODE_ENV !== 'production') {
 						try {
 							console.log('identify: bl supersets fetch failed', {
 								bl: blId,
 								error: e instanceof Error ? e.message : String(e),
 							});
-						} catch {}
+						} catch (err) {
+							if (isBudgetError(err)) throw err;
+						}
 					}
 				}
 				// Try to enrich part meta from BL
 				try {
-					const meta = await blGetPart(blId);
+					const meta = await withBudget(externalBudget, () => blGetPart(blId));
 					partName = meta?.name ?? partName;
 					const metaWithImage = meta as { image_url?: unknown };
 					partImage =
 						typeof metaWithImage.image_url === 'string'
 							? metaWithImage.image_url
 							: partImage;
-				} catch {}
+				} catch (err) {
+					if (isBudgetError(err)) throw err;
+				}
 				// Include available BL colors for UI dropdown
 				let blAvailableColors: Array<{ id: number; name: string }> = [];
 				try {
-					blAvailableColors = await buildBlAvailableColors(blId);
-				} catch {}
+					blAvailableColors = await buildBlAvailableColors(blId, externalBudget);
+				} catch (err) {
+					if (isBudgetError(err)) throw err;
+				}
 				// If still no sets from BL paths, fall back to RB resolution for this BL id
 				// Enrich BL-derived sets with RB images (and year) when possible
 				try {
@@ -250,13 +396,16 @@ export async function POST(req: NextRequest) {
 									year: summary.year ?? set.year,
 									imageUrl: summary.imageUrl ?? set.imageUrl,
 								};
-							} catch {
+							} catch (err) {
+								if (isBudgetError(err)) throw err;
 								return set;
 							}
 						})
 					);
 					setsFromBL = [...enriched, ...setsFromBL.slice(top.length)];
-				} catch {}
+				} catch (err) {
+					if (isBudgetError(err)) throw err;
+				}
 				if (process.env.NODE_ENV !== 'production') {
 					try {
 						console.log('identify: BL fallback (no RB candidates)', {
@@ -264,7 +413,9 @@ export async function POST(req: NextRequest) {
 							colorCount: blAvailableColors.length,
 							setCount: setsFromBL.length,
 						});
-					} catch {}
+					} catch (err) {
+						if (isBudgetError(err)) throw err;
+					}
 				}
 				return NextResponse.json({
 					part: {
@@ -296,13 +447,15 @@ export async function POST(req: NextRequest) {
 				try {
 					const s = await getSetsForPart(partNum, preferredColorId);
 					if (s.length) return s;
-				} catch {
+				} catch (err) {
+					if (isBudgetError(err)) throw err;
 					// ignore; fall through
 				}
 			}
 			try {
 				return await getSetsForPart(partNum, undefined);
-			} catch {
+			} catch (err) {
+				if (isBudgetError(err)) throw err;
 				return [];
 			}
 		}
@@ -314,7 +467,8 @@ export async function POST(req: NextRequest) {
 		let availableColors: PartAvailableColor[] = [];
 		try {
 			availableColors = await getPartColorsForPart(chosen.partNum);
-		} catch {
+		} catch (err) {
+			if (isBudgetError(err)) throw err;
 			availableColors = [];
 		}
 		// Prefer the sole available RB color (if any), then explicit hint, then the candidate-provided color
@@ -339,13 +493,15 @@ export async function POST(req: NextRequest) {
 				return b.year - a.year;
 			});
 		} else {
-			if (process.env.NODE_ENV !== 'production') {
-				try {
-					console.log('identify: no RB sets found across candidates', {
-						tried: valid.slice(0, 5).map(v => v.partNum),
-					});
-				} catch {}
-			}
+				if (process.env.NODE_ENV !== 'production') {
+					try {
+						console.log('identify: no RB sets found across candidates', {
+							tried: valid.slice(0, 5).map(v => v.partNum),
+						});
+					} catch (err) {
+						if (isBudgetError(err)) throw err;
+					}
+				}
 			// Fallback to BL supersets for the best BL-backed original candidate
 			const blCand = candidates.find(c => typeof c.bricklinkId === 'string');
 			if (blCand && blCand.bricklinkId) {
@@ -354,7 +510,10 @@ export async function POST(req: NextRequest) {
 				let partImage: string | null = chosen.imageUrl ?? null;
 				let partName: string = chosen.name ?? '';
 				try {
-					const supersets: BLSupersetItem[] = await blGetPartSupersets(blId);
+					const supersets: BLSupersetItem[] = await withBudget(
+						externalBudget,
+						() => blGetPartSupersets(blId)
+					);
 					if (Array.isArray(supersets) && supersets.length > 0) {
 						setsFromBL = supersets.map(s => ({
 							setNumber: s.setNumber,
@@ -366,8 +525,10 @@ export async function POST(req: NextRequest) {
 					} else {
 						// Try supersets by color variants as a fallback
 						try {
-							const colors = await blGetPartColors(blId);
-							for (const c of (colors ?? []).slice(0, 10)) {
+							const colors = await withBudget(externalBudget, () =>
+								blGetPartColors(blId)
+							);
+							for (const c of (colors ?? []).slice(0, BL_COLOR_VARIANT_LIMIT)) {
 								if (typeof c?.color_id !== 'number') continue;
 								if (process.env.NODE_ENV !== 'production') {
 									try {
@@ -376,9 +537,13 @@ export async function POST(req: NextRequest) {
 											colorId: c.color_id,
 											colorName: c.color_name ?? null,
 										});
-									} catch {}
+									} catch (err) {
+										if (isBudgetError(err)) throw err;
+									}
 								}
-								const supByColor = await blGetPartSupersets(blId, c.color_id);
+								const supByColor = await withBudget(externalBudget, () =>
+									blGetPartSupersets(blId, c.color_id)
+								);
 								for (const s of supByColor) {
 									setsFromBL.push({
 										setNumber: s.setNumber,
@@ -388,11 +553,13 @@ export async function POST(req: NextRequest) {
 										quantity: s.quantity,
 									});
 								}
-								if (setsFromBL.length >= 50) break;
+								if (setsFromBL.length >= BL_SUPERSET_TOTAL_LIMIT) break;
 							}
 							if (setsFromBL.length === 0) {
 								try {
-									const subs = await blGetPartSubsets(blId);
+									const subs = await withBudget(externalBudget, () =>
+										blGetPartSubsets(blId)
+									);
 									const uniq = new Map<number, string | undefined>();
 									for (const s of subs ?? []) {
 										if (typeof s?.color_id === 'number') {
@@ -406,9 +573,13 @@ export async function POST(req: NextRequest) {
 													bl: blId,
 													colorId: cid,
 												});
-											} catch {}
+											} catch (err) {
+												if (isBudgetError(err)) throw err;
+											}
 										}
-										const supByColor = await blGetPartSupersets(blId, cid);
+										const supByColor = await withBudget(externalBudget, () =>
+											blGetPartSupersets(blId, cid)
+										);
 										for (const s of supByColor) {
 											setsFromBL.push({
 												setNumber: s.setNumber,
@@ -418,9 +589,11 @@ export async function POST(req: NextRequest) {
 												quantity: s.quantity,
 											});
 										}
-										if (setsFromBL.length >= 50) break;
+										if (setsFromBL.length >= BL_SUPERSET_TOTAL_LIMIT) break;
 									}
-								} catch {}
+								} catch (err) {
+									if (isBudgetError(err)) throw err;
+								}
 							}
 							// Deduplicate
 							if (setsFromBL.length) {
@@ -431,22 +604,30 @@ export async function POST(req: NextRequest) {
 									return true;
 								});
 							}
-						} catch {}
+						} catch (err) {
+							if (isBudgetError(err)) throw err;
+						}
 					}
-				} catch {}
+				} catch (err) {
+					if (isBudgetError(err)) throw err;
+				}
 				try {
-					const meta = await blGetPart(blId);
+					const meta = await withBudget(externalBudget, () => blGetPart(blId));
 					partName = meta?.name ?? partName;
 					const metaWithImage = meta as { image_url?: unknown };
 					partImage =
 						typeof metaWithImage.image_url === 'string'
 							? metaWithImage.image_url
 							: partImage;
-				} catch {}
+				} catch (err) {
+					if (isBudgetError(err)) throw err;
+				}
 				let blAvailableColors: Array<{ id: number; name: string }> = [];
 				try {
-					blAvailableColors = await buildBlAvailableColors(blId);
-				} catch {}
+					blAvailableColors = await buildBlAvailableColors(blId, externalBudget);
+				} catch (err) {
+					if (isBudgetError(err)) throw err;
+				}
 				// Enrich BL-derived sets with RB images (and year) when possible
 				try {
 					const top = setsFromBL.slice(0, 20);
@@ -459,13 +640,16 @@ export async function POST(req: NextRequest) {
 									year: summary.year ?? set.year,
 									imageUrl: summary.imageUrl ?? set.imageUrl,
 								};
-							} catch {
+							} catch (err) {
+								if (isBudgetError(err)) throw err;
 								return set;
 							}
 						})
 					);
 					setsFromBL = [...enriched, ...setsFromBL.slice(top.length)];
-				} catch {}
+				} catch (err) {
+					if (isBudgetError(err)) throw err;
+				}
 				if (process.env.NODE_ENV !== 'production') {
 					try {
 						console.log('identify: BL fallback (RB sets empty)', {
@@ -473,7 +657,9 @@ export async function POST(req: NextRequest) {
 							colorCount: blAvailableColors.length,
 							setCount: setsFromBL.length,
 						});
-					} catch {}
+					} catch (err) {
+						if (isBudgetError(err)) throw err;
+					}
 				}
 				return NextResponse.json({
 					part: {
@@ -509,12 +695,20 @@ export async function POST(req: NextRequest) {
 			sets,
 		});
 	} catch (err) {
+		if (err instanceof Error && err.message === 'external_budget_exhausted') {
+			return NextResponse.json(
+				{ error: 'identify_budget_exceeded' },
+				{ status: 429 }
+			);
+		}
 		if (process.env.NODE_ENV !== 'production') {
 			try {
 				console.log('identify failed', {
 					error: err instanceof Error ? err.message : String(err),
 				});
-			} catch {}
+			} catch (logErr) {
+				if (isBudgetError(logErr)) throw logErr;
+			}
 		}
 		return NextResponse.json({ error: 'identify_failed' });
 	}

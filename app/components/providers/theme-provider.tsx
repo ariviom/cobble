@@ -372,7 +372,10 @@ export function ThemeProvider({ children }: PropsWithChildren) {
 
         fetchedUserIdRef.current = user.id;
       } catch (error) {
-        console.error('Failed to load theme preference', error);
+        if (process.env.NODE_ENV === 'development') {
+          // In development we still want visibility, but avoid noisy runtime errors in production.
+          console.warn('Failed to load theme preference', error);
+        }
       } finally {
         if (!cancelled) {
           setIsSyncing(false);

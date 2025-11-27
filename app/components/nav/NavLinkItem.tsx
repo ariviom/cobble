@@ -28,8 +28,8 @@ export function NavLinkItem({
   const classes = cn(
     'flex flex-col items-center gap-1 rounded-lg px-3 py-2 transition-colors lg:flex-row lg:gap-2 lg:rounded-md',
     active
-      ? 'text-foreground lg:bg-neutral-100'
-      : 'text-foreground-muted hover:bg-neutral-100',
+      ? 'text-foreground lg:bg-card-muted'
+      : 'text-foreground-muted hover:bg-card-muted',
     className
   );
 

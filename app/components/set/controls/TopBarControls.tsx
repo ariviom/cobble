@@ -271,7 +271,7 @@ export function TopBarControls({
             <span className="inline-flex items-center gap-2">
               <span>Pinned</span>
               {pinnedCount > 0 ? (
-                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-neutral-200 px-1 text-xs">
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-card-muted px-1 text-xs">
                   {pinnedCount}
                 </span>
               ) : null}
@@ -299,7 +299,7 @@ export function TopBarControls({
         )}
       </div>
       {/* Sidebar Group Triggers */}
-      <div className="sidebar relative min-w-fit border-neutral-300 lg:fixed lg:top-nav-height lg:left-0 lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-neutral-00">
+      <div className="sidebar relative min-w-fit border-border-subtle lg:fixed lg:top-nav-height lg:left-0 lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-card">
         <div className="flex flex-nowrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-1">
           {parentOptions.length > 0 ? (
             <div className="lg:relative">
@@ -341,7 +341,7 @@ export function TopBarControls({
                     <span>
                       Colors
                       {(filter.colors?.length || 0) > 0 ? (
-                        <span className="ml-2 text-sm text-neutral-400">
+                        <span className="ml-2 text-sm text-foreground-muted">
                           ({filter.colors!.join(', ')})
                         </span>
                       ) : null}

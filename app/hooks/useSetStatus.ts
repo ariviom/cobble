@@ -47,7 +47,6 @@ export function useSetStatus({
   const setStatus = useUserSetsStore(state => state.setStatus);
 
   const [mounted, setMounted] = useState(false);
-  const [hydratedFromSupabase, setHydratedFromSupabase] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -67,67 +66,9 @@ export function useSetStatus({
     [setNumber, name, year, imageUrl, numParts, themeId]
   );
 
-  // Map DB enum to local SetStatus shape.
-  function dbStatusToLocal(status: Enums<'set_status'>): SetStatus {
-    if (status === 'owned') return { owned: true, wantToBuild: false };
-    // Treat any other value (including legacy ones) as wishlist.
-    return { owned: false, wantToBuild: true };
-  }
-
   function localKeyToDbStatus(key: SetStatusKey): Enums<'set_status'> {
     return key === 'owned' ? 'owned' : 'want';
   }
-
-  // Hydrate local store from Supabase when a user is logged in.
-  useEffect(() => {
-    if (!user || hydratedFromSupabase) return;
-
-    let cancelled = false;
-    const supabase = getSupabaseBrowserClient();
-
-    const run = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('user_sets')
-          .select('set_num,status')
-          .eq('user_id', user.id)
-          .eq('set_num', setNumber)
-          .maybeSingle();
-
-        if (cancelled || error || !data) {
-          return;
-        }
-
-        const nextStatus = dbStatusToLocal(data.status);
-
-        useUserSetsStore.setState(prev => {
-          const existing = prev.sets[normKey];
-          const baseMeta: UserSetMeta = existing ?? meta;
-          return {
-            ...prev,
-            sets: {
-              ...prev.sets,
-              [normKey]: {
-                ...baseMeta,
-                status: nextStatus,
-                lastUpdatedAt: existing?.lastUpdatedAt ?? Date.now(),
-              },
-            },
-          };
-        });
-      } finally {
-        if (!cancelled) {
-          setHydratedFromSupabase(true);
-        }
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, hydratedFromSupabase, setNumber, normKey, meta]);
 
   const toggleStatus = (key: SetStatusKey) => {
     const nextValue = !status[key];

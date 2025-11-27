@@ -29,6 +29,17 @@ export type UserSet = UserSetMeta & {
   lastUpdatedAt: number;
 };
 
+export type HydratedSetInput = {
+  setNumber: string;
+  name?: string;
+  year?: number;
+  imageUrl?: string | null;
+  numParts?: number;
+  themeId?: number | null;
+  status: SetStatus;
+  updatedAt?: number;
+};
+
 type UserSetsState = {
   /**
    * Map of setNumber (case-insensitive key) to stored user-set entry.
@@ -49,6 +60,10 @@ type UserSetsState = {
    * Clear all statuses for a given set, removing it from the store.
    */
   clearAllStatusesForSet: (setNumber: string) => void;
+  /**
+   * Merge a batch of Supabase-hydrated sets into the local store.
+   */
+  hydrateFromSupabase: (entries: HydratedSetInput[]) => void;
 };
 
 const STORAGE_KEY = 'quarry_user_sets_v1';
@@ -268,6 +283,67 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
     set(prevState => {
       const nextSets = { ...prevState.sets };
       delete nextSets[normKey];
+      const nextState: UserSetsState = {
+        ...prevState,
+        sets: nextSets,
+      };
+      persistState(nextState);
+      return nextState;
+    });
+  },
+  hydrateFromSupabase: (entries: HydratedSetInput[]) => {
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return;
+    }
+    set(prevState => {
+      let mutated = false;
+      const nextSets = { ...prevState.sets };
+
+      for (const entry of entries) {
+        if (!entry || typeof entry.setNumber !== 'string') {
+          continue;
+        }
+        const normKey = normalizeKey(entry.setNumber);
+        const existing = nextSets[normKey];
+        const incomingUpdatedAt =
+          typeof entry.updatedAt === 'number' && Number.isFinite(entry.updatedAt)
+            ? entry.updatedAt
+            : Date.now();
+
+        const shouldUpdate =
+          !existing || incomingUpdatedAt >= (existing.lastUpdatedAt ?? 0);
+
+        if (!shouldUpdate) continue;
+
+        nextSets[normKey] = {
+          setNumber: entry.setNumber,
+          name: entry.name ?? existing?.name ?? entry.setNumber,
+          year:
+            typeof entry.year === 'number'
+              ? entry.year
+              : existing?.year ?? 0,
+          imageUrl:
+            typeof entry.imageUrl === 'string' || entry.imageUrl === null
+              ? entry.imageUrl
+              : existing?.imageUrl ?? null,
+          numParts:
+            typeof entry.numParts === 'number'
+              ? entry.numParts
+              : existing?.numParts ?? 0,
+          themeId:
+            typeof entry.themeId === 'number'
+              ? entry.themeId
+              : existing?.themeId ?? null,
+          status: entry.status ?? existing?.status ?? EMPTY_SET_STATUS,
+          lastUpdatedAt: incomingUpdatedAt,
+        };
+        mutated = true;
+      }
+
+      if (!mutated) {
+        return prevState;
+      }
+
       const nextState: UserSetsState = {
         ...prevState,
         sets: nextSets,

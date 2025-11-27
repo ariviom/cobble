@@ -40,7 +40,7 @@ export function Navigation({
   return (
     <nav
       className={cn(
-        'fixed inset-x-0 bottom-0 z-50 h-nav-height w-full border-t border-foreground-accent bg-neutral-00 lg:top-0 lg:bottom-auto lg:border-b',
+        'fixed inset-x-0 bottom-0 z-50 h-nav-height w-full border-t border-border-subtle bg-card lg:top-0 lg:bottom-auto lg:border-b',
         className
       )}
     >
@@ -51,7 +51,7 @@ export function Navigation({
             href="/"
             className="hidden items-center gap-3 lg:absolute lg:top-1/2 lg:left-0 lg:flex lg:-translate-y-1/2"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-900 text-neutral-00">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-theme-primary text-neutral-00">
               <Package className="h-5 w-5" />
             </div>
             <h1 className="text-lg font-bold">Quarry</h1>

@@ -4,7 +4,7 @@ import { cn } from '@/app/components/ui/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 const rowButtonVariants = cva(
-  'flex w-full h-full items-center bg-background px-3 text-left text-foreground hover:bg-neutral-100 selected:bg-theme-primary/10 selected:text-theme-primary cursor-pointer',
+  'flex w-full h-full items-center bg-card px-3 text-left text-foreground hover:bg-card-muted data-[selected=true]:bg-theme-primary/10 data-[selected=true]:text-theme-primary cursor-pointer',
   {
     variants: {
       size: {

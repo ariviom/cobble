@@ -5,6 +5,7 @@ import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Spinner } from '@/app/components/ui/Spinner';
 import { Button } from '@/app/components/ui/Button';
 import { Modal } from '@/app/components/ui/Modal';
+import { useGroupSessionChannel } from '@/app/hooks/useGroupSessionChannel';
 import { useInventoryPrices } from '@/app/hooks/useInventoryPrices';
 import { useInventoryViewModel } from '@/app/hooks/useInventoryViewModel';
 import { useSupabaseOwned } from '@/app/hooks/useSupabaseOwned';
@@ -28,6 +29,24 @@ type InventoryTableProps = {
   setNumber: string;
   setName?: string;
   partPricesEnabled?: boolean;
+  /**
+   * When false, Supabase-backed owned sync is disabled and changes remain
+   * local. Used for Search Together participants so only the host persists
+   * owned quantities to user_set_parts.
+   */
+  enableCloudSync?: boolean;
+  /**
+   * Optional Search Together session metadata. When provided, owned changes
+   * will be broadcast to other participants via Supabase Realtime and
+   * incoming updates from others will be applied locally.
+   */
+  groupSessionId?: string | null;
+  groupParticipantId?: string | null;
+  groupClientId?: string | null;
+  onParticipantPiecesDelta?: (
+    participantId: string | null,
+    delta: number
+  ) => void;
   onPriceStatusChange?: (
     status: 'idle' | 'loading' | 'loaded' | 'error'
   ) => void;
@@ -39,6 +58,11 @@ export function InventoryTable({
   setNumber,
   setName,
   partPricesEnabled = false,
+  enableCloudSync = true,
+  groupSessionId,
+  groupParticipantId,
+  groupClientId,
+  onParticipantPiecesDelta,
   onPriceStatusChange,
   onPriceTotalsChange,
   onRequestPartPrices,
@@ -102,6 +126,24 @@ export function InventoryTable({
     setNumber,
     rows,
     keys,
+    enableCloudSync,
+  });
+
+  const { broadcastPieceDelta } = useGroupSessionChannel({
+    enabled:
+      Boolean(groupSessionId) &&
+      Boolean(groupParticipantId) &&
+      Boolean(groupClientId),
+    sessionId: groupSessionId ?? null,
+    setNumber,
+    participantId: groupParticipantId ?? null,
+    clientId: groupClientId ?? '',
+    onRemoteDelta: payload => {
+      handleOwnedChange(payload.key, payload.newOwned);
+    },
+    ...(onParticipantPiecesDelta
+      ? { onParticipantPiecesDelta }
+      : {}),
   });
 
   const rowByKey = useMemo(() => {
@@ -242,7 +284,7 @@ export function InventoryTable({
         }}
       />
 
-      <div className="bg-neutral-50 pt-inventory-offset transition-[padding] lg:overflow-y-auto lg:pt-0">
+      <div className="bg-background-muted pt-inventory-offset transition-[padding] lg:overflow-y-auto lg:pt-0">
         <div className="flex flex-col p-2">
           {error ? (
             <ErrorBanner message="Failed to load inventory. Please try again." />
@@ -290,6 +332,19 @@ export function InventoryTable({
 
                       handleOwnedChange(key, clamped);
 
+                      if (
+                        delta !== 0 &&
+                        groupSessionId &&
+                        groupParticipantId &&
+                        groupClientId
+                      ) {
+                        broadcastPieceDelta({
+                          key,
+                          delta,
+                          newOwned: clamped,
+                        });
+                      }
+
                       // When a whole minifigure row changes, propagate the delta
                       // to its component rows (subparts).
                       const isFigId =
@@ -312,7 +367,22 @@ export function InventoryTable({
                             childOwned + delta * rel.quantity,
                             childRow.quantityRequired
                           );
+                          const childDelta = nextChildOwned - childOwned;
+
                           handleOwnedChange(childKey, nextChildOwned);
+
+                          if (
+                            childDelta !== 0 &&
+                            groupSessionId &&
+                            groupParticipantId &&
+                            groupClientId
+                          ) {
+                            broadcastPieceDelta({
+                              key: childKey,
+                              delta: childDelta,
+                              newOwned: nextChildOwned,
+                            });
+                          }
                         }
                       }
 
@@ -399,6 +469,19 @@ export function InventoryTable({
 
                               handleOwnedChange(key, clamped);
 
+                              if (
+                                delta !== 0 &&
+                                groupSessionId &&
+                                groupParticipantId &&
+                                groupClientId
+                              ) {
+                                broadcastPieceDelta({
+                                  key,
+                                  delta,
+                                  newOwned: clamped,
+                                });
+                              }
+
                               const isFigId =
                                 typeof r.partId === 'string' &&
                                 r.partId.startsWith('fig:');
@@ -419,7 +502,23 @@ export function InventoryTable({
                                     childOwned + delta * rel.quantity,
                                     childRow.quantityRequired
                                   );
+                                  const childDelta =
+                                    nextChildOwned - childOwned;
+
                                   handleOwnedChange(childKey, nextChildOwned);
+
+                                  if (
+                                    childDelta !== 0 &&
+                                    groupSessionId &&
+                                    groupParticipantId &&
+                                    groupClientId
+                                  ) {
+                                    broadcastPieceDelta({
+                                      key: childKey,
+                                      delta: childDelta,
+                                      newOwned: nextChildOwned,
+                                    });
+                                  }
                                 }
                               }
 

@@ -6,5 +6,3 @@
 
 alter table public.user_set_parts
   drop constraint if exists user_set_parts_inventory_fk;
-
-

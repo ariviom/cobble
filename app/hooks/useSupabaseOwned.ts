@@ -10,6 +10,12 @@ type UseSupabaseOwnedArgs = {
   setNumber: string;
   rows: InventoryRow[];
   keys: string[];
+  /**
+   * When false, Supabase-backed persistence is disabled and all changes remain
+   * local to the in-memory store / localStorage. This is used for participants
+   * in Search Together sessions so only the host writes to user_set_parts.
+   */
+  enableCloudSync?: boolean;
 };
 
 type MigrationState = {
@@ -49,6 +55,7 @@ export function useSupabaseOwned({
   setNumber,
   rows,
   keys,
+  enableCloudSync = true,
 }: UseSupabaseOwnedArgs): UseSupabaseOwnedResult {
   const { user } = useSupabaseUser();
 
@@ -72,6 +79,12 @@ export function useSupabaseOwned({
   const markAllAsOwned = useOwnedStore(state => state.markAllAsOwned);
 
   const flushNow = useCallback(async () => {
+    if (!enableCloudSync) {
+      // When cloud sync is disabled (e.g. Search Together participants),
+      // ensure we don't keep stale pending entries around.
+      pendingRef.current.clear();
+      return;
+    }
     if (!userId) {
       pendingRef.current.clear();
       return;
@@ -137,10 +150,11 @@ export function useSupabaseOwned({
         )
       );
     }
-  }, [setNumber, userId]);
+  }, [enableCloudSync, setNumber, userId]);
 
   const scheduleFlush = useCallback(() => {
     if (typeof window === 'undefined') return;
+    if (!enableCloudSync) return;
     if (flushTimeoutRef.current != null) {
       window.clearTimeout(flushTimeoutRef.current);
     }
@@ -148,26 +162,28 @@ export function useSupabaseOwned({
       flushTimeoutRef.current = null;
       void flushNow();
     }, 500);
-  }, [flushNow]);
+  }, [enableCloudSync, flushNow]);
 
   // Clean up pending flush on unmount.
   useEffect(() => {
     return () => {
       if (typeof window === 'undefined') return;
+      if (!enableCloudSync) return;
       if (flushTimeoutRef.current != null) {
         window.clearTimeout(flushTimeoutRef.current);
         flushTimeoutRef.current = null;
       }
       void flushNow();
     };
-  }, [flushNow]);
+  }, [enableCloudSync, flushNow]);
 
   const handleOwnedChange = useCallback(
     (key: string, nextOwned: number) => {
       setOwned(setNumber, key, nextOwned);
 
-      if (!userId) {
-        // Anonymous users remain localStorage-only.
+      if (!enableCloudSync || !userId) {
+        // Anonymous users or Search Together participants remain
+        // localStorage-only.
         return;
       }
 
@@ -177,12 +193,12 @@ export function useSupabaseOwned({
       pendingRef.current.set(key, nextOwned);
       scheduleFlush();
     },
-    [setOwned, setNumber, userId, scheduleFlush]
+    [enableCloudSync, setOwned, setNumber, userId, scheduleFlush]
   );
 
   // Initial hydration + migration prompt detection.
   useEffect(() => {
-    if (!userId || !migrationDecisionKey) return;
+    if (!enableCloudSync || !userId || !migrationDecisionKey) return;
     if (rows.length === 0 || keys.length === 0) return;
     if (hydrated) return;
 
@@ -309,6 +325,7 @@ export function useSupabaseOwned({
       cancelled = true;
     };
   }, [
+    enableCloudSync,
     userId,
     migrationDecisionKey,
     rows.length,
@@ -321,7 +338,7 @@ export function useSupabaseOwned({
   ]);
 
   const confirmMigration = useCallback(async () => {
-    if (!userId || !migrationDecisionKey) return;
+    if (!enableCloudSync || !userId || !migrationDecisionKey) return;
     setIsMigrating(true);
     try {
       const supabase = getSupabaseBrowserClient();
@@ -387,10 +404,10 @@ export function useSupabaseOwned({
     } finally {
       setIsMigrating(false);
     }
-  }, [keys, migrationDecisionKey, getOwned, setNumber, userId]);
+  }, [enableCloudSync, keys, migrationDecisionKey, getOwned, setNumber, userId]);
 
   const keepCloudData = useCallback(async () => {
-    if (!userId || !migrationDecisionKey) {
+    if (!enableCloudSync || !userId || !migrationDecisionKey) {
       setMigration(null);
       return;
     }
@@ -440,7 +457,15 @@ export function useSupabaseOwned({
     } finally {
       setMigration(null);
     }
-  }, [keys, migrationDecisionKey, clearAll, markAllAsOwned, setNumber, userId]);
+  }, [
+    enableCloudSync,
+    keys,
+    migrationDecisionKey,
+    clearAll,
+    markAllAsOwned,
+    setNumber,
+    userId,
+  ]);
 
   return {
     handleOwnedChange,

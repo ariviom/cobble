@@ -3,11 +3,8 @@ create table if not exists public.rb_themes (
   name text not null,
   parent_id integer references public.rb_themes(id) on delete set null
 );
-
 create index if not exists rb_themes_parent_id_idx
   on public.rb_themes (parent_id);
-
-
 create table if not exists public.rb_colors (
   id integer primary key,
   name text not null,
@@ -16,11 +13,8 @@ create table if not exists public.rb_colors (
   external_ids jsonb,
   last_updated_at timestamptz not null default now()
 );
-
 create index if not exists rb_colors_name_idx
   on public.rb_colors (name);
-
-
 create table if not exists public.rb_parts (
   part_num text primary key,
   name text not null,
@@ -29,14 +23,10 @@ create table if not exists public.rb_parts (
   external_ids jsonb,
   last_updated_at timestamptz not null default now()
 );
-
 create index if not exists rb_parts_name_idx
   on public.rb_parts (name);
-
 create index if not exists rb_parts_part_cat_id_idx
   on public.rb_parts (part_cat_id);
-
-
 create table if not exists public.rb_sets (
   set_num text primary key,
   name text not null,
@@ -46,14 +36,10 @@ create table if not exists public.rb_sets (
   image_url text,
   last_updated_at timestamptz not null default now()
 );
-
 create index if not exists rb_sets_theme_id_idx
   on public.rb_sets (theme_id);
-
 create index if not exists rb_sets_year_idx
   on public.rb_sets (year);
-
-
 create table if not exists public.rb_set_parts (
   set_num text not null,
   part_num text not null,
@@ -72,16 +58,9 @@ create table if not exists public.rb_set_parts (
     references public.rb_colors (id)
     on delete restrict
 );
-
 create index if not exists rb_set_parts_set_num_idx
   on public.rb_set_parts (set_num);
-
 create index if not exists rb_set_parts_part_num_idx
   on public.rb_set_parts (part_num);
-
 create index if not exists rb_set_parts_color_id_idx
   on public.rb_set_parts (color_id);
-
-
-
-

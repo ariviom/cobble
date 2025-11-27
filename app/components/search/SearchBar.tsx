@@ -1,30 +1,57 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Button } from '@/app/components/ui/Button';
+import { Input } from '@/app/components/ui/Input';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-export function SearchBar() {
-  const searchParams = useSearchParams();
+type SearchBarProps = {
+  initialQuery?: string;
+};
+
+function getCurrentSearchParams(): URLSearchParams {
+  if (typeof window === 'undefined') {
+    return new URLSearchParams();
+  }
+  return new URLSearchParams(window.location.search);
+}
+
+export function SearchBar({ initialQuery = '' }: SearchBarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const qParam = searchParams.get('q') ?? '';
-  const [q, setQ] = useState<string>(qParam);
+  const [q, setQ] = useState<string>(initialQuery);
 
   useEffect(() => {
-    setQ(qParam);
-  }, [qParam]);
+    setQ(initialQuery);
+  }, [initialQuery]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = getCurrentSearchParams();
+      setQ(params.get('q') ?? '');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const next = q.trim();
+    setQ(next);
     if (pathname !== '/search') {
       router.push(next ? `/search?q=${encodeURIComponent(next)}` : '/search');
       return;
     }
-    const sp = new URLSearchParams(Array.from(searchParams.entries()));
-    if (next) sp.set('q', next);
-    else sp.delete('q');
-    router.replace(`/search?${sp.toString()}`);
+    const sp = getCurrentSearchParams();
+    if (next) {
+      sp.set('q', next);
+    } else {
+      sp.delete('q');
+    }
+    const queryString = sp.toString();
+    router.replace(queryString ? `/search?${queryString}` : '/search');
   }
 
   function onClear() {
@@ -44,9 +71,8 @@ export function SearchBar() {
       </label>
       <form onSubmit={onSubmit} className="flex items-center gap-2">
         <div className="relative flex-1">
-          <input
+          <Input
             id="global-search"
-            className="w-full rounded border border-neutral-200 bg-background px-3 py-2 pr-8 text-foreground"
             value={q}
             onChange={e => setQ(e.target.value)}
             placeholder="e.g. 1788, pirate, castle, ninjago"
@@ -54,7 +80,7 @@ export function SearchBar() {
           {q && (
             <button
               type="button"
-              className="absolute top-1/2 right-2 h-6 w-6 -translate-y-1/2 cursor-pointer rounded-full bg-neutral-100 text-foreground-muted hover:bg-neutral-200"
+              className="absolute top-1/2 right-2 h-6 w-6 -translate-y-1/2 cursor-pointer rounded-full bg-card-muted text-foreground-muted hover:bg-background-muted"
               onClick={onClear}
               aria-label="Clear search"
             >
@@ -66,12 +92,13 @@ export function SearchBar() {
             </button>
           )}
         </div>
-        <button
+        <Button
           type="submit"
-          className="rounded border bg-blue-600 px-3 py-2 text-white"
+          variant="primary"
+          className="px-3 py-2"
         >
           Search
-        </button>
+        </Button>
       </form>
     </div>
   );

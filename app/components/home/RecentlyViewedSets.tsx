@@ -39,11 +39,11 @@ export function RecentlyViewedSets() {
         ) : (
           <div className="my-4">
             <h2 className="text-lg font-semibold">Jump Back In</h2>
-            <Link className="text-brand-blue underline" href="/search">
+            <Link className="text-theme-primary underline" href="/search">
               Search for a set
             </Link>{' '}
             or{' '}
-            <Link className="text-brand-blue underline" href="/identify">
+            <Link className="text-theme-primary underline" href="/identify">
               upload a photo
             </Link>{' '}
             to get started.

@@ -8,3 +8,4 @@ alter table public.user_preferences
     or theme in ('light', 'dark', 'system')
   );
 
+

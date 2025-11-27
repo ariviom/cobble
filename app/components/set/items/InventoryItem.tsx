@@ -75,7 +75,7 @@ export function InventoryItem({
     maxPrice >= minPrice;
   const currencyCode = currency ?? 'USD';
   return (
-    <div className="relative flex w-full justify-start gap-6 rounded-lg border border-neutral-200 bg-background p-4 grid:flex-col">
+    <div className="relative flex w-full justify-start gap-6 rounded-lg border border-border-subtle bg-card p-4 grid:flex-col">
       {onTogglePinned ? (
         <button
           type="button"
@@ -83,8 +83,8 @@ export function InventoryItem({
           aria-pressed={isPinned ? 'true' : 'false'}
           className={`absolute top-3 right-4 z-10 inline-flex size-9 cursor-pointer items-center justify-center rounded-full border text-xs ${
             isPinned
-              ? 'border-brand-blue bg-brand-blue/10 text-brand-blue'
-              : 'border-neutral-300 bg-background text-neutral-500 hover:bg-neutral-100'
+              ? 'border-theme-primary bg-theme-primary/10 text-theme-primary'
+              : 'border-border-subtle bg-background text-foreground-muted hover:bg-background-muted'
           }`}
           onClick={event => {
             event.stopPropagation();
@@ -142,7 +142,7 @@ export function InventoryItem({
           <p className="line-clamp-1 w-full overflow-hidden font-medium lg:line-clamp-2">
             {row.partName}
           </p>
-          <div className="mt-1 w-full text-sm text-neutral-400">
+          <div className="mt-1 w-full text-sm text-foreground-muted">
             {isMinifig ? (
               hasRealFigId ? (
                 <p className="flex flex-col text-sm">
@@ -153,7 +153,7 @@ export function InventoryItem({
                     )}&viewItemType=M`}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="underline hover:text-brand-blue"
+                    className="underline hover:text-theme-primary"
                     onClick={event => {
                       event.stopPropagation();
                     }}
@@ -174,7 +174,7 @@ export function InventoryItem({
                         href={bricklinkUrl}
                         target="_blank"
                         rel="noreferrer noopener"
-                        className="underline hover:text-brand-blue"
+                        className="underline hover:text-theme-primary"
                       >
                         {formatCurrency(minPrice as number, currencyCode)} –{' '}
                         {formatCurrency(maxPrice as number, currencyCode)}
@@ -186,14 +186,14 @@ export function InventoryItem({
                         href={bricklinkUrl}
                         target="_blank"
                         rel="noreferrer noopener"
-                        className="underline hover:text-brand-blue"
+                        className="underline hover:text-theme-primary"
                       >
                         {formatCurrency(unitPrice as number, currencyCode)}
                       </a>
                     </>
                   ) : isPricePending ? (
                     <>
-                      <span className="text-neutral-400 italic">
+                      <span className="text-foreground-muted italic">
                         Getting price…
                       </span>
                     </>
@@ -201,7 +201,7 @@ export function InventoryItem({
                     <>
                       <button
                         type="button"
-                        className="underline hover:text-brand-blue"
+                        className="underline hover:text-theme-primary"
                         onClick={event => {
                           event.stopPropagation();
                           onRequestPrice();

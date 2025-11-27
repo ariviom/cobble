@@ -11,3 +11,4 @@ alter table public.user_preferences
     or theme_color in ('blue', 'yellow', 'purple', 'red', 'green')
   );
 
+

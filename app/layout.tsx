@@ -37,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -49,7 +49,7 @@ export default function RootLayout({
             <ErrorBoundary>{children}</ErrorBoundary>
           </ReactQueryProvider>
         </ThemeProvider>
-        <svg
+        {/* <svg
           width="0"
           height="0"
           aria-hidden="true"
@@ -73,7 +73,7 @@ export default function RootLayout({
             </feComponentTransfer>
             <feComposite in="SourceGraphic" in2="rgba" operator="in" />
           </filter>
-        </svg>
+        </svg> */}
       </body>
     </html>
   );

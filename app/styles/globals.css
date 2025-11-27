@@ -14,10 +14,22 @@
   --color-neutral-800: oklch(26.9% 0 0);
   --color-neutral-900: oklch(20.5% 0 0);
   --color-neutral-950: oklch(14.5% 0 0);
-  --color-background: var(--color-neutral-50);
+  /* Page vs card surfaces */
+  --color-background: var(--color-neutral-100); /* page background */
+  --color-card: var(--color-neutral-00); /* card surface */
+  --color-background-muted: var(--color-neutral-200);
+  --color-card-muted: var(--color-neutral-50);
+
+  /* Borders */
+  --color-border-subtle: var(--color-neutral-200);
+  --color-border-strong: var(--color-neutral-300);
+
+  /* Text */
   --color-foreground: var(--color-neutral-900);
   --color-foreground-accent: var(--color-neutral-300);
   --color-foreground-muted: var(--color-neutral-700);
+
+  /* Brand + theme accent */
   --color-brand-yellow: #ffd503;
   --color-brand-blue: #006fe5;
   --color-brand-purple: #9937fd;
@@ -25,6 +37,11 @@
   --color-brand-green: #009348;
   --color-theme-primary: var(--color-brand-blue);
   --color-theme-accent: mix(var(--color-theme-primary), white, 10%);
+
+  /* Status / danger */
+  --color-danger: var(--color-brand-red);
+  --color-danger-muted: mix(var(--color-brand-red), white, 92%);
+
   --font-sans: var(--font-cera-pro);
   --spacing-nav-height: 4rem;
   --spacing-topnav-height: 5rem;
@@ -68,7 +85,14 @@
   --color-neutral-100: oklch(20.5% 0 0);
   --color-neutral-50: oklch(14.5% 0 0);
   --color-neutral-00: oklch(5% 0 0);
-  --color-background: var(--color-neutral-100);
+  /* In dark mode, keep the page background slightly darker than cards */
+  --color-background: var(--color-neutral-50);
+  --color-card: var(--color-neutral-100);
+  --color-background-muted: var(--color-neutral-100);
+  --color-card-muted: var(--color-neutral-200);
+
+  --color-border-subtle: var(--color-neutral-200);
+  --color-border-strong: var(--color-neutral-300);
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -133,7 +157,7 @@ input.hide-arrows[type='number'] {
 }
 
 body {
-  background: var(--color-neutral-00);
+  background: var(--color-background);
   color: var(--color-foreground);
   font-family: 'CeraPro', sans-serif;
 }

@@ -42,7 +42,7 @@ export function SegmentedControl({
     <div
       ref={containerRef}
       className={cx(
-        'relative inline-flex items-center rounded-md border bg-background p-0.5',
+        'relative inline-flex items-center rounded-md border border-border-subtle bg-card p-0.5',
         size === 'sm' ? 'text-xs' : 'text-sm',
         className
       )}
@@ -50,7 +50,7 @@ export function SegmentedControl({
     >
       {thumbStyle && (
         <div
-          className="pointer-events-none absolute top-0.5 bottom-0.5 rounded bg-neutral-100 transition-all"
+          className="pointer-events-none absolute top-0.5 bottom-0.5 rounded bg-card-muted transition-all"
           style={{ left: thumbStyle.left, width: thumbStyle.width }}
           aria-hidden="true"
         />

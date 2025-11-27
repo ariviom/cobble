@@ -1,11 +1,13 @@
 'use client';
 
 import { ExportModal } from '@/app/components/export/ExportModal';
+import { Modal } from '@/app/components/ui/Modal';
 import { cn } from '@/app/components/ui/utils';
+import { SetOwnershipAndCollectionsRow } from '@/app/components/set/SetOwnershipAndCollectionsRow';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useIsDesktop } from '@/app/hooks/useMediaQuery';
 import { useSetStatus } from '@/app/hooks/useSetStatus';
-import { ArrowLeft, ChevronDown, Download } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Download, Users } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -30,6 +32,20 @@ type SetTopBarProps = {
     pricedItemCount: number;
   } | null;
   onRequestPrices?: () => void;
+  searchTogether?: {
+    active: boolean;
+    loading: boolean;
+    canHost: boolean;
+    joinUrl: string | null;
+    participants: Array<{
+      id: string;
+      displayName: string;
+      piecesFound: number;
+    }>;
+    totalPiecesFound: number;
+    onStart: () => Promise<void> | void;
+    onEnd: () => Promise<void> | void;
+  };
 };
 
 function NavButton({
@@ -96,14 +112,16 @@ export function SetTopBar({
   priceStatus = 'idle',
   priceSummary,
   onRequestPrices,
+  searchTogether,
 }: SetTopBarProps) {
   const router = useRouter();
   const isDesktop = useIsDesktop();
   const [exportOpen, setExportOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
   const { isLoading, totalMissing, ownedTotal, computeMissingRows } =
     useInventory(setNumber);
-  const { status: uiStatus, toggleStatus } = useSetStatus({
+  const { status: uiStatus } = useSetStatus({
     setNumber,
     name: setName,
     ...(typeof year === 'number' ? { year } : {}),
@@ -166,6 +184,36 @@ export function SetTopBar({
     }
   }, [priceSummary]);
 
+  const participantCount = searchTogether?.participants.length ?? 0;
+  const totalPiecesFound = searchTogether?.totalPiecesFound ?? 0;
+
+  const handleSearchTogetherClick: MouseEventHandler<HTMLButtonElement> = async event => {
+    event.stopPropagation();
+    if (!searchTogether) return;
+    if (searchTogether.loading) return;
+    if (!searchTogether.active) {
+      await searchTogether.onStart?.();
+    }
+  };
+
+  const handleEndSessionClick: MouseEventHandler<HTMLButtonElement> = async event => {
+    event.stopPropagation();
+    if (!searchTogether) return;
+    await searchTogether.onEnd?.();
+  };
+
+  const handleCopyShareLink = () => {
+    const link = searchTogether?.joinUrl;
+    if (!link) return;
+    try {
+      void navigator.clipboard?.writeText(link);
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Failed to copy Search Together link', err);
+      }
+    }
+  };
+
   return (
     <>
       <div
@@ -190,7 +238,7 @@ export function SetTopBar({
           aria-controls="setinfo-panel"
         >
           <div className="aspect-square overflow-hidden rounded-sm border border-foreground-accent lg:aspect-auto">
-            {imageUrl ? (
+              {imageUrl ? (
               <Image
                 src={imageUrl}
                 alt="Set thumbnail"
@@ -198,8 +246,8 @@ export function SetTopBar({
                 height={240}
                 className="h-full w-auto object-cover transition-transform"
               />
-            ) : (
-              <div className="flex size-[calc(var(--spacing-topnav-height)-1rem)] flex-shrink-0 items-center justify-center rounded-sm border bg-neutral-100">
+              ) : (
+                <div className="flex size-[calc(var(--spacing-topnav-height)-1rem)] flex-shrink-0 items-center justify-center rounded-sm border border-border-subtle bg-card-muted">
                 No Image
               </div>
             )}
@@ -223,7 +271,7 @@ export function SetTopBar({
                   ·{' '}
                   <button
                     type="button"
-                    className="underline hover:text-brand-blue/80"
+                    className="underline hover:text-theme-primary"
                     onClick={event => {
                       event.stopPropagation();
                       onRequestPrices();
@@ -234,6 +282,22 @@ export function SetTopBar({
                 </>
               )}
               {priceStatus === 'error' && ' · Price unavailable'}
+              {searchTogether &&
+                !searchTogether.canHost &&
+                (isDesktop ? expanded : mobileOpen) && (
+                  <>
+                    {' '}
+                    ·{' '}
+                    <span className="inline-flex items-center gap-1 text-foreground-muted">
+                      <Users className="h-3 w-3" />
+                      <span>
+                        Search together (
+                        {participantCount.toLocaleString()} ·{' '}
+                        {totalPiecesFound.toLocaleString()} pieces)
+                      </span>
+                    </span>
+                  </>
+                )}
             </div>
             {(uiStatus.owned || uiStatus.wantToBuild) && (
               <div className="mt-1 flex flex-wrap gap-1 text-[11px] lg:text-xs">
@@ -262,37 +326,86 @@ export function SetTopBar({
                   height={512}
                 />
               </div>
-              <div className="mt-3 flex flex-col items-center gap-3 lg:flex-row lg:items-start">
-                <div className="flex flex-wrap justify-center gap-2 lg:justify-start">
-                  <button
-                    type="button"
-                    className={`rounded-md border px-3 py-1 text-sm ${
-                      uiStatus.owned
-                        ? 'border-brand-green bg-brand-green/10 text-brand-green'
-                        : 'hover:bg-neutral-100'
-                    }`}
-                    onClick={event => {
-                      event.stopPropagation();
-                      toggleStatus('owned');
-                    }}
-                  >
-                    Own this set
-                  </button>
-                  <button
-                    type="button"
-                    className={`rounded-md border px-3 py-1 text-sm ${
-                      uiStatus.wantToBuild
-                        ? 'border-brand-purple bg-brand-purple/10 text-brand-purple'
-                        : 'hover:bg-neutral-100'
-                    }`}
-                    onClick={event => {
-                      event.stopPropagation();
-                      toggleStatus('wantToBuild');
-                    }}
-                  >
-                    Wishlist
-                  </button>
-                </div>
+              <div className="mt-3 flex flex-col gap-3">
+                <SetOwnershipAndCollectionsRow
+                  setNumber={setNumber}
+                  name={setName}
+                  year={typeof year === 'number' ? year : 0}
+                  imageUrl={imageUrl}
+                  {...(typeof numParts === 'number' ? { numParts } : {})}
+                  themeId={themeId ?? null}
+                />
+                {searchTogether?.canHost && (
+                  <>
+                    <button
+                      type="button"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-theme-primary px-3 py-2 text-xs font-medium text-white hover:bg-theme-primary/90"
+                      onClick={event => {
+                        event.stopPropagation();
+                        void handleSearchTogetherClick(event as never);
+                      }}
+                      disabled={searchTogether.loading}
+                    >
+                      <Users className="h-4 w-4" />
+                      <span>
+                        {searchTogether.active
+                          ? `Search together (${participantCount.toLocaleString()} · ${totalPiecesFound.toLocaleString()} pieces)`
+                          : 'Start Search Together'}
+                      </span>
+                    </button>
+                    {searchTogether.active && searchTogether.joinUrl && (
+                      <div className="rounded-md border border-border-subtle bg-card p-3 text-xs">
+                        <div className="font-semibold text-foreground">
+                          Share session
+                        </div>
+                        <p className="mt-1 text-foreground-muted">
+                          Copy the link or display a QR code so others can join
+                          this Search Together session.
+                        </p>
+                        <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center">
+                          <div className="flex flex-1 items-center gap-2">
+                            <input
+                              type="text"
+                              value={searchTogether.joinUrl}
+                              readOnly
+                              className="flex-1 rounded-md border border-border-subtle bg-background px-2 py-1 text-[11px] text-foreground"
+                            />
+                            <button
+                              type="button"
+                              className="inline-flex items-center justify-center rounded-md border border-border-subtle px-2 py-1 text-[11px] font-medium hover:bg-card-muted"
+                              onClick={event => {
+                                event.stopPropagation();
+                                handleCopyShareLink();
+                              }}
+                            >
+                              Copy link
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            className="inline-flex items-center justify-center rounded-md border border-border-subtle px-2 py-1 text-[11px] font-medium hover:bg-card-muted"
+                            onClick={event => {
+                              event.stopPropagation();
+                              setQrModalOpen(true);
+                            }}
+                          >
+                            Show QR code
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          className="mt-2 inline-flex items-center justify-center rounded-md border border-border-subtle px-2 py-1 text-[11px] font-medium text-destructive hover:bg-card-muted"
+                          onClick={event => {
+                            event.stopPropagation();
+                            void handleEndSessionClick(event as never);
+                          }}
+                        >
+                          End session
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -305,6 +418,46 @@ export function SetTopBar({
           onClick={() => setExportOpen(true)}
         />
       </div>
+      <Modal
+        open={qrModalOpen && Boolean(searchTogether?.joinUrl)}
+        onClose={() => setQrModalOpen(false)}
+        title="Search Together QR"
+      >
+        {searchTogether?.joinUrl ? (
+          <div className="flex flex-col items-center gap-3 text-center text-sm">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                searchTogether.joinUrl
+              )}`}
+              alt="QR code for Search Together link"
+              className="h-44 w-44 rounded-md border border-border-subtle bg-card p-2"
+            />
+            <p className="text-xs text-foreground-muted">
+              Scan this code or copy the link below to join the session.
+            </p>
+            <div className="flex w-full items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={searchTogether.joinUrl}
+                className="flex-1 rounded-md border border-border-subtle bg-background px-2 py-1 text-[11px]"
+              />
+              <button
+                type="button"
+                className="inline-flex items-center justify-center rounded-md border border-border-subtle px-2 py-1 text-[11px] hover:bg-card-muted"
+                onClick={() => handleCopyShareLink()}
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-xs text-foreground-muted">
+            Session link unavailable.
+          </div>
+        )}
+      </Modal>
       <ExportModal
         open={exportOpen}
         onClose={() => setExportOpen(false)}

@@ -5,12 +5,12 @@ import { forwardRef, InputHTMLAttributes } from 'react';
 import { cn } from './utils';
 
 const inputVariants = cva(
-  'border rounded px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black',
+  'border border-border-subtle rounded-md bg-card px-2 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60',
   {
     variants: {
       size: {
-        sm: 'text-sm',
-        md: 'text-sm',
+        sm: 'h-8 text-xs',
+        md: 'h-9 text-sm',
       },
     },
     defaultVariants: {

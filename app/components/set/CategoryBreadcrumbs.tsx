@@ -22,7 +22,7 @@ export function CategoryBreadcrumbs({ path, onNavigate, className }: Props) {
           <button
             type="button"
             className={cx(
-              'rounded px-1.5 py-0.5 hover:bg-neutral-100',
+              'rounded px-1.5 py-0.5 hover:bg-card-muted',
               c.key === last
                 ? 'font-semibold text-foreground'
                 : 'text-foreground-muted'

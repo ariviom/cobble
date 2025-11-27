@@ -185,7 +185,7 @@ export function CategoryRail({
               'relative -ml-px h-9 rounded-none border px-3 text-sm leading-9 first:ml-0',
               it.selected
                 ? 'border-blue-600 bg-blue-600 text-white'
-                : 'bg-background text-foreground hover:bg-neutral-100'
+                : 'bg-background text-foreground hover:bg-background-muted'
             )}
             onClick={it.onClick}
           >

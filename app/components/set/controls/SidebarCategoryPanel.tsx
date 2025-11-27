@@ -75,7 +75,7 @@ export function SidebarCategoryPanel({
               {subCount > 1 && (
                 <button
                   type="button"
-                  className="flex h-14 w-14 cursor-pointer items-center justify-center border-l border-foreground-accent text-foreground-muted hover:bg-neutral-100 hover:text-foreground"
+                  className="flex h-14 w-14 cursor-pointer items-center justify-center border-l border-foreground-accent text-foreground-muted hover:bg-card-muted hover:text-foreground"
                   onClick={e => {
                     e.stopPropagation();
                     setActiveParent(parent);
@@ -89,10 +89,10 @@ export function SidebarCategoryPanel({
           );
         })}
         {(filter.parents?.length || 0) > 0 ? (
-          <div className="flex w-full justify-center border-b border-neutral-300">
+          <div className="flex w-full justify-center border-b border-border-subtle">
             <button
               type="button"
-              className="h-full w-full cursor-pointer py-4 hover:bg-neutral-100"
+              className="h-full w-full cursor-pointer py-4 hover:bg-card-muted"
               onClick={() =>
                 onChangeFilter({
                   ...filter,
@@ -113,7 +113,7 @@ export function SidebarCategoryPanel({
         <div className="flex items-center gap-2 px-3 py-2">
           <button
             type="button"
-            className="rounded p-1 hover:bg-neutral-100"
+            className="rounded p-1 hover:bg-card-muted"
             onClick={() => setActiveParent(null)}
             aria-label="Back to categories"
           >
@@ -146,10 +146,10 @@ export function SidebarCategoryPanel({
               </RowButton>
             );
           })}
-          <div className="flex w-full justify-center border-b border-neutral-300">
+          <div className="flex w-full justify-center border-b border-border-subtle">
             <button
               type="button"
-              className="h-full w-full cursor-pointer py-4 hover:bg-neutral-100"
+              className="h-full w-full cursor-pointer py-4 hover:bg-card-muted"
               onClick={() => {
                 if (!activeParent) return;
                 onChangeFilter(clearParentSubcategories(filter, activeParent));
