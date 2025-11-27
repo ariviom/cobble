@@ -11,6 +11,7 @@ import {
 import { RowButton } from '@/app/components/ui/RowButton';
 import {
   CheckSquare,
+  Download,
   Filter,
   FolderTree,
   Grid,
@@ -61,6 +62,7 @@ type Props = {
   isDesktop: boolean;
   isParentOpen: boolean;
   isColorOpen: boolean;
+  onOpenExportModal: () => void;
 };
 
 export function TopBarControls({
@@ -94,6 +96,7 @@ export function TopBarControls({
   isDesktop,
   isParentOpen,
   isColorOpen,
+  onOpenExportModal,
 }: Props) {
   const getColorLabel = () =>
     formatMultiSelectLabel('Colors', filter.colors || []);
@@ -415,6 +418,17 @@ export function TopBarControls({
             </DropdownSection>
           </DropdownPanelFrame>
         )}
+      </div>
+      <div>
+        <button
+          type="button"
+          aria-label="Export parts list"
+          className="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-2 rounded-md border border-border-subtle bg-card px-3 py-2 text-xs font-medium text-foreground hover:bg-card-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black"
+          onClick={onOpenExportModal}
+        >
+          <Download className="h-4 w-4" />
+          <span>Parts List</span>
+        </button>
       </div>
     </>
   );

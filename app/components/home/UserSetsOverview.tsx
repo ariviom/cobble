@@ -2,6 +2,7 @@
 
 import { SetDisplayCard } from '@/app/components/set/SetDisplayCard';
 import { Button } from '@/app/components/ui/Button';
+import { CollectionGroupHeading } from '@/app/components/ui/CollectionGroupHeading';
 import { Select } from '@/app/components/ui/Select';
 import { cn } from '@/app/components/ui/utils';
 import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
@@ -510,9 +511,7 @@ export function UserSetsOverview({ initialThemes }: UserSetsOverviewProps) {
           <div className="mt-4 flex flex-col gap-6">
             {grouped.map(group => (
               <div key={group.label} className="flex flex-col gap-2">
-                <div className="px-1 py-1 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
-                  {group.label}
-                </div>
+                <CollectionGroupHeading>{group.label}</CollectionGroupHeading>
                 <div
                   data-item-size="md"
                   className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"

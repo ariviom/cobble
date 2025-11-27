@@ -34,7 +34,7 @@ Target test sets:
 - Search bar: moved label above, added inline clear “x” with enlarged touch target.
 - Owned persistence implemented in `app/store/owned.ts` with versioned storage key, cache-first reads, and debounced writes using `requestIdleCallback` when available.
 - Export modal implemented with Rebrickable CSV and BrickLink wanted list CSV generation.
-- Optional BrickLink pricing implemented via `/api/prices/bricklink` and `useInventoryPrices`, now triggered manually per set via a "Get prices" action in the set top bar.
+- Optional BrickLink pricing implemented via `/api/prices/bricklink` and `useInventoryPrices`, now triggered per-row from inventory items via "Get price" actions, plus a separate set-level estimate via `/api/prices/bricklink-set` in the set top bar.
 
 ## Next Steps
 

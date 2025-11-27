@@ -73,6 +73,7 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
         <div className="relative flex-1">
           <Input
             id="global-search"
+            className="w-full"
             value={q}
             onChange={e => setQ(e.target.value)}
             placeholder="e.g. 1788, pirate, castle, ninjago"
@@ -92,11 +93,7 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
             </button>
           )}
         </div>
-        <Button
-          type="submit"
-          variant="primary"
-          className="px-3 py-2"
-        >
+        <Button type="submit" variant="primary" className="px-3 py-2">
           Search
         </Button>
       </form>

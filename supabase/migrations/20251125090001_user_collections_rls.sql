@@ -24,3 +24,4 @@ create policy "Insert own collection sets" on public.user_collection_sets
 create policy "Delete own collection sets" on public.user_collection_sets
   for delete
   using (auth.uid() = user_id);
+

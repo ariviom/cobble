@@ -1,6 +1,7 @@
 'use client';
 
 import { Pin } from 'lucide-react';
+import Link from 'next/link';
 import type { InventoryRow } from '../types';
 import { OwnedQuantityControl } from './OwnedQuantityControl';
 
@@ -74,6 +75,16 @@ export function InventoryItem({
     Number.isFinite(maxPrice) &&
     maxPrice >= minPrice;
   const currencyCode = currency ?? 'USD';
+  const identifyHref = {
+    pathname: '/identify',
+    query: {
+      mode: 'part',
+      part: row.partId,
+      ...(typeof bricklinkColorId === 'number' && !isFigId
+        ? { blColorId: bricklinkColorId }
+        : {}),
+    },
+  };
   return (
     <div className="relative flex w-full justify-start gap-6 rounded-lg border border-border-subtle bg-card p-4 grid:flex-col">
       {onTogglePinned ? (
@@ -81,7 +92,7 @@ export function InventoryItem({
           type="button"
           aria-label={isPinned ? 'Unpin piece' : 'Pin piece'}
           aria-pressed={isPinned ? 'true' : 'false'}
-          className={`absolute top-3 right-4 z-10 inline-flex size-9 cursor-pointer items-center justify-center rounded-full border text-xs ${
+          className={`absolute top-5 right-5 z-10 inline-flex size-9 cursor-pointer items-center justify-center rounded-full border text-xs ${
             isPinned
               ? 'border-theme-primary bg-theme-primary/10 text-theme-primary'
               : 'border-border-subtle bg-background text-foreground-muted hover:bg-background-muted'
@@ -138,7 +149,7 @@ export function InventoryItem({
         </div>
       </div>
       <div className="flex h-full max-h-min w-full flex-1 flex-col justify-between gap-x-6 gap-y-3 sm:flex-row sm:items-center grid:flex-col">
-        <div className="h-full list:pr-12 lg:list:pr-0">
+        <div className="h-full w-full list:pr-12 lg:list:pr-0">
           <p className="line-clamp-1 w-full overflow-hidden font-medium lg:line-clamp-2">
             {row.partName}
           </p>
@@ -147,19 +158,31 @@ export function InventoryItem({
               hasRealFigId ? (
                 <p className="flex flex-col text-sm">
                   <span>Minifigure ID: {displayId}</span>
-                  <a
-                    href={`https://www.bricklink.com/catalogItemInv.asp?S=${encodeURIComponent(
-                      setNumber
-                    )}&viewItemType=M`}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="underline hover:text-theme-primary"
-                    onClick={event => {
-                      event.stopPropagation();
-                    }}
-                  >
-                    View set minifigs
-                  </a>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <a
+                      href={`https://www.bricklink.com/catalogItemInv.asp?S=${encodeURIComponent(
+                        setNumber
+                      )}&viewItemType=M`}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="underline hover:text-theme-primary"
+                      onClick={event => {
+                        event.stopPropagation();
+                      }}
+                    >
+                      View set minifigs
+                    </a>
+                    <span className="text-foreground-muted">·</span>
+                    <Link
+                      href={identifyHref}
+                      className="underline hover:text-theme-primary"
+                      onClick={event => {
+                        event.stopPropagation();
+                      }}
+                    >
+                      Show sets
+                    </Link>
+                  </span>
                 </p>
               ) : null
             ) : (
@@ -179,6 +202,16 @@ export function InventoryItem({
                         {formatCurrency(minPrice as number, currencyCode)} –{' '}
                         {formatCurrency(maxPrice as number, currencyCode)}
                       </a>
+                      <span className="mx-1 text-foreground-muted">·</span>
+                      <Link
+                        href={identifyHref}
+                        className="underline hover:text-theme-primary"
+                        onClick={event => {
+                          event.stopPropagation();
+                        }}
+                      >
+                        Show sets
+                      </Link>
                     </>
                   ) : hasPrice ? (
                     <>
@@ -190,6 +223,16 @@ export function InventoryItem({
                       >
                         {formatCurrency(unitPrice as number, currencyCode)}
                       </a>
+                      <span className="mx-1 text-foreground-muted">·</span>
+                      <Link
+                        href={identifyHref}
+                        className="underline hover:text-theme-primary"
+                        onClick={event => {
+                          event.stopPropagation();
+                        }}
+                      >
+                        Show sets
+                      </Link>
                     </>
                   ) : isPricePending ? (
                     <>
@@ -209,6 +252,16 @@ export function InventoryItem({
                       >
                         Get price
                       </button>
+                      <span className="mx-1 text-foreground-muted">·</span>
+                      <Link
+                        href={identifyHref}
+                        className="underline hover:text-theme-primary"
+                        onClick={event => {
+                          event.stopPropagation();
+                        }}
+                      >
+                        Show sets
+                      </Link>
                     </>
                   ) : null}
                 </span>

@@ -244,15 +244,11 @@ export function GroupSessionPageClient({
         <InventoryTable
           setNumber={setNumber}
           setName={setName}
-          partPricesEnabled={false}
           enableCloudSync={false}
           groupSessionId={sessionId}
           groupParticipantId={currentParticipant?.id ?? null}
           groupClientId={clientId}
           onParticipantPiecesDelta={handleParticipantPiecesDelta}
-          onRequestPartPrices={() => {
-            // Participants currently do not trigger per-part price lookups.
-          }}
         />
       )}
     </div>

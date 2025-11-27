@@ -15,7 +15,7 @@
 - Inventory controls support sorting by name/color/size/category, grouping, and filters for All/Missing/Owned, parent categories, and colors.
 - Owned-quantity persistence via `app/store/owned.ts` with in-memory cache, versioned localStorage key, and debounced writes.
 - Export modal (`ExportModal`) supports Rebrickable CSV and BrickLink wanted list CSV generation, including basic unmapped-row reporting.
-- Optional BrickLink pricing via `/api/prices/bricklink` and `useInventoryPrices`, now triggered manually per set through a "Get prices" action in the set top bar, with per-part BrickLink links and aggregate totals/ranges.
+- Optional BrickLink pricing via `/api/prices/bricklink` and `useInventoryPrices`, now triggered per-row from inventory items via "Get price" actions, with per-part BrickLink links and aggregate totals/ranges. A separate set-level estimate is provided via `/api/prices/bricklink-set` and the top-bar "Get price" action.
 
 ## What's Left to Build
 

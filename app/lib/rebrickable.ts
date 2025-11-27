@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { LRUCache } from '@/app/lib/cache/lru';
 import { filterExactMatches } from '@/app/lib/searchExactMatch';
 import type { MatchType } from '@/app/types/search';
 
@@ -93,6 +94,8 @@ export type InventoryRow = {
 const BASE = 'https://rebrickable.com/api/v3' as const;
 
 const RB_MAX_ATTEMPTS = 3;
+/** Request timeout in milliseconds (30 seconds) */
+const RB_REQUEST_TIMEOUT_MS = 30_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -102,6 +105,25 @@ function getApiKey(): string {
   const key = process.env.REBRICKABLE_API;
   if (!key) throw new Error('Missing REBRICKABLE_API env');
   return key;
+}
+
+/**
+ * Create an AbortController with a timeout that automatically aborts after the
+ * specified duration. Returns both the signal and a cleanup function to clear
+ * the timeout if the request completes before it fires.
+ */
+function createTimeoutSignal(timeoutMs: number): {
+  signal: AbortSignal;
+  cleanup: () => void;
+} {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort(new Error(`Request timed out after ${timeoutMs}ms`));
+  }, timeoutMs);
+  return {
+    signal: controller.signal,
+    cleanup: () => clearTimeout(timeoutId),
+  };
 }
 
 async function rbFetch<T>(
@@ -119,11 +141,14 @@ async function rbFetch<T>(
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= RB_MAX_ATTEMPTS; attempt += 1) {
+    const { signal, cleanup } = createTimeoutSignal(RB_REQUEST_TIMEOUT_MS);
     try {
       const res = await fetch(url, {
         headers: { Authorization: `key ${apiKey}` },
         next: { revalidate: 60 * 60 },
+        signal,
       });
+      cleanup();
 
       if (res.ok) {
         return (await res.json()) as T;
@@ -204,16 +229,28 @@ async function rbFetch<T>(
         continue;
       }
 
+      cleanup();
       const err = new Error(
         `Rebrickable error ${status}${bodySnippet ? `: ${bodySnippet}` : ''}`
       );
       lastError = err;
       break;
     } catch (err) {
+      cleanup();
+      // Check if this is a timeout/abort error
+      const isAbort =
+        err instanceof Error &&
+        (err.name === 'AbortError' || err.message.includes('timed out'));
+
       lastError =
         err instanceof Error
           ? err
           : new Error(`Rebrickable fetch failed: ${String(err)}`);
+
+      // Don't retry timeout errors - they indicate slow upstream
+      if (isAbort) {
+        break;
+      }
 
       if (attempt < RB_MAX_ATTEMPTS) {
         const delayMs = Math.min(300 * attempt, 2000);
@@ -231,11 +268,14 @@ async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= RB_MAX_ATTEMPTS; attempt += 1) {
+    const { signal, cleanup } = createTimeoutSignal(RB_REQUEST_TIMEOUT_MS);
     try {
       const res = await fetch(absoluteUrl, {
         headers: { Authorization: `key ${apiKey}` },
         next: { revalidate: 60 * 60 },
+        signal,
       });
+      cleanup();
 
       if (res.ok) {
         return (await res.json()) as T;
@@ -310,6 +350,7 @@ async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
         continue;
       }
 
+      cleanup();
       const err = new Error(
         `Rebrickable error ${status}${
           bodySnippet ? `: ${bodySnippet}` : ''
@@ -318,10 +359,21 @@ async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
       lastError = err;
       break;
     } catch (err) {
+      cleanup();
+      // Check if this is a timeout/abort error
+      const isAbort =
+        err instanceof Error &&
+        (err.name === 'AbortError' || err.message.includes('timed out'));
+
       lastError =
         err instanceof Error
           ? err
           : new Error(`Rebrickable absolute fetch failed: ${String(err)}`);
+
+      // Don't retry timeout errors - they indicate slow upstream
+      if (isAbort) {
+        break;
+      }
 
       if (attempt < RB_MAX_ATTEMPTS) {
         const delayMs = Math.min(300 * attempt, 2000);
@@ -431,11 +483,15 @@ export type SimpleSet = {
 };
 
 const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
+const SEARCH_CACHE_MAX_ENTRIES = 100;
 const SEARCH_AGG_PAGE_SIZE = 200;
 const SEARCH_AGG_CAP = 1000;
 
-const aggregatedSearchCache: Map<string, { at: number; items: SimpleSet[] }> =
-  new Map();
+/** LRU cache for aggregated search results with TTL and size limit */
+const aggregatedSearchCache = new LRUCache<string, SimpleSet[]>(
+  SEARCH_CACHE_MAX_ENTRIES,
+  SEARCH_CACHE_TTL_MS
+);
 
 export function normalizeText(s: string): string {
   return s
@@ -507,10 +563,9 @@ export async function getAggregatedSearchResults(
   const cacheKey = `${sort}::${normalizedQuery.toLowerCase()}::${
     exactMatch ? 'exact' : 'loose'
   }`;
-  const now = Date.now();
   const cached = aggregatedSearchCache.get(cacheKey);
-  if (cached && now - cached.at < SEARCH_CACHE_TTL_MS) {
-    return cached.items;
+  if (cached) {
+    return cached;
   }
 
   if (!normalizedQuery) return [];
@@ -605,7 +660,7 @@ export async function getAggregatedSearchResults(
       if (exactMatch) {
         filtered = filterExactMatches(filtered, normalizedQuery);
       }
-      aggregatedSearchCache.set(cacheKey, { at: now, items: filtered });
+      aggregatedSearchCache.set(cacheKey, filtered);
       return filtered;
     }
     throw err;
@@ -644,43 +699,58 @@ export async function getAggregatedSearchResults(
   // then loading sets for those themes directly. This is especially important
   // for themes like "Aquazone" where the theme name may not appear in set
   // names, so Rebrickable's built-in search returns no results.
+  // Helper to resolve theme name and full path for a given theme ID.
+  // Defined at function scope so it can be used throughout the function.
+  function getThemeMeta(
+    themeId: number | null | undefined
+  ): { themeName: string | null; themePath: string | null } {
+    if (themeId == null || !Number.isFinite(themeId)) {
+      return { themeName: null, themePath: null };
+    }
+    const id = themeId as number;
+    const theme = themeById.get(id);
+    const themeName = theme?.name ?? null;
+
+    let path: string | null = null;
+    if (themePathCache.has(id)) {
+      path = themePathCache.get(id) ?? null;
+    } else if (theme) {
+      const names: string[] = [];
+      const visited = new Set<number>();
+      let current: RebrickableTheme | null | undefined = theme;
+      while (current && !visited.has(current.id)) {
+        names.unshift(current.name);
+        visited.add(current.id);
+        if (current.parent_id != null) {
+          current = themeById.get(current.parent_id) ?? null;
+        } else {
+          current = null;
+        }
+      }
+      path = names.length > 0 ? names.join(' / ') : null;
+      if (path != null) {
+        themePathCache.set(id, path);
+      }
+    }
+
+    return { themeName, themePath: path };
+  }
+
+  function getMatchTypeForThemeId(
+    themeId: number | null | undefined
+  ): MatchType {
+    if (themeId == null || !Number.isFinite(themeId)) {
+      return 'theme';
+    }
+    const theme = themeById.get(themeId as number);
+    if (theme && theme.parent_id != null) {
+      return 'subtheme';
+    }
+    return 'theme';
+  }
+
   if (compactQueryText.length >= 3) {
     const matchingThemeIds = new Set<number>();
-
-    function getThemeMeta(
-      themeId: number | null | undefined
-    ): { themeName: string | null; themePath: string | null } {
-      if (themeId == null || !Number.isFinite(themeId)) {
-        return { themeName: null, themePath: null };
-      }
-      const id = themeId as number;
-      const theme = themeById.get(id);
-      const themeName = theme?.name ?? null;
-
-      let path: string | null = null;
-      if (themePathCache.has(id)) {
-        path = themePathCache.get(id) ?? null;
-      } else if (theme) {
-        const names: string[] = [];
-        const visited = new Set<number>();
-        let current: RebrickableTheme | null | undefined = theme;
-        while (current && !visited.has(current.id)) {
-          names.unshift(current.name);
-          visited.add(current.id);
-          if (current.parent_id != null) {
-            current = themeById.get(current.parent_id) ?? null;
-          } else {
-            current = null;
-          }
-        }
-        path = names.length > 0 ? names.join(' / ') : null;
-        if (path != null) {
-          themePathCache.set(id, path);
-        }
-      }
-
-      return { themeName, themePath: path };
-    }
 
     for (const t of themes) {
       const { themeName, themePath } = getThemeMeta(t.id);
@@ -755,54 +825,6 @@ export async function getAggregatedSearchResults(
     }
   }
 
-  function getThemeMeta(
-    themeId: number | null | undefined
-  ): { themeName: string | null; themePath: string | null } {
-    if (themeId == null || !Number.isFinite(themeId)) {
-      return { themeName: null, themePath: null };
-    }
-    const id = themeId as number;
-    const theme = themeById.get(id);
-    const themeName = theme?.name ?? null;
-
-    let path: string | null = null;
-    if (themePathCache.has(id)) {
-      path = themePathCache.get(id) ?? null;
-    } else if (theme) {
-      const names: string[] = [];
-      const visited = new Set<number>();
-      let current: RebrickableTheme | null | undefined = theme;
-      while (current && !visited.has(current.id)) {
-        names.unshift(current.name);
-        visited.add(current.id);
-        if (current.parent_id != null) {
-          current = themeById.get(current.parent_id) ?? null;
-        } else {
-          current = null;
-        }
-      }
-      path = names.length > 0 ? names.join(' / ') : null;
-      if (path != null) {
-        themePathCache.set(id, path);
-      }
-    }
-
-    return { themeName, themePath: path };
-  }
-
-  function getMatchTypeForThemeId(
-    themeId: number | null | undefined
-  ): MatchType {
-    if (themeId == null || !Number.isFinite(themeId)) {
-      return 'theme';
-    }
-    const theme = themeById.get(themeId as number);
-    if (theme && theme.parent_id != null) {
-      return 'subtheme';
-    }
-    return 'theme';
-  }
-
   let mapped: SimpleSet[] = collected
     .filter(r => r.num_parts > 0)
     .filter(r => {
@@ -841,11 +863,11 @@ export async function getAggregatedSearchResults(
     mapped = filterExactMatches(mapped, normalizedQuery);
   }
   if (mapped.length === 0) {
-    aggregatedSearchCache.set(cacheKey, { at: now, items: [] });
+    aggregatedSearchCache.set(cacheKey, []);
     return [];
   }
   const sorted = sortAggregatedResults(mapped, sort, normalizedQuery);
-  aggregatedSearchCache.set(cacheKey, { at: now, items: sorted });
+  aggregatedSearchCache.set(cacheKey, sorted);
   return sorted;
 }
 
@@ -1033,11 +1055,14 @@ export async function getSetInventory(
   return [...partRows, ...orphanComponents, ...minifigParents];
 }
 
-const minifigPartsCache = new Map<
-  string,
-  { at: number; parts: RebrickableMinifigComponent[] }
->();
 const ONE_HOUR_MS = 60 * 60 * 1000;
+const MINIFIG_CACHE_MAX_ENTRIES = 500;
+
+/** LRU cache for minifig parts with 1 hour TTL and size limit */
+const minifigPartsCache = new LRUCache<string, RebrickableMinifigComponent[]>(
+  MINIFIG_CACHE_MAX_ENTRIES,
+  ONE_HOUR_MS
+);
 
 let setSummaryCache: {
   at: number;
@@ -1189,8 +1214,14 @@ export type ResolvedPart = {
   imageUrl: string | null;
 };
 
-type CacheEntry<T> = { at: number; value: T };
-const resolvedPartCache = new Map<string, CacheEntry<ResolvedPart | null>>();
+const RESOLVED_PART_CACHE_MAX_ENTRIES = 1000;
+const RESOLVED_PART_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/** LRU cache for resolved part lookups with 24 hour TTL and size limit */
+const resolvedPartCache = new LRUCache<string, ResolvedPart | null>(
+  RESOLVED_PART_CACHE_MAX_ENTRIES,
+  RESOLVED_PART_CACHE_TTL_MS
+);
 
 /**
  * Resolve arbitrary part identifier (e.g., BrickLink-style id like "2336p68")
@@ -1202,10 +1233,9 @@ export async function resolvePartIdToRebrickable(
   hints?: { bricklinkId?: string }
 ): Promise<ResolvedPart | null> {
   const key = partId.trim().toLowerCase();
-  const now = Date.now();
-  const cached = resolvedPartCache.get(key);
-  if (cached && now - cached.at < 24 * 60 * 60 * 1000) {
-    return cached.value;
+  // Check cache first - LRU cache handles TTL internally
+  if (resolvedPartCache.has(key)) {
+    return resolvedPartCache.get(key) ?? null;
   }
   // 0) External ID (BrickLink) hint FIRST when available
   if (hints?.bricklinkId) {
@@ -1225,7 +1255,7 @@ export async function resolvePartIdToRebrickable(
           name: p.name,
           imageUrl: p.part_img_url,
         };
-        resolvedPartCache.set(key, { at: now, value: result });
+        resolvedPartCache.set(key, result);
         return result;
       }
     } catch {
@@ -1240,7 +1270,7 @@ export async function resolvePartIdToRebrickable(
       name: part.name,
       imageUrl: part.part_img_url,
     };
-    resolvedPartCache.set(key, { at: now, value: result });
+    resolvedPartCache.set(key, result);
     return result;
   } catch {
     // fall through to search
@@ -1261,13 +1291,13 @@ export async function resolvePartIdToRebrickable(
         name: exact.name,
         imageUrl: exact.part_img_url,
       };
-      resolvedPartCache.set(key, { at: now, value: result });
+      resolvedPartCache.set(key, result);
       return result;
     }
   } catch {
     // continue to external-id path
   }
-  resolvedPartCache.set(key, { at: now, value: null });
+  resolvedPartCache.set(key, null);
   return null;
 }
 
@@ -1545,6 +1575,139 @@ export async function getSetsForPart(
   return sets;
 }
 
+export async function getSetsForMinifig(
+  figNum: string
+): Promise<PartInSet[]> {
+  const SETS_TTL_MS = 60 * 60 * 1000;
+  const NEGATIVE_TTL_MS = 10 * 60 * 1000;
+  const MAX_CACHE_ENTRIES = 500;
+  type SetsCacheEntry = { at: number; items: PartInSet[] };
+  const globalAny = globalThis as unknown as {
+    __RB_MINIFIG_SETS_CACHE__?: Map<string, SetsCacheEntry>;
+    __RB_MINIFIG_SETS_NEG_CACHE__?: Map<string, { at: number }>;
+  };
+  if (!globalAny.__RB_MINIFIG_SETS_CACHE__) {
+    globalAny.__RB_MINIFIG_SETS_CACHE__ = new Map();
+  }
+  if (!globalAny.__RB_MINIFIG_SETS_NEG_CACHE__) {
+    globalAny.__RB_MINIFIG_SETS_NEG_CACHE__ = new Map();
+  }
+  const posCache = globalAny.__RB_MINIFIG_SETS_CACHE__!;
+  const negCache = globalAny.__RB_MINIFIG_SETS_NEG_CACHE__!;
+  const cacheKey = figNum.trim().toLowerCase();
+  const now = Date.now();
+  const hit = posCache.get(cacheKey);
+  if (hit && now - hit.at < SETS_TTL_MS) {
+    return hit.items;
+  }
+  const negHit = negCache.get(cacheKey);
+  if (negHit && now - negHit.at < NEGATIVE_TTL_MS) {
+    return [];
+  }
+
+  type Page = {
+    results: Array<{
+      set?: {
+        set_num: string;
+        name: string;
+        year: number;
+        set_img_url: string | null;
+      };
+      set_num?: string;
+      set_name?: string;
+      year?: number;
+      set_img_url?: string | null;
+      quantity?: number;
+    }>;
+    next: string | null;
+  };
+
+  async function fetchAll(minifigId: string): Promise<PartInSet[]> {
+    const first = await rbFetch<Page>(
+      `/lego/minifigs/${encodeURIComponent(minifigId)}/sets/`,
+      { page_size: 1000 }
+    );
+    const all: Page['results'] = [...first.results];
+    let nextUrl: string | null = first.next;
+    while (nextUrl) {
+      const page = await rbFetchAbsolute<Page>(nextUrl);
+      all.push(...page.results);
+      nextUrl = page.next;
+    }
+    return all
+      .map(r => {
+        if (r.set) {
+          return {
+            setNumber: r.set.set_num,
+            name: r.set.name,
+            year:
+              typeof r.set.year === 'number' && Number.isFinite(r.set.year)
+                ? r.set.year
+                : 0,
+            imageUrl: r.set.set_img_url,
+            quantity: typeof r.quantity === 'number' ? r.quantity : 1,
+          };
+        }
+        const setNum = (r.set_num ?? '').trim();
+        if (!setNum) {
+          return null;
+        }
+        return {
+          setNumber: setNum,
+          name: r.set_name ?? '',
+          year:
+            typeof r.year === 'number' && Number.isFinite(r.year) ? r.year : 0,
+          imageUrl:
+            typeof r.set_img_url === 'string' ? r.set_img_url : null,
+          quantity: typeof r.quantity === 'number' ? r.quantity : 1,
+        };
+      })
+      .filter((s): s is PartInSet => Boolean(s));
+  }
+
+  let sets: PartInSet[] = [];
+  try {
+    sets = await fetchAll(figNum);
+  } catch {
+    sets = [];
+  }
+
+  if (sets.length) {
+    // Sort minifig sets similarly: most quantity, then newest year first
+    sets = [...sets].sort((a, b) => {
+      if (b.quantity !== a.quantity) return b.quantity - a.quantity;
+      return b.year - a.year;
+    });
+    posCache.set(cacheKey, { at: now, items: sets });
+    if (posCache.size > MAX_CACHE_ENTRIES) {
+      let oldestKey: string | null = null;
+      let oldestAt = Number.MAX_SAFE_INTEGER;
+      for (const [k, v] of posCache.entries()) {
+        if (v.at < oldestAt) {
+          oldestAt = v.at;
+          oldestKey = k;
+        }
+      }
+      if (oldestKey) posCache.delete(oldestKey);
+    }
+  } else {
+    negCache.set(cacheKey, { at: now });
+    if (negCache.size > MAX_CACHE_ENTRIES) {
+      let oldestKey: string | null = null;
+      let oldestAt = Number.MAX_SAFE_INTEGER;
+      for (const [k, v] of negCache.entries()) {
+        if (v.at < oldestAt) {
+          oldestAt = v.at;
+          oldestKey = k;
+        }
+      }
+      if (oldestKey) negCache.delete(oldestKey);
+    }
+  }
+
+  return sets;
+}
+
 export function mapCategoryNameToParent(
   name: string
 ):
@@ -1591,8 +1754,7 @@ async function getMinifigPartsCached(
   figNum: string
 ): Promise<RebrickableMinifigComponent[]> {
   const cached = minifigPartsCache.get(figNum);
-  const now = Date.now();
-  if (cached && now - cached.at < ONE_HOUR_MS) return cached.parts;
+  if (cached) return cached;
 
   const parts: RebrickableMinifigComponent[] = [];
   let nextUrl: string | null = null;
@@ -1623,7 +1785,7 @@ async function getMinifigPartsCached(
     firstPage = false;
   }
 
-  minifigPartsCache.set(figNum, { at: now, parts });
+  minifigPartsCache.set(figNum, parts);
   return parts;
 }
 

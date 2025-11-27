@@ -1,18 +1,17 @@
 'use client';
 
-import { ExportModal } from '@/app/components/export/ExportModal';
+import { SetOwnershipAndCollectionsRow } from '@/app/components/set/SetOwnershipAndCollectionsRow';
 import { Modal } from '@/app/components/ui/Modal';
 import { cn } from '@/app/components/ui/utils';
-import { SetOwnershipAndCollectionsRow } from '@/app/components/set/SetOwnershipAndCollectionsRow';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useIsDesktop } from '@/app/hooks/useMediaQuery';
-import { useSetStatus } from '@/app/hooks/useSetStatus';
-import { ArrowLeft, ChevronDown, Download, Users } from 'lucide-react';
+import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
+import { ArrowLeft, ChevronDown, Users } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { MouseEventHandler, ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type SetTopBarProps = {
   setNumber: string;
@@ -116,19 +115,37 @@ export function SetTopBar({
 }: SetTopBarProps) {
   const router = useRouter();
   const isDesktop = useIsDesktop();
-  const [exportOpen, setExportOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [qrModalOpen, setQrModalOpen] = useState(false);
-  const { isLoading, totalMissing, ownedTotal, computeMissingRows } =
-    useInventory(setNumber);
-  const { status: uiStatus } = useSetStatus({
+  const [searchTogetherModalOpen, setSearchTogetherModalOpen] = useState(false);
+  const [shareMode, setShareMode] = useState<'link' | 'qr'>('link');
+  const { isLoading, totalMissing, ownedTotal } = useInventory(setNumber);
+  const ownership = useSetOwnershipState({
     setNumber,
     name: setName,
-    ...(typeof year === 'number' ? { year } : {}),
     imageUrl,
+    ...(typeof year === 'number' ? { year } : {}),
     ...(typeof numParts === 'number' ? { numParts } : {}),
     ...(typeof themeId === 'number' ? { themeId } : {}),
   });
+  const selectedCollections = useMemo(
+    () =>
+      ownership.collections.filter(collection =>
+        ownership.selectedCollectionIds.includes(collection.id)
+      ),
+    [ownership.collections, ownership.selectedCollectionIds]
+  );
+  const uiStatus = ownership.status;
+  const hasStatusPills = uiStatus.owned || uiStatus.wantToBuild;
+  const hasCollectionPills = selectedCollections.length > 0;
+  const shouldShowPills = hasStatusPills || hasCollectionPills;
+  const participantCount = searchTogether?.participants.length ?? 0;
+  const totalPiecesFound = searchTogether?.totalPiecesFound ?? 0;
+
+  useEffect(() => {
+    if (!searchTogetherModalOpen) {
+      setShareMode('link');
+    }
+  }, [searchTogetherModalOpen]);
 
   const handleToggleExpanded = () => {
     if (isDesktop) {
@@ -184,21 +201,15 @@ export function SetTopBar({
     }
   }, [priceSummary]);
 
-  const participantCount = searchTogether?.participants.length ?? 0;
-  const totalPiecesFound = searchTogether?.totalPiecesFound ?? 0;
-
-  const handleSearchTogetherClick: MouseEventHandler<HTMLButtonElement> = async event => {
-    event.stopPropagation();
+  const handleStartSearchTogether = async () => {
     if (!searchTogether) return;
-    if (searchTogether.loading) return;
-    if (!searchTogether.active) {
-      await searchTogether.onStart?.();
-    }
+    if (searchTogether.loading || searchTogether.active) return;
+    await searchTogether.onStart?.();
   };
 
-  const handleEndSessionClick: MouseEventHandler<HTMLButtonElement> = async event => {
-    event.stopPropagation();
+  const handleEndSearchTogether = async () => {
     if (!searchTogether) return;
+    if (!searchTogether.active || searchTogether.loading) return;
     await searchTogether.onEnd?.();
   };
 
@@ -238,7 +249,7 @@ export function SetTopBar({
           aria-controls="setinfo-panel"
         >
           <div className="aspect-square overflow-hidden rounded-sm border border-foreground-accent lg:aspect-auto">
-              {imageUrl ? (
+            {imageUrl ? (
               <Image
                 src={imageUrl}
                 alt="Set thumbnail"
@@ -246,8 +257,8 @@ export function SetTopBar({
                 height={240}
                 className="h-full w-auto object-cover transition-transform"
               />
-              ) : (
-                <div className="flex size-[calc(var(--spacing-topnav-height)-1rem)] flex-shrink-0 items-center justify-center rounded-sm border border-border-subtle bg-card-muted">
+            ) : (
+              <div className="flex size-[calc(var(--spacing-topnav-height)-1rem)] flex-shrink-0 items-center justify-center rounded-sm border border-border-subtle bg-card-muted">
                 No Image
               </div>
             )}
@@ -282,35 +293,66 @@ export function SetTopBar({
                 </>
               )}
               {priceStatus === 'error' && ' · Price unavailable'}
-              {searchTogether &&
-                !searchTogether.canHost &&
-                (isDesktop ? expanded : mobileOpen) && (
-                  <>
-                    {' '}
-                    ·{' '}
-                    <span className="inline-flex items-center gap-1 text-foreground-muted">
-                      <Users className="h-3 w-3" />
-                      <span>
-                        Search together (
-                        {participantCount.toLocaleString()} ·{' '}
-                        {totalPiecesFound.toLocaleString()} pieces)
-                      </span>
-                    </span>
-                  </>
-                )}
             </div>
-            {(uiStatus.owned || uiStatus.wantToBuild) && (
-              <div className="mt-1 flex flex-wrap gap-1 text-[11px] lg:text-xs">
-                {uiStatus.owned && (
-                  <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-brand-green">
-                    Owned
-                  </span>
+            {(shouldShowPills || expanded || mobileOpen) && (
+              <div
+                className={cn(
+                  'relative mt-1 w-full transition-[min-height]',
+                  mobileOpen
+                    ? 'min-h-[56px]'
+                    : shouldShowPills
+                      ? 'min-h-[24px]'
+                      : 'min-h-0',
+                  expanded
+                    ? 'lg:min-h-[56px]'
+                    : shouldShowPills
+                      ? 'lg:min-h-[24px]'
+                      : 'lg:min-h-0'
                 )}
-                {uiStatus.wantToBuild && (
-                  <span className="rounded-full bg-brand-purple/10 px-2 py-0.5 text-brand-purple">
-                    Wishlist
-                  </span>
-                )}
+              >
+                <div
+                  className={cn(
+                    'absolute inset-0 flex flex-wrap gap-1 text-[11px] transition-[opacity,transform] lg:text-xs',
+                    shouldShowPills
+                      ? 'scale-100 opacity-100'
+                      : 'pointer-events-none opacity-0',
+                    expanded &&
+                      'lg:pointer-events-none lg:scale-75 lg:opacity-0',
+                    mobileOpen && 'pointer-events-none scale-75 opacity-0'
+                  )}
+                >
+                  {uiStatus.owned && (
+                    <span className="rounded-full bg-brand-green/10 px-2 py-0.5 text-brand-green">
+                      Owned
+                    </span>
+                  )}
+                  {uiStatus.wantToBuild && (
+                    <span className="rounded-full bg-brand-purple/10 px-2 py-0.5 text-brand-purple">
+                      Wishlist
+                    </span>
+                  )}
+                  {selectedCollections.map(collection => (
+                    <span
+                      key={collection.id}
+                      className="rounded-full bg-theme-primary/10 px-2 py-0.5 text-theme-primary"
+                    >
+                      {collection.name}
+                    </span>
+                  ))}
+                </div>
+                <div
+                  className={cn(
+                    'pointer-events-none absolute inset-0 scale-95 opacity-0 transition-[opacity,transform]',
+                    expanded &&
+                      'lg:pointer-events-auto lg:scale-100 lg:opacity-100',
+                    mobileOpen && 'pointer-events-auto scale-100 opacity-100'
+                  )}
+                >
+                  <SetOwnershipAndCollectionsRow
+                    ownership={ownership}
+                    variant="inline"
+                  />
+                </div>
               </div>
             )}
             {/* Set info panel */}
@@ -326,145 +368,187 @@ export function SetTopBar({
                   height={512}
                 />
               </div>
-              <div className="mt-3 flex flex-col gap-3">
-                <SetOwnershipAndCollectionsRow
-                  setNumber={setNumber}
-                  name={setName}
-                  year={typeof year === 'number' ? year : 0}
-                  imageUrl={imageUrl}
-                  {...(typeof numParts === 'number' ? { numParts } : {})}
-                  themeId={themeId ?? null}
-                />
-                {searchTogether?.canHost && (
-                  <>
-                    <button
-                      type="button"
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-theme-primary px-3 py-2 text-xs font-medium text-white hover:bg-theme-primary/90"
-                      onClick={event => {
-                        event.stopPropagation();
-                        void handleSearchTogetherClick(event as never);
-                      }}
-                      disabled={searchTogether.loading}
-                    >
-                      <Users className="h-4 w-4" />
-                      <span>
-                        {searchTogether.active
-                          ? `Search together (${participantCount.toLocaleString()} · ${totalPiecesFound.toLocaleString()} pieces)`
-                          : 'Start Search Together'}
-                      </span>
-                    </button>
-                    {searchTogether.active && searchTogether.joinUrl && (
-                      <div className="rounded-md border border-border-subtle bg-card p-3 text-xs">
-                        <div className="font-semibold text-foreground">
-                          Share session
-                        </div>
-                        <p className="mt-1 text-foreground-muted">
-                          Copy the link or display a QR code so others can join
-                          this Search Together session.
-                        </p>
-                        <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center">
-                          <div className="flex flex-1 items-center gap-2">
-                            <input
-                              type="text"
-                              value={searchTogether.joinUrl}
-                              readOnly
-                              className="flex-1 rounded-md border border-border-subtle bg-background px-2 py-1 text-[11px] text-foreground"
-                            />
-                            <button
-                              type="button"
-                              className="inline-flex items-center justify-center rounded-md border border-border-subtle px-2 py-1 text-[11px] font-medium hover:bg-card-muted"
-                              onClick={event => {
-                                event.stopPropagation();
-                                handleCopyShareLink();
-                              }}
-                            >
-                              Copy link
-                            </button>
-                          </div>
-                          <button
-                            type="button"
-                            className="inline-flex items-center justify-center rounded-md border border-border-subtle px-2 py-1 text-[11px] font-medium hover:bg-card-muted"
-                            onClick={event => {
-                              event.stopPropagation();
-                              setQrModalOpen(true);
-                            }}
-                          >
-                            Show QR code
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          className="mt-2 inline-flex items-center justify-center rounded-md border border-border-subtle px-2 py-1 text-[11px] font-medium text-destructive hover:bg-card-muted"
-                          onClick={event => {
-                            event.stopPropagation();
-                            void handleEndSessionClick(event as never);
-                          }}
-                        >
-                          End session
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
             </div>
           </div>
         </div>
         <NavButton
-          className="absolute top-2 right-0 lg:top-0"
-          ariaLabel="Export missing"
-          label="Parts List"
-          icon={<Download className="h-5 w-5" />}
-          onClick={() => setExportOpen(true)}
+          ariaLabel="Search Together"
+          label={
+            searchTogether?.active
+              ? `Search Together (Active · ${participantCount.toLocaleString()})`
+              : 'Search Together'
+          }
+          icon={
+            <span className="relative inline-flex">
+              <Users className="h-5 w-5" />
+              {searchTogether?.active && participantCount > 0 && (
+                <span className="absolute -top-1 -right-1 inline-flex min-w-[1.125rem] items-center justify-center rounded-full bg-theme-primary px-1 text-[10px] font-semibold text-white">
+                  {participantCount > 9 ? '9+' : participantCount}
+                </span>
+              )}
+            </span>
+          }
+          disabled={!searchTogether}
+          className={cn(
+            'absolute top-2 right-0 lg:top-0',
+            searchTogether?.active && 'text-theme-primary',
+            !searchTogether && 'opacity-60'
+          )}
+          onClick={event => {
+            event.stopPropagation();
+            if (!searchTogether) return;
+            setSearchTogetherModalOpen(true);
+          }}
         />
       </div>
       <Modal
-        open={qrModalOpen && Boolean(searchTogether?.joinUrl)}
-        onClose={() => setQrModalOpen(false)}
-        title="Search Together QR"
+        open={searchTogetherModalOpen && Boolean(searchTogether)}
+        onClose={() => setSearchTogetherModalOpen(false)}
+        title="Search Together"
       >
-        {searchTogether?.joinUrl ? (
-          <div className="flex flex-col items-center gap-3 text-center text-sm">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-                searchTogether.joinUrl
-              )}`}
-              alt="QR code for Search Together link"
-              className="h-44 w-44 rounded-md border border-border-subtle bg-card p-2"
-            />
-            <p className="text-xs text-foreground-muted">
-              Scan this code or copy the link below to join the session.
-            </p>
-            <div className="flex w-full items-center gap-2">
-              <input
-                type="text"
-                readOnly
-                value={searchTogether.joinUrl}
-                className="flex-1 rounded-md border border-border-subtle bg-background px-2 py-1 text-[11px]"
-              />
-              <button
-                type="button"
-                className="inline-flex items-center justify-center rounded-md border border-border-subtle px-2 py-1 text-[11px] hover:bg-card-muted"
-                onClick={() => handleCopyShareLink()}
-              >
-                Copy
-              </button>
+        {searchTogether ? (
+          <div className="flex flex-col gap-3 text-xs">
+            <div className="rounded-md border border-border-subtle bg-card p-3">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">
+                    {searchTogether.active ? 'Session active' : 'Session idle'}
+                  </span>
+                  <span
+                    className={cn(
+                      'rounded-full px-2 py-0.5 text-[11px] font-medium',
+                      searchTogether.active
+                        ? 'bg-brand-green/10 text-brand-green'
+                        : 'bg-card-muted text-foreground-muted'
+                    )}
+                  >
+                    {searchTogether.active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-foreground-muted">
+                  {participantCount.toLocaleString()} participants ·{' '}
+                  {totalPiecesFound.toLocaleString()} pieces found
+                </p>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {searchTogether.canHost ? (
+                  <>
+                    {!searchTogether.active && (
+                      <button
+                        type="button"
+                        className="inline-flex flex-1 items-center justify-center rounded-md bg-theme-primary px-3 py-2 text-[11px] font-medium text-white hover:bg-theme-primary/90 disabled:opacity-60"
+                        onClick={() => void handleStartSearchTogether()}
+                        disabled={searchTogether.loading}
+                      >
+                        {searchTogether.loading
+                          ? 'Starting…'
+                          : 'Start Search Together'}
+                      </button>
+                    )}
+                    {searchTogether.active && (
+                      <button
+                        type="button"
+                        className="text-destructive inline-flex flex-1 items-center justify-center rounded-md border border-border-subtle px-3 py-2 text-[11px] font-medium hover:bg-card-muted disabled:opacity-60"
+                        onClick={() => void handleEndSearchTogether()}
+                        disabled={searchTogether.loading}
+                      >
+                        {searchTogether.loading ? 'Ending…' : 'End session'}
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-[11px] text-foreground-muted">
+                    Only the session host can start or end Search Together.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="rounded-md border border-border-subtle bg-card p-3">
+              <div className="flex items-center justify-between text-xs font-semibold text-foreground">
+                Share session
+                {searchTogether.joinUrl && (
+                  <button
+                    type="button"
+                    className="text-[11px] font-medium text-theme-primary hover:underline"
+                    onClick={() =>
+                      setShareMode(prev => (prev === 'link' ? 'qr' : 'link'))
+                    }
+                  >
+                    {shareMode === 'link' ? 'Show QR code' : 'Show link'}
+                  </button>
+                )}
+              </div>
+              {searchTogether.joinUrl ? (
+                shareMode === 'link' ? (
+                  <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-center">
+                    <input
+                      type="text"
+                      value={searchTogether.joinUrl}
+                      readOnly
+                      className="flex-1 rounded-md border border-border-subtle bg-background px-2 py-1 text-[11px]"
+                    />
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center rounded-md border border-border-subtle px-2 py-1 text-[11px] font-medium hover:bg-card-muted"
+                      onClick={() => handleCopyShareLink()}
+                    >
+                      Copy link
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex flex-col items-center gap-2 text-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+                        searchTogether.joinUrl
+                      )}`}
+                      alt="QR code for Search Together link"
+                      className="h-44 w-44 rounded-md border border-border-subtle bg-card p-2"
+                    />
+                    <p className="text-[11px] text-foreground-muted">
+                      Scan to join this Search Together session.
+                    </p>
+                  </div>
+                )
+              ) : (
+                <p className="mt-2 text-[11px] text-foreground-muted">
+                  Session link unavailable.
+                </p>
+              )}
+            </div>
+            <div className="rounded-md border border-border-subtle bg-card p-3">
+              <div className="text-xs font-semibold text-foreground">
+                Participants
+              </div>
+              {searchTogether.participants.length === 0 ? (
+                <p className="mt-2 text-[11px] text-foreground-muted">
+                  No participants yet.
+                </p>
+              ) : (
+                <ul className="mt-2 flex flex-col gap-2 text-xs">
+                  {searchTogether.participants.map(participant => (
+                    <li
+                      key={participant.id}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <span className="truncate">
+                        {participant.displayName}
+                      </span>
+                      <span className="text-foreground-muted">
+                        {(participant.piecesFound ?? 0).toLocaleString()} pieces
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         ) : (
           <div className="text-xs text-foreground-muted">
-            Session link unavailable.
+            Search Together is unavailable for this set.
           </div>
         )}
       </Modal>
-      <ExportModal
-        open={exportOpen}
-        onClose={() => setExportOpen(false)}
-        setNumber={setNumber}
-        setName={setName}
-        getMissingRows={computeMissingRows}
-      />
     </>
   );
 }

@@ -29,3 +29,4 @@ export function getSupabaseServiceRoleClient(): SupabaseClient<Database> {
   return serviceRoleClient;
 }
 
+

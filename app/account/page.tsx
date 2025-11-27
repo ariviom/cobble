@@ -452,7 +452,7 @@ export default function AccountPage() {
             </div>
 
             <div className="mt-4 space-y-8">
-              {(!isLoggedIn || isEmailAuth) && (
+              {isLoggedIn && (
                 <div className="flex flex-col gap-2 border-t border-border-subtle pt-4">
                   <h3 className="text-sm font-semibold text-foreground">
                     Email &amp; password
@@ -501,13 +501,13 @@ export default function AccountPage() {
                   <Input
                     type="email"
                     disabled
-                    placeholder="you@example.com"
+                    value={googleEmail}
                     className="w-full text-xs text-foreground-muted"
                   />
                 </div>
               )}
 
-              {(!isLoggedIn || isEmailAuth) && (
+              {isLoggedIn && isEmailAuth && (
                 <div className="flex flex-col gap-2 border-t border-border-subtle pt-4">
                   <h3 className="text-sm font-semibold text-foreground">
                     Change password

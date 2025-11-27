@@ -7,32 +7,59 @@ export type PublicUserProfile = Pick<
   'user_id' | 'username' | 'display_name' | 'collections_public'
 >;
 
+export type PrivateUserInfo = Pick<
+  Tables<'user_profiles'>,
+  'user_id' | 'username' | 'display_name'
+>;
+
+export type ResolvedUser =
+  | { type: 'public'; profile: PublicUserProfile }
+  | { type: 'private'; info: PrivateUserInfo }
+  | { type: 'not_found' };
+
 export async function resolvePublicUser(
   handle: string
-): Promise<PublicUserProfile | null> {
+): Promise<ResolvedUser> {
   const supabase = getSupabaseServiceRoleClient();
 
   const isUsername = USERNAME_REGEX.test(handle);
 
-  const query = supabase
+  let query = supabase
     .from('user_profiles')
     .select<'user_id,username,display_name,collections_public'>(
       'user_id,username,display_name,collections_public'
-    )
-    .eq(isUsername ? 'username' : 'user_id', handle)
-    .maybeSingle();
+    );
 
-  const { data, error } = await query;
+  if (isUsername) {
+    // Usernames are stored case-insensitively (unique index on lower(username))
+    // Use ilike for case-insensitive matching
+    query = query.ilike('username', handle);
+  } else {
+    // For user_id (UUID), use exact match
+    query = query.eq('user_id', handle);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error || !data) {
-    return null;
+    return { type: 'not_found' };
   }
 
   if (!data.collections_public) {
-    return null;
+    return {
+      type: 'private',
+      info: {
+        user_id: data.user_id,
+        username: data.username,
+        display_name: data.display_name,
+      },
+    };
   }
 
-  return data as PublicUserProfile;
+  return {
+    type: 'public',
+    profile: data as PublicUserProfile,
+  };
 }
 
 

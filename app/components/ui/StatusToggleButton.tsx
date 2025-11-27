@@ -8,13 +8,17 @@ export type StatusToggleButtonProps =
     icon: ReactNode;
     label: string;
     active?: boolean;
+    variant?: 'default' | 'inline';
   };
 
 const baseStyles =
-  'inline-flex items-center w-full gap-1 rounded px-3 py-2 flex-col text-xs text-foreground-muted bg-card hover:bg-card-muted border-r border-border-subtle last:border-r-0';
+  'inline-flex items-center w-full gap-1 rounded px-3 py-2 text-xs text-foreground-muted bg-card hover:bg-card-muted border-r border-border-subtle last:border-r-0';
 
-const activeStyles =
-  'border-theme-primary bg-theme-primary/5 text-theme-primary';
+const defaultStyles = 'group-[.status-row]:flex-col';
+
+const inlineStyles = 'flex-row border-r-0';
+
+const activeStyles = 'bg-theme-primary/10 text-theme-primary';
 
 const disabledStyles = 'opacity-60 cursor-not-allowed hover:bg-card';
 
@@ -25,6 +29,7 @@ export function StatusToggleButton({
   className,
   onClick,
   disabled,
+  variant = 'default',
   ...props
 }: StatusToggleButtonProps) {
   return (
@@ -32,6 +37,8 @@ export function StatusToggleButton({
       type="button"
       className={cn(
         baseStyles,
+        variant === 'default' && defaultStyles,
+        variant === 'inline' && inlineStyles,
         active && !disabled && activeStyles,
         disabled && disabledStyles,
         className

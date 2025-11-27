@@ -246,3 +246,4 @@ create policy "Delete group sessions as host"
   for delete
   using ((select auth.uid()) = host_user_id);
 
+

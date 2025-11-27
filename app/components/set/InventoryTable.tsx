@@ -1,5 +1,6 @@
 'use client';
 
+import { ExportModal } from '@/app/components/export/ExportModal';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Spinner } from '@/app/components/ui/Spinner';
@@ -8,10 +9,11 @@ import { Modal } from '@/app/components/ui/Modal';
 import { useGroupSessionChannel } from '@/app/hooks/useGroupSessionChannel';
 import { useInventoryPrices } from '@/app/hooks/useInventoryPrices';
 import { useInventoryViewModel } from '@/app/hooks/useInventoryViewModel';
+import { useInventory } from '@/app/hooks/useInventory';
 import { useSupabaseOwned } from '@/app/hooks/useSupabaseOwned';
 import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
 import { InventoryControls } from './InventoryControls';
 import { InventoryItem } from './items/InventoryItem';
@@ -28,7 +30,6 @@ type PriceSummary = {
 type InventoryTableProps = {
   setNumber: string;
   setName?: string;
-  partPricesEnabled?: boolean;
   /**
    * When false, Supabase-backed owned sync is disabled and changes remain
    * local. Used for Search Together participants so only the host persists
@@ -51,13 +52,11 @@ type InventoryTableProps = {
     status: 'idle' | 'loading' | 'loaded' | 'error'
   ) => void;
   onPriceTotalsChange?: (summary: PriceSummary | null) => void;
-  onRequestPartPrices?: () => void;
 };
 
 export function InventoryTable({
   setNumber,
   setName,
-  partPricesEnabled = false,
   enableCloudSync = true,
   groupSessionId,
   groupParticipantId,
@@ -65,7 +64,6 @@ export function InventoryTable({
   onParticipantPiecesDelta,
   onPriceStatusChange,
   onPriceTotalsChange,
-  onRequestPartPrices,
 }: InventoryTableProps) {
   const {
     rows,
@@ -93,6 +91,8 @@ export function InventoryTable({
     countsByParent,
     parentOptions,
   } = useInventoryViewModel(setNumber);
+  const [exportOpen, setExportOpen] = useState(false);
+  const { computeMissingRows } = useInventory(setNumber);
 
   type PriceInfo = {
     unitPrice: number | null;
@@ -103,12 +103,15 @@ export function InventoryTable({
     itemType: 'PART' | 'MINIFIG';
   };
 
-  const { pricesByKey, pricesStatus } = useInventoryPrices<PriceInfo>({
+  const {
+    pricesByKey,
+    pricesStatus,
+    pendingKeys,
+    requestPricesForKeys,
+  } = useInventoryPrices<PriceInfo>({
     setNumber,
     rows,
     keys,
-    sortKey,
-    enabled: partPricesEnabled,
     ...(onPriceStatusChange ? { onPriceStatusChange } : {}),
     ...(onPriceTotalsChange ? { onPriceTotalsChange } : {}),
   });
@@ -282,6 +285,7 @@ export function InventoryTable({
               : [...(filter.colors || []), color],
           });
         }}
+        onOpenExportModal={() => setExportOpen(true)}
       />
 
       <div className="bg-background-muted pt-inventory-offset transition-[padding] lg:overflow-y-auto lg:pt-0">
@@ -318,13 +322,13 @@ export function InventoryTable({
                     maxPrice={priceInfo?.maxPrice ?? null}
                     currency={priceInfo?.currency ?? null}
                     bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
-                    isPricePending={pricesStatus === 'loading'}
+                    isPricePending={pendingKeys.has(key)}
                     canRequestPrice={
-                      !partPricesEnabled && pricesStatus === 'idle'
+                      !pendingKeys.has(key) && !pricesByKey[key]
                     }
-                    {...(onRequestPartPrices
-                      ? { onRequestPrice: onRequestPartPrices }
-                      : {})}
+                    onRequestPrice={() => {
+                      void requestPricesForKeys([key]);
+                    }}
                     onOwnedChange={next => {
                       const clamped = clampOwned(next, r.quantityRequired);
                       const prevOwned = ownedByKey[key] ?? 0;
@@ -452,13 +456,13 @@ export function InventoryTable({
                             bricklinkColorId={
                               priceInfo?.bricklinkColorId ?? null
                             }
-                            isPricePending={pricesStatus === 'loading'}
+                            isPricePending={pendingKeys.has(key)}
                             canRequestPrice={
-                              !partPricesEnabled && pricesStatus === 'idle'
+                              !pendingKeys.has(key) && !pricesByKey[key]
                             }
-                            {...(onRequestPartPrices
-                              ? { onRequestPrice: onRequestPartPrices }
-                              : {})}
+                            onRequestPrice={() => {
+                              void requestPricesForKeys([key]);
+                            }}
                             onOwnedChange={next => {
                               const clamped = clampOwned(
                                 next,
@@ -550,6 +554,13 @@ export function InventoryTable({
           )}
         </div>
       </div>
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        setNumber={setNumber}
+        setName={setName}
+        getMissingRows={computeMissingRows}
+      />
     </div>
   );
 }

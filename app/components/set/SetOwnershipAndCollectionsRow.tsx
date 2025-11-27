@@ -3,56 +3,34 @@
 import { Modal } from '@/app/components/ui/Modal';
 import { StatusToggleButton } from '@/app/components/ui/StatusToggleButton';
 import { cn } from '@/app/components/ui/utils';
-import { useSetCollections } from '@/app/hooks/useSetCollections';
-import { useSetStatus } from '@/app/hooks/useSetStatus';
-import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
-import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import type { SetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import { Check, Heart, ListPlus, Plus } from 'lucide-react';
 import { useState } from 'react';
 
 type SetOwnershipAndCollectionsRowProps = {
-  setNumber: string;
-  name: string;
-  year: number;
-  imageUrl: string | null;
-  numParts?: number;
-  themeId?: number | null;
+  ownership: SetOwnershipState;
+  variant?: 'default' | 'inline';
 };
 
 export function SetOwnershipAndCollectionsRow({
-  setNumber,
-  name,
-  year,
-  imageUrl,
-  numParts,
-  themeId,
+  ownership,
+  variant = 'default',
 }: SetOwnershipAndCollectionsRowProps) {
-  useHydrateUserSets();
-  const { user, isLoading } = useSupabaseUser();
-
-  const { status, toggleStatus } = useSetStatus({
-    setNumber,
-    name,
-    year,
-    imageUrl,
-    numParts: typeof numParts === 'number' ? numParts : 0,
-    themeId: typeof themeId === 'number' ? themeId : null,
-  });
-
   const {
+    status,
+    toggleStatus,
     collections,
     selectedCollectionIds,
-    isLoading: collectionsLoading,
-    error,
+    collectionsLoading,
+    collectionsError,
     toggleCollection,
     createCollection,
-  } = useSetCollections({ setNumber });
+    isAuthenticating,
+    isAuthenticated,
+  } = ownership;
 
   const [showCollections, setShowCollections] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
-
-  const isAuthenticating = isLoading;
-  const isAuthenticated = !!user;
   const controlsDisabled = !isAuthenticated || isAuthenticating;
   const showAuthHint = !isAuthenticating && !isAuthenticated;
 
@@ -77,7 +55,10 @@ export function SetOwnershipAndCollectionsRow({
     <>
       <div
         className={cn(
-          'mt-2 flex border-t border-border-subtle text-xs transition-opacity',
+          'status-row group flex text-xs transition-opacity',
+          variant === 'default'
+            ? 'mt-2 border-t border-border-subtle'
+            : 'mt-0 gap-2',
           isAuthenticating && 'opacity-70',
           !isAuthenticated && !isAuthenticating && 'opacity-80'
         )}
@@ -88,10 +69,9 @@ export function SetOwnershipAndCollectionsRow({
           active={isAuthenticated && status.owned}
           disabled={controlsDisabled}
           aria-busy={isAuthenticating}
-          title={
-            controlsDisabled ? 'Sign in to mark sets as owned' : undefined
-          }
+          title={controlsDisabled ? 'Sign in to mark sets as owned' : undefined}
           onClick={() => handleToggleStatus('owned')}
+          variant={variant}
         />
         <StatusToggleButton
           icon={<Heart className="size-4" />}
@@ -100,9 +80,12 @@ export function SetOwnershipAndCollectionsRow({
           disabled={controlsDisabled}
           aria-busy={isAuthenticating}
           title={
-            controlsDisabled ? 'Sign in to add sets to your wishlist' : undefined
+            controlsDisabled
+              ? 'Sign in to add sets to your wishlist'
+              : undefined
           }
           onClick={() => handleToggleStatus('wantToBuild')}
+          variant={variant}
         />
         <StatusToggleButton
           icon={<Plus className="size-4" />}
@@ -111,9 +94,12 @@ export function SetOwnershipAndCollectionsRow({
           disabled={controlsDisabled}
           aria-busy={isAuthenticating}
           title={
-            controlsDisabled ? 'Sign in to organize sets in collections' : undefined
+            controlsDisabled
+              ? 'Sign in to organize sets in collections'
+              : undefined
           }
           onClick={handleOpenCollections}
+          variant={variant}
         />
       </div>
       {showAuthHint && (
@@ -182,13 +168,13 @@ export function SetOwnershipAndCollectionsRow({
               <span>Create</span>
             </button>
           </div>
-          {error && (
-            <div className="mt-1 text-[10px] text-brand-red">{error}</div>
+          {collectionsError && (
+            <div className="mt-1 text-[10px] text-brand-red">
+              {collectionsError}
+            </div>
           )}
         </div>
       </Modal>
     </>
   );
 }
-
-

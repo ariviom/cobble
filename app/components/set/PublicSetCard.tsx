@@ -1,54 +1,32 @@
-'use client';
-
-import { SetOwnershipAndCollectionsRow } from '@/app/components/set/SetOwnershipAndCollectionsRow';
-import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import Image from 'next/image';
 import Link from 'next/link';
 
-export type SetDisplayCardProps = {
+export type PublicSetCardProps = {
   setNumber: string;
   name: string;
-  year: number;
+  year: number | null;
   imageUrl: string | null;
-  numParts?: number;
-  quantity?: number;
-  /**
-   * Optional label for the theme (e.g., root theme name). When provided, this
-   * is rendered above the title.
-   */
+  numParts: number | null;
   themeLabel?: string | null;
-  themeId?: number | null;
-  onRemove?: () => void;
   className?: string;
 };
 
-export function SetDisplayCard({
+export function PublicSetCard({
   setNumber,
   name,
   year,
   imageUrl,
   numParts,
-  quantity,
   themeLabel,
-  themeId,
   className,
-}: SetDisplayCardProps) {
-  // Infer metadata display: prefer numParts, fallback to quantity.
-  const metadataParts: string[] = [setNumber, String(year)];
-  if (typeof numParts === 'number' && Number.isFinite(numParts)) {
-    metadataParts.push(`${numParts} parts`);
-  } else if (typeof quantity === 'number' && Number.isFinite(quantity)) {
-    metadataParts.push(`${quantity} pieces`);
+}: PublicSetCardProps) {
+  const metadataParts: string[] = [setNumber];
+  if (year) {
+    metadataParts.push(String(year));
   }
-
-  const ownership = useSetOwnershipState({
-    setNumber,
-    name,
-    imageUrl,
-    ...(typeof year === 'number' ? { year } : {}),
-    ...(typeof numParts === 'number' ? { numParts } : {}),
-    ...(typeof themeId === 'number' ? { themeId } : {}),
-  });
+  if (typeof numParts === 'number' && Number.isFinite(numParts) && numParts > 0) {
+    metadataParts.push(`${numParts} parts`);
+  }
 
   return (
     <div
@@ -70,7 +48,9 @@ export function SetDisplayCard({
                   className="aspect-square h-full w-full overflow-hidden rounded-lg object-cover"
                 />
               ) : (
-                <div className="text-xs text-foreground-muted">No Image</div>
+                <div className="flex aspect-square items-center justify-center text-xs text-foreground-muted">
+                  No Image
+                </div>
               )}
             </div>
           </div>
@@ -91,7 +71,7 @@ export function SetDisplayCard({
           </div>
         </div>
       </Link>
-      <SetOwnershipAndCollectionsRow ownership={ownership} />
     </div>
   );
 }
+

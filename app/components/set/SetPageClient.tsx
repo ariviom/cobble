@@ -52,7 +52,6 @@ export function SetPageClient({
     currency: string | null;
     pricedItemCount: number;
   } | null>(null);
-  const [partPricesEnabled, setPartPricesEnabled] = useState(false);
   const [groupSession, setGroupSession] = useState<GroupSessionState>(null);
   const [currentParticipant, setCurrentParticipant] =
     useState<GroupParticipant | null>(null);
@@ -375,8 +374,6 @@ export function SetPageClient({
       <InventoryTable
         setNumber={setNumber}
         setName={setName}
-        partPricesEnabled={partPricesEnabled}
-        onRequestPartPrices={() => setPartPricesEnabled(true)}
         enableCloudSync
         groupSessionId={groupSession?.id ?? null}
         groupParticipantId={currentParticipant?.id ?? null}

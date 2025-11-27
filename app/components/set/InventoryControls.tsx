@@ -34,6 +34,7 @@ type Props = {
   subcategoriesByParent: Record<string, string[]>;
   colorOptions: string[];
   onToggleColor: (color: string) => void;
+  onOpenExportModal: () => void;
 };
 
 export function InventoryControls(props: Props) {
@@ -56,6 +57,7 @@ export function InventoryControls(props: Props) {
     subcategoriesByParent,
     colorOptions,
     onToggleColor,
+    onOpenExportModal,
   } = props;
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -198,6 +200,7 @@ export function InventoryControls(props: Props) {
         isDesktop={isDesktop}
         isParentOpen={isParentOpen}
         isColorOpen={isColorOpen}
+        onOpenExportModal={onOpenExportModal}
       />
     </div>
   );
