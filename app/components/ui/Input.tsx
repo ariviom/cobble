@@ -19,7 +19,7 @@ const inputVariants = cva(
   }
 );
 
-type Props = InputHTMLAttributes<HTMLInputElement> &
+type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> &
   VariantProps<typeof inputVariants>;
 
 export const Input = forwardRef<HTMLInputElement, Props>(function Input(

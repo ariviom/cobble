@@ -98,7 +98,7 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
         .filter(
           (
             item
-          ): item is { key: string; partId: string | number; colorId: number } =>
+          ): item is { key: string; partId: string; colorId: number } =>
             Boolean(item)
         )
         .map(item => ({

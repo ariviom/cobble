@@ -44,10 +44,10 @@ export function useSetOwnershipState({
   const { status, toggleStatus } = useSetStatus({
     setNumber,
     name,
-    year,
     imageUrl,
-    numParts,
-    themeId,
+    ...(typeof year === 'number' ? { year } : {}),
+    ...(typeof numParts === 'number' ? { numParts } : {}),
+    ...(typeof themeId === 'number' ? { themeId } : {}),
   });
   const {
     collections,

@@ -20,12 +20,6 @@ type PublicSetSummary = {
   status: 'owned' | 'want' | null;
 };
 
-type ThemeInfo = {
-  id: number;
-  name: string;
-  parent_id: number | null;
-};
-
 type PublicCollection = {
   id: string;
   name: string;

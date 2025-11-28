@@ -99,20 +99,6 @@ export function PublicUserSetsOverview({
     return map;
   }, [initialThemes]);
 
-  const themeIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          allSets
-            .map(s => s.theme_id)
-            .filter(
-              (id): id is number => typeof id === 'number' && Number.isFinite(id)
-            )
-        )
-      ),
-    [allSets]
-  );
-
   const themeOptions = useMemo(() => {
     const names = new Map<number, string>();
     for (const set of allSets) {

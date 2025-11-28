@@ -13,9 +13,9 @@ import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
 import { Spinner } from '@/app/components/ui/Spinner';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-export default function IdentifyPage() {
+function IdentifyPageInner() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -373,11 +373,11 @@ export default function IdentifyPage() {
       const colorId =
         colorIdFromQuery && colorIdFromQuery.trim() !== ''
           ? Number(colorIdFromQuery)
-          : undefined;
+          : null;
       const blColorId =
         blColorIdFromQuery && blColorIdFromQuery.trim() !== ''
           ? Number(blColorIdFromQuery)
-          : undefined;
+          : null;
       void performPartLookup({
         partId: partFromQuery,
         colorId,
@@ -559,5 +559,19 @@ export default function IdentifyPage() {
         </section>
       )}
     </>
+  );
+}
+
+export default function IdentifyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mt-8 flex justify-center">
+          <Spinner label="Loading identify tools…" />
+        </div>
+      }
+    >
+      <IdentifyPageInner />
+    </Suspense>
   );
 }

@@ -103,12 +103,8 @@ export function InventoryTable({
     itemType: 'PART' | 'MINIFIG';
   };
 
-  const {
-    pricesByKey,
-    pricesStatus,
-    pendingKeys,
-    requestPricesForKeys,
-  } = useInventoryPrices<PriceInfo>({
+  const { pricesByKey, pendingKeys, requestPricesForKeys } =
+    useInventoryPrices<PriceInfo>({
     setNumber,
     rows,
     keys,
@@ -558,7 +554,7 @@ export function InventoryTable({
         open={exportOpen}
         onClose={() => setExportOpen(false)}
         setNumber={setNumber}
-        setName={setName}
+        {...(setName ? { setName } : {})}
         getMissingRows={computeMissingRows}
       />
     </div>
