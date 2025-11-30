@@ -1,63 +1,90 @@
 # System Patterns
 
-## System Architecture
+## Core Data Flows
 
-- Next.js App Router (TypeScript, React Server Components where beneficial).
-- Route Handlers under `app/api/*` for server-side calls to Rebrickable using env `REBRICKABLE_API`.
-- Client components for table interactions, owned quantity editing, sorting, and export.
-- State management:
-  - TanStack Query for server data (set inventory).
-  - Zustand for UI state and per-set owned quantities.
-  - localStorage persistence keyed by set ID.
-- Mapping layer for Rebrickable ↔ BrickLink part/color IDs used during export.
+- **Search**
+  - `GET /api/search` wraps `searchSetsPage` from `app/lib/services/search`.
+  - Query, sort, filters, paging, and exact-match flags are parsed and validated in the route handler before hitting the service.
+- **Inventory**
+  - Set pages load inventories through Route Handlers that talk to the Rebrickable/Supabase catalog.
+  - TanStack Query owns server data (inventories, prices); Zustand owns UI state and per-set owned quantities.
+  - The `useInventoryViewModel` hook centralizes sorting, filtering, grouping, and derived totals so table components remain largely presentational.
+  - Minifigure parent rows are enriched server-side with BrickLink minifig IDs using:
+    - A per-set mapping table (`bl_set_minifigs`) that stores `set_num`, BrickLink `minifig_no`, and the corresponding Rebrickable `rb_fig_id`.
+    - A shared script module (`scripts/minifig-mapping-core.ts`) that:
+      - Calls BrickLink `/items/SET/{setNum}/subsets` to fetch minifigs.
+      - Loads Rebrickable inventories/minifigs for the same set from Supabase.
+      - Matches RB ↔ BL minifigs by normalized name, Jaccard similarity, and a greedy fallback within the set’s small candidate list.
+      - Upserts mappings into `bl_set_minifigs` and a global `bricklink_minifig_mappings` cache.
+    - A server-only helper (`app/lib/minifigMapping.ts`) that:
+      - Reads per-set mappings (`mapSetRebrickableFigsToBrickLink`).
+      - Provides an **on-demand** variant (`mapSetRebrickableFigsToBrickLinkOnDemand`) that:
+        - Detects missing RB fig IDs for a set.
+        - Checks `bl_sets.minifig_sync_status` and, if not `'ok'`, runs `processSetForMinifigMapping` to hit BrickLink once for that set.
+        - Re-reads `bl_set_minifigs` and merges the new mappings so the UI shows BrickLink IDs instead of “Not mapped”.
+      - Falls back to the global `bricklink_minifig_mappings` table for any remaining unmapped RB IDs.
 
-## Key Technical Decisions
+## Persistence & Auth Patterns
 
-- No authentication in MVP; local-only persistence. Simple user accounts via Supabase are planned next.
-- Server-only Rebrickable access; never expose `REBRICKABLE_API` in the client.
-- Pricing: optional BrickLink-based price lookup is supported via a manual per-set "Get prices" action; advanced analytics/rarity remain out of scope.
-- Export formats supported in MVP: Rebrickable CSV, BrickLink CSV (wanted list). BrickOwl deferred.
-- Wanted list naming: "{setNumber} — {setName} — mvp". Condition defaults accepted; toggle for new/used later.
-- Virtualized table to handle large inventories.
-- Graceful error states with retry.
-- Performance target: < 3s for inventories ≤ 1000 parts.
+- **Local-first owned state**
+  - Owned quantities live in a Zustand store backed by `localStorage` under a versioned key.
+  - Reads hydrate from local cache; writes are debounced and prefer `requestIdleCallback` when available to avoid blocking the main thread.
+- **Supabase-backed sync**
+  - Supabase tables hold user profiles, preferences, per-set status, per-set owned parts, and optional global parts inventory.
+  - The intended flow is: anonymous users use local-only; on first login, local owned state is migrated into Supabase and then kept in sync.
+- **Group builds**
+  - Collaborative sessions are represented by `group_sessions` and related tables in Supabase.
+  - The host’s owned state is the single source of truth; participant edits stream via Supabase Realtime channels keyed by `group_sessions.id` and are applied to the host’s rows.
 
-## Design Patterns
+## Identify Flow
 
-- Adapter pattern for export generators (Rebrickable CSV, BrickLink CSV).
-- Mapper/translator for ID/color code conversion (Rebrickable ↔ BrickLink).
-- Cache-first data fetching with fetch cache and revalidate window for set inventories.
-- Unidirectional data flow: server fetch → query cache → UI state (owned) → derived missing → export.
-- Client-side persistence uses cache-first reads with debounced write-through to localStorage; writes prefer `requestIdleCallback` when available.
-- Local-first, optimistic UX: Zustand/localStorage is the immediate source of truth; Supabase writes are fire-and-forget and reads hydrate once per mount to avoid extra round-trips.
-- Database calls happen only on explicit user actions (e.g., opening a collection) and results are cached in component state to keep the UI responsive.
-- UI components:
-  - Tabbed filter bar (`InventoryFilterTabs`) provides filtering across All/Missing/Owned and categories, with horizontal scroll and arrow controls and enlarged touch targets.
-  - Search bar uses inline clear control with large touch target and label positioned above input.
-  - Set top bar composes set metadata, owned/missing summary, user-set status chips, and price actions (manual "Get prices" trigger plus aggregate price display).
-- Inventory view-model hook (`useInventoryViewModel`) centralizes sorting/filtering/grouping and derived metadata, keeping `InventoryTable` mostly presentational.
-- Error domain helpers (`AppError`, `throwAppErrorFromResponse`) normalize HTTP failure handling across client fetchers.
+- **RB-first, BL-supersets fallback**
+  - `POST /api/identify` accepts an image, calls Brickognize, and extracts candidate part numbers (including optional BrickLink IDs).
+  - Candidates are resolved to Rebrickable parts via `resolvePartIdToRebrickable`; colors and sets come from `getPartColorsForPart` and `getSetsForPart`.
+  - If no Rebrickable candidate yields sets, the handler falls back to BrickLink supersets (including per-color supersets and subset-inferred colors) and then enriches sets with Rebrickable summaries where possible.
+- **Color handling**
+  - Available colors for a part are sourced from Rebrickable; a single available color is auto-selected.
+  - For BrickLink fallbacks, BL color IDs are mapped to human-readable names via the Rebrickable colors catalog.
+- **Rate limiting and budgets**
+  - `/api/identify` enforces per-client rate limits.
+  - An `ExternalCallBudget` limits outgoing external API calls per request; budget exhaustion yields a structured `identify_budget_exceeded` error.
 
-## Gaps / Opportunities
-- Export validation against Rebrickable/BrickLink importers pending.
-- Category taxonomy derived from part name is heuristic; could benefit from a curated mapping for parent categories.
-- Supabase integration for auth and persistence still to be designed and wired into existing stores without overcomplicating the data layer.
+## Catalog & Ingestion
 
-## Performance Optimization Opportunities
+- **Rebrickable catalog mirror**
+  - `scripts/ingest-rebrickable.ts` downloads compressed CSVs (themes, colors, part categories, parts, sets, inventories, minifigs) and streams them into Supabase `rb_*` tables using batched `upsert`s.
+  - Ingestion versions are tracked in `rb_download_versions` so unchanged sources are skipped.
+- **Usage in the app**
+  - App code prefers catalog-backed queries (via `app/lib/catalog.ts` / Supabase) for search and inventories when possible.
+  - Live Rebrickable API calls are reserved for gaps or very recent data.
 
-### Future Optimization: useInventory Hook Calculations
-The `useInventory` hook in `app/hooks/useInventory.ts` recalculates `totalMissing` on every owned store change, which can be expensive for large inventories (500+ parts).
+## Exports & Pricing
 
-**Current implementation:**
-- `totalMissing` uses `useMemo` but depends on `ownedStore`, which changes frequently
-- Each calculation iterates through all rows and calls `ownedStore.getOwned()` for each
+- **CSV export adapters**
+  - Rebrickable CSV and BrickLink wanted-list CSV are implemented as adapters that map the same internal inventory model into provider-specific field sets.
+  - BrickLink wanted lists are named `"{setNumber} — {setName} — mvp"`; condition defaults are accepted and per-row condition is deferred.
+- **BrickLink pricing**
+  - Pricing is opt-in and triggered explicitly (per-row or at the set level) via UI actions.
+  - Route Handlers call BrickLink price guide endpoints server-side; the UI surfaces aggregate ranges and per-part links without storing sensitive pricing settings client-side.
 
-**Potential optimizations:**
-1. **Derived state in Zustand store**: Calculate missing totals in the Zustand store itself, only recomputing when relevant data changes
-2. **More granular memoization**: Split calculations by category or use indexed lookups
-3. **Incremental updates**: Track deltas instead of recalculating from scratch
-4. **Virtualized calculations**: Only calculate visible rows initially, compute rest on-demand
+## Error Handling & UX Patterns
 
-**Impact**: Large sets (>1000 parts) may experience UI lag when rapidly updating owned quantities.
+- **Normalized errors**
+  - Domain errors use `AppError` / `throwAppErrorFromResponse` to translate HTTP failures into consistent codes and messages.
+  - API routes always return JSON payloads (including error cases) so clients never attempt to parse empty responses.
+- **Key UI patterns**
+  - `InventoryFilterTabs` exposes All/Missing/Owned and category/color filters with horizontal scrolling and enlarged touch targets.
+  - The search bar uses an above-field label and inline clear button with a large hit target.
+  - The set top bar composes set metadata, owned/missing summary, user status chips, and pricing actions into a single, reusable component.
 
-**When to address**: When users report performance issues with large inventories or when inventory sizes consistently exceed 500-1000 parts.
+## Performance Notes
+
+- Inventory tables are virtualized to keep large sets responsive.
+- Heavy derived calculations (sorting, grouping, totals) belong in `useInventoryViewModel` or similar view-model hooks, not in leaf components.
+- The `useInventory` hook currently recomputes `totalMissing` on each owned-store change; for very large sets, consider:
+  - Moving aggregate totals into the store as derived state,
+  - Using incremental updates instead of full recomputation,
+  - Or limiting initial work to visible rows and calculating the rest on demand.
+
+
+

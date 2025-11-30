@@ -2,50 +2,41 @@
 
 ## Current Focus
 
-Prepare the app for simple user accounts and Supabase-backed persistence while keeping the existing MVP solid: search, inventory display, owned quantities, missing computation, CSV exports (Rebrickable + BrickLink), and optional BrickLink pricing.
+- Keep the MVP flows (search, inventory, owned vs missing, CSV exports, optional pricing) stable on top of the Supabase-backed catalog.
+- Introduce simple Supabase-backed accounts and persistence without regressing the anonymous/local-only experience.
+- Exercise and harden Identify and pricing flows against real-world sets and parts.
+- Harden and extend the **minifig RB↔BL mapping** pipeline so that:
+  - All minifigs in **user sets** have a deterministic per-set BrickLink ID mapping stored in Supabase.
+  - The UI shows BrickLink IDs (and builds BL URLs/pricing requests) even for sets that weren’t pre-synced, by performing on-demand mapping.
 
-## Immediate Next Steps
+## This Iteration
 
-- Add simple auth and user accounts (Supabase) while preserving local-only behavior for unauthenticated users.
-- Wire Supabase-backed persistence for user sets/status and, optionally, server-side sync of owned quantities and pinned pieces.
-- Tighten pricing UX around the new manual "Get prices" action (set-level BrickLink lookup) and validate pricing totals on a handful of test sets.
-- Add tests for CSV export generators (Rebrickable + BrickLink) and for Rebrickable client retry/backoff behavior.
+- Implement and wire Supabase auth and basic user data (profiles, preferences, user sets, owned parts).
+- Connect owned/pinned state to Supabase for signed-in users while preserving `localStorage` fallback for anonymous usage.
+- Validate CSV exports and Identify responses against Rebrickable/BrickLink import behavior on the target test sets.
+- Tighten pricing UX and performance on the set page and inventory table.
+- Build and refine a shared minifig mapping module (`scripts/minifig-mapping-core.ts`) plus:
+  - CLI entrypoints for bulk mapping:
+    - `npm run build:minifig-mappings:user` (user sets, respects `MINIFIG_MAPPING_MAX_SETS`, default 2500).
+    - `npm run build:minifig-mappings:all` (all `rb_sets`, same cap).
+  - A server-only adapter (`app/lib/minifigMapping.ts`) that uses the same core logic for:
+    - Per-request, per-set lookups.
+    - On-demand mapping when a set is loaded that hasn’t been synced yet.
 
 ## Notes
 
-Target test sets:
+- Target test sets:
+  - 1788 — Pirate Treasure Chest
+  - 6781 — SP-Striker
+  - 6989 — Mega Core Magnetizer
+  - 40597 — Scary Pirate Island
+  - 21322 — Pirates of Barracuda Bay
+- BrickLink pricing requests currently use USD + `country_code=US` by default; exposing currency/country as a user preference is future work.
 
-- 1788 — Pirate Treasure Chest
-- 6781 — SP-Striker
-- 6989 — Mega Core Magnetizer
-- 40597 — Scary Pirate Island
-- 21322 — Pirates of Barracuda Bay
+## Active Decisions
 
-- BrickLink pricing requests use USD + `country_code=US` by default; plan to expose currency/country as a future user preference setting.
-
-## Recent Changes
-
-- Next.js scaffold in place with global layout and React Query provider.
-- Rebrickable proxy Route Handlers implemented for search and inventory.
-- Set search UI with debounce and link to set pages.
-- Virtualized inventory table with images, owned input, bulk actions, and total missing.
-- Inventory controls refactored into an `useInventoryViewModel` hook that centralizes filtering, sorting, grouping, and derived metadata, keeping `InventoryTable` mostly presentational.
-- Inventory table now sorts by name, color, size, category, and supports grouping, with filtering by missing/owned, parent categories, and colors.
-- Search bar: moved label above, added inline clear “x” with enlarged touch target.
-- Owned persistence implemented in `app/store/owned.ts` with versioned storage key, cache-first reads, and debounced writes using `requestIdleCallback` when available.
-- Export modal implemented with Rebrickable CSV and BrickLink wanted list CSV generation.
-- Optional BrickLink pricing implemented via `/api/prices/bricklink` and `useInventoryPrices`, now triggered per-row from inventory items via "Get price" actions, plus a separate set-level estimate via `/api/prices/bricklink-set` in the set top bar.
-
-## Next Steps
-
-- Validate CSV exports against Rebrickable and BrickLink import validators and adjust mappings as needed.
-- Implement and harden Supabase auth and persistence (initially for user sets/status, with a migration path for owned/pinned data).
-- Iterate on pricing performance and UX if test sets show noticeable lag or confusing totals.
-
-## Active Decisions and Considerations
-
-- No auth, no external account linking in the current deployed MVP; Supabase-backed simple accounts are the next major feature.
-- Pricing and rarity: only a coarse BrickLink-based price estimate is in scope; advanced analytics and rarity metrics remain out of scope.
-- BrickOwl export deferred; focus on Rebrickable + BrickLink CSV.
-- Server-only Rebrickable access; no client key exposure; no scraping.
-- Accessibility: basic keyboard navigation acceptable for MVP; dropdowns/sheets still use custom keyboard handling and should be audited post-auth.
+- MVP remains fully usable without auth; Supabase accounts are additive and should not break local-only flows.
+- Rebrickable stays the canonical source for parts/sets; BrickLink is used only for pricing and supersets in Identify.
+- BrickOwl export and advanced rarity analytics remain out of scope for now.
+- Accessibility is “good enough for MVP” but complex widgets (filters, color pickers, Identify chips, modals) should be revisited as part of the improvements backlog.
+- Once minifig RB↔BL coverage is high and stable, plan to phase out and remove the `bricklink_minifig_mappings` table (and its runtime usage), treating `bl_set_minifigs` as the canonical mapping source and deriving any global RB→BL views from it instead.
