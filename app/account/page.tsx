@@ -12,7 +12,16 @@ import { Input } from '@/app/components/ui/Input';
 import { Select } from '@/app/components/ui/Select';
 import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
 import { useTheme } from '@/app/hooks/useTheme';
+import {
+  BRICKLINK_COUNTRY_OPTIONS,
+  BRICKLINK_CURRENCY_OPTIONS,
+  DEFAULT_PRICING_PREFERENCES,
+} from '@/app/lib/pricing';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import {
+  loadUserPricingPreferences,
+  saveUserPricingPreferences,
+} from '@/app/lib/userPricingPreferences';
 import { buildUserHandle, normalizeUsernameCandidate } from '@/app/lib/users';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import type { Tables } from '@/supabase/types';
@@ -40,6 +49,15 @@ export default function AccountPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [pricingCurrency, setPricingCurrency] = useState<string>(
+    DEFAULT_PRICING_PREFERENCES.currencyCode
+  );
+  const [pricingCountry, setPricingCountry] = useState<string | null>(
+    DEFAULT_PRICING_PREFERENCES.countryCode
+  );
+  const [isSavingPricing, setIsSavingPricing] = useState(false);
+  const [pricingError, setPricingError] = useState<string | null>(null);
+  const [pricingMessage, setPricingMessage] = useState<string | null>(null);
   const {
     theme: selectedTheme,
     setTheme: updateTheme,
@@ -181,6 +199,23 @@ export default function AccountPage() {
           setUsernameInput(existingProfile.username ?? '');
           setCollectionsPublic(existingProfile.collections_public ?? false);
         }
+
+        try {
+          const pricingPrefs = await loadUserPricingPreferences(
+            supabase,
+            user.id
+          );
+          setPricingCurrency(pricingPrefs.currencyCode);
+          setPricingCountry(pricingPrefs.countryCode);
+        } catch (err) {
+          if (process.env.NODE_ENV !== 'production') {
+            try {
+              console.warn('AccountPage: failed to load pricing preferences', {
+                error: err instanceof Error ? err.message : String(err),
+              });
+            } catch {}
+          }
+        }
       } catch {
         setError('Failed to load account information.');
         setUser(null);
@@ -210,6 +245,32 @@ export default function AccountPage() {
   }, []);
 
   const publicUrl = publicPath ? `${origin || ''}${publicPath}` : null;
+
+  const handleSavePricingPreferences = async () => {
+    if (!user) return;
+    const supabase = getSupabaseBrowserClient();
+    setPricingError(null);
+    setPricingMessage(null);
+    setIsSavingPricing(true);
+    try {
+      await saveUserPricingPreferences(supabase, user.id, {
+        currencyCode: pricingCurrency,
+        countryCode: pricingCountry,
+      });
+      setPricingMessage('Saved pricing preferences.');
+    } catch (err) {
+      setPricingError('Failed to save pricing preferences.');
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          console.error('AccountPage: failed to save pricing preferences', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        } catch {}
+      }
+    } finally {
+      setIsSavingPricing(false);
+    }
+  };
 
   const handleSaveUsername = async () => {
     if (!user || !profile) return;
@@ -387,7 +448,7 @@ export default function AccountPage() {
       {error && <ErrorBanner className="text-xs" message={error} />}
 
       {/* Tabs for major account sections */}
-      <nav className="border-b border-border-subtle">
+      <nav className="border-b border-subtle">
         <div className="flex gap-4 overflow-x-auto px-1 pb-2 text-xs font-medium">
           <button
             type="button"
@@ -453,7 +514,7 @@ export default function AccountPage() {
 
             <div className="mt-4 space-y-8">
               {isLoggedIn && (
-                <div className="flex flex-col gap-2 border-t border-border-subtle pt-4">
+                <div className="flex flex-col gap-2 border-t border-subtle pt-4">
                   <h3 className="text-sm font-semibold text-foreground">
                     Email &amp; password
                   </h3>
@@ -508,7 +569,7 @@ export default function AccountPage() {
               )}
 
               {isLoggedIn && isEmailAuth && (
-                <div className="flex flex-col gap-2 border-t border-border-subtle pt-4">
+                <div className="flex flex-col gap-2 border-t border-subtle pt-4">
                   <h3 className="text-sm font-semibold text-foreground">
                     Change password
                   </h3>
@@ -570,7 +631,7 @@ export default function AccountPage() {
               )}
 
               {(!isLoggedIn || isGoogleAuth) && (
-                <div className="flex flex-col gap-2 border-t border-border-subtle pt-4">
+                <div className="flex flex-col gap-2 border-t border-subtle pt-4">
                   <h3 className="text-sm font-semibold text-foreground">
                     Google account
                   </h3>
@@ -603,7 +664,7 @@ export default function AccountPage() {
               )}
             </div>
 
-            <div className="mt-6 border-t border-border-subtle pt-4">
+            <div className="mt-6 border-t border-subtle pt-4">
               <h3 className="text-sm font-semibold text-foreground">
                 Rebrickable account (optional)
               </h3>
@@ -662,7 +723,7 @@ export default function AccountPage() {
 
             <div className="mt-4 space-y-8">
               {/* Sharing */}
-              <div className="flex flex-col gap-3 border-t border-border-subtle pt-4">
+              <div className="flex flex-col gap-3 border-t border-subtle pt-4">
                 <h3 className="text-sm font-semibold text-foreground">
                   Sharing
                 </h3>
@@ -691,7 +752,7 @@ export default function AccountPage() {
                           className={`inline-flex h-5 w-9 items-center rounded-full border px-0.5 transition-colors ${
                             collectionsPublic
                               ? 'border-emerald-500 bg-emerald-500'
-                              : 'border-border-subtle bg-background-muted'
+                              : 'border-subtle bg-background-muted'
                           } disabled:opacity-50`}
                         >
                           <span
@@ -746,7 +807,7 @@ export default function AccountPage() {
               </div>
 
               {/* Theme */}
-              <div className="flex flex-col gap-3 border-t border-border-subtle pt-4">
+              <div className="flex flex-col gap-3 border-t border-subtle pt-4">
                 <h3 className="text-sm font-semibold text-foreground">Theme</h3>
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-1">
@@ -765,7 +826,7 @@ export default function AccountPage() {
                         const activeClasses =
                           'border-theme-primary bg-theme-primary/10 text-theme-primary';
                         const inactiveClasses =
-                          'border-border-subtle text-foreground-muted hover:border-border-strong';
+                          'border-subtle text-foreground-muted hover:border-strong';
                         return (
                           <button
                             key={option.value}
@@ -822,7 +883,7 @@ export default function AccountPage() {
               </div>
 
               {/* Defaults */}
-              <div className="flex flex-col gap-3 border-t border-border-subtle pt-4">
+              <div className="flex flex-col gap-3 border-t border-subtle pt-4">
                 <h3 className="text-sm font-semibold text-foreground">
                   Inventory defaults
                 </h3>
@@ -886,7 +947,7 @@ export default function AccountPage() {
               </div>
 
               {/* Pricing */}
-              <div className="flex flex-col gap-3 border-t border-border-subtle pt-4">
+              <div className="flex flex-col gap-3 border-t border-subtle pt-4">
                 <h3 className="text-sm font-semibold text-foreground">
                   Pricing &amp; currency
                 </h3>
@@ -896,15 +957,75 @@ export default function AccountPage() {
                       Currency
                     </label>
                     <p className="text-xs text-foreground-muted">
-                      Currency for BrickLink price lookups. The API currently
-                      uses USD; other currencies are placeholders for now.
+                  Currency for BrickLink price lookups. Defaults to USD for new
+                  accounts.
                     </p>
-                    <Select className="mt-1 w-full text-xs">
-                      <option>USD (current)</option>
-                      <option disabled>EUR (coming soon)</option>
-                      <option disabled>GBP (coming soon)</option>
+                <Select
+                  className="mt-1 w-full text-xs"
+                  value={pricingCurrency}
+                  onChange={event => setPricingCurrency(event.target.value)}
+                  disabled={!isLoggedIn}
+                >
+                  {BRICKLINK_CURRENCY_OPTIONS.map(option => (
+                    <option key={option.code} value={option.code}>
+                      {option.label}
+                    </option>
+                  ))}
                     </Select>
                   </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-medium text-foreground">
+                  Seller region
+                </label>
+                <p className="text-xs text-foreground-muted">
+                  Limit BrickLink prices to sellers in a single country, or use
+                  worldwide data.
+                </p>
+                <Select
+                  className="mt-1 w-full text-xs"
+                  value={pricingCountry ?? ''}
+                  onChange={event => {
+                    const value = event.target.value;
+                    setPricingCountry(value === '' ? null : value);
+                  }}
+                  disabled={!isLoggedIn}
+                >
+                  {BRICKLINK_COUNTRY_OPTIONS.map(option => (
+                    <option
+                      key={option.code ?? 'GLOBAL'}
+                      value={option.code ?? ''}
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="text-[11px] text-foreground-muted">
+                  Applies to future BrickLink price lookups.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!isLoggedIn || isSavingPricing}
+                  onClick={() => void handleSavePricingPreferences()}
+                >
+                  {isSavingPricing ? 'Saving…' : 'Save pricing'}
+                </Button>
+              </div>
+              {pricingError && (
+                <p className="mt-1 text-[11px] text-destructive">
+                  {pricingError}
+                </p>
+              )}
+              {pricingMessage && !pricingError && (
+                <p className="mt-1 text-[11px] text-foreground-muted">
+                  {pricingMessage}
+                </p>
+              )}
 
                   <div className="flex flex-col gap-1">
                     <label className="text-[11px] font-medium text-foreground">
@@ -956,8 +1077,8 @@ export default function AccountPage() {
                 Sign in to track your sets across devices.
               </p>
             )}
-            <div className="mt-4 space-y-3 border-t border-border-subtle pt-4">
-              <div className="rounded-md border border-border-subtle bg-card-muted px-3 py-2">
+            <div className="mt-4 space-y-3 border-t border-subtle pt-4">
+              <div className="rounded-md border border-subtle bg-card-muted px-3 py-2">
                 <p className="text-[11px] tracking-wide text-foreground-muted uppercase">
                   Owned
                 </p>
@@ -965,7 +1086,7 @@ export default function AccountPage() {
                   {ownedCount.toLocaleString()}
                 </p>
               </div>
-              <div className="rounded-md border border-border-subtle bg-card-muted px-3 py-2">
+              <div className="rounded-md border border-subtle bg-card-muted px-3 py-2">
                 <p className="text-[11px] tracking-wide text-foreground-muted uppercase">
                   Wishlist
                 </p>

@@ -1,4 +1,9 @@
 import { blGetSetPriceGuide } from '@/app/lib/bricklink';
+import {
+  DEFAULT_PRICING_PREFERENCES,
+} from '@/app/lib/pricing';
+import { getSupabaseClientForRequest } from '@/app/lib/supabaseServer';
+import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
 import { NextRequest, NextResponse } from 'next/server';
 
 type Body = {
@@ -18,8 +23,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'missing_set_number' }, { status: 400 });
   }
 
+  // Determine pricing preferences for this request (user-specific when
+  // authenticated; otherwise fall back to global USD).
+  let pricingPrefs = DEFAULT_PRICING_PREFERENCES;
   try {
-    const guide = await blGetSetPriceGuide(setNumber);
+    const supabase = getSupabaseClientForRequest(req);
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (!userError && user) {
+      pricingPrefs = await loadUserPricingPreferences(supabase, user.id);
+    }
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        console.warn('bricklink-set: failed to load pricing preferences', {
+          setNumber,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      } catch {}
+    }
+  }
+
+  try {
+    const guide = await blGetSetPriceGuide(setNumber, pricingPrefs);
     return NextResponse.json({
       total: guide.unitPriceUsed,
       minPrice: guide.minPriceUsed,

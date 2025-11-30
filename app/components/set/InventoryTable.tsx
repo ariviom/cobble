@@ -1,15 +1,15 @@
 'use client';
 
 import { ExportModal } from '@/app/components/export/ExportModal';
+import { Button } from '@/app/components/ui/Button';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
-import { Spinner } from '@/app/components/ui/Spinner';
-import { Button } from '@/app/components/ui/Button';
 import { Modal } from '@/app/components/ui/Modal';
+import { Spinner } from '@/app/components/ui/Spinner';
 import { useGroupSessionChannel } from '@/app/hooks/useGroupSessionChannel';
+import { useInventory } from '@/app/hooks/useInventory';
 import { useInventoryPrices } from '@/app/hooks/useInventoryPrices';
 import { useInventoryViewModel } from '@/app/hooks/useInventoryViewModel';
-import { useInventory } from '@/app/hooks/useInventory';
 import { useSupabaseOwned } from '@/app/hooks/useSupabaseOwned';
 import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
@@ -99,18 +99,19 @@ export function InventoryTable({
     minPrice: number | null;
     maxPrice: number | null;
     currency: string | null;
+    scopeLabel?: string | null;
     bricklinkColorId: number | null;
     itemType: 'PART' | 'MINIFIG';
   };
 
   const { pricesByKey, pendingKeys, requestPricesForKeys } =
     useInventoryPrices<PriceInfo>({
-    setNumber,
-    rows,
-    keys,
-    ...(onPriceStatusChange ? { onPriceStatusChange } : {}),
-    ...(onPriceTotalsChange ? { onPriceTotalsChange } : {}),
-  });
+      setNumber,
+      rows,
+      keys,
+      ...(onPriceStatusChange ? { onPriceStatusChange } : {}),
+      ...(onPriceTotalsChange ? { onPriceTotalsChange } : {}),
+    });
 
   const ownedStore = useOwnedStore();
   const pinnedStore = usePinnedStore();
@@ -140,9 +141,7 @@ export function InventoryTable({
     onRemoteDelta: payload => {
       handleOwnedChange(payload.key, payload.newOwned);
     },
-    ...(onParticipantPiecesDelta
-      ? { onParticipantPiecesDelta }
-      : {}),
+    ...(onParticipantPiecesDelta ? { onParticipantPiecesDelta } : {}),
   });
 
   const rowByKey = useMemo(() => {
@@ -284,7 +283,7 @@ export function InventoryTable({
         onOpenExportModal={() => setExportOpen(true)}
       />
 
-      <div className="bg-background-muted pt-inventory-offset transition-[padding] lg:overflow-y-auto lg:pt-0">
+      <div className="bg-background pt-inventory-offset transition-[padding] lg:overflow-y-auto lg:pt-0">
         <div className="flex flex-col p-2">
           {error ? (
             <ErrorBanner message="Failed to load inventory. Please try again." />
@@ -317,11 +316,10 @@ export function InventoryTable({
                     minPrice={priceInfo?.minPrice ?? null}
                     maxPrice={priceInfo?.maxPrice ?? null}
                     currency={priceInfo?.currency ?? null}
+                    pricingScopeLabel={priceInfo?.scopeLabel ?? null}
                     bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
                     isPricePending={pendingKeys.has(key)}
-                    canRequestPrice={
-                      !pendingKeys.has(key) && !pricesByKey[key]
-                    }
+                    canRequestPrice={!pendingKeys.has(key) && !pricesByKey[key]}
                     onRequestPrice={() => {
                       void requestPricesForKeys([key]);
                     }}
@@ -449,6 +447,7 @@ export function InventoryTable({
                             minPrice={priceInfo?.minPrice ?? null}
                             maxPrice={priceInfo?.maxPrice ?? null}
                             currency={priceInfo?.currency ?? null}
+                            pricingScopeLabel={priceInfo?.scopeLabel ?? null}
                             bricklinkColorId={
                               priceInfo?.bricklinkColorId ?? null
                             }

@@ -1,6 +1,11 @@
 import crypto from 'crypto';
 import 'server-only';
 
+import {
+  DEFAULT_PRICING_PREFERENCES,
+  type PricingPreferences,
+} from '@/app/lib/pricing';
+
 const BL_STORE_BASE = 'https://api.bricklink.com/api/store/v1';
 // BrickLink Store v1 uses uppercase type segments in the URI (e.g., /items/PART/{no})
 const STORE_ITEM_TYPE_PART = 'PART';
@@ -336,6 +341,46 @@ export async function blGetPartSupersets(
   return list;
 }
 
+export async function blGetSetSubsets(
+  setNum: string
+): Promise<BLSubsetItem[]> {
+  // Reuse the same shape/logic as blGetPartSubsets, but for SET items with no color.
+  const key = makeKey(setNum, undefined);
+  const cached = cacheGet(subsetsCache, key);
+  if (cached) return cached;
+  const data = await blGet<unknown[] | { entries: unknown[] }>(
+    `/items/${STORE_ITEM_TYPE_SET}/${encodeURIComponent(setNum)}/subsets`,
+    {}
+  );
+  const raw: unknown[] = Array.isArray(data)
+    ? data
+    : Array.isArray((data as { entries?: unknown[] }).entries)
+      ? ((data as { entries?: unknown[] }).entries ?? [])
+      : [];
+  const list: BLSubsetItem[] = raw
+    .flatMap(group => {
+      if (
+        group &&
+        typeof group === 'object' &&
+        Array.isArray((group as { entries?: unknown[] }).entries)
+      ) {
+        return (group as { entries: BLSubsetItem[] }).entries;
+      }
+      return [group as BLSubsetItem];
+    })
+    .filter(Boolean) as BLSubsetItem[];
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      console.log('BL set subsets', {
+        setNum,
+        count: Array.isArray(list) ? list.length : 0,
+      });
+    } catch {}
+  }
+  cacheSet(subsetsCache, key, list);
+  return list;
+}
+
 export async function blGetPartColors(no: string): Promise<BLColorEntry[]> {
   const key = makeKey(no, undefined);
   const cached = cacheGet(colorsCache, key);
@@ -439,16 +484,20 @@ function parsePriceValue(
  *
  * - guide_type: 'stock' (current store listings) to better reflect "current" prices.
  * - new_or_used: 'U' (used) to align with current CSV export default.
- * - currency: USD for now; can be made configurable later.
+ * - currency / country: configurable via preferences; defaults to USD / global.
  */
 async function fetchPriceGuide(
   no: string,
   colorId: number | null | undefined,
   itemType: 'PART' | 'MINIFIG' | 'SET',
-  guideType: 'stock' | 'sold'
+  guideType: 'stock' | 'sold',
+  prefs?: PricingPreferences
 ): Promise<BLPriceGuide> {
+  const effectivePrefs = prefs ?? DEFAULT_PRICING_PREFERENCES;
+  const currencyKey = (effectivePrefs.currencyCode || 'USD').toLowerCase();
+  const countryKey = (effectivePrefs.countryCode || 'WORLD').toLowerCase();
   const key = makeKey(
-    `${itemType}::${no}::price-${guideType}-used-usd`,
+    `${itemType}::${no}::price-${guideType}-used-${currencyKey}-${countryKey}`,
     typeof colorId === 'number' ? colorId : undefined
   );
   const cached = cacheGet(priceGuideCache, key);
@@ -466,8 +515,8 @@ async function fetchPriceGuide(
       ...(typeof colorId === 'number' ? { color_id: colorId } : {}),
       guide_type: guideType,
       new_or_used: 'U',
-      currency_code: 'USD',
-      country_code: 'US',
+      currency_code: effectivePrefs.currencyCode,
+      ...(effectivePrefs.countryCode ? { country_code: effectivePrefs.countryCode } : {}),
     }
   );
 
@@ -534,7 +583,7 @@ async function fetchPriceGuide(
     unitPriceNew,
     minPriceUsed,
     maxPriceUsed,
-    currencyCode: data.currency_code ?? 'USD',
+    currencyCode: data.currency_code ?? effectivePrefs.currencyCode,
   };
 
   cacheSet(priceGuideCache, key, pg);
@@ -544,11 +593,12 @@ async function fetchPriceGuide(
 export async function blGetPartPriceGuide(
   no: string,
   colorId: number | null | undefined,
-  itemType: 'PART' | 'MINIFIG' | 'SET' = 'PART'
+  itemType: 'PART' | 'MINIFIG' | 'SET' = 'PART',
+  prefs?: PricingPreferences
 ): Promise<BLPriceGuide> {
-  const primary = await fetchPriceGuide(no, colorId, itemType, 'stock');
+  const primary = await fetchPriceGuide(no, colorId, itemType, 'stock', prefs);
   if (primary.unitPriceUsed != null) return primary;
-  const fallback = await fetchPriceGuide(no, colorId, itemType, 'sold');
+  const fallback = await fetchPriceGuide(no, colorId, itemType, 'sold', prefs);
   if (fallback.unitPriceUsed == null && process.env.NODE_ENV !== 'production') {
     console.warn('BL price guide missing even after fallback', {
       no,
@@ -560,8 +610,9 @@ export async function blGetPartPriceGuide(
 }
 
 export async function blGetSetPriceGuide(
-  setNumber: string
+  setNumber: string,
+  prefs?: PricingPreferences
 ): Promise<BLPriceGuide> {
   // Sets do not use color scoping for price guides.
-  return blGetPartPriceGuide(setNumber, null, 'SET');
+  return blGetPartPriceGuide(setNumber, null, 'SET', prefs);
 }

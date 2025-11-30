@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { InventoryRow } from '@/app/components/set/types';
 
 type PriceStatus = 'idle' | 'loading' | 'loaded' | 'error';
@@ -10,6 +11,10 @@ export type BasePriceInfo = {
   minPrice: number | null;
   maxPrice: number | null;
   currency: string | null;
+  /**
+   * Optional human-readable reminder of pricing context (e.g. "USD/Global").
+   */
+  scopeLabel?: string | null;
 };
 
 export type PriceSummary = {
@@ -93,17 +98,29 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
             key,
             partId: row.partId,
             colorId: row.colorId,
+            bricklinkFigId: row.bricklinkFigId ?? null,
+            isMinifig:
+              typeof row.partId === 'string' && row.partId.startsWith('fig:'),
           };
         })
         .filter(
           (
             item
-          ): item is { key: string; partId: string; colorId: number } =>
-            Boolean(item)
+          ): item is {
+            key: string;
+            partId: string;
+            colorId: number;
+            bricklinkFigId: string | null;
+            isMinifig: boolean;
+          } => Boolean(item)
         )
         .map(item => ({
-          ...item,
-          partId: String(item.partId),
+          key: item.key,
+          colorId: item.colorId,
+          partId:
+            item.isMinifig && item.bricklinkFigId
+              ? `fig:${item.bricklinkFigId}`
+              : String(item.partId),
         }));
 
       if (!items.length) {
@@ -130,10 +147,26 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
       }
 
       try {
+        const supabase = getSupabaseBrowserClient();
+        let authHeader: Record<string, string> = {};
+        try {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            authHeader = {
+              Authorization: `Bearer ${session.access_token}`,
+            };
+          }
+        } catch {
+          // If Supabase auth fails, fall back to anonymous pricing.
+        }
+
         const res = await fetch('/api/prices/bricklink', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...authHeader,
           },
           body: JSON.stringify({ items }),
         });
@@ -150,7 +183,7 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
         }
 
         const data = (await res.json()) as {
-          prices: Record<string, TPriceInfo>;
+          prices: Record<string, TPriceInfo | null>;
         };
 
         const count = data.prices ? Object.keys(data.prices).length : 0;
@@ -162,16 +195,26 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
           });
         }
 
+        const nextEntries: Record<string, TPriceInfo> = {};
+        for (const key of keysToFetch) {
+          const entry = data.prices?.[key] ?? null;
+          if (entry) {
+            nextEntries[key] = entry;
+          } else {
+            nextEntries[key] = {
+              unitPrice: null,
+              minPrice: null,
+              maxPrice: null,
+              currency: null,
+            } as TPriceInfo;
+          }
+        }
         setPricesByKey(prev => ({
           ...prev,
-          ...(data.prices ?? {}),
+          ...nextEntries,
         }));
 
-        const hasAnyPrices =
-          Object.keys(data.prices ?? {}).length > 0 ||
-          Object.keys(pricesByKey).length > 0;
-
-        setPricesStatus(hasAnyPrices ? 'loaded' : 'idle');
+        setPricesStatus('loaded');
       } catch (err) {
         if (process.env.NODE_ENV !== 'production') {
           console.error('[InventoryPrices] load failed', err);

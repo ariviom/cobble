@@ -1,4 +1,10 @@
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
+import {
+  DEFAULT_PRICING_PREFERENCES,
+  formatPricingScopeLabel,
+} from '@/app/lib/pricing';
+import { getSupabaseClientForRequest } from '@/app/lib/supabaseServer';
+import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
 import { mapToBrickLink } from '@/app/lib/mappings/rebrickableToBricklink';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -19,6 +25,11 @@ type PriceResponseEntry = {
   currency: string | null;
   bricklinkColorId: number | null;
   itemType: 'PART' | 'MINIFIG';
+   /**
+    * Human-readable reminder of the pricing context, e.g. "USD/Global" or
+    * "EUR/Germany".
+    */
+  scopeLabel: string | null;
 };
 
 const MAX_ITEMS = 500;
@@ -58,6 +69,31 @@ export async function POST(req: NextRequest) {
 
   const prices: Record<string, PriceResponseEntry> = {};
 
+  // Determine pricing preferences for this request (user-specific when
+  // authenticated; otherwise fall back to global USD).
+  let pricingPrefs = DEFAULT_PRICING_PREFERENCES;
+  try {
+    const supabase = getSupabaseClientForRequest(req);
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (!userError && user) {
+      pricingPrefs = await loadUserPricingPreferences(supabase, user.id);
+    }
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        console.warn('prices/bricklink: failed to load pricing preferences', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      } catch {}
+    }
+  }
+
+  const scopeLabel = formatPricingScopeLabel(pricingPrefs);
+
   // Simple batched concurrency limiter to avoid hammering BrickLink
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const batch = items.slice(i, i + BATCH_SIZE);
@@ -80,7 +116,8 @@ export async function POST(req: NextRequest) {
           const pg = await blGetPartPriceGuide(
             mapped.itemNo,
             mapped.colorId ?? undefined,
-            mapped.itemType
+            mapped.itemType,
+            pricingPrefs
           );
           prices[item.key] = {
             unitPrice: pg.unitPriceUsed,
@@ -89,6 +126,7 @@ export async function POST(req: NextRequest) {
             currency: pg.currencyCode,
             bricklinkColorId: mapped.colorId ?? null,
             itemType: mapped.itemType,
+            scopeLabel,
           };
         } catch (err) {
           if (process.env.NODE_ENV !== 'production') {
