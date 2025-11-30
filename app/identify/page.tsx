@@ -13,7 +13,14 @@ import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
 import { Spinner } from '@/app/components/ui/Spinner';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 function IdentifyPageInner() {
   const [isLoading, setIsLoading] = useState(false);
@@ -405,7 +412,7 @@ function IdentifyPageInner() {
                 className={`inline-flex flex-1 items-center justify-center rounded-full border px-3 py-1 ${
                   mode === 'camera'
                     ? 'border-theme-primary bg-theme-primary/10 text-theme-primary'
-                    : 'border-border-subtle bg-card text-foreground-muted hover:bg-background-muted'
+                    : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
                 }`}
                 onClick={() => setMode('camera')}
               >
@@ -416,7 +423,7 @@ function IdentifyPageInner() {
                 className={`inline-flex flex-1 items-center justify-center rounded-full border px-3 py-1 ${
                   mode === 'part'
                     ? 'border-theme-primary bg-theme-primary/10 text-theme-primary'
-                    : 'border-border-subtle bg-card text-foreground-muted hover:bg-background-muted'
+                    : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
                 }`}
                 onClick={() => setMode('part')}
               >
@@ -437,7 +444,7 @@ function IdentifyPageInner() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="relative block w-full max-w-xs overflow-hidden rounded-md border-2 border-dashed border-border-subtle bg-card-muted hover:bg-background-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="relative block w-full max-w-xs overflow-hidden rounded-md border-2 border-dashed border-subtle bg-card-muted hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
                   aria-label="Upload or take a photo"
                 >
                   <div className="aspect-square w-full">
@@ -533,9 +540,7 @@ function IdentifyPageInner() {
               </>
             )}
           </div>
-          {isLoading && (
-            <Spinner className="mt-4" label="Processing image…" />
-          )}
+          {isLoading && <Spinner className="mt-4" label="Processing image…" />}
           {error && (
             <div className="mt-4">
               <ErrorBanner message={`Failed to identify image: ${error}`} />

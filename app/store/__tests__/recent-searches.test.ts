@@ -2,9 +2,10 @@
 
 import {
   addRecentSearch,
-  getRecentSearches,
   clearRecentSearches,
+  getRecentSearches,
 } from '@/app/store/recent-searches';
+import { vi } from 'vitest';
 
 vi.mock('@/app/lib/persistence/storage', () => {
   const store: Record<string, string> = {};

@@ -2,6 +2,7 @@
 // Keys are Rebrickable color IDs; values are BrickLink color IDs from external_ids
 let colorMappingCache: Record<number, number> | null = null;
 const partMappingCache = new Map<string, string | null>();
+const PART_SUFFIX_PATTERN = /^\d+[a-z]$/i;
 
 function getApiBaseUrl(): string {
   // In the browser, a relative URL is fine
@@ -46,15 +47,50 @@ async function fetchColorMapping(): Promise<Record<number, number>> {
   }
 }
 
+async function fetchBrickLinkItemNo(partId: string): Promise<string | null> {
+  const base = getApiBaseUrl();
+  try {
+    const res = await fetch(
+      `${base}/api/parts/bricklink?part=${encodeURIComponent(partId)}`,
+      {
+        cache: 'force-cache',
+      }
+    );
+    if (!res.ok) {
+      return null;
+    }
+    const data = (await res.json()) as { itemNo?: string | null };
+    return typeof data.itemNo === 'string' && data.itemNo.trim().length > 0
+      ? data.itemNo.trim()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchPartMapping(partId: string): Promise<string | null> {
   if (partMappingCache.has(partId)) return partMappingCache.get(partId)!;
-  // NOTE: We intentionally avoid calling the server-side /api/parts/bricklink
-  // endpoint here, because it performs Rebrickable part lookups that can be
-  // heavily throttled (429) and introduce long backoffs for pricing requests.
-  // For now we rely on the raw Rebrickable part id as a best-effort BrickLink
-  // item number and treat explicit mappings as an optional future enhancement.
-  partMappingCache.set(partId, null);
-  return null;
+
+  let mapped = await fetchBrickLinkItemNo(partId);
+
+  if (!mapped && PART_SUFFIX_PATTERN.test(partId)) {
+    const baseId = partId.slice(0, -1);
+    if (baseId) {
+      mapped = await fetchBrickLinkItemNo(baseId);
+      if (mapped) {
+        partMappingCache.set(baseId, mapped);
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[mapToBrickLink] stripped suffix for part', {
+            partId,
+            fallback: baseId,
+          });
+        }
+      }
+    }
+  }
+
+  partMappingCache.set(partId, mapped ?? null);
+  return mapped ?? null;
 }
 
 type BrickLinkMapResult = {

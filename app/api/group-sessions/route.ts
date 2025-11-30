@@ -1,33 +1,10 @@
-import type { Database } from '@/supabase/types';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseClientForRequest } from '@/app/lib/supabaseServer';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 
 type CreateSessionBody = {
   setNumber: string;
 };
-
-function getSupabaseClientForRequest(req: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY'
-    );
-  }
-
-  const authHeader = req.headers.get('authorization') ?? undefined;
-
-  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: authHeader ? { Authorization: authHeader } : {},
-    },
-    auth: {
-      persistSession: false,
-    },
-  });
-}
 
 function generateSlug(): string {
   // Short, URL-safe slug for sharing sessions. Collision probability is
@@ -156,6 +133,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'internal_error' }, { status: 500 });
   }
 }
+
+
 
 
 

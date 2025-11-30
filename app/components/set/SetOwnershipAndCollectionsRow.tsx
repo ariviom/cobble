@@ -9,10 +9,12 @@ import { useState } from 'react';
 
 type SetOwnershipAndCollectionsRowProps = {
   ownership: SetOwnershipState;
-  variant?: 'default' | 'inline';
+  variant?: 'default' | 'inline' | 'dropdown';
+  className?: string;
 };
 
 export function SetOwnershipAndCollectionsRow({
+  className,
   ownership,
   variant = 'default',
 }: SetOwnershipAndCollectionsRowProps) {
@@ -57,10 +59,13 @@ export function SetOwnershipAndCollectionsRow({
         className={cn(
           'status-row group flex text-xs transition-opacity',
           variant === 'default'
-            ? 'mt-2 border-t border-border-subtle'
-            : 'mt-0 gap-2',
+            ? 'mt-2 border-t border-subtle'
+            : variant === 'inline'
+              ? 'mt-0 gap-2'
+              : 'mt-0 flex-col gap-1',
           isAuthenticating && 'opacity-70',
-          !isAuthenticated && !isAuthenticating && 'opacity-80'
+          !isAuthenticated && !isAuthenticating && 'opacity-80',
+          className
         )}
       >
         <StatusToggleButton
@@ -71,7 +76,7 @@ export function SetOwnershipAndCollectionsRow({
           aria-busy={isAuthenticating}
           title={controlsDisabled ? 'Sign in to mark sets as owned' : undefined}
           onClick={() => handleToggleStatus('owned')}
-          variant={variant}
+          variant={variant === 'dropdown' ? 'inline' : variant}
         />
         <StatusToggleButton
           icon={<Heart className="size-4" />}
@@ -85,7 +90,7 @@ export function SetOwnershipAndCollectionsRow({
               : undefined
           }
           onClick={() => handleToggleStatus('wantToBuild')}
-          variant={variant}
+          variant={variant === 'dropdown' ? 'inline' : variant}
         />
         <StatusToggleButton
           icon={<Plus className="size-4" />}
@@ -99,7 +104,7 @@ export function SetOwnershipAndCollectionsRow({
               : undefined
           }
           onClick={handleOpenCollections}
-          variant={variant}
+          variant={variant === 'dropdown' ? 'inline' : variant}
         />
       </div>
       {showAuthHint && (
@@ -153,11 +158,11 @@ export function SetOwnershipAndCollectionsRow({
               value={newCollectionName}
               onChange={event => setNewCollectionName(event.target.value)}
               placeholder="New collection name"
-              className="flex-1 rounded border border-border-subtle bg-card px-2 py-1 text-xs"
+              className="flex-1 rounded border border-subtle bg-card px-2 py-1 text-xs"
             />
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded border border-border-subtle bg-card px-2 py-1 text-xs hover:bg-card-muted"
+              className="inline-flex items-center gap-1 rounded border border-subtle bg-card px-2 py-1 text-xs hover:bg-card-muted"
               onClick={event => {
                 event.preventDefault();
                 event.stopPropagation();

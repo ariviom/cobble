@@ -1,9 +1,9 @@
 import { PageLayout } from '@/app/components/layout/PageLayout';
 import { PublicUserSetsOverview } from '@/app/components/user/PublicUserSetsOverview';
+import { resolvePublicUser } from '@/app/lib/publicUsers';
 import { fetchThemes } from '@/app/lib/services/themes';
 import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import { buildUserHandle } from '@/app/lib/users';
-import { resolvePublicUser } from '@/app/lib/publicUsers';
 import { Lock } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -71,15 +71,15 @@ export default async function PublicProfilePage({
               {displayName} has chosen to keep their collections private.
             </p>
           </div>
-          <div className="mt-2 rounded-md border border-border-subtle bg-card px-3 py-2">
-            <p className="text-xs font-mono text-foreground-muted">
+          <div className="mt-2 rounded-md border border-subtle bg-card px-3 py-2">
+            <p className="font-mono text-xs text-foreground-muted">
               /user/{handleToShow}
             </p>
           </div>
           <div className="mt-4">
             <Link
               href="/"
-              className="inline-flex items-center rounded-md border border-border-subtle bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-card-muted"
+              className="inline-flex items-center rounded-md border border-subtle bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-card-muted"
             >
               Back to home
             </Link>

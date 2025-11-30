@@ -41,17 +41,6 @@ export function SetPageClient({
   themeId,
   themeName,
 }: SetPageClientProps) {
-  const [expanded, setExpanded] = useState(false);
-  const [setPriceStatus, setSetPriceStatus] = useState<
-    'idle' | 'loading' | 'loaded' | 'error'
-  >('idle');
-  const [setPriceSummary, setSetPriceSummary] = useState<{
-    total: number;
-    minTotal: number | null;
-    maxTotal: number | null;
-    currency: string | null;
-    pricedItemCount: number;
-  } | null>(null);
   const [groupSession, setGroupSession] = useState<GroupSessionState>(null);
   const [currentParticipant, setCurrentParticipant] =
     useState<GroupParticipant | null>(null);
@@ -90,43 +79,6 @@ export function SetPageClient({
     () => participants.reduce((sum, p) => sum + (p.piecesFound ?? 0), 0),
     [participants]
   );
-
-  async function handleRequestSetPrice() {
-    if (setPriceStatus === 'loading') return;
-    try {
-      setSetPriceStatus('loading');
-      setSetPriceSummary(null);
-      const res = await fetch('/api/prices/bricklink-set', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ setNumber }),
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      const data = (await res.json()) as {
-        total: number | null;
-        minPrice: number | null;
-        maxPrice: number | null;
-        currency: string | null;
-      };
-      const currency = data.currency ?? 'USD';
-      const total = data.total ?? 0;
-      setSetPriceSummary({
-        total,
-        minTotal: data.minPrice,
-        maxTotal: data.maxPrice,
-        currency,
-        pricedItemCount: 1,
-      });
-      setSetPriceStatus('loaded');
-    } catch {
-      setSetPriceStatus('error');
-      setSetPriceSummary(null);
-    }
-  }
 
   async function handleStartSearchTogether() {
     if (!user) {
@@ -339,9 +291,7 @@ export function SetPageClient({
       className={cn(
         'flex min-h-[100dvh] flex-col',
         'lg:set-grid-layout lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:min-h-0 lg:pl-80 lg:set-grid-animated',
-        expanded
-          ? 'expanded-topnav lg:set-grid-top-expanded'
-          : 'lg:set-grid-top-collapsed'
+        'lg:set-grid-top-collapsed'
       )}
     >
       <SetTopBar
@@ -351,11 +301,6 @@ export function SetPageClient({
         year={year}
         numParts={numParts}
         themeId={themeId ?? null}
-        priceStatus={setPriceStatus}
-        priceSummary={setPriceSummary}
-        onRequestPrices={handleRequestSetPrice}
-        expanded={expanded}
-        onToggleExpanded={() => setExpanded(prev => !prev)}
         {...(clientId
           ? {
               searchTogether: {
@@ -365,6 +310,7 @@ export function SetPageClient({
                 joinUrl,
                 participants,
                 totalPiecesFound,
+                currentParticipantId: currentParticipant?.id ?? null,
                 onStart: handleStartSearchTogether,
                 onEnd: handleEndSearchTogether,
               },
