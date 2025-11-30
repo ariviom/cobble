@@ -157,7 +157,7 @@ async function saveUserPreferences(
 }
 
 export function ThemeProvider({ children }: PropsWithChildren) {
-  const { user } = useSupabaseUser();
+  const { user, isLoading: isUserLoading } = useSupabaseUser();
   const [theme, setThemeState] = useState<ThemePreference>('system');
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('light');
   const [scope, setScope] = useState<ThemeScope>('device');
@@ -291,6 +291,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (isUserLoading) return;
     const initialTheme = determineInitialTheme();
     applyTheme(initialTheme.theme, initialTheme.scope);
     const initialColor = determineInitialThemeColor();
@@ -301,9 +302,14 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     applyThemeColor,
     determineInitialTheme,
     determineInitialThemeColor,
+    isUserLoading,
   ]);
 
   useEffect(() => {
+    if (isUserLoading) {
+      return;
+    }
+
     if (!user) {
       fetchedUserIdRef.current = null;
       clearScopeStorage('user');
@@ -388,7 +394,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     return () => {
       cancelled = true;
     };
-  }, [applyTheme, applyThemeColor, user]);
+  }, [applyTheme, applyThemeColor, isUserLoading, user]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
