@@ -109,6 +109,7 @@ export function normalizePricingPreferences(
 export function getRegionLabel(countryCode: string | null): string {
   if (!countryCode) return 'Global';
   const normalized = normalizeCode(countryCode);
+  if (!normalized) return 'Global';
   const match = BRICKLINK_COUNTRY_OPTIONS.find(opt => opt.code === normalized);
   return match?.label ?? normalized;
 }

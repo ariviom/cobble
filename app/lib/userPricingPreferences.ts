@@ -20,14 +20,17 @@ function extractPricingFromSettings(
   const pricing = (settings as { pricing?: unknown }).pricing;
   if (!pricing || typeof pricing !== 'object') return null;
   const obj = pricing as { currencyCode?: unknown; countryCode?: unknown };
-  return {
-    currencyCode:
-      typeof obj.currencyCode === 'string' ? obj.currencyCode : undefined,
-    countryCode:
-      typeof obj.countryCode === 'string' || obj.countryCode === null
-        ? (obj.countryCode as string | null)
-        : undefined,
-  };
+  const result: Partial<PricingPreferences> = {};
+
+  if (typeof obj.currencyCode === 'string') {
+    result.currencyCode = obj.currencyCode;
+  }
+
+  if (typeof obj.countryCode === 'string' || obj.countryCode === null) {
+    result.countryCode = obj.countryCode as string | null;
+  }
+
+  return result;
 }
 
 export async function loadUserPricingPreferences(

@@ -4,7 +4,7 @@ import {
   mapRebrickableFigToBrickLink,
   mapSetRebrickableFigsToBrickLinkOnDemand,
   normalizeRebrickableFigId,
-} from '@/app/lib/minifigMapping.ts';
+} from '@/app/lib/minifigMapping';
 import type { InventoryRow } from '@/app/components/set/types';
 
 export async function getSetInventoryRows(
