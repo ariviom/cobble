@@ -14,6 +14,133 @@ export type Database = {
   }
   public: {
     Tables: {
+      bricklink_minifig_mappings: {
+        Row: {
+          bl_item_id: string
+          confidence: number | null
+          created_at: string
+          rb_fig_id: string
+          source: string | null
+          updated_at: string
+        }
+        Insert: {
+          bl_item_id: string
+          confidence?: number | null
+          created_at?: string
+          rb_fig_id: string
+          source?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bl_item_id?: string
+          confidence?: number | null
+          created_at?: string
+          rb_fig_id?: string
+          source?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bricklink_minifig_mappings_bl_item_id_fkey"
+            columns: ["bl_item_id"]
+            isOneToOne: false
+            referencedRelation: "bricklink_minifigs"
+            referencedColumns: ["item_id"]
+          },
+        ]
+      }
+      bricklink_minifigs: {
+        Row: {
+          category_id: number | null
+          created_at: string
+          item_id: string
+          item_year: number | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category_id?: number | null
+          created_at?: string
+          item_id: string
+          item_year?: number | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: number | null
+          created_at?: string
+          item_id?: string
+          item_year?: number | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bl_sets: {
+        Row: {
+          last_error: string | null
+          last_minifig_sync_at: string | null
+          minifig_sync_status: string | null
+          name: string | null
+          set_num: string
+          year: number | null
+        }
+        Insert: {
+          last_error?: string | null
+          last_minifig_sync_at?: string | null
+          minifig_sync_status?: string | null
+          name?: string | null
+          set_num: string
+          year?: number | null
+        }
+        Update: {
+          last_error?: string | null
+          last_minifig_sync_at?: string | null
+          minifig_sync_status?: string | null
+          name?: string | null
+          set_num?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
+      bl_set_minifigs: {
+        Row: {
+          image_url: string | null
+          last_refreshed_at: string | null
+          minifig_no: string
+          name: string | null
+          quantity: number
+          rb_fig_id: string | null
+          set_num: string
+        }
+        Insert: {
+          image_url?: string | null
+          last_refreshed_at?: string | null
+          minifig_no: string
+          name?: string | null
+          quantity?: number
+          rb_fig_id?: string | null
+          set_num: string
+        }
+        Update: {
+          image_url?: string | null
+          last_refreshed_at?: string | null
+          minifig_no?: string
+          name?: string | null
+          quantity?: number
+          rb_fig_id?: string | null
+          set_num?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bl_set_minifigs_set_num_fkey"
+            columns: ["set_num"]
+            isOneToOne: false
+            referencedRelation: "bl_sets"
+            referencedColumns: ["set_num"]
+          },
+        ]
+      }
       rb_colors: {
         Row: {
           external_ids: Json | null
@@ -176,6 +303,49 @@ export type Database = {
           num_parts?: number | null
         }
         Relationships: []
+      }
+      rb_minifig_parts: {
+        Row: {
+          color_id: number
+          fig_num: string
+          part_num: string
+          quantity: number
+        }
+        Insert: {
+          color_id: number
+          fig_num: string
+          part_num: string
+          quantity: number
+        }
+        Update: {
+          color_id?: number
+          fig_num?: string
+          part_num?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rb_minifig_parts_color_id_fkey"
+            columns: ["color_id"]
+            isOneToOne: false
+            referencedRelation: "rb_colors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rb_minifig_parts_fig_num_fkey"
+            columns: ["fig_num"]
+            isOneToOne: false
+            referencedRelation: "rb_minifigs"
+            referencedColumns: ["fig_num"]
+          },
+          {
+            foreignKeyName: "rb_minifig_parts_part_num_fkey"
+            columns: ["part_num"]
+            isOneToOne: false
+            referencedRelation: "rb_parts"
+            referencedColumns: ["part_num"]
+          },
+        ]
       }
       rb_part_categories: {
         Row: {
