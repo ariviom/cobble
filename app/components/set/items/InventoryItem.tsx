@@ -143,7 +143,7 @@ export function InventoryItem({
           className="absolute top-3 right-3 z-10"
         >
           {() => (
-            <div className="min-w-[200px] rounded-md border border-subtle bg-card py-1 text-xs shadow-lg">
+            <div className="min-w-min rounded-md border border-subtle bg-card py-1 text-xs shadow-lg">
               {onTogglePinned && (
                 <MoreDropdownButton
                   icon={<Pin className="size-4" />}
@@ -151,16 +151,14 @@ export function InventoryItem({
                   onClick={onTogglePinned}
                 />
               )}
-              <Link
+              <MoreDropdownButton
+                icon={<Search className="size-4" />}
+                label="Show sets"
                 href={identifyHref}
-                className="inline-flex w-full flex-row items-center gap-1 rounded border-r-0 bg-card px-3 py-2 text-xs text-foreground-muted hover:bg-card-muted"
-                onClick={event => {
-                  event.stopPropagation();
+                onClick={() => {
+                  // Keep dropdown row click from triggering when following the link
                 }}
-              >
-                <Search className="size-4" />
-                <span>Show sets</span>
-              </Link>
+              />
               {isMinifig && (
                 <a
                   href={`https://www.bricklink.com/catalogItemInv.asp?S=${encodeURIComponent(
@@ -232,24 +230,18 @@ export function InventoryItem({
             </p>
             <div className="mt-1 w-full text-sm text-foreground-muted">
               {isMinifig ? (
-                <>
-                  <p>
-                    BrickLink ID:{' '}
-                    {bricklinkFigId ? (
-                      <span className="font-semibold">{bricklinkFigId}</span>
-                    ) : (
-                      <span className="text-foreground-muted">Not mapped</span>
-                    )}
-                  </p>
-                  <p className="text-foreground-muted">
-                    Rebrickable ID:{' '}
-                    {rebrickableFigId ? rebrickableFigId : 'Unknown'}
-                  </p>
-                </>
+                <p>
+                  BrickLink ID:{' '}
+                  {bricklinkFigId ? (
+                    <span>{bricklinkFigId}</span>
+                  ) : (
+                    <span className="text-foreground-muted">ID Missing</span>
+                  )}
+                </p>
               ) : (
                 <p>Part ID: {displayId}</p>
               )}
-              <p>Color: {row.colorName}</p>
+              {!isMinifig && row.colorName && <p>Color: {row.colorName}</p>}
               {hasPrice ? (
                 <p>
                   Estimated price{' '}

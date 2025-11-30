@@ -3,29 +3,62 @@
 import MobileButtonHitArea from '@/app/components/ui/MobileButtonHitArea';
 import { cn } from '@/app/components/ui/utils';
 import { EllipsisVertical } from 'lucide-react';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
-export type MoreDropdownButtonProps = {
+type MoreDropdownButtonBaseProps = {
   icon: ReactNode;
   label: string;
   className?: string;
+};
+
+type MoreDropdownButtonButtonProps = MoreDropdownButtonBaseProps & {
+  href?: undefined;
   onClick?: () => void;
 };
 
-export function MoreDropdownButton({
-  icon,
-  label,
-  className,
-  onClick,
-}: MoreDropdownButtonProps) {
+type MoreDropdownButtonLinkHref = Parameters<typeof Link>[0]['href'];
+
+type MoreDropdownButtonLinkProps = MoreDropdownButtonBaseProps & {
+  href: MoreDropdownButtonLinkHref;
+  onClick?: () => void;
+};
+
+export type MoreDropdownButtonProps =
+  | MoreDropdownButtonButtonProps
+  | MoreDropdownButtonLinkProps;
+
+export function MoreDropdownButton(props: MoreDropdownButtonProps) {
+  const { icon, label, className } = props;
+  const sharedClassName = cn(
+    'inline-flex w-full flex-row items-center gap-1 rounded border-r-0 bg-card px-3 py-2 text-xs text-foreground-muted hover:bg-card-muted',
+    className
+  );
+
+  if ('href' in props && props.href) {
+    const { href, onClick } = props;
+    return (
+      <Link
+        href={href}
+        className={sharedClassName}
+        onClick={event => {
+          event.stopPropagation();
+          onClick?.();
+        }}
+      >
+        {icon}
+        <span>{label}</span>
+      </Link>
+    );
+  }
+
+  const { onClick } = props;
+
   return (
     <button
       type="button"
-      className={cn(
-        'inline-flex w-full flex-row items-center gap-1 rounded border-r-0 bg-card px-3 py-2 text-xs text-foreground-muted hover:bg-card-muted',
-        className
-      )}
+      className={sharedClassName}
       onClick={event => {
         event.preventDefault();
         event.stopPropagation();
