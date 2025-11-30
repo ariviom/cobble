@@ -1,7 +1,7 @@
 'use client';
 
-import type { HTMLAttributes, PropsWithChildren, ReactNode } from 'react';
 import { cn } from '@/app/components/ui/utils';
+import type { HTMLAttributes, PropsWithChildren, ReactNode } from 'react';
 
 export type CardProps = PropsWithChildren<
   HTMLAttributes<HTMLDivElement> & {
@@ -13,7 +13,7 @@ export function Card({ elevated, className, children, ...rest }: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-lg border border-border-subtle bg-card p-4',
+        'rounded-lg border border-subtle bg-card p-4',
         elevated && 'shadow-sm',
         className
       )}
@@ -39,13 +39,15 @@ export function CardHeader({
       className={cn('mb-3 flex items-start justify-between gap-3', className)}
       {...rest}
     >
-      <div className="space-y-1">{children}</div>
+      {children}
       {actions ? <div className="shrink-0">{actions}</div> : null}
     </div>
   );
 }
 
-export type CardTitleProps = PropsWithChildren<HTMLAttributes<HTMLHeadingElement>>;
+export type CardTitleProps = PropsWithChildren<
+  HTMLAttributes<HTMLHeadingElement>
+>;
 
 export function CardTitle({ className, ...rest }: CardTitleProps) {
   return (
@@ -62,10 +64,7 @@ export type CardDescriptionProps = PropsWithChildren<
 
 export function CardDescription({ className, ...rest }: CardDescriptionProps) {
   return (
-    <p
-      className={cn('text-xs text-foreground-muted', className)}
-      {...rest}
-    />
+    <p className={cn('text-xs text-foreground-muted', className)} {...rest} />
   );
 }
 
@@ -74,14 +73,10 @@ export type CardContentProps = PropsWithChildren<
 >;
 
 export function CardContent({ className, ...rest }: CardContentProps) {
-  return (
-    <div className={cn('space-y-3', className)} {...rest} />
-  );
+  return <div className={cn('space-y-3', className)} {...rest} />;
 }
 
-export type CardFooterProps = PropsWithChildren<
-  HTMLAttributes<HTMLDivElement>
->;
+export type CardFooterProps = PropsWithChildren<HTMLAttributes<HTMLDivElement>>;
 
 export function CardFooter({ className, ...rest }: CardFooterProps) {
   return (
@@ -91,6 +86,5 @@ export function CardFooter({ className, ...rest }: CardFooterProps) {
     />
   );
 }
-
 
 

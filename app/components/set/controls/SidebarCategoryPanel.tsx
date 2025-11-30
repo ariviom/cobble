@@ -89,7 +89,7 @@ export function SidebarCategoryPanel({
           );
         })}
         {(filter.parents?.length || 0) > 0 ? (
-          <div className="flex w-full justify-center border-b border-border-subtle">
+          <div className="flex w-full justify-center border-b border-subtle">
             <button
               type="button"
               className="h-full w-full cursor-pointer py-4 hover:bg-card-muted"
@@ -146,7 +146,7 @@ export function SidebarCategoryPanel({
               </RowButton>
             );
           })}
-          <div className="flex w-full justify-center border-b border-border-subtle">
+          <div className="flex w-full justify-center border-b border-subtle">
             <button
               type="button"
               className="h-full w-full cursor-pointer py-4 hover:bg-card-muted"

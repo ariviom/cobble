@@ -25,13 +25,13 @@ export type DropdownTriggerProps = {
 };
 
 const triggerVariants = cva(
-  'min-w-max rounded-md border border-border-subtle bg-card px-3 py-1.5 text-sm cursor-pointer hover:bg-card-muted',
+  'min-w-max rounded-md border border-subtle bg-card px-3 py-1.5 text-sm cursor-pointer hover:bg-card-muted',
   {
     variants: {
       variant: {
         default: '',
         sidebar:
-          'lg:sidebar:rounded-none lg:sidebar:border-x-0 lg:sidebar:border-t-0 lg:sidebar:border-b lg:sidebar:border-border-subtle lg:sidebar:text-base lg:sidebar:w-full lg:sidebar:py-3 lg:sidebar:px-4 text-left',
+          'lg:sidebar:rounded-none lg:sidebar:border-x-0 lg:sidebar:border-t-0 lg:sidebar:border-b lg:sidebar:border-subtle lg:sidebar:text-base lg:sidebar:w-full lg:sidebar:py-3 lg:sidebar:px-4 text-left',
       },
     },
     defaultVariants: {
@@ -72,7 +72,7 @@ export const DropdownTrigger = forwardRef<
 // Generic dropdown frame that accepts arbitrary children
 const panelVariants = cva(
   // base: mobile behaves like a sheet, desktop like a popover
-  'min-w-64 overflow-hidden rounded-md border border-border-subtle bg-card shadow-lg fixed top-[calc(var(--spacing-topnav-height)+var(--spacing-controls-height))] bottom-0 z-50 overflow-y-auto lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40',
+  'min-w-64 overflow-hidden rounded-md border border-subtle bg-card shadow-lg fixed top-[calc(var(--spacing-topnav-height)+var(--spacing-controls-height))] bottom-0 z-50 overflow-y-auto lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40',
   {
     variants: {
       variant: {
@@ -258,7 +258,7 @@ export function DropdownFooter({ className, children }: DropdownFooterProps) {
   return (
     <div
       className={cx(
-        'flex items-center justify-end gap-2 border-t border-border-subtle bg-card px-3 py-2',
+        'flex items-center justify-end gap-2 border-t border-subtle bg-card px-3 py-2',
         className
       )}
     >

@@ -40,7 +40,7 @@ export function SidebarColorPanel({
       </DropdownSection>
       {(selectedColors?.length || 0) > 0 && (
         <DropdownSection label="">
-          <div className="flex w-full justify-center border-b border-border-subtle">
+          <div className="flex w-full justify-center border-b border-subtle">
             <button
               type="button"
               className="h-full w-full cursor-pointer py-4 hover:bg-card-muted"

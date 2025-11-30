@@ -144,7 +144,7 @@ export function SearchResults() {
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <label className="text-xs font-medium">Sort</label>
         <select
-          className="rounded-md border border-border-subtle bg-card px-2 py-1 text-xs"
+          className="rounded-md border border-subtle bg-card px-2 py-1 text-xs"
           value={sort}
           onChange={e => setSort(e.target.value as SortOption)}
         >
@@ -157,7 +157,7 @@ export function SearchResults() {
         <span className="mx-1 h-4 w-px bg-border-subtle" />
         <label className="text-xs font-medium">Per page</label>
         <select
-          className="rounded-md border border-border-subtle bg-card px-2 py-1 text-xs"
+          className="rounded-md border border-subtle bg-card px-2 py-1 text-xs"
           value={pageSize}
           onChange={e => setPageSize(Number(e.target.value))}
         >
@@ -170,7 +170,7 @@ export function SearchResults() {
         <span className="mx-1 h-4 w-px bg-border-subtle" />
         <label className="text-xs font-medium">Filter</label>
         <select
-          className="rounded-md border border-border-subtle bg-card px-2 py-1 text-xs"
+          className="rounded-md border border-subtle bg-card px-2 py-1 text-xs"
           value={filter}
           onChange={e => handleFilterChange(e.target.value as FilterType)}
         >
@@ -224,7 +224,7 @@ export function SearchResults() {
               <button
                 onClick={() => fetchNextPage()}
                 disabled={isFetchingNextPage}
-                className="rounded-md border border-border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
+                className="rounded-md border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
               >
                 {isFetchingNextPage ? 'Loading…' : 'Load More'}
               </button>

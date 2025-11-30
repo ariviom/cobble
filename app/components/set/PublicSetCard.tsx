@@ -30,7 +30,7 @@ export function PublicSetCard({
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-lg border border-border-subtle bg-card ${className ?? ''}`}
+      className={`group relative overflow-hidden rounded-lg border border-subtle bg-card ${className ?? ''}`}
     >
       <Link
         href={`/sets/${encodeURIComponent(setNumber)}`}
@@ -74,4 +74,6 @@ export function PublicSetCard({
     </div>
   );
 }
+
+
 

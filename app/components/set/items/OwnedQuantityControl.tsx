@@ -49,7 +49,7 @@ export function OwnedQuantityControl({
 }: Props) {
   return (
     <div
-      className={`flex h-12 w-full min-w-min shrink justify-between rounded-lg border border-border-subtle list:sm:max-w-min grid:w-full ${className ?? ''}`}
+      className={`flex h-12 w-full min-w-min shrink justify-between rounded-lg border border-subtle list:sm:max-w-min grid:w-full ${className ?? ''}`}
     >
       <Button
         onClick={() => onChange(clampOwned(owned - 1, required))}

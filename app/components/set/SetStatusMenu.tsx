@@ -109,7 +109,7 @@ export function SetStatusMenu({
         <MoreVertical size={20} />
       </button>
       {open && (
-        <div className="absolute -top-4 right-0 z-20 mt-1 w-44 -translate-y-full overflow-hidden rounded-md border border-border-subtle bg-card text-sm shadow-lg">
+        <div className="absolute -top-4 right-0 z-20 mt-1 w-44 -translate-y-full overflow-hidden rounded-md border border-subtle bg-card text-sm shadow-lg">
           <div className="border-b px-3 py-2 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
             Collections
           </div>

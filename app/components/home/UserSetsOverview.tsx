@@ -439,7 +439,7 @@ export function UserSetsOverview({ initialThemes }: UserSetsOverviewProps) {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs">Group by</span>
-                <div className="inline-flex rounded-md border border-border-subtle bg-card text-xs">
+                <div className="inline-flex rounded-md border border-subtle bg-card text-xs">
                   <Button
                     type="button"
                     size="sm"

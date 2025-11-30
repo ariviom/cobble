@@ -17,7 +17,7 @@ export function IdentifyResultCard({
   onChangeColor?: (id: number | null) => void;
 }) {
   return (
-    <div className="mb-4 overflow-hidden rounded-lg border border-border-subtle bg-card p-4">
+    <div className="mb-4 overflow-hidden rounded-lg border border-subtle bg-card p-4">
       <div className="flex items-start gap-4">
         <div className="relative h-24 w-24 shrink-0 rounded bg-card-muted p-2">
           {part.imageUrl ? (
@@ -41,7 +41,7 @@ export function IdentifyResultCard({
               onChangeColor &&
               (colorOptions?.length ?? 0) > 1 && (
                 <select
-                  className="rounded-md border border-border-subtle bg-card px-2 py-1 text-xs"
+                  className="rounded-md border border-subtle bg-card px-2 py-1 text-xs"
                   value={selectedColorId ?? ''}
                   onChange={e =>
                     onChangeColor(
@@ -66,7 +66,7 @@ export function IdentifyResultCard({
             <button
               key={c.partNum}
               onClick={() => onSelectCandidate(c)}
-              className="rounded-md border border-border-subtle bg-card px-2 py-1 text-xs hover:bg-card-muted"
+              className="rounded-md border border-subtle bg-card px-2 py-1 text-xs hover:bg-card-muted"
               title={c.name}
             >
               {c.partNum} {(c.confidence * 100).toFixed(0)}%

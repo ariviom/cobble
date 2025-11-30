@@ -21,8 +21,8 @@
   --color-card-muted: var(--color-neutral-50);
 
   /* Borders */
-  --color-border-subtle: var(--color-neutral-200);
-  --color-border-strong: var(--color-neutral-300);
+  --color-subtle: var(--color-neutral-200);
+  --color-strong: var(--color-neutral-300);
 
   /* Text */
   --color-foreground: var(--color-neutral-900);
@@ -44,8 +44,8 @@
 
   --font-sans: var(--font-cera-pro);
   --spacing-nav-height: 4rem;
-  --spacing-topnav-height: 5rem;
-  --spacing-controls-height: 3rem;
+  --spacing-topnav-height: 6rem;
+  --spacing-controls-height: 3.5rem;
   --spacing-filter-offset: calc(
     var(--spacing-nav-height) + var(--spacing-topnav-height)
   );
@@ -62,9 +62,13 @@
   --breakpoint-xs: 23.5rem;
 }
 
+.text-theme-primary-contrast {
+  color: white;
+}
+
 @media (min-width: 1024px) {
   :root {
-    --spacing-topnav-height: 6rem;
+    --spacing-topnav-height: 8rem;
     --spacing-sticky-label: calc(
       var(--spacing-topnav-height) + var(--spacing-controls-height) +
         var(--spacing-nav-height)
@@ -91,8 +95,8 @@
   --color-background-muted: var(--color-neutral-100);
   --color-card-muted: var(--color-neutral-200);
 
-  --color-border-subtle: var(--color-neutral-200);
-  --color-border-strong: var(--color-neutral-300);
+  --color-subtle: var(--color-neutral-200);
+  --color-strong: var(--color-neutral-300);
 }
 
 @custom-variant dark (&:where(.dark, .dark *));

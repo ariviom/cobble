@@ -85,21 +85,21 @@ export function PinnedPanelContent({
           </div>
         )}
       </div>
-      <div className="border-t border-border-subtle text-sm">
+      <div className="border-t border-subtle text-sm">
         <div className="flex flex-col">
           <label className="flex cursor-pointer items-center gap-4 px-3 py-4 hover:bg-card">
             <input
               type="checkbox"
-              className="size-6 border-border-subtle bg-card accent-theme-primary"
+              className="size-6 border-subtle bg-card accent-theme-primary"
               checked={autoUnpin}
               onChange={e => pinnedState.setAutoUnpin(e.currentTarget.checked)}
             />
             <span>Automatically unpin completed pieces</span>
           </label>
-          <label className="flex cursor-pointer items-center gap-4 border-t border-border-subtle px-3 py-4 hover:bg-card">
+          <label className="flex cursor-pointer items-center gap-4 border-t border-subtle px-3 py-4 hover:bg-card">
             <input
               type="checkbox"
-              className="size-6 border-border-subtle bg-card accent-theme-primary"
+              className="size-6 border-subtle bg-card accent-theme-primary"
               checked={showOtherSets}
               onChange={e =>
                 pinnedState.setShowOtherSets(e.currentTarget.checked)
@@ -152,7 +152,7 @@ function PinnedSetSection({
   if (isLoading && rows.length === 0) {
     return (
       <Spinner
-        className="rounded border border-border-subtle bg-card p-3 text-sm text-foreground-muted"
+        className="rounded border border-subtle bg-card p-3 text-sm text-foreground-muted"
         label={`Loading pinned pieces for ${title}…`}
       />
     );
@@ -235,7 +235,7 @@ function PinnedSetSection({
         <div className="mt-1 flex justify-center">
           <button
             type="button"
-            className="rounded border border-border-subtle bg-card px-3 py-1 text-xs hover:bg-card-muted"
+            className="rounded border border-subtle bg-card px-3 py-1 text-xs hover:bg-card-muted"
             onClick={() =>
               setVisibleCount(current =>
                 Math.min(current + 24, pinnedItems.length)

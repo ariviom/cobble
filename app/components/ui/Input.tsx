@@ -5,7 +5,7 @@ import { forwardRef, InputHTMLAttributes } from 'react';
 import { cn } from './utils';
 
 const inputVariants = cva(
-  'border border-border-subtle rounded-md bg-card px-2 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60',
+  'border border-subtle rounded-md bg-card px-2 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60',
   {
     variants: {
       size: {

@@ -48,7 +48,10 @@ function getPrimaryStatusLabel(status: 'owned' | 'want' | null): string {
   return 'Collections';
 }
 
-function getRootThemeId(themeId: number, themeMap: Map<number, ThemeInfo>): number {
+function getRootThemeId(
+  themeId: number,
+  themeMap: Map<number, ThemeInfo>
+): number {
   let current = themeMap.get(themeId);
   if (!current) return themeId;
   while (current.parent_id != null) {
@@ -122,10 +125,9 @@ export function PublicUserSetsOverview({
 
   const filteredSets = useMemo(() => {
     const customCollectionId = selectedCollectionId;
-    const customCollection =
-      customCollectionId
-        ? collections.find(c => c.id === customCollectionId)
-        : null;
+    const customCollection = customCollectionId
+      ? collections.find(c => c.id === customCollectionId)
+      : null;
     const customCollectionSetNums = customCollection
       ? new Set(customCollection.sets.map(s => s.set_num))
       : null;
@@ -145,7 +147,10 @@ export function PublicUserSetsOverview({
       // When showing 'all', include sets with status and sets in collections (even if no status)
 
       if (themeFilter !== 'all') {
-        if (typeof set.theme_id !== 'number' || !Number.isFinite(set.theme_id)) {
+        if (
+          typeof set.theme_id !== 'number' ||
+          !Number.isFinite(set.theme_id)
+        ) {
           return false;
         }
         const rootId = getRootThemeId(set.theme_id, themeMap);
@@ -164,10 +169,12 @@ export function PublicUserSetsOverview({
 
   const grouped = useMemo(() => {
     const groups = new Map<string, typeof filteredSets>();
-    
+
     // If a custom collection is selected, show it as a single group with the collection name
     if (selectedCollectionId) {
-      const customCollection = collections.find(c => c.id === selectedCollectionId);
+      const customCollection = collections.find(
+        c => c.id === selectedCollectionId
+      );
       if (customCollection) {
         // When filtering by a custom collection, group by status or theme within that collection
         for (const set of filteredSets) {
@@ -206,7 +213,7 @@ export function PublicUserSetsOverview({
         groups.get(key)!.push(set);
       }
     }
-    
+
     return Array.from(groups.entries())
       .map(([label, items]) => ({ label, items }))
       .sort((a, b) => a.label.localeCompare(b.label));
@@ -277,7 +284,7 @@ export function PublicUserSetsOverview({
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs">Group by</span>
-                <div className="inline-flex rounded-md border border-border-subtle bg-card text-xs">
+                <div className="inline-flex rounded-md border border-subtle bg-card text-xs">
                   <Button
                     type="button"
                     size="sm"
@@ -354,4 +361,3 @@ export function PublicUserSetsOverview({
     </section>
   );
 }
-

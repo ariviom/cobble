@@ -40,7 +40,7 @@ export function Navigation({
   return (
     <nav
       className={cn(
-        'fixed inset-x-0 bottom-0 z-50 h-nav-height w-full border-t border-border-subtle bg-card lg:top-0 lg:bottom-auto lg:border-b',
+        'fixed inset-x-0 bottom-0 z-50 h-nav-height w-full border-t border-subtle bg-card lg:top-0 lg:bottom-auto lg:border-b',
         className
       )}
     >

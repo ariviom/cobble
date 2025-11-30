@@ -10,20 +10,19 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          'bg-theme-primary text-neutral-00 border-theme-primary hover:bg-theme-primary/90',
-        secondary:
-          'bg-card text-foreground border-border-subtle hover:bg-card-muted',
+          'bg-theme-primary text-theme-primary-contrast border-theme-primary hover:bg-theme-primary/90',
+        secondary: 'bg-card text-foreground border-subtle hover:bg-card-muted',
         ghost:
           'bg-transparent text-foreground border-transparent hover:bg-background-muted',
         outline:
-          'bg-transparent text-foreground border-border-subtle hover:bg-card-muted',
+          'bg-transparent text-foreground border-subtle hover:bg-card-muted',
         destructive:
           'bg-danger text-neutral-00 border-danger hover:bg-danger/90',
       },
       size: {
-        sm: 'px-2 py-1 text-xs',
-        md: 'px-3 py-1.5 text-sm',
-        lg: 'px-4 py-2 text-sm',
+        sm: 'px-3 py-1.5 text-xs',
+        md: 'px-4 py-2 text-sm',
+        lg: 'px-5 py-2.5 text-sm',
       },
     },
     defaultVariants: {

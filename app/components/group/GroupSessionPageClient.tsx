@@ -34,7 +34,6 @@ export function GroupSessionPageClient({
   numParts,
   themeId,
 }: GroupSessionPageClientProps) {
-  const [expanded] = useState(false);
   const [displayNameInput, setDisplayNameInput] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [currentParticipant, setCurrentParticipant] =
@@ -184,9 +183,7 @@ export function GroupSessionPageClient({
       className={cn(
         'flex min-h-[100dvh] flex-col',
         'lg:set-grid-layout lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:min-h-0 lg:pl-80 lg:set-grid-animated',
-        expanded
-          ? 'expanded-topnav lg:set-grid-top-expanded'
-          : 'lg:set-grid-top-collapsed'
+        'lg:set-grid-top-collapsed'
       )}
     >
       <SetTopBar
@@ -211,7 +208,7 @@ export function GroupSessionPageClient({
       />
       {!hasJoined ? (
         <div className="flex flex-1 items-center justify-center px-4 py-8">
-          <div className="w-full max-w-sm rounded-md border border-border-subtle bg-card p-4 text-xs">
+          <div className="w-full max-w-sm rounded-md border border-subtle bg-card p-4 text-xs">
             <h1 className="text-sm font-semibold text-foreground">
               Join this Search Together session
             </h1>
@@ -227,7 +224,7 @@ export function GroupSessionPageClient({
               type="text"
               value={displayNameInput}
               onChange={event => setDisplayNameInput(event.target.value)}
-              className="mt-1 w-full rounded-md border border-border-subtle bg-background px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-md border border-subtle bg-background px-2 py-1 text-xs"
               placeholder="e.g., Alice, Living room, iPad"
             />
             <button
@@ -254,5 +251,3 @@ export function GroupSessionPageClient({
     </div>
   );
 }
-
-
