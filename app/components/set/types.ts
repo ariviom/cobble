@@ -28,6 +28,12 @@ export type InventoryRow = {
   inventoryKey: string;
   parentRelations?: ParentRelation[];
   componentRelations?: ComponentRelation[];
+  /**
+   * Canonical BrickLink minifigure ID (e.g., "cas432") when available for
+   * minifigure parent rows whose partId starts with "fig:". Populated on the
+   * server via Supabase-backed mappings and used for linking/pricing.
+   */
+  bricklinkFigId?: string | null;
 };
 
 export type SortKey = 'name' | 'color' | 'size' | 'category' | 'price';
