@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { resolveSetImageUrl } from '@/app/lib/setImage';
 import {
   type HydratedSetInput,
   type SetStatus,
@@ -165,9 +166,10 @@ export function useHydrateUserSets() {
           if (typeof meta?.year === 'number') {
             entry.year = meta.year;
           }
-          if (meta && 'image_url' in meta) {
-            entry.imageUrl = meta.image_url ?? null;
-          }
+          entry.imageUrl = resolveSetImageUrl(
+            meta?.image_url ?? null,
+            row.set_num
+          );
           if (typeof meta?.num_parts === 'number') {
             entry.numParts = meta.num_parts;
           }

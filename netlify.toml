@@ -1,7 +1,0 @@
-[images]
-  remote_images = [
-    "https://cdn.rebrickable.com/media/.*",
-    "https://storage.googleapis.com/.*",
-    "https://img.bricklink.com/.*"
-  ]
-

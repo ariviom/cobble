@@ -140,7 +140,7 @@ export function InventoryItem({
       <div className="relative flex w-full justify-start gap-6 rounded-lg border border-subtle bg-card p-4 grid:flex-col">
         <MoreDropdown
           ariaLabel="More actions"
-          className="absolute top-3 right-3 z-10"
+          className="absolute top-3 right-3 z-50"
         >
           {() => (
             <div className="min-w-min rounded-md border border-subtle bg-card py-1 text-xs shadow-lg">
@@ -182,14 +182,14 @@ export function InventoryItem({
           )}
         </MoreDropdown>
         <div
-          className={`relative overflow-hidden rounded-lg border border-foreground-accent list:grow-0 list:items-center grid:w-full list:item-sm:size-16 list:item-md:size-20 list:item-lg:size-32`}
+          className={`relative list:grow-0 list:items-center grid:w-full list:item-sm:size-16 list:item-md:size-20 list:item-lg:size-32`}
         >
           {row.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={row.imageUrl}
               alt=""
-              className={`mx-auto h-full w-full object-contain grid:item-sm:max-w-24 ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : ''}`}
+              className={`mx-auto h-full w-full rounded-lg object-contain grid:item-sm:max-w-24 ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : 'ring-1 ring-foreground-accent'}`}
               data-knockout="true"
             />
           ) : (

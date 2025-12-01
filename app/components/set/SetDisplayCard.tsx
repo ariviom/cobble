@@ -4,44 +4,6 @@ import { SetOwnershipAndCollectionsRow } from '@/app/components/set/SetOwnership
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-
-// Wrapper component to catch Image loading errors
-function SafeImage({
-  src,
-  alt,
-  width,
-  height,
-  className,
-  onError,
-}: {
-  src: string;
-  alt: string;
-  width: number;
-  height: number;
-  className?: string;
-  onError?: () => void;
-}) {
-  useEffect(() => {
-    // Preload image to detect errors before Next.js Image tries to load it
-    const img = new window.Image();
-    img.onerror = () => {
-      onError?.();
-    };
-    img.src = src;
-  }, [src, onError]);
-
-  return (
-    <Image
-      src={src}
-      alt={alt}
-      width={width}
-      height={height}
-      className={className}
-      unoptimized
-    />
-  );
-}
 
 export type SetDisplayCardProps = {
   setNumber: string;
@@ -71,8 +33,6 @@ export function SetDisplayCard({
   themeId,
   className,
 }: SetDisplayCardProps) {
-  const [useFallback, setUseFallback] = useState(false);
-
   // Infer metadata display: prefer numParts, fallback to quantity.
   const metadataParts: string[] = [setNumber, String(year)];
   if (typeof numParts === 'number' && Number.isFinite(numParts)) {
@@ -102,26 +62,13 @@ export function SetDisplayCard({
           <div className="relative w-full bg-card-muted">
             <div className="relative mx-auto w-full max-w-full bg-card p-2">
               {imageUrl ? (
-                <div className="aspect-square h-full w-full overflow-hidden rounded-lg">
-                  {useFallback ? (
-                    // Fallback to regular img tag if Next.js Image fails
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={imageUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <SafeImage
-                      src={imageUrl}
-                      alt=""
-                      width={512}
-                      height={512}
-                      className="h-full w-full object-cover"
-                      onError={() => setUseFallback(true)}
-                    />
-                  )}
-                </div>
+                <Image
+                  src={imageUrl}
+                  alt=""
+                  width={512}
+                  height={512}
+                  className="aspect-square h-full w-full overflow-hidden rounded-lg object-cover"
+                />
               ) : (
                 <div className="text-xs text-foreground-muted">No Image</div>
               )}

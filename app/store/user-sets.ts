@@ -1,6 +1,7 @@
 'use client';
 
 import { readStorage, writeStorage } from '@/app/lib/persistence/storage';
+import { resolveSetImageUrl } from '@/app/lib/setImage';
 import { create } from 'zustand';
 
 export type SetStatusKey = 'owned' | 'wantToBuild';
@@ -243,10 +244,12 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
             : typeof prevEntry?.year === 'number'
               ? prevEntry.year
               : 0,
-        imageUrl:
+        imageUrl: resolveSetImageUrl(
           typeof meta?.imageUrl === 'string' || meta?.imageUrl === null
             ? meta.imageUrl
             : prevEntry?.imageUrl ?? null,
+          setNumber
+        ),
         numParts:
           typeof meta?.numParts === 'number'
             ? meta.numParts
@@ -315,6 +318,13 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
 
         if (!shouldUpdate) continue;
 
+        const nextImageUrl = resolveSetImageUrl(
+          typeof entry.imageUrl === 'string' || entry.imageUrl === null
+            ? entry.imageUrl
+            : existing?.imageUrl ?? null,
+          entry.setNumber
+        );
+
         nextSets[normKey] = {
           setNumber: entry.setNumber,
           name: entry.name ?? existing?.name ?? entry.setNumber,
@@ -322,10 +332,7 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
             typeof entry.year === 'number'
               ? entry.year
               : existing?.year ?? 0,
-          imageUrl:
-            typeof entry.imageUrl === 'string' || entry.imageUrl === null
-              ? entry.imageUrl
-              : existing?.imageUrl ?? null,
+          imageUrl: nextImageUrl,
           numParts:
             typeof entry.numParts === 'number'
               ? entry.numParts

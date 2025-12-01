@@ -172,9 +172,6 @@ export function UserSetsOverview({ initialThemes }: UserSetsOverviewProps) {
     [collectionFilter]
   );
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -259,6 +256,10 @@ export function UserSetsOverview({ initialThemes }: UserSetsOverviewProps) {
       ),
     [setsRecord]
   );
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const themeIds = useMemo(
     () =>
