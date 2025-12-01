@@ -323,7 +323,7 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
               ? entry.year
               : existing?.year ?? 0,
           imageUrl:
-            typeof entry.imageUrl === 'string' || entry.imageUrl === null
+            typeof entry.imageUrl === 'string'
               ? entry.imageUrl
               : existing?.imageUrl ?? null,
           numParts:

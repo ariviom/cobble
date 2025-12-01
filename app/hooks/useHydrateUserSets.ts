@@ -133,9 +133,7 @@ export function useHydrateUserSets() {
         if (setNums.length > 0) {
           const { data: metaRows, error: metaError } = await supabase
             .from('rb_sets')
-            .select<'set_num,name,year,num_parts,image_url,theme_id'>(
-              'set_num,name,year,num_parts,image_url,theme_id'
-            )
+            .select('set_num, name, year, num_parts, image_url, theme_id')
             .in('set_num', setNums);
 
           if (!cancelled && !metaError && Array.isArray(metaRows)) {
