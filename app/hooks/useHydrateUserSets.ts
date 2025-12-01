@@ -10,31 +10,17 @@ import {
   type UserSet,
   useUserSetsStore,
 } from '@/app/store/user-sets';
+import type { UserSetWithMeta, UserSetsResponse } from '@/app/api/user-sets/route';
 
 const hydratedState = {
-	userId: null as string | null,
-	inflightUserId: null as string | null,
-	inflight: null as Promise<void> | null,
-};
-
-type DbUserSetRow = {
-  set_num: string;
-  status: 'owned' | 'want';
-  updated_at: string | null;
-};
-
-type DbSetMetaRow = {
-  set_num: string;
-  name: string;
-  year: number | null;
-  num_parts: number | null;
-  image_url: string | null;
-  theme_id: number | null;
+  userId: null as string | null,
+  inflightUserId: null as string | null,
+  inflight: null as Promise<void> | null,
 };
 
 function localStatusToDb(
   status: SetStatus
-): DbUserSetRow['status'] | null {
+): 'owned' | 'want' | null {
   if (status.owned) return 'owned';
   if (status.wantToBuild) return 'want';
   return null;
@@ -76,7 +62,7 @@ async function syncLocalSetsToSupabase(
   }
 }
 
-function mapDbStatusToLocal(status: DbUserSetRow['status']): SetStatus {
+function mapDbStatusToLocal(status: 'owned' | 'want'): SetStatus {
   if (status === 'owned') {
     return { owned: true, wantToBuild: false };
   }
@@ -89,115 +75,98 @@ export function useHydrateUserSets() {
 
   useEffect(() => {
     if (!user) {
-			hydratedState.userId = null;
-			hydratedState.inflightUserId = null;
-			hydratedState.inflight = null;
+      hydratedState.userId = null;
+      hydratedState.inflightUserId = null;
+      hydratedState.inflight = null;
       return;
     }
-		if (hydratedState.userId === user.id) {
+    if (hydratedState.userId === user.id) {
       return;
     }
-		if (
-			hydratedState.inflightUserId === user.id &&
-			hydratedState.inflight
-		) {
-			return;
-		}
+    if (
+      hydratedState.inflightUserId === user.id &&
+      hydratedState.inflight
+    ) {
+      return;
+    }
 
-		const supabase = getSupabaseBrowserClient();
-		let cancelled = false;
+    const supabase = getSupabaseBrowserClient();
+    let cancelled = false;
 
-		const run = async () => {
+    const run = async () => {
       try {
-        const { data: userSets, error } = await supabase
-          .from('user_sets')
-          .select<'set_num,status,updated_at'>('set_num,status,updated_at')
-          .eq('user_id', user.id);
-
-				if (error) {
-          console.error('useHydrateUserSets: user_sets query failed', error);
+        // Get the current session to include auth token in API request
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.access_token) {
+          console.error('useHydrateUserSets: no access token available');
           return;
         }
 
-        if (!userSets || userSets.length === 0) {
-          await syncLocalSetsToSupabase(user.id, supabase);
-					hydratedState.userId = user.id;
-          return;
-        }
-
-        const setNums = Array.from(
-          new Set(userSets.map(row => row.set_num).filter(Boolean))
-        );
-        let metaBySet = new Map<string, DbSetMetaRow>();
-
-        if (setNums.length > 0) {
-          const { data: metaRows, error: metaError } = await supabase
-            .from('rb_sets')
-            .select('set_num, name, year, num_parts, image_url, theme_id')
-            .in('set_num', setNums);
-
-          if (!cancelled && !metaError && Array.isArray(metaRows)) {
-            metaBySet = new Map(
-              metaRows.map(row => [row.set_num, row as DbSetMetaRow])
-            );
-          } else if (metaError) {
-            console.error('useHydrateUserSets: rb_sets query failed', metaError);
-          }
-        }
-
-        const hydratedEntries = userSets.map(row => {
-          const meta = metaBySet.get(row.set_num);
-          const updatedAt =
-            row.updated_at && !Number.isNaN(Date.parse(row.updated_at))
-              ? Date.parse(row.updated_at)
-              : undefined;
-
-          const entry: HydratedSetInput = {
-            setNumber: row.set_num,
-            status: mapDbStatusToLocal(row.status),
-          };
-
-          if (meta?.name) {
-            entry.name = meta.name;
-          }
-          if (typeof meta?.year === 'number') {
-            entry.year = meta.year;
-          }
-          if (meta && 'image_url' in meta) {
-            entry.imageUrl = meta.image_url ?? null;
-          }
-          if (typeof meta?.num_parts === 'number') {
-            entry.numParts = meta.num_parts;
-          }
-          if (meta && 'theme_id' in meta) {
-            entry.themeId =
-              typeof meta.theme_id === 'number' ? meta.theme_id : null;
-          }
-          if (typeof updatedAt === 'number') {
-            entry.updatedAt = updatedAt;
-          }
-
-          return entry;
+        // Use API route for reliable server-side join query
+        const response = await fetch('/api/user-sets', {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
         });
 
-				hydrate(hydratedEntries);
-				hydratedState.userId = user.id;
+        if (!response.ok) {
+          if (response.status === 401) {
+            // Not authenticated - sync local sets if any
+            await syncLocalSetsToSupabase(user.id, supabase);
+            hydratedState.userId = user.id;
+            return;
+          }
+          console.error('useHydrateUserSets: API request failed', response.status);
+          return;
+        }
+
+        const data = await response.json() as UserSetsResponse;
+        
+        if (cancelled) return;
+
+        if (!data.sets || data.sets.length === 0) {
+          // No remote sets - sync local sets to Supabase
+          await syncLocalSetsToSupabase(user.id, supabase);
+          hydratedState.userId = user.id;
+          return;
+        }
+
+        const hydratedEntries: HydratedSetInput[] = data.sets.map((row: UserSetWithMeta) => {
+          const updatedAt =
+            row.updatedAt && !Number.isNaN(Date.parse(row.updatedAt))
+              ? Date.parse(row.updatedAt)
+              : undefined;
+
+          return {
+            setNumber: row.setNumber,
+            status: mapDbStatusToLocal(row.status),
+            name: row.name,
+            year: row.year,
+            imageUrl: row.imageUrl,
+            numParts: row.numParts,
+            themeId: row.themeId,
+            updatedAt,
+          };
+        });
+
+        hydrate(hydratedEntries);
+        hydratedState.userId = user.id;
       } catch (err) {
-				console.error('useHydrateUserSets failed', err);
-			} finally {
-				if (hydratedState.inflightUserId === user.id) {
-					hydratedState.inflightUserId = null;
-					hydratedState.inflight = null;
-				}
-			}
-		};
+        console.error('useHydrateUserSets failed', err);
+      } finally {
+        if (hydratedState.inflightUserId === user.id) {
+          hydratedState.inflightUserId = null;
+          hydratedState.inflight = null;
+        }
+      }
+    };
 
-		hydratedState.inflightUserId = user.id;
-		const promise = run();
-		hydratedState.inflight = promise;
-		return () => {
-			cancelled = true;
-		};
-	}, [user, hydrate]);
+    hydratedState.inflightUserId = user.id;
+    const promise = run();
+    hydratedState.inflight = promise;
+    return () => {
+      cancelled = true;
+    };
+  }, [user, hydrate]);
 }
-
