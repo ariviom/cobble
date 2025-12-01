@@ -2,6 +2,8 @@ import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { ReactQueryProvider } from '@/app/components/providers/react-query-provider';
 import { ThemeProvider } from '@/app/components/providers/theme-provider';
 import { ThemeScript } from '@/app/components/theme/theme-script';
+import type { ThemePreference } from '@/app/components/theme/constants';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import type { Metadata, Viewport } from 'next';
 import './styles/globals.css';
 
@@ -31,20 +33,49 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let initialTheme: ThemePreference | null = null;
+
+  try {
+    const supabase = await getSupabaseAuthServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data: preferences, error } = await supabase
+        .from('user_preferences')
+        .select('theme')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!error && preferences?.theme) {
+        if (
+          preferences.theme === 'light' ||
+          preferences.theme === 'dark' ||
+          preferences.theme === 'system'
+        ) {
+          initialTheme = preferences.theme;
+        }
+      }
+    }
+  } catch {
+    // Swallow errors and fall back to client-side theme handling.
+  }
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <ThemeScript />
+        <ThemeScript initialTheme={initialTheme ?? undefined} />
       </head>
       <body className="bg-background text-foreground antialiased">
-        <ThemeProvider>
+        <ThemeProvider initialTheme={initialTheme ?? undefined}>
           <ReactQueryProvider>
             <ErrorBoundary>{children}</ErrorBoundary>
           </ReactQueryProvider>

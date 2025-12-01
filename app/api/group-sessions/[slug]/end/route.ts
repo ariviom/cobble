@@ -1,28 +1,5 @@
-import type { Database } from '@/supabase/types';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { NextRequest, NextResponse } from 'next/server';
-
-function getSupabaseClientForRequest(req: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY'
-    );
-  }
-
-  const authHeader = req.headers.get('authorization') ?? undefined;
-
-  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: authHeader ? { Authorization: authHeader } : {},
-    },
-    auth: {
-      persistSession: false,
-    },
-  });
-}
 
 function extractSlugFromRequest(req: NextRequest): string | null {
   const match = req.nextUrl.pathname.match(/\/api\/group-sessions\/([^/]+)\/end$/);
@@ -40,17 +17,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'missing_slug' }, { status: 400 });
   }
 
-  let supabase;
   try {
-    supabase = getSupabaseClientForRequest(req);
-  } catch (err) {
-    console.error('GroupSessionsEnd: Supabase client init failed', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return NextResponse.json({ error: 'server_misconfigured' }, { status: 500 });
-  }
-
-  try {
+    const supabase = await getSupabaseAuthServerClient();
     const {
       data: { user },
       error: userError,

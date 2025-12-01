@@ -5,7 +5,7 @@
 - Next.js App Router (TypeScript, React) deployed to Netlify (via OpenNext).
 - UI built with Tailwind CSS and shadcn/ui component primitives.
 - Data fetching and caching via TanStack Query; local client state via Zustand.
-- Supabase (Postgres + Auth + Realtime) as the primary backend for catalog data, user data, and group sessions.
+- Supabase (Postgres + Auth + Realtime) as the primary backend for catalog data, user data, and group sessions, using `@supabase/supabase-js` plus `@supabase/ssr` for SSR-aware auth.
 - External providers:
   - Rebrickable for the canonical LEGO catalog and inventories (both live API and bulk CSV downloads).
   - BrickLink for price guide data, per-set minifig subsets, and subset/superset information.
@@ -14,7 +14,7 @@
 ## Architectural Philosophy
 
 - **Server-only secrets**: API keys for Rebrickable, BrickLink, and Brickognize live only in Route Handlers and scripts; the client never sees them.
-- **Local-first UX**: unauthenticated users keep owned quantities and filters in `localStorage`; authenticated users sync that state to Supabase without breaking offline-ish behavior.
+- **Local-first UX**: unauthenticated users keep owned quantities and filters in `localStorage`; authenticated users sync that state to Supabase without breaking offline-ish behavior. Supabase SSR is used only for auth-aware surfaces (layout/theme, account, user sets, pricing, group host actions), not for core catalog flows.
 - **Read-optimized catalog**: Rebrickable CSV downloads are periodically ingested into Supabase `rb_*` tables via `npm run ingest:rebrickable` (locally) and a scheduled CI job in production.
 - **Thin HTTP layer**: Next.js Route Handlers act as adapters to Supabase and external APIs, with most domain logic living in `app/lib/*`.
 - **Typed boundaries**: Supabase `Database` types and shared helpers (for example, `AppError`, `throwAppErrorFromResponse`) enforce consistent, type-safe calls across layers.

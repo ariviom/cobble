@@ -156,7 +156,11 @@ async function saveUserPreferences(
     .upsert(payload, { onConflict: 'user_id' });
 }
 
-export function ThemeProvider({ children }: PropsWithChildren) {
+type ThemeProviderProps = PropsWithChildren<{
+  initialTheme?: ThemePreference;
+}>;
+
+export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
   const { user, isLoading: isUserLoading } = useSupabaseUser();
   const [theme, setThemeState] = useState<ThemePreference>('system');
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('light');
@@ -168,6 +172,9 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const fetchedUserIdRef = useRef<string | null>(null);
+  const serverInitialThemeRef = useRef<ThemePreference | undefined>(
+    initialTheme
+  );
 
   const determineInitialTheme = useCallback(() => {
     const storedUserTheme = readStoredTheme(USER_THEME_KEY);
@@ -292,6 +299,17 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (isUserLoading) return;
+
+    const serverInitialTheme = serverInitialThemeRef.current;
+
+    if (serverInitialTheme && isThemePreference(serverInitialTheme)) {
+      applyTheme(serverInitialTheme, user ? 'user' : 'device');
+      const initialColor = determineInitialThemeColor();
+      applyThemeColor(initialColor.color, initialColor.scope);
+      setIsInitialized(true);
+      return;
+    }
+
     const initialTheme = determineInitialTheme();
     applyTheme(initialTheme.theme, initialTheme.scope);
     const initialColor = determineInitialThemeColor();
@@ -302,6 +320,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     applyThemeColor,
     determineInitialTheme,
     determineInitialThemeColor,
+    initialTheme,
     isUserLoading,
   ]);
 

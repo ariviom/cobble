@@ -39,6 +39,17 @@
     - `InventoryItem.tsx`:
       - Displays BrickLink ID when available and uses it to construct BrickLink URLs for minifigs.
       - Falls back to Rebrickable ID when mapping is genuinely missing.
+- Supabase SSR & auth-aware surfaces:
+  - `@supabase/ssr` wired for both browser (`getSupabaseBrowserClient`) and server (`getSupabaseAuthServerClient`) clients.
+  - Root `middleware.ts` + `utils/supabase/middleware.ts` keep Supabase auth cookies synchronized for SSR.
+  - `app/layout.tsx` now uses Supabase SSR to load `user_preferences.theme` and passes an `initialTheme` into `ThemeScript` and `ThemeProvider` to avoid theme flicker between Supabase and local state.
+  - `/api/user-sets` uses the SSR server client and cookies instead of manual Bearer tokens; `useHydrateUserSets` calls it with `credentials: 'same-origin'` and no longer logs “no access token available”.
+  - `/api/prices/bricklink` and `/api/prices/bricklink-set` use Supabase SSR to load per-user pricing preferences when authenticated; `useInventoryPrices` calls `/api/prices/bricklink` without embedding Supabase tokens.
+  - `app/account/page.tsx` is now an async Server Component that preloads user + profile + pricing preferences and delegates interactive behavior to `AccountPageClient`.
+  - Group-session APIs:
+    - `/api/group-sessions` and `/api/group-sessions/[slug]/end` use Supabase SSR auth and cookies to enforce host-only actions.
+    - `/api/group-sessions/[slug]/join` uses the SSR client to attach `user_id` to participants when authenticated while still allowing anonymous joins.
+    - `SetPageClient` calls group-session APIs with `credentials: 'same-origin'` instead of constructing Authorization headers.
 
 ## Planned / In Progress
 

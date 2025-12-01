@@ -95,29 +95,23 @@ export function useHydrateUserSets() {
 
     const run = async () => {
       try {
-        // Get the current session to include auth token in API request
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session?.access_token) {
-          console.error('useHydrateUserSets: no access token available');
-          return;
-        }
-
-        // Use API route for reliable server-side join query
+        // Use API route for reliable server-side join query; auth is derived
+        // from Supabase cookies via the SSR server client and middleware.
         const response = await fetch('/api/user-sets', {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-          },
+          credentials: 'same-origin',
         });
 
         if (!response.ok) {
           if (response.status === 401) {
-            // Not authenticated - sync local sets if any
-            await syncLocalSetsToSupabase(user.id, supabase);
-            hydratedState.userId = user.id;
+            // Server considers the user unauthenticated; treat this as a
+            // no-op for hydration and rely on client-side Supabase hooks
+            // to eventually clear any stale cached user state.
             return;
           }
-          console.error('useHydrateUserSets: API request failed', response.status);
+          console.error(
+            'useHydrateUserSets: API request failed',
+            response.status
+          );
           return;
         }
 

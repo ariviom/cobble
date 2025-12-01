@@ -1,28 +1,9 @@
-import type { Database } from '@/supabase/types';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { NextRequest, NextResponse } from 'next/server';
-
 type JoinBody = {
   displayName: string;
   clientToken: string;
 };
-
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY'
-    );
-  }
-
-  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-    },
-  });
-}
 
 export async function POST(
   req: NextRequest,
@@ -57,17 +38,8 @@ export async function POST(
     );
   }
 
-  let supabase;
   try {
-    supabase = getSupabaseClient();
-  } catch (err) {
-    console.error('GroupSessionsJoin: Supabase client init failed', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return NextResponse.json({ error: 'server_misconfigured' }, { status: 500 });
-  }
-
-  try {
+    const supabase = await getSupabaseAuthServerClient();
     const { data: session, error: sessionError } = await supabase
       .from('group_sessions')
       .select('id, set_num, is_active')

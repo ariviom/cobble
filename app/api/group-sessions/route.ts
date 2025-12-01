@@ -1,4 +1,4 @@
-import { getSupabaseClientForRequest } from '@/app/lib/supabaseServer';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 
@@ -29,17 +29,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let supabase;
   try {
-    supabase = getSupabaseClientForRequest(req);
-  } catch (err) {
-    console.error('GroupSessions: Supabase client init failed', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return NextResponse.json({ error: 'server_misconfigured' }, { status: 500 });
-  }
-
-  try {
+    const supabase = await getSupabaseAuthServerClient();
     const {
       data: { user },
       error: userError,

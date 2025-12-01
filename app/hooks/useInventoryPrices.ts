@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { InventoryRow } from '@/app/components/set/types';
 
 type PriceStatus = 'idle' | 'loading' | 'loaded' | 'error';
@@ -147,27 +146,12 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
       }
 
       try {
-        const supabase = getSupabaseBrowserClient();
-        let authHeader: Record<string, string> = {};
-        try {
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-          if (session?.access_token) {
-            authHeader = {
-              Authorization: `Bearer ${session.access_token}`,
-            };
-          }
-        } catch {
-          // If Supabase auth fails, fall back to anonymous pricing.
-        }
-
         const res = await fetch('/api/prices/bricklink', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...authHeader,
           },
+          credentials: 'same-origin',
           body: JSON.stringify({ items }),
         });
 

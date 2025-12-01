@@ -3,7 +3,7 @@ import {
   DEFAULT_PRICING_PREFERENCES,
   formatPricingScopeLabel,
 } from '@/app/lib/pricing';
-import { getSupabaseClientForRequest } from '@/app/lib/supabaseServer';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
 import { mapToBrickLink } from '@/app/lib/mappings/rebrickableToBricklink';
 import { NextRequest, NextResponse } from 'next/server';
@@ -70,10 +70,10 @@ export async function POST(req: NextRequest) {
   const prices: Record<string, PriceResponseEntry> = {};
 
   // Determine pricing preferences for this request (user-specific when
-  // authenticated; otherwise fall back to global USD).
+  // authenticated via Supabase cookies; otherwise fall back to global USD).
   let pricingPrefs = DEFAULT_PRICING_PREFERENCES;
   try {
-    const supabase = getSupabaseClientForRequest(req);
+    const supabase = await getSupabaseAuthServerClient();
     const {
       data: { user },
       error: userError,

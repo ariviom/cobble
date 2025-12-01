@@ -1,5 +1,5 @@
 import type { Database } from '@/supabase/types';
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -10,23 +10,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-const createBrowserClient = () =>
-  createClient<Database>(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      // Ensure redirects use the current origin
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-    },
-  });
+const createBrowserSupabaseClient = () =>
+  createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
 
-type BrowserClient = ReturnType<typeof createBrowserClient>;
+type BrowserClient = ReturnType<typeof createBrowserSupabaseClient>;
 
 let browserClient: BrowserClient | null = null;
 
 export function getSupabaseBrowserClient(): BrowserClient {
   if (!browserClient) {
-    browserClient = createBrowserClient();
+    browserClient = createBrowserSupabaseClient();
   }
   return browserClient;
 }

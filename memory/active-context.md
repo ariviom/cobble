@@ -15,6 +15,12 @@
 - Connect owned/pinned state to Supabase for signed-in users while preserving `localStorage` fallback for anonymous usage.
 - Validate CSV exports and Identify responses against Rebrickable/BrickLink import behavior on the target test sets.
 - Tighten pricing UX and performance on the set page and inventory table.
+- Introduce Supabase SSR auth for:
+  - Layout + theme bootstrap (`app/layout.tsx` + `ThemeScript` + `ThemeProvider`).
+  - Account page (`app/account/page.tsx` + `AccountPageClient`).
+  - User sets hydration (`/api/user-sets` + `useHydrateUserSets`).
+  - BrickLink pricing endpoints (`/api/prices/bricklink` and `/api/prices/bricklink-set`) and `useInventoryPrices`.
+  - Group-session host actions (`/api/group-sessions`, `/api/group-sessions/[slug]/end`) and group participant join (`/api/group-sessions/[slug]/join`).
 - Build and refine a shared minifig mapping module (`scripts/minifig-mapping-core.ts`) plus:
   - CLI entrypoints for bulk mapping:
     - `npm run build:minifig-mappings:user` (user sets, respects `MINIFIG_MAPPING_MAX_SETS`, default 2500).

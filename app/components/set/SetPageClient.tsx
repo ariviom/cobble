@@ -93,30 +93,13 @@ export function SetPageClient({
 
     try {
       setIsSearchTogetherLoading(true);
-      const supabase = getSupabaseBrowserClient();
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError || !session?.access_token) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('SetPageClient: missing Supabase session', {
-            error: sessionError?.message,
-          });
-        }
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
-        }
-        return;
-      }
 
       const res = await fetch('/api/group-sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
         },
+        credentials: 'same-origin',
         body: JSON.stringify({ setNumber }),
       });
 
@@ -226,23 +209,11 @@ export function SetPageClient({
     if (!user) return;
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError || !session?.access_token) {
-        return;
-      }
-
       const res = await fetch(
         `/api/group-sessions/${encodeURIComponent(groupSession.slug)}/end`,
         {
           method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
+          credentials: 'same-origin',
         }
       );
 

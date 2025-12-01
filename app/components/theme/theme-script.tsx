@@ -5,16 +5,21 @@ import {
   THEME_COLOR_TO_VALUE,
   USER_THEME_COLOR_KEY,
   USER_THEME_KEY,
+  type ThemePreference,
 } from '@/app/components/theme/constants';
 
-function buildThemeBootstrapScript(): string {
+function buildThemeBootstrapScript(initialTheme?: ThemePreference): string {
   const colorValueEntries = Object.entries(THEME_COLOR_TO_VALUE)
     .map(([key, value]) => `'${key}': '${value}'`)
     .join(',');
 
+  const initialThemeLiteral =
+    initialTheme === undefined ? 'null' : `'${initialTheme}'`;
+
   return `
     (function () {
       try {
+        var INITIAL_THEME = ${initialThemeLiteral};
         var USER_THEME_KEY = '${USER_THEME_KEY}';
         var DEVICE_THEME_KEY = '${DEVICE_THEME_KEY}';
         var USER_THEME_COLOR_KEY = '${USER_THEME_COLOR_KEY}';
@@ -71,6 +76,21 @@ function buildThemeBootstrapScript(): string {
         var storedDeviceTheme = getStoredTheme(DEVICE_THEME_KEY);
         var scope = storedUserTheme ? 'user' : storedDeviceTheme ? 'device' : 'system';
         var theme = storedUserTheme || storedDeviceTheme || 'system';
+
+        if (
+          INITIAL_THEME === 'light' ||
+          INITIAL_THEME === 'dark' ||
+          INITIAL_THEME === 'system'
+        ) {
+          theme = INITIAL_THEME;
+          scope = 'user';
+          try {
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem(USER_THEME_KEY, INITIAL_THEME);
+            }
+          } catch {}
+        }
+
         var resolvedTheme = resolveTheme(theme);
 
         var root = document.documentElement;
@@ -106,11 +126,15 @@ function buildThemeBootstrapScript(): string {
   `;
 }
 
-export function ThemeScript() {
+type ThemeScriptProps = {
+  initialTheme?: ThemePreference;
+};
+
+export function ThemeScript({ initialTheme }: ThemeScriptProps) {
   return (
     <script
       // We intentionally inline this script so it runs before React hydrates.
-      dangerouslySetInnerHTML={{ __html: buildThemeBootstrapScript() }}
+      dangerouslySetInnerHTML={{ __html: buildThemeBootstrapScript(initialTheme) }}
     />
   );
 }

@@ -36,6 +36,45 @@
   - Collaborative sessions are represented by `group_sessions` and related tables in Supabase.
   - The host’s owned state is the single source of truth; participant edits stream via Supabase Realtime channels keyed by `group_sessions.id` and are applied to the host’s rows.
 
+## SSR vs Client Architecture
+
+- **Supabase auth & SSR**
+  - `@supabase/ssr` is used to create:
+    - A browser client (`getSupabaseBrowserClient`) for all client hooks and UI.
+    - An auth-aware server client (`getSupabaseAuthServerClient`) that reads Supabase cookies via `next/headers` and is used in Server Components and Route Handlers.
+  - A shared middleware (`utils/supabase/middleware.ts` + root `middleware.ts`) keeps Supabase auth cookies refreshed on each matched request so SSR code can trust `supabase.auth.getUser()` / `getClaims()` without manual Bearer headers.
+- **Where SSR is used**
+  - **Layout & theming**
+    - `app/layout.tsx` is an async Server Component that uses `getSupabaseAuthServerClient` to read `user_preferences.theme` and passes an `initialTheme` into:
+      - `ThemeScript` (inline head script) so the first paint uses the account theme.
+      - `ThemeProvider` so client hydration doesn’t re-resolve theme from system/local-only state.
+  - **Account & user preferences**
+    - `app/account/page.tsx` is an async Server Component that:
+      - Reads the current user via Supabase SSR.
+      - Preloads `user_profiles` row (when present).
+      - Loads pricing preferences via `loadUserPricingPreferences`.
+      - Passes these into the client-only `AccountPageClient` component for interactive behavior.
+  - **User sets hydration**
+    - `/api/user-sets` uses `getSupabaseAuthServerClient` and `supabase.auth.getUser()` to fetch `user_sets` with joined `rb_sets` metadata.
+    - `useHydrateUserSets` is a client hook that calls `/api/user-sets` with `credentials: 'same-origin'` and never touches access tokens directly.
+  - **Pricing**
+    - `/api/prices/bricklink` and `/api/prices/bricklink-set` use `getSupabaseAuthServerClient` to:
+      - Detect the current user from cookies.
+      - Load pricing preferences via `loadUserPricingPreferences`.
+      - Default to `DEFAULT_PRICING_PREFERENCES` for anonymous users.
+    - `useInventoryPrices` runs entirely on the client and calls `/api/prices/bricklink` with JSON + `credentials: 'same-origin'`; it no longer builds or forwards Supabase access tokens.
+  - **Group sessions**
+    - `/api/group-sessions` (create host session) uses `getSupabaseAuthServerClient` and `supabase.auth.getUser()` to ensure only authenticated hosts can create sessions; the client (`SetPageClient`) calls it with `credentials: 'same-origin'` and no Authorization header.
+    - `/api/group-sessions/[slug]/end` similarly uses Supabase SSR auth to verify the current user is the host before ending a session.
+    - `/api/group-sessions/[slug]/join` uses the SSR client to:
+      - Look up the session by slug.
+      - Optionally attach `user_id` to participants when the caller is authenticated (still allows anonymous participants).
+- **Where client-only remains the right choice**
+  - Catalog-backed flows (`/api/search`, `/api/inventory`, Identify, Rebrickable catalog queries) remain **auth-agnostic Route Handlers** that:
+    - Prefer Supabase catalog tables and Rebrickable APIs.
+    - Are consumed via TanStack Query on the client.
+  - Owned state, filters, and local inventory overlays continue to live in client-side stores (`Zustand` + `localStorage`), with Supabase acting as an optional sync layer for signed-in users.
+
 ## Identify Flow
 
 - **RB-first, BL-supersets fallback**

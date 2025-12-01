@@ -1,8 +1,6 @@
 import { blGetSetPriceGuide } from '@/app/lib/bricklink';
-import {
-  DEFAULT_PRICING_PREFERENCES,
-} from '@/app/lib/pricing';
-import { getSupabaseClientForRequest } from '@/app/lib/supabaseServer';
+import { DEFAULT_PRICING_PREFERENCES } from '@/app/lib/pricing';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -24,10 +22,10 @@ export async function POST(req: NextRequest) {
   }
 
   // Determine pricing preferences for this request (user-specific when
-  // authenticated; otherwise fall back to global USD).
+  // authenticated via Supabase cookies; otherwise fall back to global USD).
   let pricingPrefs = DEFAULT_PRICING_PREFERENCES;
   try {
-    const supabase = getSupabaseClientForRequest(req);
+    const supabase = await getSupabaseAuthServerClient();
     const {
       data: { user },
       error: userError,
