@@ -5,6 +5,17 @@ import {
   useInventoryPrices,
 } from '@/app/hooks/useInventoryPrices';
 
+vi.mock('@/app/lib/supabaseClient', () => ({
+  getSupabaseBrowserClient: () => ({
+    auth: {
+      getSession: async () => ({
+        data: { session: null },
+        error: null,
+      }),
+    },
+  }),
+}));
+
 const mockRows: InventoryRow[] = [
   {
     setNumber: '1234-1',
