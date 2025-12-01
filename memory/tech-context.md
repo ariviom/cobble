@@ -33,3 +33,4 @@
 - **Rate limits**: prefer catalog-backed queries and caching to minimize live Rebrickable/BrickLink calls; never scrape marketplaces.
 - **Security & privacy**: Google via Supabase is the only auth; Rebrickable and BrickLink remain data providers, not identity.
 - **MVP scope**: auth and Supabase persistence are layered on; core search/inventory/export flows must continue to work for anonymous users.
+ - **Database security & linting**: Supabase database linter warnings (especially `0013_rls_disabled_in_public`) are treated as must-fix; any new tables in the `public` schema must enable RLS and ship with appropriate policies in the same Supabase CLI migration that creates them.

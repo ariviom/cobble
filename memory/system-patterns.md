@@ -97,6 +97,18 @@
   - App code prefers catalog-backed queries (via `app/lib/catalog.ts` / Supabase) for search and inventories when possible.
   - Live Rebrickable API calls are reserved for gaps or very recent data.
 
+## Supabase RLS & Catalog Security
+
+- **Public schema exposure**
+  - All tables in the `public` schema that are exposed via PostgREST must have row level security (RLS) enabled; database linter rule `0013_rls_disabled_in_public` is treated as a hard error.
+- **Internal-only catalog tables**
+  - Tables used only by ingestion scripts and service-role clients (for example, `bricklink_minifigs`, `bricklink_minifig_mappings`, `bl_sets`, `bl_set_minifigs`, `rb_minifig_parts`) are treated as internal catalog data:
+    - They have `ALTER TABLE public.<table> ENABLE ROW LEVEL SECURITY;` in a Supabase CLI migration.
+    - They do not define `SELECT` policies for `anon` / `authenticated`; access happens through the `SUPABASE_SERVICE_ROLE_KEY` client, which bypasses RLS.
+- **Future catalog tables**
+  - New BrickLink/Rebrickable-backed catalog tables should default to the same internal-only pattern unless there is an explicit requirement for direct anon/auth reads.
+  - If anon/auth reads are ever needed, add explicit `SELECT` policies in the creating migration and document the decision here.
+
 ## Exports & Pricing
 
 - **CSV export adapters**

@@ -28,6 +28,7 @@
   - A server-only adapter (`app/lib/minifigMapping.ts`) that uses the same core logic for:
     - Per-request, per-set lookups.
     - On-demand mapping when a set is loaded that hasn’t been synced yet.
+ - Enable RLS on internal BrickLink/Rebrickable catalog tables (`bricklink_minifigs`, `bricklink_minifig_mappings`, `bl_sets`, `bl_set_minifigs`, `rb_minifig_parts`) via a Supabase CLI migration so the database linter stays clean.
 
 ## Notes
 

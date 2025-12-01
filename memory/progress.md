@@ -50,6 +50,8 @@
     - `/api/group-sessions` and `/api/group-sessions/[slug]/end` use Supabase SSR auth and cookies to enforce host-only actions.
     - `/api/group-sessions/[slug]/join` uses the SSR client to attach `user_id` to participants when authenticated while still allowing anonymous joins.
     - `SetPageClient` calls group-session APIs with `credentials: 'same-origin'` instead of constructing Authorization headers.
+ - Supabase catalog security:
+   - Added a Supabase CLI migration (`20251201060928_enable_rls_on_catalog_tables.sql`) that enables RLS on internal BrickLink/Rebrickable catalog tables (`bricklink_minifigs`, `bricklink_minifig_mappings`, `bl_sets`, `bl_set_minifigs`, `rb_minifig_parts`) so database linter rule `0013_rls_disabled_in_public` is satisfied without exposing these tables to anon/auth roles.
 
 ## Planned / In Progress
 
