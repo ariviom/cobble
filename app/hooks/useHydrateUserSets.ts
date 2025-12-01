@@ -138,7 +138,7 @@ export function useHydrateUserSets() {
               ? Date.parse(row.updatedAt)
               : undefined;
 
-          return {
+          const entry: HydratedSetInput = {
             setNumber: row.setNumber,
             status: mapDbStatusToLocal(row.status),
             name: row.name,
@@ -146,8 +146,13 @@ export function useHydrateUserSets() {
             imageUrl: row.imageUrl,
             numParts: row.numParts,
             themeId: row.themeId,
-            updatedAt,
           };
+
+          if (typeof updatedAt === 'number') {
+            entry.updatedAt = updatedAt;
+          }
+
+          return entry;
         });
 
         hydrate(hydratedEntries);
