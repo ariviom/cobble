@@ -1,5 +1,6 @@
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
-import { NextRequest, NextResponse } from 'next/server';
+import type { Tables } from '@/supabase/types';
+import { NextResponse } from 'next/server';
 
 export type UserSetWithMeta = {
   setNumber: string;
@@ -16,7 +17,22 @@ export type UserSetsResponse = {
   sets: UserSetWithMeta[];
 };
 
-export async function GET(_req: NextRequest) {
+type UserSetRow = Tables<'user_sets'>;
+
+type UserSetRowWithMeta = {
+  set_num: UserSetRow['set_num'];
+  status: UserSetRow['status'];
+  updated_at: UserSetRow['updated_at'];
+  rb_sets: {
+    name: string;
+    year: number | null;
+    num_parts: number | null;
+    image_url: string | null;
+    theme_id: number | null;
+  } | null;
+};
+
+export async function GET() {
   const supabase = await getSupabaseAuthServerClient();
 
   try {
@@ -33,7 +49,10 @@ export async function GET(_req: NextRequest) {
     }
 
     // Fetch user sets with joined metadata from rb_sets
-    const { data: userSets, error: setsError } = await supabase
+    const {
+      data: userSets,
+      error: setsError,
+    } = await supabase
       .from('user_sets')
       .select(`
         set_num,
@@ -47,7 +66,7 @@ export async function GET(_req: NextRequest) {
           theme_id
         )
       `)
-      .eq('user_id', user.id);
+      .eq('user_id', user.id as UserSetRow['user_id']);
 
     if (setsError) {
       console.error('UserSets: query failed', {
@@ -57,14 +76,10 @@ export async function GET(_req: NextRequest) {
       return NextResponse.json({ error: 'query_failed' }, { status: 500 });
     }
 
-    const sets: UserSetWithMeta[] = (userSets ?? []).map(row => {
-      const meta = row.rb_sets as {
-        name: string;
-        year: number | null;
-        num_parts: number | null;
-        image_url: string | null;
-        theme_id: number | null;
-      } | null;
+    const typedRows = (userSets ?? []) as UserSetRowWithMeta[];
+
+    const sets: UserSetWithMeta[] = typedRows.map(row => {
+      const meta = row.rb_sets;
 
       return {
         setNumber: row.set_num,

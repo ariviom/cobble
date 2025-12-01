@@ -1,9 +1,13 @@
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import type { Tables } from '@/supabase/types';
 import { NextRequest, NextResponse } from 'next/server';
+
 type JoinBody = {
   displayName: string;
   clientToken: string;
 };
+
+type GroupSessionParticipantRow = Tables<'group_session_participants'>;
 
 export async function POST(
   req: NextRequest,
@@ -73,8 +77,8 @@ export async function POST(
     const { data: existing, error: participantError } = await supabase
       .from('group_session_participants')
       .select('*')
-      .eq('session_id', session.id)
-      .eq('client_token', clientToken)
+      .eq('session_id', session.id as GroupSessionParticipantRow['session_id'])
+      .eq('client_token', clientToken as GroupSessionParticipantRow['client_token'])
       .maybeSingle();
 
     if (participantError) {
@@ -93,7 +97,7 @@ export async function POST(
           user_id: userId ?? existing.user_id,
           last_seen_at: new Date().toISOString(),
         })
-        .eq('id', existing.id)
+        .eq('id', existing.id as GroupSessionParticipantRow['id'])
         .select('*')
         .maybeSingle();
 
@@ -126,9 +130,9 @@ export async function POST(
     const { data: inserted, error: insertError } = await supabase
       .from('group_session_participants')
       .insert({
-        session_id: session.id,
-        user_id: userId,
-        client_token: clientToken,
+        session_id: session.id as GroupSessionParticipantRow['session_id'],
+        user_id: userId as GroupSessionParticipantRow['user_id'],
+        client_token: clientToken as GroupSessionParticipantRow['client_token'],
         display_name: displayName,
       })
       .select('*')

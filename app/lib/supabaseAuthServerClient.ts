@@ -1,19 +1,25 @@
 import 'server-only';
 
-import { createServerClient } from '@supabase/ssr';
+import {
+  createServerClient,
+  type CookieMethodsServer,
+  type CookieOptions,
+} from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 import type { Database } from '@/supabase/types';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+export type SupabaseAuthServerClient = SupabaseClient<Database, 'public'>;
 
 /**
  * Supabase client for authenticated server components.
  *
- * This uses @supabase/ssr and the Next.js cookie store so that auth state
- * (session tokens) can be read on the server. It should be used only for
- * per-user, auth-aware operations – catalog reads should continue to use
- * the anon server client (`getSupabaseServerClient`).
+ * This uses @supabase/ssr with Next.js cookies, implementing the
+ * `CookieMethodsServer` interface (getAll/setAll) so that auth state
+ * (session tokens) can be read and updated on the server.
  */
-export async function getSupabaseAuthServerClient() {
+export async function getSupabaseAuthServerClient(): Promise<SupabaseAuthServerClient> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -25,22 +31,29 @@ export async function getSupabaseAuthServerClient() {
 
   const cookieStore = await cookies();
 
-  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
-      },
-      set(
-        name: string,
-        value: string,
-        options: Parameters<typeof cookieStore.set>[2]
-      ) {
-        cookieStore.set(name, value, options);
-      },
-      remove(name: string, options: Parameters<typeof cookieStore.set>[2]) {
-        cookieStore.set(name, '', { ...options, maxAge: 0 });
-      },
+  const cookieMethods: CookieMethodsServer = {
+    getAll: async () => {
+      const all = cookieStore.getAll();
+      if (!all || all.length === 0) return null;
+      return all.map(cookie => ({
+        name: cookie.name,
+        value: cookie.value,
+      }));
     },
+    setAll: async cookiesToSet => {
+      for (const cookie of cookiesToSet) {
+        const options: CookieOptions = cookie.options ?? {};
+        cookieStore.set({
+          name: cookie.name,
+          value: cookie.value,
+          ...options,
+        });
+      }
+    },
+  };
+
+  return createServerClient<Database, 'public'>(supabaseUrl, supabaseAnonKey, {
+    cookies: cookieMethods,
   });
 }
 

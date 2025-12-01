@@ -127,7 +127,7 @@ function buildThemeBootstrapScript(initialTheme?: ThemePreference): string {
 }
 
 type ThemeScriptProps = {
-  initialTheme?: ThemePreference;
+  initialTheme?: ThemePreference | undefined;
 };
 
 export function ThemeScript({ initialTheme }: ThemeScriptProps) {

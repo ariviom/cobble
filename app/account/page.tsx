@@ -6,6 +6,7 @@ import type { Tables } from '@/supabase/types';
 import type { User } from '@supabase/supabase-js';
 
 type UserProfileRow = Tables<'user_profiles'>;
+type UserId = UserProfileRow['user_id'];
 
 export default async function AccountPage() {
   const supabase = await getSupabaseAuthServerClient();
@@ -16,11 +17,11 @@ export default async function AccountPage() {
   let initialPricingCountry = DEFAULT_PRICING_PREFERENCES.countryCode;
 
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-    if (!user) {
+        if (!user) {
       return (
         <AccountPageClient
           initialUser={null}
@@ -36,13 +37,24 @@ export default async function AccountPage() {
     const {
       data: existingProfile,
       error: profileError,
-    } = await supabase
+    } = await (supabase as unknown as {
+      from: (table: 'user_profiles') => {
+        select: (columns: '*') => {
+          eq: (column: 'user_id', value: UserId) => {
+            maybeSingle: () => Promise<{
+              data: UserProfileRow | null;
+              error: { message: string } | null;
+            }>;
+          };
+        };
+      };
+    })
       .from('user_profiles')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', user.id as UserId)
       .maybeSingle();
 
-    if (profileError) {
+        if (profileError) {
       // Swallow and let the client surface a generic error if needed.
       // Profile creation will be handled client-side as a fallback.
     } else if (existingProfile) {

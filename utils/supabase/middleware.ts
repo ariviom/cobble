@@ -1,4 +1,8 @@
-import { createServerClient } from '@supabase/ssr';
+import {
+  createServerClient,
+  type CookieMethodsServer,
+  type CookieOptions,
+} from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import type { Database } from '@/supabase/types';
@@ -23,18 +27,29 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get(name: string) {
-        return request.cookies.get(name)?.value;
-      },
-      set(name: string, value: string, options: Parameters<typeof response.cookies.set>[2]) {
-        response.cookies.set(name, value, options);
-      },
-      remove(name: string, options: Parameters<typeof response.cookies.set>[2]) {
-        response.cookies.set(name, '', { ...options, maxAge: 0 });
-      },
+  const cookieMethods: CookieMethodsServer = {
+    getAll: async () => {
+      const all = request.cookies.getAll();
+      if (!all || all.length === 0) return null;
+      return all.map(cookie => ({
+        name: cookie.name,
+        value: cookie.value,
+      }));
     },
+    setAll: async cookiesToSet => {
+      for (const cookie of cookiesToSet) {
+        const options: CookieOptions = cookie.options ?? {};
+        response.cookies.set({
+          name: cookie.name,
+          value: cookie.value,
+          ...options,
+        });
+      }
+    },
+  };
+
+  const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+    cookies: cookieMethods,
   });
 
   try {
@@ -47,5 +62,6 @@ export async function updateSession(request: NextRequest) {
 
   return response;
 }
+
 
 

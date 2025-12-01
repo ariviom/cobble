@@ -157,7 +157,7 @@ async function saveUserPreferences(
 }
 
 type ThemeProviderProps = PropsWithChildren<{
-  initialTheme?: ThemePreference;
+  initialTheme?: ThemePreference | undefined;
 }>;
 
 export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
@@ -320,8 +320,8 @@ export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
     applyThemeColor,
     determineInitialTheme,
     determineInitialThemeColor,
-    initialTheme,
     isUserLoading,
+    user,
   ]);
 
   useEffect(() => {

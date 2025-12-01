@@ -30,6 +30,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
 type UserProfileRow = Tables<'user_profiles'>;
+type UserId = UserProfileRow['user_id'];
 
 type AccountPageClientProps = {
   initialUser: User | null;
@@ -189,7 +190,7 @@ export default function AccountPageClient({
         } = await supabase
           .from('user_profiles')
           .select('*')
-          .eq('user_id', fetchedUser.id)
+          .eq('user_id', fetchedUser.id as UserId)
           .maybeSingle();
 
         if (profileError) {
@@ -211,7 +212,7 @@ export default function AccountPageClient({
           } = await supabase
             .from('user_profiles')
             .insert({
-              user_id: fetchedUser.id,
+              user_id: fetchedUser.id as UserId,
               display_name: displayName,
             })
             .select('*')
@@ -327,7 +328,7 @@ export default function AccountPageClient({
       const { data, error: updateError } = await supabase
         .from('user_profiles')
         .update({ username: normalized })
-        .eq('user_id', user.id)
+        .eq('user_id', user.id as UserId)
         .select('*')
         .maybeSingle();
 
@@ -1133,5 +1134,6 @@ export default function AccountPageClient({
     </div>
   );
 }
+
 
 

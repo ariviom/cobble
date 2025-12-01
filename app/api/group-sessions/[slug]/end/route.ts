@@ -1,5 +1,8 @@
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import type { Tables } from '@/supabase/types';
 import { NextRequest, NextResponse } from 'next/server';
+
+type GroupSessionRow = Tables<'group_sessions'>;
 
 function extractSlugFromRequest(req: NextRequest): string | null {
   const match = req.nextUrl.pathname.match(/\/api\/group-sessions\/([^/]+)\/end$/);
@@ -31,10 +34,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data: session, error: sessionError } = await supabase
+    const {
+      data: session,
+      error: sessionError,
+    } = await supabase
       .from('group_sessions')
       .select('*')
-      .eq('slug', slug)
+      .eq('slug', slug as GroupSessionRow['slug'])
       .maybeSingle();
 
     if (sessionError) {
@@ -65,7 +71,7 @@ export async function POST(req: NextRequest) {
         ended_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', session.id);
+      .eq('id', session.id as GroupSessionRow['id']);
 
     if (updateError) {
       console.error('GroupSessionsEnd: failed to update session', {

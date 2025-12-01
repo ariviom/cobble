@@ -1,10 +1,13 @@
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import type { Tables } from '@/supabase/types';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 
 type CreateSessionBody = {
   setNumber: string;
 };
+
+type GroupSessionRow = Tables<'group_sessions'>;
 
 function generateSlug(): string {
   // Short, URL-safe slug for sharing sessions. Collision probability is
@@ -45,12 +48,15 @@ export async function POST(req: NextRequest) {
 
     // Reuse an existing active session for this host + set when possible so
     // multiple clicks on "Search together" do not create duplicate sessions.
-    const { data: existing, error: existingError } = await supabase
+    const {
+      data: existing,
+      error: existingError,
+    } = await supabase
       .from('group_sessions')
       .select('*')
-      .eq('host_user_id', user.id)
-      .eq('set_num', setNumber)
-      .eq('is_active', true)
+      .eq('host_user_id', user.id as GroupSessionRow['host_user_id'])
+      .eq('set_num', setNumber as GroupSessionRow['set_num'])
+      .eq('is_active', true as GroupSessionRow['is_active'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -78,11 +84,14 @@ export async function POST(req: NextRequest) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const slug = generateSlug();
 
-      const { data: created, error: insertError } = await supabase
+      const {
+        data: created,
+        error: insertError,
+      } = await supabase
         .from('group_sessions')
         .insert({
-          host_user_id: user.id,
-          set_num: setNumber,
+          host_user_id: user.id as GroupSessionRow['host_user_id'],
+          set_num: setNumber as GroupSessionRow['set_num'],
           slug,
         })
         .select('*')

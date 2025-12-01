@@ -5,7 +5,6 @@ import { InventoryTable } from '@/app/components/set/InventoryTable';
 import { cn } from '@/app/components/ui/utils';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { addRecentSet } from '@/app/store/recent-sets';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -173,26 +172,7 @@ export function SetPageClient({
         piecesFound: joinData.participant.piecesFound ?? 0,
       };
       setCurrentParticipant(hostParticipant);
-
-      // Hydrate the participant roster from Supabase so we can show stats in
-      // the top bar; future joins will be reflected via piece deltas updating
-      // counts, but new names may require a refresh.
-      const { data: roster, error: rosterError } = await supabase
-        .from('group_session_participants')
-        .select('id, display_name, pieces_found')
-        .eq('session_id', created.id);
-
-      if (!rosterError && Array.isArray(roster)) {
-        setParticipants(
-          roster.map(row => ({
-            id: row.id,
-            displayName: row.display_name,
-            piecesFound: row.pieces_found ?? 0,
-          }))
-        );
-      } else {
-        setParticipants([hostParticipant]);
-      }
+      setParticipants([hostParticipant]);
     } catch (err) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('SetPageClient: handleStartSearchTogether failed', {
