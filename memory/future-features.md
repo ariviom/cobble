@@ -12,9 +12,9 @@ Legend:
 - **Implementation complexity**: Medium–High (taxonomy mapping, persistence, filter integration, tabs generation).
 - **UI complexity**: Medium (settings UI, tabs reflecting filters, indicators for hidden categories).
 
-## Per-user set inventory: owned / wanted / can build / partial sets
-- **Description**: Maintain a local inventory of sets a user interacts with, tagged as Owned, Wanted, Can Build, Partial. "Can Build" indicates enough pieces without an original purchase or instructions. Track toggles for owning instructions and box.
-- **Notes**: No auth in MVP → local-only persistence. Requires set metadata storage, derived status (can build), and user controls to add/remove. Later: sync with account.
+## Per-user set inventory: owned / wishlist with derived progress
+- **Description**: Maintain a local inventory of sets (and minifigs) a user interacts with, explicitly tagged as Owned or Wishlist. Partial/progress states are derived from piece tallies rather than enum values. Track toggles for owning instructions and box.
+- **Notes**: No auth in MVP → local-only persistence. Requires set metadata storage, derived progress from owned pieces, and user controls to add/remove. Later: sync with account.
 - **Implementation complexity**: High (data model, derived state from parts/owned, persistence, UI flows).
 - **UI complexity**: Medium–High (set list views, status badges, toggles for instructions/box, remove actions).
 

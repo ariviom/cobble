@@ -647,45 +647,69 @@ export type Database = {
           },
         ]
       }
-      user_collection_sets: {
+      user_list_items: {
         Row: {
-          collection_id: string
           created_at: string
-          set_num: string
+          item_type: Database["public"]["Enums"]["collection_item_type"]
+          list_id: string
+          minifig_id: string | null
+          set_num: string | null
+          updated_at: string
           user_id: string
         }
         Insert: {
-          collection_id: string
           created_at?: string
-          set_num: string
+          item_type: Database["public"]["Enums"]["collection_item_type"]
+          list_id: string
+          minifig_id?: string | null
+          set_num?: string | null
+          updated_at?: string
           user_id: string
         }
         Update: {
-          collection_id?: string
           created_at?: string
-          set_num?: string
+          item_type?: Database["public"]["Enums"]["collection_item_type"]
+          list_id?: string
+          minifig_id?: string | null
+          set_num?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "user_collection_sets_collection_id_fkey"
-            columns: ["collection_id"]
+            foreignKeyName: "user_list_items_list_id_fkey"
+            columns: ["list_id"]
             isOneToOne: false
-            referencedRelation: "user_collections"
+            referencedRelation: "user_lists"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "user_collection_sets_set_num_fkey"
+            foreignKeyName: "user_list_items_minifig_id_fkey"
+            columns: ["minifig_id"]
+            isOneToOne: false
+            referencedRelation: "rb_minifigs"
+            referencedColumns: ["fig_num"]
+          },
+          {
+            foreignKeyName: "user_list_items_set_num_fkey"
             columns: ["set_num"]
             isOneToOne: false
             referencedRelation: "rb_sets"
             referencedColumns: ["set_num"]
           },
+          {
+            foreignKeyName: "user_list_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
         ]
       }
-      user_collections: {
+      user_lists: {
         Row: {
           created_at: string
+          description: string | null
           id: string
           is_system: boolean
           name: string
@@ -694,6 +718,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          description?: string | null
           id?: string
           is_system?: boolean
           name: string
@@ -702,13 +727,22 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          description?: string | null
           id?: string
           is_system?: boolean
           name?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_lists_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_parts_inventory: {
         Row: {
@@ -779,11 +813,50 @@ export type Database = {
         }
         Relationships: []
       }
+      user_minifigs: {
+        Row: {
+          created_at: string
+          fig_num: string
+          status: Database["public"]["Enums"]["set_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fig_num: string
+          status?: Database["public"]["Enums"]["set_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fig_num?: string
+          status?: Database["public"]["Enums"]["set_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_minifigs_fig_num_fkey"
+            columns: ["fig_num"]
+            isOneToOne: false
+            referencedRelation: "rb_minifigs"
+            referencedColumns: ["fig_num"]
+          },
+          {
+            foreignKeyName: "user_minifigs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profiles: {
         Row: {
-          collections_public: boolean
           created_at: string
           display_name: string | null
+          lists_public: boolean
           subscription_expires_at: string | null
           subscription_tier: string | null
           updated_at: string
@@ -791,9 +864,9 @@ export type Database = {
           username: string | null
         }
         Insert: {
-          collections_public?: boolean
           created_at?: string
           display_name?: string | null
+          lists_public?: boolean
           subscription_expires_at?: string | null
           subscription_tier?: string | null
           updated_at?: string
@@ -801,9 +874,9 @@ export type Database = {
           username?: string | null
         }
         Update: {
-          collections_public?: boolean
           created_at?: string
           display_name?: string | null
+          lists_public?: boolean
           subscription_expires_at?: string | null
           subscription_tier?: string | null
           updated_at?: string
@@ -910,6 +983,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      collection_item_type: "set" | "minifig"
       set_status: "owned" | "want"
     }
     CompositeTypes: {
@@ -1038,6 +1112,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      collection_item_type: ["set", "minifig"],
       set_status: ["owned", "want"],
     },
   },

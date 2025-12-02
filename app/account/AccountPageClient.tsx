@@ -57,11 +57,10 @@ export default function AccountPageClient({
   );
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [isSavingUsername, setIsSavingUsername] = useState(false);
-  const [collectionsPublic, setCollectionsPublic] = useState(
-    initialProfile?.collections_public ?? false
+  const [listsPublic, setListsPublic] = useState(
+    initialProfile?.lists_public ?? false
   );
-  const [isSavingCollectionsPublic, setIsSavingCollectionsPublic] =
-    useState(false);
+  const [isSavingListsPublic, setIsSavingListsPublic] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -218,12 +217,12 @@ export default function AccountPageClient({
           } else if (createdProfile) {
             setProfile(createdProfile);
             setUsernameInput(createdProfile.username ?? '');
-            setCollectionsPublic(createdProfile.collections_public ?? false);
+            setListsPublic(createdProfile.lists_public ?? false);
           }
         } else {
           setProfile(existingProfile);
           setUsernameInput(existingProfile.username ?? '');
-          setCollectionsPublic(existingProfile.collections_public ?? false);
+          setListsPublic(existingProfile.lists_public ?? false);
         }
 
         try {
@@ -414,35 +413,35 @@ export default function AccountPageClient({
     }
   };
 
-  const handleToggleCollectionsPublic = async () => {
+  const handleToggleListsPublic = async () => {
     if (!user || !profile) return;
 
     const supabase = getSupabaseBrowserClient();
-    const next = !collectionsPublic;
-    setIsSavingCollectionsPublic(true);
+    const next = !listsPublic;
+    setIsSavingListsPublic(true);
     setError(null);
-    setCollectionsPublic(next);
+    setListsPublic(next);
 
     try {
       const { data, error: updateError } = await supabase
         .from('user_profiles')
-        .update({ collections_public: next })
+        .update({ lists_public: next })
         .eq('user_id', user.id)
         .select('*')
         .maybeSingle();
 
       if (updateError) {
         setError('Failed to update sharing settings.');
-        setCollectionsPublic(prev => !prev);
+        setListsPublic(prev => !prev);
         return;
       }
 
       if (data) {
         setProfile(data);
-        setCollectionsPublic(data.collections_public ?? false);
+        setListsPublic(data.lists_public ?? false);
       }
     } finally {
-      setIsSavingCollectionsPublic(false);
+      setIsSavingListsPublic(false);
     }
   };
 
@@ -804,16 +803,16 @@ export default function AccountPageClient({
                 </h3>
                 <div className="flex flex-col gap-1">
                   <p className="text-xs text-foreground-muted">
-                    Control who can see your collections and how your public
+                    Control who can see your lists and how your public
                     profile link works.
                   </p>
                   <div className="mt-2 flex flex-col gap-3">
                     <div className="flex flex-col gap-1">
                       <label className="text-[11px] font-medium text-foreground">
-                        Public collections
+                        Public lists
                       </label>
                       <p className="text-xs text-foreground-muted">
-                        When enabled, your wishlist and custom collections can
+                        When enabled, your wishlist and custom lists can
                         be viewed by anyone with your public link. Owned
                         quantities are never shared.
                       </p>
@@ -821,25 +820,23 @@ export default function AccountPageClient({
                         <button
                           type="button"
                           role="switch"
-                          aria-checked={collectionsPublic}
-                          onClick={() => void handleToggleCollectionsPublic()}
-                          disabled={!isLoggedIn || isSavingCollectionsPublic}
+                          aria-checked={listsPublic}
+                          onClick={() => void handleToggleListsPublic()}
+                          disabled={!isLoggedIn || isSavingListsPublic}
                           className={`inline-flex h-5 w-9 items-center rounded-full border px-0.5 transition-colors ${
-                            collectionsPublic
+                            listsPublic
                               ? 'border-emerald-500 bg-emerald-500'
                               : 'border-subtle bg-background-muted'
                           } disabled:opacity-50`}
                         >
                           <span
                             className={`h-4 w-4 rounded-full bg-card shadow transition-transform ${
-                              collectionsPublic
-                                ? 'translate-x-3.5'
-                                : 'translate-x-0'
+                              listsPublic ? 'translate-x-3.5' : 'translate-x-0'
                             }`}
                           />
                         </button>
                         <span className="text-xs text-foreground-muted">
-                          {collectionsPublic ? 'Public' : 'Private'}
+                          {listsPublic ? 'Public' : 'Private'}
                         </span>
                       </div>
                     </div>
@@ -850,7 +847,7 @@ export default function AccountPageClient({
                       </label>
                       <p className="text-xs text-foreground-muted">
                         Share this link so others can see your wishlist and
-                        collections. It will only work when public collections
+                        lists. It will only work when public lists
                         are enabled.
                       </p>
                       <div className="mt-2 flex items-center gap-2">

@@ -2,9 +2,9 @@
 
 import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
 import {
-  useSetCollections,
-  type UserCollection,
-} from '@/app/hooks/useSetCollections';
+  useSetLists,
+  type UserList,
+} from '@/app/hooks/useSetLists';
 import { useSetStatus } from '@/app/hooks/useSetStatus';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import type { SetStatus, SetStatusKey } from '@/app/store/user-sets';
@@ -21,12 +21,12 @@ type UseSetOwnershipStateArgs = {
 export type SetOwnershipState = {
   status: SetStatus;
   toggleStatus: (key: SetStatusKey) => void;
-  collections: UserCollection[];
-  selectedCollectionIds: string[];
-  collectionsLoading: boolean;
-  collectionsError: string | null;
-  toggleCollection: (collectionId: string) => void;
-  createCollection: (name: string) => void;
+  lists: UserList[];
+  selectedListIds: string[];
+  listsLoading: boolean;
+  listsError: string | null;
+  toggleList: (listId: string) => void;
+  createList: (name: string) => void;
   isAuthenticated: boolean;
   isAuthenticating: boolean;
 };
@@ -50,23 +50,23 @@ export function useSetOwnershipState({
     ...(typeof themeId === 'number' ? { themeId } : {}),
   });
   const {
-    collections,
-    selectedCollectionIds,
-    isLoading: collectionsLoading,
-    error: collectionsError,
-    toggleCollection,
-    createCollection,
-  } = useSetCollections({ setNumber });
+    lists,
+    selectedListIds,
+    isLoading: listsLoading,
+    error: listsError,
+    toggleList,
+    createList,
+  } = useSetLists({ setNumber });
 
   return {
     status,
     toggleStatus,
-    collections,
-    selectedCollectionIds,
-    collectionsLoading,
-    collectionsError,
-    toggleCollection,
-    createCollection,
+    lists,
+    selectedListIds,
+    listsLoading,
+    listsError,
+    toggleList,
+    createList,
     isAuthenticated: !!user,
     isAuthenticating: isLoading,
   };

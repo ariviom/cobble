@@ -190,7 +190,7 @@ export class AppError extends Error {
 | M2  | **Missing loading states for some async actions**      | Various Supabase calls in hooks                | Users may not know if action is in progress                                  | 🟢 Easy    | 🟢 Low    |
 | M3  | **ESLint not enforcing import ordering**               | `eslint.config.mjs`                            | Inconsistent import styles across files                                      | 🟢 Easy    | 🟢 Low    |
 | M4  | **No input validation on API routes**                  | `/api/inventory`, `/api/search`                | Malformed inputs could cause unhandled errors                                | 🟢 Easy    | 🟡 Medium |
-| M5  | **Constants.set_status includes removed statuses**     | `supabase/types.ts` line 795                   | Generated types include `can_build` and `partial` but migration removed them | 🟢 Easy    | 🟢 Low    |
+| M5  | **Constants.set_status includes removed statuses**     | `supabase/types.ts` line 795                   | ✅ Resolved: enum now limited to `'owned' \| 'want'`; legacy statuses removed | 🟢 Easy    | ✅ Done  |
 | M6  | **Hardcoded USD currency**                             | BrickLink pricing calls                        | No path to support other currencies                                          | 🟡 Medium  | 🟢 Low    |
 | M7  | **No pagination for collections membership**           | `UserSetsOverview.tsx`                         | Large collections could cause slow loads                                     | 🟡 Medium  | 🟡 Medium |
 

@@ -139,7 +139,11 @@ export type LocalCollectionItem = {
  */
 export type SyncQueueItem = {
   id?: number; // Auto-increment primary key
-  table: 'user_set_parts' | 'user_collections' | 'user_minifigs'; // Extensible
+  table:
+    | 'user_set_parts'
+    | 'user_lists'
+    | 'user_list_items'
+    | 'user_minifigs'; // Extensible
   operation: 'upsert' | 'delete';
   payload: Record<string, unknown>;
   clientId: string;

@@ -4,7 +4,7 @@ import { USERNAME_REGEX } from '@/app/lib/users';
 
 export type PublicUserProfile = Pick<
   Tables<'user_profiles'>,
-  'user_id' | 'username' | 'display_name' | 'collections_public'
+  'user_id' | 'username' | 'display_name' | 'lists_public'
 >;
 
 export type PrivateUserInfo = Pick<
@@ -26,8 +26,8 @@ export async function resolvePublicUser(
 
   let query = supabase
     .from('user_profiles')
-    .select<'user_id,username,display_name,collections_public'>(
-      'user_id,username,display_name,collections_public'
+    .select<'user_id,username,display_name,lists_public'>(
+      'user_id,username,display_name,lists_public'
     );
 
   if (isUsername) {
@@ -45,7 +45,7 @@ export async function resolvePublicUser(
     return { type: 'not_found' };
   }
 
-  if (!data.collections_public) {
+  if (!data.lists_public) {
     return {
       type: 'private',
       info: {

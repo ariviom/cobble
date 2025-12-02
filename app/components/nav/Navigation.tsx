@@ -8,7 +8,12 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-export type NavigationTab = 'home' | 'search' | 'sets' | 'identify' | 'profile';
+export type NavigationTab =
+  | 'home'
+  | 'search'
+  | 'collection'
+  | 'identify'
+  | 'profile';
 
 export type NavigationProps = {
   className?: string;
@@ -29,8 +34,12 @@ export function Navigation({
     if (pathname === '/' || pathname.startsWith('/?')) return 'home';
     if (pathname.startsWith('/search')) return 'search';
     if (pathname.startsWith('/identify')) return 'identify';
-    if (pathname.startsWith('/sets') || pathname.startsWith('/set/'))
-      return 'sets';
+    if (
+      pathname.startsWith('/collection') ||
+      pathname.startsWith('/sets/id') ||
+      pathname.startsWith('/set/')
+    )
+      return 'collection';
     if (pathname.startsWith('/account')) return 'profile';
     if (pathname.startsWith('/login')) return 'profile';
     return 'home';
@@ -77,11 +86,13 @@ export function Navigation({
           />
           <NavLinkItem
             icon={<Package className="h-5 w-5" />}
-            ariaLabel="Sets"
-            labelMobile="Sets"
-            href={isLoggedIn && handle ? `/sets/${handle}` : '/sets'}
-            active={currentTab === 'sets'}
-            onClick={handleTabClick('sets')}
+            ariaLabel="Collection"
+            labelMobile="Collection"
+            href={
+              isLoggedIn && handle ? `/collection/${handle}` : '/collection'
+            }
+            active={currentTab === 'collection'}
+            onClick={handleTabClick('collection')}
           />
           <NavLinkItem
             icon={<Search className="h-5 w-5" />}

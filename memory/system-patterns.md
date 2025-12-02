@@ -74,6 +74,8 @@
   - Supabase tables hold user profiles, preferences, per-set status, per-set owned parts, and optional global parts inventory.
   - Anonymous users use local-only storage; authenticated users sync via the queue
   - Migration prompts handle divergent local vs cloud data on first load
+- **Status semantics**
+  - `user_sets` and `user_minifigs` store only `'owned'` or `'want'`; partial/in-progress states are inferred from owned-piece tallies and list membership rather than additional enum values.
 - **Group builds**
   - Collaborative sessions are represented by `group_sessions` and related tables in Supabase.
   - The host's owned state is the single source of truth; participant edits stream via Supabase Realtime channels keyed by `group_sessions.id` and are applied to the host's rows.

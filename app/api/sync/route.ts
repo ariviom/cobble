@@ -11,7 +11,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 type SyncOperation = {
   id: number;
-  table: 'user_set_parts' | 'user_collections' | 'user_minifigs';
+  table:
+    | 'user_set_parts'
+    | 'user_lists'
+    | 'user_list_items'
+    | 'user_minifigs';
   operation: 'upsert' | 'delete';
   payload: Record<string, unknown>;
 };

@@ -1,14 +1,24 @@
 import { PageLayout } from '@/app/components/layout/PageLayout';
+import { UserCollectionOverview } from '@/app/components/home/UserCollectionOverview';
 import { PublicUserCollectionOverview } from '@/app/components/user/PublicUserCollectionOverview';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import { resolvePublicUser } from '@/app/lib/publicUsers';
 import { fetchThemes } from '@/app/lib/services/themes';
-import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import { buildUserHandle } from '@/app/lib/users';
+import type { Tables } from '@/supabase/types';
 import { Lock } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
-export const revalidate = 0;
+type RouteParams = {
+  handle?: string | string[];
+};
+
+type SearchParams = Record<string, string | string[] | undefined>;
+
+type UserProfileRow = Tables<'user_profiles'>;
+type UserId = UserProfileRow['user_id'];
 
 type PublicSetSummary = {
   set_num: string;
@@ -34,12 +44,6 @@ type PublicList = {
   minifigIds: string[];
 };
 
-type RouteParams = {
-  handle?: string | string[];
-};
-
-type SearchParams = Record<string, string | string[] | undefined>;
-
 function extractInitialView(
   params: SearchParams
 ): 'all' | 'owned' | 'wishlist' {
@@ -47,7 +51,6 @@ function extractInitialView(
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (value === 'owned') return 'owned';
   if (value === 'wishlist') return 'wishlist';
-  // Treat legacy ?view=collections as "all" for compatibility.
   return 'all';
 }
 
@@ -72,38 +75,97 @@ function buildSearchQueryString(params: SearchParams): string {
   return qp.toString();
 }
 
-export default async function PublicProfilePage({
-  params,
-  searchParams,
-}: {
+type CollectionPageProps = {
   params?: Promise<RouteParams>;
   searchParams?: Promise<SearchParams>;
-}) {
-  const resolvedParams = params ? await params : undefined;
+};
+
+export default async function CollectionHandlePage({
+  params,
+  searchParams,
+}: CollectionPageProps) {
+  const resolvedParams = params ? await params : {};
   const resolvedSearch = searchParams ? await searchParams : {};
   const initialView = extractInitialView(resolvedSearch);
   const initialType = extractInitialType(resolvedSearch);
-  const handleParam = resolvedParams?.handle;
-  const handleValue = Array.isArray(handleParam) ? handleParam[0] : handleParam;
-  const handle = handleValue?.trim();
 
-  if (!handle) {
+  const handleParam = resolvedParams.handle;
+  const handleValue = Array.isArray(handleParam) ? handleParam[0] : handleParam;
+  const requestedHandle = handleValue?.trim();
+
+  if (!requestedHandle) {
     notFound();
   }
 
-  const resolved = await resolvePublicUser(handle);
+  const resolved = await resolvePublicUser(requestedHandle);
 
   if (resolved.type === 'not_found') {
     notFound();
   }
 
-  if (resolved.type === 'private') {
-    const handleToShow = buildUserHandle({
-      user_id: resolved.info.user_id,
-      username: resolved.info.username,
-    });
-    const displayName = resolved.info.display_name || 'This builder';
+  const supabaseAuth = await getSupabaseAuthServerClient();
+  let currentUserId: string | null = null;
+  let currentUsername: string | null = null;
 
+  try {
+    const {
+      data: { user },
+    } = await supabaseAuth.auth.getUser();
+
+    if (user) {
+      currentUserId = user.id;
+
+      const {
+        data: profile,
+      } = await (supabaseAuth as unknown as {
+        from: (table: 'user_profiles') => {
+          select: (columns: 'user_id,username') => {
+            eq: (column: 'user_id', value: UserId) => {
+              maybeSingle: () => Promise<{
+                data: Pick<UserProfileRow, 'user_id' | 'username'> | null;
+                error: { message: string } | null;
+              }>;
+            };
+          };
+        };
+      })
+        .from('user_profiles')
+        .select('user_id,username')
+        .eq('user_id', user.id as UserId)
+        .maybeSingle();
+
+      currentUsername = profile?.username ?? null;
+    }
+  } catch {
+    // ignore auth errors
+  }
+
+  const currentUserHandle = currentUserId
+    ? buildUserHandle({
+        user_id: currentUserId,
+        username: currentUsername,
+      })
+    : null;
+
+  const profileIdentity =
+    resolved.type === 'public' ? resolved.profile : resolved.info;
+  const canonicalHandle = buildUserHandle({
+    user_id: profileIdentity.user_id,
+    username: profileIdentity.username,
+  });
+
+  if (requestedHandle !== canonicalHandle) {
+    const qs = buildSearchQueryString(resolvedSearch);
+    const target = qs
+      ? `/collection/${canonicalHandle}?${qs}`
+      : `/collection/${canonicalHandle}`;
+    redirect(target);
+  }
+
+  const isOwner = currentUserHandle === canonicalHandle;
+
+  if (resolved.type === 'private' && !isOwner) {
+    const displayName = profileIdentity.display_name || 'This builder';
     return (
       <PageLayout>
         <div className="mx-auto flex w-full max-w-3xl flex-col items-center justify-center gap-6 px-4 py-16 text-center">
@@ -120,7 +182,7 @@ export default async function PublicProfilePage({
           </div>
           <div className="mt-2 rounded-md border border-subtle bg-card px-3 py-2">
             <p className="font-mono text-xs text-foreground-muted">
-              /user/{handleToShow}
+              /collection/{canonicalHandle}
             </p>
           </div>
           <div className="mt-4">
@@ -136,23 +198,26 @@ export default async function PublicProfilePage({
     );
   }
 
-  const profile = resolved.profile;
-  const canonicalHandle = buildUserHandle({
-    user_id: profile.user_id,
-    username: profile.username,
-  });
-
-  // If the requested handle doesn't match the canonical handle (username when present,
-  // otherwise user_id), redirect to the canonical URL, preserving any query params.
-  if (handle !== canonicalHandle) {
-    const qs = buildSearchQueryString(resolvedSearch);
-    const target = qs
-      ? `/user/${canonicalHandle}?${qs}`
-      : `/user/${canonicalHandle}`;
-    redirect(target);
+  if (isOwner) {
+    const themes = await fetchThemes().catch(() => []);
+    return (
+      <PageLayout>
+        <UserCollectionOverview
+          initialThemes={themes}
+          initialView={initialView}
+          initialType={initialType}
+        />
+      </PageLayout>
+    );
   }
 
   const supabase = getSupabaseServerClient();
+
+  if (resolved.type !== 'public') {
+    notFound();
+  }
+
+  const publicProfile = resolved.profile;
 
   const [
     { data: userSets },
@@ -163,25 +228,24 @@ export default async function PublicProfilePage({
     supabase
       .from('user_sets')
       .select<'set_num,status'>('set_num,status')
-      .eq('user_id', profile.user_id),
+      .eq('user_id', publicProfile.user_id),
     supabase
       .from('user_lists')
       .select<'id,name,is_system'>('id,name,is_system')
-      .eq('user_id', profile.user_id)
+      .eq('user_id', publicProfile.user_id)
       .order('name', { ascending: true }),
     supabase
       .from('user_list_items')
       .select<'list_id,item_type,set_num,minifig_id'>(
         'list_id,item_type,set_num,minifig_id'
       )
-      .eq('user_id', profile.user_id),
+      .eq('user_id', publicProfile.user_id),
     supabase
       .from('user_minifigs')
       .select<'fig_num,status'>('fig_num,status')
-      .eq('user_id', profile.user_id),
+      .eq('user_id', publicProfile.user_id),
   ]);
 
-  // Build a map of set_num -> status from user_sets
   const setStatusMap = new Map<string, 'owned' | 'want'>();
   for (const row of userSets ?? []) {
     if (row.set_num && (row.status === 'owned' || row.status === 'want')) {
@@ -239,7 +303,6 @@ export default async function PublicProfilePage({
 
     setsById = Object.fromEntries(
       (sets ?? []).map(set => {
-        // Get status from user_sets if it exists, otherwise null for sets only in collections
         const status = setStatusMap.get(set.set_num) ?? null;
         return [
           set.set_num,
@@ -313,15 +376,8 @@ export default async function PublicProfilePage({
     status: minifigStatusMap.get(figNum) ?? null,
   }));
 
-  // Fetch themes for theme labels
   const themes = await fetchThemes().catch(() => []);
-
-  const handleToShow = buildUserHandle({
-    user_id: profile.user_id,
-    username: profile.username,
-  });
-
-  const title = profile.display_name || 'Brick Party builder';
+  const title = publicProfile.display_name || 'Brick Party builder';
 
   return (
     <PageLayout>
@@ -332,7 +388,7 @@ export default async function PublicProfilePage({
               <h2 className="text-lg font-semibold">{title}</h2>
               <div className="flex flex-wrap items-center gap-3 text-xs text-foreground-muted">
                 <span className="rounded-full bg-card-muted px-2 py-0.5 font-mono text-[11px] text-foreground-muted">
-                  /collection/{handleToShow}
+                  /collection/{canonicalHandle}
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -354,3 +410,5 @@ export default async function PublicProfilePage({
     </PageLayout>
   );
 }
+
+

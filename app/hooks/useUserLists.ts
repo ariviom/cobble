@@ -5,24 +5,21 @@ import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { Tables } from '@/supabase/types';
 import { useEffect, useState } from 'react';
 
-export type UserCollectionSummary = {
+export type UserListSummary = {
   id: string;
   name: string;
   isSystem: boolean;
 };
 
-export type UseUserCollectionsResult = {
-  collections: UserCollectionSummary[];
+export type UseUserListsResult = {
+  lists: UserListSummary[];
   isLoading: boolean;
   error: string | null;
 };
 
-const STORAGE_KEY = 'brick_party_user_collections_cache_v1';
+const STORAGE_KEY = 'brick_party_user_lists_cache_v1';
 
-type CacheShape = Record<
-  string,
-  { collections: UserCollectionSummary[]; updatedAt: number }
->;
+type CacheShape = Record<string, { lists: UserListSummary[]; updatedAt: number }>;
 
 let cache: CacheShape | null = null;
 
@@ -51,36 +48,29 @@ function writeCache(next: CacheShape) {
   }
 }
 
-function getCachedCollections(
-  userId: string | undefined
-): UserCollectionSummary[] | null {
+function getCachedLists(userId: string | undefined): UserListSummary[] | null {
   if (!userId) return null;
   const root = readCache();
-  return root[userId]?.collections ?? null;
+  return root[userId]?.lists ?? null;
 }
 
-function setCachedCollections(
-  userId: string,
-  collections: UserCollectionSummary[]
-) {
+function setCachedLists(userId: string, lists: UserListSummary[]) {
   const root = readCache();
   root[userId] = {
-    collections,
+    lists,
     updatedAt: Date.now(),
   };
   writeCache(root);
 }
 
 /**
- * Fetch the current user's custom collections (non-system collections only).
- * Collections are sorted alphabetically for display in dropdowns.
+ * Fetch the current user's custom lists (non-system lists only).
+ * Lists are sorted alphabetically for display in dropdowns.
  */
-export function useUserCollections(): UseUserCollectionsResult {
+export function useUserLists(): UseUserListsResult {
   const { user } = useSupabaseUser();
-  const cached = getCachedCollections(user?.id ?? undefined);
-  const [collections, setCollections] = useState<UserCollectionSummary[]>(
-    cached ?? []
-  );
+  const cached = getCachedLists(user?.id ?? undefined);
+  const [lists, setLists] = useState<UserListSummary[]>(cached ?? []);
   const [isLoading, setIsLoading] = useState<boolean>(
     !!user && !cached
   );
@@ -88,7 +78,7 @@ export function useUserCollections(): UseUserCollectionsResult {
 
   useEffect(() => {
     if (!user) {
-      setCollections([]);
+      setLists([]);
       setIsLoading(false);
       setError(null);
       return;
@@ -96,9 +86,9 @@ export function useUserCollections(): UseUserCollectionsResult {
 
     let cancelled = false;
     const supabase = getSupabaseBrowserClient();
-    const existingCache = getCachedCollections(user.id);
+    const existingCache = getCachedLists(user.id);
     if (existingCache && existingCache.length > 0) {
-      setCollections(existingCache);
+      setLists(existingCache);
       setIsLoading(false);
     }
 
@@ -109,7 +99,7 @@ export function useUserCollections(): UseUserCollectionsResult {
       }
 
       const { data, error } = await supabase
-        .from('user_collections')
+        .from('user_lists')
         .select<'id,name,is_system'>('id,name,is_system')
         .eq('user_id', user.id)
         .order('name', { ascending: true });
@@ -117,14 +107,14 @@ export function useUserCollections(): UseUserCollectionsResult {
       if (cancelled) return;
 
       if (error) {
-        console.error('useUserCollections failed', error);
-        setCollections(existingCache ?? []);
-        setError(error.message ?? 'Failed to load collections');
+        console.error('useUserLists failed', error);
+        setLists(existingCache ?? []);
+        setError(error.message ?? 'Failed to load lists');
         setIsLoading(false);
         return;
       }
 
-      const rows = (data ?? []) as Array<Tables<'user_collections'>>;
+      const rows = (data ?? []) as Array<Tables<'user_lists'>>;
       const normalized = rows
         .map(row => ({
           id: row.id,
@@ -132,8 +122,8 @@ export function useUserCollections(): UseUserCollectionsResult {
           isSystem: row.is_system,
         }))
         .filter(row => !row.isSystem);
-      setCollections(normalized);
-      setCachedCollections(user.id, normalized);
+      setLists(normalized);
+      setCachedLists(user.id, normalized);
       setIsLoading(false);
     };
 
@@ -144,6 +134,6 @@ export function useUserCollections(): UseUserCollectionsResult {
     };
   }, [user]);
 
-  return { collections, isLoading, error };
+  return { lists, isLoading, error };
 }
 

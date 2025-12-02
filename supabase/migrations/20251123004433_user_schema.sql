@@ -1,4 +1,4 @@
-create type public.set_status as enum ('owned', 'want', 'can_build', 'partial');
+create type public.set_status as enum ('owned', 'want');
 create table if not exists public.user_profiles (
   user_id uuid primary key references auth.users (id) on delete cascade,
   display_name text,

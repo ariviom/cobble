@@ -60,7 +60,7 @@ type AuthProviderProps = PropsWithChildren<{
   initialUser: User | null;
   /**
    * Canonical handle for the current user, resolved on the server.
-   * Used for building URLs like /sets/[handle] without extra round-trips.
+   * Used for building URLs like /collection/[handle] without extra round-trips.
    */
   initialHandle: string | null;
 }>;
