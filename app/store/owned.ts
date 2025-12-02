@@ -34,6 +34,24 @@ function flushWriteNow(setNumber: string) {
   const data = pendingWrites.get(setNumber);
   if (!data) return;
   writeStorage(storageKey(setNumber), JSON.stringify(data));
+  pendingWrites.delete(setNumber);
+}
+
+/**
+ * Flush all pending writes immediately. Called on page unload/visibility change
+ * to prevent data loss from debounced writes that haven't been persisted yet.
+ */
+function flushAllPendingWrites() {
+  // Clear all timers first to prevent double-writes
+  for (const timer of writeTimers.values()) {
+    clearTimeout(timer);
+  }
+  writeTimers.clear();
+
+  // Flush all pending writes synchronously
+  for (const setNumber of pendingWrites.keys()) {
+    flushWriteNow(setNumber);
+  }
 }
 
 function scheduleWrite(setNumber: string) {
@@ -122,3 +140,25 @@ export const useOwnedStore = create<OwnedState>(set => ({
     set(state => ({ ...state, _version: (state._version ?? 0) + 1 }));
   },
 }));
+
+// Register global event listeners to flush pending writes on page unload/hide.
+// This prevents data loss when the user navigates away before debounce completes.
+if (typeof window !== 'undefined') {
+  // beforeunload: fires when page is about to unload (navigation, close tab)
+  window.addEventListener('beforeunload', () => {
+    flushAllPendingWrites();
+  });
+
+  // visibilitychange: fires when page goes to background (tab switch, minimize)
+  // This is important on mobile where pages may be killed without beforeunload
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      flushAllPendingWrites();
+    }
+  });
+
+  // pagehide: Safari/iOS doesn't always fire beforeunload reliably
+  window.addEventListener('pagehide', () => {
+    flushAllPendingWrites();
+  });
+}

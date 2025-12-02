@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 import type { Database } from '@/supabase/types'
-import { getSetSubsets } from './bricklink-script-client'
+import { getMinifigParts, getSetSubsets, ScriptBLMinifigPart } from './bricklink-script-client'
 
 export function requireEnv(name: string): string {
   const value = process.env[name]
@@ -33,15 +33,20 @@ export type BlMinifig = {
   imageUrl: string | null
 }
 
+export type SetMappingResult = {
+  processed: boolean
+  pairs: { rbFigId: string; blItemId: string }[]
+}
+
 /**
  * Process a single set: fetch BL minifigs, cache them, and create RB→BL mappings.
- * Returns true if processed, false if skipped (already synced).
+ * Returns { processed: true, pairs: [...] } if processed, { processed: false, pairs: [] } if skipped.
  */
 export async function processSetForMinifigMapping(
   supabase: SupabaseClient<Database>,
   setNum: string,
   logPrefix: string,
-): Promise<boolean> {
+): Promise<SetMappingResult> {
   // Check if we already have a successful sync for this set.
   const { data: blSet, error: blSetErr } = await supabase
     .from('bl_sets')
@@ -55,13 +60,13 @@ export async function processSetForMinifigMapping(
       setNum,
       error: blSetErr.message,
     })
-    return false
+    return { processed: false, pairs: [] }
   }
 
   if (blSet?.minifig_sync_status === 'ok') {
     // eslint-disable-next-line no-console
     console.log(`${logPrefix} Skipping ${setNum}, already synced (status=ok).`)
-    return false
+    return { processed: false, pairs: [] }
   }
 
   // Fetch BrickLink set subsets (minifigs).
@@ -89,7 +94,7 @@ export async function processSetForMinifigMapping(
         err instanceof Error ? err.message : String(err ?? 'unknown error'),
       last_minifig_sync_at: new Date().toISOString(),
     })
-    return false
+    return { processed: false, pairs: [] }
   }
 
   // Upsert BL set sync status.
@@ -161,7 +166,7 @@ export async function processSetForMinifigMapping(
     }
   }
 
-  return true
+  return { processed: true, pairs: mappingResult.pairs }
 }
 
 type MappingResult = {
@@ -438,5 +443,309 @@ async function createMinifigMappingsForSet(
   }
 
   return { count: mappingRows.length, pairs: pairedIds }
+}
+
+// =============================================================================
+// MINIFIG COMPONENT PART MAPPING
+// =============================================================================
+
+type BlMinifigPartEntry = {
+  bl_part_id: string
+  bl_color_id: number
+  name: string | null
+  quantity: number
+}
+
+/**
+ * Check if a BL minifig has had its component parts synced.
+ */
+async function isMinifigPartsSynced(
+  supabase: SupabaseClient<Database>,
+  blMinifigNo: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('bricklink_minifigs')
+    .select('parts_sync_status')
+    .eq('item_id', blMinifigNo)
+    .maybeSingle()
+
+  if (error) {
+    return false
+  }
+
+  return data?.parts_sync_status === 'ok'
+}
+
+/**
+ * Fetch and cache BL minifig component parts.
+ * Returns the list of parts, or null if already synced or on error.
+ */
+async function fetchAndCacheMinifigParts(
+  supabase: SupabaseClient<Database>,
+  blMinifigNo: string,
+  logPrefix: string,
+): Promise<BlMinifigPartEntry[] | null> {
+  // Check if already synced
+  if (await isMinifigPartsSynced(supabase, blMinifigNo)) {
+    return null // Already synced, skip API call
+  }
+
+  let blParts: ScriptBLMinifigPart[] = []
+  try {
+    blParts = await getMinifigParts(blMinifigNo)
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(`${logPrefix} Failed to fetch BL parts for minifig`, blMinifigNo, err)
+    // Mark as error so we don't retry indefinitely
+    await supabase
+      .from('bricklink_minifigs')
+      .upsert({
+        item_id: blMinifigNo,
+        name: blMinifigNo, // Placeholder name
+        parts_sync_status: 'error',
+        last_parts_sync_at: new Date().toISOString(),
+      }, { onConflict: 'item_id' })
+    return null
+  }
+
+  const parts: BlMinifigPartEntry[] = blParts.map(p => ({
+    bl_part_id: p.item.no,
+    bl_color_id: p.color_id ?? 0,
+    name: p.item.name ?? null,
+    quantity: p.quantity ?? 1,
+  }))
+
+  // Cache in bl_minifig_parts
+  if (parts.length > 0) {
+    const rows = parts.map(p => ({
+      bl_minifig_no: blMinifigNo,
+      bl_part_id: p.bl_part_id,
+      bl_color_id: p.bl_color_id,
+      name: p.name,
+      quantity: p.quantity,
+      last_refreshed_at: new Date().toISOString(),
+    }))
+
+    const { error: upsertErr } = await supabase
+      .from('bl_minifig_parts')
+      .upsert(rows)
+
+    if (upsertErr) {
+      // eslint-disable-next-line no-console
+      console.error(`${logPrefix} Failed to cache bl_minifig_parts for`, blMinifigNo, upsertErr.message)
+    }
+  }
+
+  // Update sync status
+  await supabase
+    .from('bricklink_minifigs')
+    .upsert({
+      item_id: blMinifigNo,
+      name: blMinifigNo, // Placeholder name, will be overwritten if entry exists
+      parts_sync_status: 'ok',
+      last_parts_sync_at: new Date().toISOString(),
+    }, { onConflict: 'item_id' })
+
+  return parts
+}
+
+/**
+ * Load RB minifig parts from the Rebrickable catalog (via Supabase).
+ */
+async function loadRbMinifigParts(
+  supabase: SupabaseClient<Database>,
+  rbFigId: string,
+): Promise<Array<{ part_num: string; color_id: number; quantity: number }>> {
+  const { data, error } = await supabase
+    .from('rb_minifig_parts')
+    .select('part_num, color_id, quantity')
+    .eq('fig_num', rbFigId)
+
+  if (error || !data) {
+    return []
+  }
+
+  return data
+}
+
+/**
+ * Load cached BL minifig parts from Supabase.
+ */
+async function loadBlMinifigParts(
+  supabase: SupabaseClient<Database>,
+  blMinifigNo: string,
+): Promise<BlMinifigPartEntry[]> {
+  const { data, error } = await supabase
+    .from('bl_minifig_parts')
+    .select('bl_part_id, bl_color_id, name, quantity')
+    .eq('bl_minifig_no', blMinifigNo)
+
+  if (error || !data) {
+    return []
+  }
+
+  return data
+}
+
+// Minifig part categories for matching
+type PartCategory = 'head' | 'torso' | 'legs' | 'hips' | 'arms' | 'hands' | 'accessory' | 'other'
+
+function categorizePartByName(name: string | null): PartCategory {
+  if (!name) return 'other'
+  const lower = name.toLowerCase()
+  if (lower.includes('head') || lower.includes('face')) return 'head'
+  if (lower.includes('torso') || lower.includes('body')) return 'torso'
+  if (lower.includes('leg') && !lower.includes('hips')) return 'legs'
+  if (lower.includes('hips')) return 'hips'
+  if (lower.includes('arm')) return 'arms'
+  if (lower.includes('hand')) return 'hands'
+  return 'accessory'
+}
+
+/**
+ * Map RB minifig parts to BL minifig parts by category and position.
+ * Returns mappings to persist in part_id_mappings table.
+ */
+async function mapMinifigComponentParts(
+  supabase: SupabaseClient<Database>,
+  rbFigId: string,
+  blMinifigNo: string,
+  logPrefix: string,
+): Promise<number> {
+  const rbParts = await loadRbMinifigParts(supabase, rbFigId)
+  const blParts = await loadBlMinifigParts(supabase, blMinifigNo)
+
+  if (rbParts.length === 0 || blParts.length === 0) {
+    return 0
+  }
+
+  // Group parts by category
+  type CategorizedPart<T> = { part: T; category: PartCategory }
+  
+  // For RB parts, we need to fetch names from rb_parts
+  const rbPartNums = rbParts.map(p => p.part_num)
+  const { data: rbPartDetails } = await supabase
+    .from('rb_parts')
+    .select('part_num, name')
+    .in('part_num', rbPartNums)
+
+  const rbNameMap = new Map<string, string>()
+  for (const p of rbPartDetails ?? []) {
+    rbNameMap.set(p.part_num, p.name)
+  }
+
+  const categorizedRb: CategorizedPart<typeof rbParts[0]>[] = rbParts.map(p => ({
+    part: p,
+    category: categorizePartByName(rbNameMap.get(p.part_num) ?? null),
+  }))
+
+  const categorizedBl: CategorizedPart<BlMinifigPartEntry>[] = blParts.map(p => ({
+    part: p,
+    category: categorizePartByName(p.name),
+  }))
+
+  // Match parts by category
+  const mappings: Array<{ rb_part_id: string; bl_part_id: string; confidence: number }> = []
+  const matchedBlParts = new Set<string>()
+
+  // Group by category for matching
+  const blByCategory = new Map<PartCategory, CategorizedPart<BlMinifigPartEntry>[]>()
+  for (const bl of categorizedBl) {
+    const list = blByCategory.get(bl.category) ?? []
+    list.push(bl)
+    blByCategory.set(bl.category, list)
+  }
+
+  for (const rb of categorizedRb) {
+    const candidates = blByCategory.get(rb.category) ?? []
+    const available = candidates.filter(c => !matchedBlParts.has(c.part.bl_part_id))
+
+    if (available.length === 0) continue
+
+    // Prefer color match
+    let matched = available.find(c => c.part.bl_color_id === rb.part.color_id)
+    
+    // If no color match, take first available in category
+    if (!matched && available.length === 1) {
+      matched = available[0]
+    }
+
+    if (matched) {
+      mappings.push({
+        rb_part_id: rb.part.part_num,
+        bl_part_id: matched.part.bl_part_id,
+        confidence: matched.part.bl_color_id === rb.part.color_id ? 0.9 : 0.7,
+      })
+      matchedBlParts.add(matched.part.bl_part_id)
+    }
+  }
+
+  if (mappings.length === 0) {
+    return 0
+  }
+
+  // Persist to part_id_mappings
+  const rows = mappings.map(m => ({
+    rb_part_id: m.rb_part_id,
+    bl_part_id: m.bl_part_id,
+    source: 'minifig-component',
+    confidence: m.confidence,
+    updated_at: new Date().toISOString(),
+  }))
+
+  const { error } = await supabase
+    .from('part_id_mappings')
+    .upsert(rows, { onConflict: 'rb_part_id' })
+
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.error(`${logPrefix} Failed to persist part mappings for ${rbFigId}→${blMinifigNo}`, error.message)
+    return 0
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(`${logPrefix} Mapped ${mappings.length} component parts for ${rbFigId}→${blMinifigNo}`)
+
+  return mappings.length
+}
+
+/**
+ * Process minifig component part mappings for a list of RB↔BL minifig pairs.
+ * This function respects rate limits by tracking API calls made.
+ * 
+ * @param pairs - List of { rbFigId, blItemId } pairs from minifig mapping
+ * @param maxApiCalls - Maximum number of BrickLink API calls to make (for rate limiting)
+ * @returns Number of API calls made
+ */
+export async function processMinifigComponentMappings(
+  supabase: SupabaseClient<Database>,
+  pairs: Array<{ rbFigId: string; blItemId: string }>,
+  maxApiCalls: number,
+  logPrefix: string,
+): Promise<{ apiCallsMade: number; partsMapped: number }> {
+  let apiCallsMade = 0
+  let partsMapped = 0
+
+  for (const { rbFigId, blItemId } of pairs) {
+    if (apiCallsMade >= maxApiCalls) {
+      // eslint-disable-next-line no-console
+      console.log(`${logPrefix} Rate limit reached (${maxApiCalls} API calls), stopping component mapping`)
+      break
+    }
+
+    // Fetch BL minifig parts (makes 1 API call if not already cached)
+    const blParts = await fetchAndCacheMinifigParts(supabase, blItemId, logPrefix)
+    
+    if (blParts !== null) {
+      // Made an API call (wasn't already cached)
+      apiCallsMade++
+    }
+
+    // Map RB parts to BL parts (no API calls, uses cached data)
+    const mapped = await mapMinifigComponentParts(supabase, rbFigId, blItemId, logPrefix)
+    partsMapped += mapped
+  }
+
+  return { apiCallsMade, partsMapped }
 }
 

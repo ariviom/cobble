@@ -1,37 +1,148 @@
 import { getPart } from '@/app/lib/rebrickable';
+import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import { NextRequest, NextResponse } from 'next/server';
 
-async function resolveBrickLinkId(
+const PART_SUFFIX_PATTERN = /^(\d+)[a-z]$/i;
+
+async function checkMappingTable(partId: string): Promise<string | null> {
+  try {
+    const supabase = getSupabaseServiceRoleClient();
+    const { data, error } = await supabase
+      .from('part_id_mappings')
+      .select('bl_part_id')
+      .eq('rb_part_id', partId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[parts/bricklink] mapping table lookup failed', {
+        partId,
+        error: error.message,
+      });
+      return null;
+    }
+
+    return data?.bl_part_id ?? null;
+  } catch (err) {
+    console.error('[parts/bricklink] mapping table error', {
+      partId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+}
+
+async function persistMapping(
+  rbPartId: string,
+  blPartId: string,
+  source: string
+): Promise<void> {
+  try {
+    const supabase = getSupabaseServiceRoleClient();
+    const { error } = await supabase.from('part_id_mappings').upsert(
+      {
+        rb_part_id: rbPartId,
+        bl_part_id: blPartId,
+        source,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'rb_part_id' }
+    );
+
+    if (error) {
+      console.error('[parts/bricklink] failed to persist mapping', {
+        rbPartId,
+        blPartId,
+        error: error.message,
+      });
+    } else if (process.env.NODE_ENV !== 'production') {
+      console.log('[parts/bricklink] persisted mapping', {
+        rbPartId,
+        blPartId,
+        source,
+      });
+    }
+  } catch (err) {
+    console.error('[parts/bricklink] persist error', {
+      rbPartId,
+      blPartId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+async function resolveBrickLinkIdFromRebrickable(
   partId: string,
   depth: number = 0
 ): Promise<string | null> {
   if (depth > 4) return null;
-  const part = await getPart(partId);
-  const external = (
-    part.external_ids as
-      | {
-          BrickLink?: {
-            ext_ids?: Array<string | number>;
-          };
-        }
-      | null
-      | undefined
-  )?.BrickLink;
-  const ids = Array.isArray(external?.ext_ids) ? external!.ext_ids : [];
-  const normalized =
-    ids
-      .map(id =>
-        typeof id === 'number' ? String(id) : typeof id === 'string' ? id : null
-      )
-      .find(id => id && id.trim().length > 0) ?? null;
-  if (normalized) return normalized;
-  if (part.print_of && part.print_of.trim().length > 0) {
-    try {
-      return await resolveBrickLinkId(part.print_of.trim(), depth + 1);
-    } catch {
-      return null;
+
+  try {
+    const part = await getPart(partId);
+    // Rebrickable external_ids.BrickLink is directly an array: ["3024"]
+    // Not an object with ext_ids like some other sources
+    const external = part.external_ids as Record<string, unknown> | null | undefined;
+    const blIds = external?.BrickLink;
+    
+    // Handle both array format ["3024"] and potential object format {ext_ids: [...]}
+    let ids: Array<string | number> = [];
+    if (Array.isArray(blIds)) {
+      ids = blIds;
+    } else if (blIds && typeof blIds === 'object' && 'ext_ids' in blIds) {
+      const extIds = (blIds as { ext_ids?: unknown }).ext_ids;
+      if (Array.isArray(extIds)) {
+        ids = extIds;
+      }
+    }
+
+    const normalized =
+      ids
+        .map(id =>
+          typeof id === 'number' ? String(id) : typeof id === 'string' ? id : null
+        )
+        .find(id => id && id.trim().length > 0) ?? null;
+
+    if (normalized) return normalized;
+
+    if (part.print_of && part.print_of.trim().length > 0) {
+      return await resolveBrickLinkIdFromRebrickable(
+        part.print_of.trim(),
+        depth + 1
+      );
+    }
+  } catch {
+    // Part not found in Rebrickable
+  }
+
+  return null;
+}
+
+async function resolveBrickLinkId(partId: string): Promise<string | null> {
+  // 1. Check mapping table first (includes previously auto-persisted mappings)
+  const cached = await checkMappingTable(partId);
+  if (cached) {
+    return cached;
+  }
+
+  // 2. Try Rebrickable external_ids
+  const fromRebrickable = await resolveBrickLinkIdFromRebrickable(partId);
+  if (fromRebrickable) {
+    return fromRebrickable;
+  }
+
+  // 3. Try suffix stripping for "a" suffixed parts (e.g., 3957a → 3957)
+  const suffixMatch = partId.match(PART_SUFFIX_PATTERN);
+  if (suffixMatch) {
+    const baseId = suffixMatch[1];
+    if (baseId) {
+      const baseResult = await resolveBrickLinkIdFromRebrickable(baseId);
+      if (baseResult) {
+        // Auto-persist this mapping for future lookups
+        await persistMapping(partId, baseResult, 'auto-suffix');
+        return baseResult;
+      }
     }
   }
+
   return null;
 }
 
@@ -54,15 +165,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'part_lookup_failed' }, { status: 500 });
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-

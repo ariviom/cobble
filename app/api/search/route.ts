@@ -2,6 +2,9 @@ import { searchSetsPage } from '@/app/lib/services/search';
 import type { FilterType } from '@/app/types/search';
 import { NextRequest, NextResponse } from 'next/server';
 
+// Search results can be cached briefly since set data rarely changes
+const CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q') ?? '';
@@ -32,7 +35,10 @@ export async function GET(req: NextRequest) {
       filterType,
       exactMatch,
     });
-    return NextResponse.json({ results: slice, nextPage });
+    return NextResponse.json(
+      { results: slice, nextPage },
+      { headers: { 'Cache-Control': CACHE_CONTROL } }
+    );
   } catch (err) {
     console.error('Search failed:', {
       query: q,

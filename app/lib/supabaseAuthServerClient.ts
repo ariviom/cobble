@@ -1,14 +1,11 @@
 import 'server-only';
 
-import {
-  createServerClient,
-  type CookieMethodsServer,
-  type CookieOptions,
-} from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 import type { Database } from '@/supabase/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createServerComponentCookieMethods } from '@/utils/supabase/cookies';
 
 export type SupabaseAuthServerClient = SupabaseClient<Database, 'public'>;
 
@@ -30,27 +27,7 @@ export async function getSupabaseAuthServerClient(): Promise<SupabaseAuthServerC
   }
 
   const cookieStore = await cookies();
-
-  const cookieMethods: CookieMethodsServer = {
-    getAll: async () => {
-      const all = cookieStore.getAll();
-      if (!all || all.length === 0) return null;
-      return all.map(cookie => ({
-        name: cookie.name,
-        value: cookie.value,
-      }));
-    },
-    setAll: async cookiesToSet => {
-      for (const cookie of cookiesToSet) {
-        const options: CookieOptions = cookie.options ?? {};
-        cookieStore.set({
-          name: cookie.name,
-          value: cookie.value,
-          ...options,
-        });
-      }
-    },
-  };
+  const cookieMethods = createServerComponentCookieMethods(cookieStore);
 
   return createServerClient<Database, 'public'>(supabaseUrl, supabaseAnonKey, {
     cookies: cookieMethods,

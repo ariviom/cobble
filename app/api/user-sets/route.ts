@@ -2,6 +2,12 @@ import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient'
 import type { Tables } from '@/supabase/types';
 import { NextResponse } from 'next/server';
 
+// User sets are private and user-specific. Cache briefly client-side to avoid
+// redundant fetches, but use private to prevent CDN caching of user data.
+// Zustand store handles optimistic updates on mutations; this cache is for
+// initial page loads and tab switches.
+const CACHE_CONTROL = 'private, max-age=30, stale-while-revalidate=60';
+
 export type UserSetWithMeta = {
   setNumber: string;
   status: 'owned' | 'want';
@@ -93,7 +99,10 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ sets } satisfies UserSetsResponse);
+    return NextResponse.json(
+      { sets } satisfies UserSetsResponse,
+      { headers: { 'Cache-Control': CACHE_CONTROL } }
+    );
   } catch (err) {
     console.error('UserSets: unexpected failure', {
       error: err instanceof Error ? err.message : String(err),

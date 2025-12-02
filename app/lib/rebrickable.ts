@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { LRUCache } from '@/app/lib/cache/lru';
+import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import { filterExactMatches } from '@/app/lib/searchExactMatch';
 import type { MatchType } from '@/app/types/search';
 
@@ -20,6 +21,7 @@ type RebrickableSetInventoryItem = {
     name: string;
     part_img_url: string | null;
     part_cat_id?: number; // Not always present in parts listing; may require extra fetch if missing
+    external_ids?: Record<string, unknown> | null;
   };
   /**
    * LEGO element ID for this part/color combination when provided by
@@ -55,6 +57,7 @@ type RebrickableMinifigComponent = {
     name?: string;
     part_img_url?: string | null;
     part_cat_id?: number;
+    external_ids?: Record<string, unknown> | null;
   };
   color?: {
     id: number;
@@ -90,301 +93,6 @@ export type InventoryRow = {
   parentRelations?: Array<{ parentKey: string; quantity: number }>;
   componentRelations?: Array<{ key: string; quantity: number }>;
 };
-
-const BASE = 'https://rebrickable.com/api/v3' as const;
-
-const RB_MAX_ATTEMPTS = 3;
-/** Request timeout in milliseconds (30 seconds) */
-const RB_REQUEST_TIMEOUT_MS = 30_000;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function getApiKey(): string {
-  const key = process.env.REBRICKABLE_API;
-  if (!key) throw new Error('Missing REBRICKABLE_API env');
-  return key;
-}
-
-/**
- * Create an AbortController with a timeout that automatically aborts after the
- * specified duration. Returns both the signal and a cleanup function to clear
- * the timeout if the request completes before it fires.
- */
-function createTimeoutSignal(timeoutMs: number): {
-  signal: AbortSignal;
-  cleanup: () => void;
-} {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort(new Error(`Request timed out after ${timeoutMs}ms`));
-  }, timeoutMs);
-  return {
-    signal: controller.signal,
-    cleanup: () => clearTimeout(timeoutId),
-  };
-}
-
-async function rbFetch<T>(
-  path: string,
-  searchParams?: Record<string, string | number>
-): Promise<T> {
-  const apiKey = getApiKey();
-  const url = new URL(`${BASE}${path}`);
-  if (searchParams) {
-    for (const [k, v] of Object.entries(searchParams)) {
-      url.searchParams.set(k, String(v));
-    }
-  }
-
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= RB_MAX_ATTEMPTS; attempt += 1) {
-    const { signal, cleanup } = createTimeoutSignal(RB_REQUEST_TIMEOUT_MS);
-    try {
-      const res = await fetch(url, {
-        headers: { Authorization: `key ${apiKey}` },
-        next: { revalidate: 60 * 60 },
-        signal,
-      });
-      cleanup();
-
-      if (res.ok) {
-        return (await res.json()) as T;
-      }
-
-      const status = res.status;
-      let bodySnippet = '';
-      try {
-        const text = await res.text();
-        bodySnippet = text.slice(0, 200);
-      } catch {
-        // ignore body read errors
-      }
-
-      // Handle explicit rate limiting and transient upstream failures with
-      // conservative backoff to avoid hammering Rebrickable.
-      if (status === 429 || status === 503) {
-        let delayMs = 0;
-
-        // Honour Retry-After when present.
-        const retryAfter = res.headers.get('Retry-After');
-        if (retryAfter) {
-          const asNumber = Number(retryAfter);
-          if (Number.isFinite(asNumber) && asNumber > 0) {
-            delayMs = asNumber * 1000;
-          }
-        }
-
-        if (!delayMs && bodySnippet) {
-          const match = bodySnippet.match(
-            /Expected available in\s+(\d+)\s+seconds?/i
-          );
-          if (match) {
-            const seconds = Number(match[1]);
-            if (Number.isFinite(seconds) && seconds > 0) {
-              delayMs = seconds * 1000;
-            }
-          }
-        }
-
-        if (!delayMs) {
-          // Fallback: small exponential backoff capped at 5s.
-          delayMs = Math.min(500 * attempt, 5000);
-        }
-
-        if (process.env.NODE_ENV !== 'production') {
-          try {
-            console.warn('Rebrickable throttled request', {
-              path,
-              attempt,
-              status,
-              delayMs,
-            });
-          } catch {
-            // ignore logging failures
-          }
-        }
-
-        if (attempt < RB_MAX_ATTEMPTS) {
-          await sleep(delayMs);
-          continue;
-        }
-      } else if (status >= 500 && status <= 599 && attempt < RB_MAX_ATTEMPTS) {
-        // Generic transient upstream error – brief backoff.
-        const delayMs = Math.min(300 * attempt, 2000);
-        if (process.env.NODE_ENV !== 'production') {
-          try {
-            console.warn('Rebrickable upstream error, retrying', {
-              path,
-              attempt,
-              status,
-            });
-          } catch {
-            // ignore logging failures
-          }
-        }
-        await sleep(delayMs);
-        continue;
-      }
-
-      cleanup();
-      const err = new Error(
-        `Rebrickable error ${status}${bodySnippet ? `: ${bodySnippet}` : ''}`
-      );
-      lastError = err;
-      break;
-    } catch (err) {
-      cleanup();
-      // Check if this is a timeout/abort error
-      const isAbort =
-        err instanceof Error &&
-        (err.name === 'AbortError' || err.message.includes('timed out'));
-
-      lastError =
-        err instanceof Error
-          ? err
-          : new Error(`Rebrickable fetch failed: ${String(err)}`);
-
-      // Don't retry timeout errors - they indicate slow upstream
-      if (isAbort) {
-        break;
-      }
-
-      if (attempt < RB_MAX_ATTEMPTS) {
-        const delayMs = Math.min(300 * attempt, 2000);
-        await sleep(delayMs);
-        continue;
-      }
-    }
-  }
-
-  throw lastError ?? new Error('Rebrickable error: request failed');
-}
-
-async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
-  const apiKey = getApiKey();
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= RB_MAX_ATTEMPTS; attempt += 1) {
-    const { signal, cleanup } = createTimeoutSignal(RB_REQUEST_TIMEOUT_MS);
-    try {
-      const res = await fetch(absoluteUrl, {
-        headers: { Authorization: `key ${apiKey}` },
-        next: { revalidate: 60 * 60 },
-        signal,
-      });
-      cleanup();
-
-      if (res.ok) {
-        return (await res.json()) as T;
-      }
-
-      const status = res.status;
-      let bodySnippet = '';
-      try {
-        const text = await res.text();
-        bodySnippet = text.slice(0, 200);
-      } catch {
-        // ignore body read errors
-      }
-
-      if (status === 429 || status === 503) {
-        let delayMs = 0;
-        const retryAfter = res.headers.get('Retry-After');
-        if (retryAfter) {
-          const asNumber = Number(retryAfter);
-          if (Number.isFinite(asNumber) && asNumber > 0) {
-            delayMs = asNumber * 1000;
-          }
-        }
-
-        if (!delayMs && bodySnippet) {
-          const match = bodySnippet.match(
-            /Expected available in\s+(\d+)\s+seconds?/i
-          );
-          if (match) {
-            const seconds = Number(match[1]);
-            if (Number.isFinite(seconds) && seconds > 0) {
-              delayMs = seconds * 1000;
-            }
-          }
-        }
-
-        if (!delayMs) {
-          delayMs = Math.min(500 * attempt, 5000);
-        }
-
-        if (process.env.NODE_ENV !== 'production') {
-          try {
-            console.warn('Rebrickable throttled absolute request', {
-              url: absoluteUrl,
-              attempt,
-              status,
-              delayMs,
-            });
-          } catch {
-            // ignore
-          }
-        }
-
-        if (attempt < RB_MAX_ATTEMPTS) {
-          await sleep(delayMs);
-          continue;
-        }
-      } else if (status >= 500 && status <= 599 && attempt < RB_MAX_ATTEMPTS) {
-        const delayMs = Math.min(300 * attempt, 2000);
-        if (process.env.NODE_ENV !== 'production') {
-          try {
-            console.warn('Rebrickable upstream error (absolute), retrying', {
-              url: absoluteUrl,
-              attempt,
-              status,
-            });
-          } catch {
-            // ignore
-          }
-        }
-        await sleep(delayMs);
-        continue;
-      }
-
-      cleanup();
-      const err = new Error(
-        `Rebrickable error ${status}${
-          bodySnippet ? `: ${bodySnippet}` : ''
-        } (absolute)`
-      );
-      lastError = err;
-      break;
-    } catch (err) {
-      cleanup();
-      // Check if this is a timeout/abort error
-      const isAbort =
-        err instanceof Error &&
-        (err.name === 'AbortError' || err.message.includes('timed out'));
-
-      lastError =
-        err instanceof Error
-          ? err
-          : new Error(`Rebrickable absolute fetch failed: ${String(err)}`);
-
-      // Don't retry timeout errors - they indicate slow upstream
-      if (isAbort) {
-        break;
-      }
-
-      if (attempt < RB_MAX_ATTEMPTS) {
-        const delayMs = Math.min(300 * attempt, 2000);
-        await sleep(delayMs);
-        continue;
-      }
-    }
-  }
-
-  throw lastError ?? new Error('Rebrickable error: absolute request failed');
-}
 
 export async function searchSets(
   query: string,
@@ -871,15 +579,40 @@ export async function getAggregatedSearchResults(
   return sorted;
 }
 
+// Helper to extract BrickLink part ID from external_ids
+function extractBricklinkPartId(
+  externalIds: Record<string, unknown> | null | undefined
+): string | null {
+  if (!externalIds) return null;
+  const blIds = externalIds.BrickLink;
+  // BrickLink IDs can be an array ["3024"] or object {ext_ids: [...]}
+  if (Array.isArray(blIds) && blIds.length > 0) {
+    const first = blIds[0];
+    return typeof first === 'string' || typeof first === 'number'
+      ? String(first)
+      : null;
+  }
+  if (blIds && typeof blIds === 'object' && 'ext_ids' in blIds) {
+    const extIds = (blIds as { ext_ids?: unknown }).ext_ids;
+    if (Array.isArray(extIds) && extIds.length > 0) {
+      const first = extIds[0];
+      return typeof first === 'string' || typeof first === 'number'
+        ? String(first)
+        : null;
+    }
+  }
+  return null;
+}
+
 export async function getSetInventory(
   setNumber: string
 ): Promise<InventoryRow[]> {
   type Page = { results: RebrickableSetInventoryItem[]; next: string | null };
 
-  // Fetch all pages of parts for the set
+  // Fetch all pages of parts for the set with external_ids included
   const firstPage = await rbFetch<Page>(
     `/lego/sets/${encodeURIComponent(setNumber)}/parts/`,
-    { page_size: 1000 }
+    { page_size: 1000, inc_part_details: 1 }
   );
   const allItems: RebrickableSetInventoryItem[] = [...firstPage.results];
   let nextUrl: string | null = firstPage.next;
@@ -900,6 +633,7 @@ export async function getSetInventory(
       const parentCategory =
         catName != null ? mapCategoryNameToParent(catName) : undefined;
       const inventoryKey = `${i.part.part_num}:${i.color.id}`;
+      const bricklinkPartId = extractBricklinkPartId(i.part.external_ids);
       return {
         setNumber,
         partId: i.part.part_num,
@@ -913,6 +647,10 @@ export async function getSetInventory(
         ...(catName && { partCategoryName: catName }),
         ...(parentCategory && { parentCategory }),
         inventoryKey,
+        // Only include bricklinkPartId if different from partId
+        ...(bricklinkPartId && bricklinkPartId !== i.part.part_num && {
+          bricklinkPartId,
+        }),
       } satisfies InventoryRow;
     });
 
@@ -1013,6 +751,7 @@ export async function getSetInventory(
               catId != null
                 ? (idToName.get(catId) ?? 'Minifig Component')
                 : 'Minifig Component';
+            const bricklinkPartId = extractBricklinkPartId(component.part.external_ids);
 
             const childRow: InventoryRow = {
               setNumber,
@@ -1028,6 +767,10 @@ export async function getSetInventory(
               parentCategory: 'Minifigure',
               inventoryKey,
               parentRelations: [{ parentKey, quantity: perParentQty }],
+              // Only include bricklinkPartId if different from partId
+              ...(bricklinkPartId && bricklinkPartId !== component.part.part_num && {
+                bricklinkPartId,
+              }),
             };
             parentRow.componentRelations!.push({
               key: inventoryKey,
@@ -1772,6 +1515,7 @@ async function getMinifigPartsCached(
         next: string | null;
       }>(`/lego/minifigs/${encodeURIComponent(figNum)}/parts/`, {
         page_size: 1000,
+        inc_part_details: 1,
       });
     } else if (nextUrl) {
       response = await rbFetchAbsolute<{

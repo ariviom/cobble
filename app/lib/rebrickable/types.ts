@@ -20,6 +20,8 @@ export type RebrickableSetInventoryItem = {
     name: string;
     part_img_url: string | null;
     part_cat_id?: number;
+    /** External IDs from other databases (BrickLink, BrickOwl, etc.) when inc_part_details=1 */
+    external_ids?: Record<string, unknown>;
   };
   element_id?: string | null;
   quantity: number;
@@ -49,6 +51,8 @@ export type RebrickableMinifigComponent = {
     name?: string;
     part_img_url?: string | null;
     part_cat_id?: number;
+    /** External IDs from other databases (BrickLink, BrickOwl, etc.) when inc_part_details=1 */
+    external_ids?: Record<string, unknown>;
   };
   color?: {
     id: number;

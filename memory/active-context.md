@@ -23,12 +23,19 @@
   - Group-session host actions (`/api/group-sessions`, `/api/group-sessions/[slug]/end`) and group participant join (`/api/group-sessions/[slug]/join`).
 - Build and refine a shared minifig mapping module (`scripts/minifig-mapping-core.ts`) plus:
   - CLI entrypoints for bulk mapping:
-    - `npm run build:minifig-mappings:user` (user sets, respects `MINIFIG_MAPPING_MAX_SETS`, default 2500).
+    - `npm run build:minifig-mappings:user` (user sets, respects `MINIFIG_MAPPING_MAX_SETS`, default 500).
     - `npm run build:minifig-mappings:all` (all `rb_sets`, same cap).
   - A server-only adapter (`app/lib/minifigMapping.ts`) that uses the same core logic for:
     - Per-request, per-set lookups.
-    - On-demand mapping when a set is loaded that hasn’t been synced yet.
- - Enable RLS on internal BrickLink/Rebrickable catalog tables (`bricklink_minifigs`, `bricklink_minifig_mappings`, `bl_sets`, `bl_set_minifigs`, `rb_minifig_parts`) via a Supabase CLI migration so the database linter stays clean.
+    - On-demand mapping when a set is loaded that hasn't been synced yet.
+- Enable RLS on internal BrickLink/Rebrickable catalog tables (`bricklink_minifigs`, `bricklink_minifig_mappings`, `bl_sets`, `bl_set_minifigs`, `rb_minifig_parts`, `bl_minifig_parts`, `part_id_mappings`) via Supabase CLI migrations so the database linter stays clean.
+- **Part ID mapping** infrastructure for RB→BL part mapping:
+  - `part_id_mappings` table stores manual and auto-generated mappings (e.g., suffix stripping `3957a` → `3957`).
+  - `/api/parts/bricklink` route checks `part_id_mappings` first, falls back to Rebrickable `external_ids`, and auto-persists successful suffix fallbacks.
+- **Minifig component part mapping** extends the minifig mapping pipeline:
+  - `bl_minifig_parts` caches BrickLink minifig component parts.
+  - Bulk mapping scripts now have a Phase 2 that maps RB minifig parts → BL minifig parts (controlled by `MINIFIG_COMPONENT_API_BUDGET`, default 500).
+  - Mappings are stored in `part_id_mappings` with `source='minifig-component'`.
 
 ## Notes
 

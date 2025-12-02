@@ -14,15 +14,28 @@
     - A shared script module (`scripts/minifig-mapping-core.ts`) that:
       - Calls BrickLink `/items/SET/{setNum}/subsets` to fetch minifigs.
       - Loads Rebrickable inventories/minifigs for the same set from Supabase.
-      - Matches RB ↔ BL minifigs by normalized name, Jaccard similarity, and a greedy fallback within the set’s small candidate list.
+      - Matches RB ↔ BL minifigs by normalized name, Jaccard similarity, and a greedy fallback within the set's small candidate list.
       - Upserts mappings into `bl_set_minifigs` and a global `bricklink_minifig_mappings` cache.
+      - Optionally fetches minifig component parts via `/items/MINIFIG/{minifigNo}/subsets` and maps RB minifig parts → BL parts.
     - A server-only helper (`app/lib/minifigMapping.ts`) that:
       - Reads per-set mappings (`mapSetRebrickableFigsToBrickLink`).
       - Provides an **on-demand** variant (`mapSetRebrickableFigsToBrickLinkOnDemand`) that:
         - Detects missing RB fig IDs for a set.
         - Checks `bl_sets.minifig_sync_status` and, if not `'ok'`, runs `processSetForMinifigMapping` to hit BrickLink once for that set.
-        - Re-reads `bl_set_minifigs` and merges the new mappings so the UI shows BrickLink IDs instead of “Not mapped”.
+        - Re-reads `bl_set_minifigs` and merges the new mappings so the UI shows BrickLink IDs instead of "Not mapped".
       - Falls back to the global `bricklink_minifig_mappings` table for any remaining unmapped RB IDs.
+- **Part ID Mapping** (RB → BL):
+  - `part_id_mappings` table stores manual and auto-generated mappings with columns `rb_part_id`, `bl_part_id`, `source`, `confidence`.
+  - Sources include: `'auto-suffix'` (automatic suffix stripping), `'minifig-component'` (from minifig part mapping), `'manual'`.
+  - `/api/parts/bricklink` route lookup order:
+    1. Check `part_id_mappings` table first.
+    2. Fall back to Rebrickable API's `external_ids.BrickLink`.
+    3. For parts matching `/^\d+[a-z]$/i` (like `3957a`), try stripping the suffix and looking up base ID.
+    4. If suffix stripping succeeds, auto-persist to `part_id_mappings` for future lookups.
+  - `bl_minifig_parts` caches BrickLink minifig component parts; `bricklink_minifigs.parts_sync_status` tracks sync state.
+  - Bulk mapping scripts have two phases:
+    - Phase 1: Map minifigs for each set (1 BL API call per set).
+    - Phase 2: Map minifig component parts (1 BL API call per unique minifig, capped by `MINIFIG_COMPONENT_API_BUDGET`).
 
 ## Persistence & Auth Patterns
 

@@ -14,6 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
+      bl_minifig_parts: {
+        Row: {
+          bl_color_id: number
+          bl_minifig_no: string
+          bl_part_id: string
+          last_refreshed_at: string | null
+          name: string | null
+          quantity: number
+        }
+        Insert: {
+          bl_color_id: number
+          bl_minifig_no: string
+          bl_part_id: string
+          last_refreshed_at?: string | null
+          name?: string | null
+          quantity?: number
+        }
+        Update: {
+          bl_color_id?: number
+          bl_minifig_no?: string
+          bl_part_id?: string
+          last_refreshed_at?: string | null
+          name?: string | null
+          quantity?: number
+        }
+        Relationships: []
+      }
+      bl_set_minifigs: {
+        Row: {
+          image_url: string | null
+          last_refreshed_at: string | null
+          minifig_no: string
+          name: string | null
+          quantity: number
+          rb_fig_id: string | null
+          set_num: string
+        }
+        Insert: {
+          image_url?: string | null
+          last_refreshed_at?: string | null
+          minifig_no: string
+          name?: string | null
+          quantity?: number
+          rb_fig_id?: string | null
+          set_num: string
+        }
+        Update: {
+          image_url?: string | null
+          last_refreshed_at?: string | null
+          minifig_no?: string
+          name?: string | null
+          quantity?: number
+          rb_fig_id?: string | null
+          set_num?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bl_set_minifigs_set_num_fkey"
+            columns: ["set_num"]
+            isOneToOne: false
+            referencedRelation: "bl_sets"
+            referencedColumns: ["set_num"]
+          },
+        ]
+      }
+      bl_sets: {
+        Row: {
+          last_error: string | null
+          last_minifig_sync_at: string | null
+          minifig_sync_status: string | null
+          name: string | null
+          set_num: string
+          year: number | null
+        }
+        Insert: {
+          last_error?: string | null
+          last_minifig_sync_at?: string | null
+          minifig_sync_status?: string | null
+          name?: string | null
+          set_num: string
+          year?: number | null
+        }
+        Update: {
+          last_error?: string | null
+          last_minifig_sync_at?: string | null
+          minifig_sync_status?: string | null
+          name?: string | null
+          set_num?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
       bricklink_minifig_mappings: {
         Row: {
           bl_item_id: string
@@ -55,7 +147,9 @@ export type Database = {
           created_at: string
           item_id: string
           item_year: number | null
+          last_parts_sync_at: string | null
           name: string
+          parts_sync_status: string | null
           updated_at: string
         }
         Insert: {
@@ -63,7 +157,9 @@ export type Database = {
           created_at?: string
           item_id: string
           item_year?: number | null
+          last_parts_sync_at?: string | null
           name: string
+          parts_sync_status?: string | null
           updated_at?: string
         }
         Update: {
@@ -71,75 +167,124 @@ export type Database = {
           created_at?: string
           item_id?: string
           item_year?: number | null
+          last_parts_sync_at?: string | null
           name?: string
+          parts_sync_status?: string | null
           updated_at?: string
         }
         Relationships: []
       }
-      bl_sets: {
+      group_session_participants: {
         Row: {
-          last_error: string | null
-          last_minifig_sync_at: string | null
-          minifig_sync_status: string | null
-          name: string | null
-          set_num: string
-          year: number | null
+          client_token: string
+          display_name: string
+          id: string
+          joined_at: string
+          last_seen_at: string
+          left_at: string | null
+          pieces_found: number
+          session_id: string
+          user_id: string | null
         }
         Insert: {
-          last_error?: string | null
-          last_minifig_sync_at?: string | null
-          minifig_sync_status?: string | null
-          name?: string | null
-          set_num: string
-          year?: number | null
+          client_token: string
+          display_name: string
+          id?: string
+          joined_at?: string
+          last_seen_at?: string
+          left_at?: string | null
+          pieces_found?: number
+          session_id: string
+          user_id?: string | null
         }
         Update: {
-          last_error?: string | null
-          last_minifig_sync_at?: string | null
-          minifig_sync_status?: string | null
-          name?: string | null
-          set_num?: string
-          year?: number | null
-        }
-        Relationships: []
-      }
-      bl_set_minifigs: {
-        Row: {
-          image_url: string | null
-          last_refreshed_at: string | null
-          minifig_no: string
-          name: string | null
-          quantity: number
-          rb_fig_id: string | null
-          set_num: string
-        }
-        Insert: {
-          image_url?: string | null
-          last_refreshed_at?: string | null
-          minifig_no: string
-          name?: string | null
-          quantity?: number
-          rb_fig_id?: string | null
-          set_num: string
-        }
-        Update: {
-          image_url?: string | null
-          last_refreshed_at?: string | null
-          minifig_no?: string
-          name?: string | null
-          quantity?: number
-          rb_fig_id?: string | null
-          set_num?: string
+          client_token?: string
+          display_name?: string
+          id?: string
+          joined_at?: string
+          last_seen_at?: string
+          left_at?: string | null
+          pieces_found?: number
+          session_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "bl_set_minifigs_set_num_fkey"
+            foreignKeyName: "group_session_participants_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "group_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          host_user_id: string
+          id: string
+          is_active: boolean
+          set_num: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          host_user_id: string
+          id?: string
+          is_active?: boolean
+          set_num: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          host_user_id?: string
+          id?: string
+          is_active?: boolean
+          set_num?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_sessions_set_num_fkey"
             columns: ["set_num"]
             isOneToOne: false
-            referencedRelation: "bl_sets"
+            referencedRelation: "rb_sets"
             referencedColumns: ["set_num"]
           },
         ]
+      }
+      part_id_mappings: {
+        Row: {
+          bl_part_id: string
+          confidence: number | null
+          created_at: string | null
+          rb_part_id: string
+          source: string
+          updated_at: string | null
+        }
+        Insert: {
+          bl_part_id: string
+          confidence?: number | null
+          created_at?: string | null
+          rb_part_id: string
+          source: string
+          updated_at?: string | null
+        }
+        Update: {
+          bl_part_id?: string
+          confidence?: number | null
+          created_at?: string | null
+          rb_part_id?: string
+          source?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       rb_colors: {
         Row: {
@@ -286,24 +431,6 @@ export type Database = {
           },
         ]
       }
-      rb_minifigs: {
-        Row: {
-          fig_num: string
-          name: string
-          num_parts: number | null
-        }
-        Insert: {
-          fig_num: string
-          name: string
-          num_parts?: number | null
-        }
-        Update: {
-          fig_num?: string
-          name?: string
-          num_parts?: number | null
-        }
-        Relationships: []
-      }
       rb_minifig_parts: {
         Row: {
           color_id: number
@@ -346,6 +473,24 @@ export type Database = {
             referencedColumns: ["part_num"]
           },
         ]
+      }
+      rb_minifigs: {
+        Row: {
+          fig_num: string
+          name: string
+          num_parts: number | null
+        }
+        Insert: {
+          fig_num: string
+          name: string
+          num_parts?: number | null
+        }
+        Update: {
+          fig_num?: string
+          name?: string
+          num_parts?: number | null
+        }
+        Relationships: []
       }
       rb_part_categories: {
         Row: {
@@ -501,75 +646,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      group_sessions: {
-        Row: {
-          id: string
-          host_user_id: string
-          set_num: string
-          slug: string
-          is_active: boolean
-          created_at: string
-          updated_at: string
-          ended_at: string | null
-        }
-        Insert: {
-          id?: string
-          host_user_id: string
-          set_num: string
-          slug?: string
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-          ended_at?: string | null
-        }
-        Update: {
-          id?: string
-          host_user_id?: string
-          set_num?: string
-          slug?: string
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-          ended_at?: string | null
-        }
-        Relationships: []
-      }
-      group_session_participants: {
-        Row: {
-          id: string
-          session_id: string
-          user_id: string | null
-          client_token: string
-          display_name: string
-          pieces_found: number
-          joined_at: string
-          last_seen_at: string
-          left_at: string | null
-        }
-        Insert: {
-          id?: string
-          session_id: string
-          user_id?: string | null
-          client_token: string
-          display_name: string
-          pieces_found?: number
-          joined_at?: string
-          last_seen_at?: string
-          left_at?: string | null
-        }
-        Update: {
-          id?: string
-          session_id?: string
-          user_id?: string | null
-          client_token?: string
-          display_name?: string
-          pieces_found?: number
-          joined_at?: string
-          last_seen_at?: string
-          left_at?: string | null
-        }
-        Relationships: []
       }
       user_collection_sets: {
         Row: {
@@ -962,7 +1038,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      set_status: ["owned", "want", "can_build", "partial"],
+      set_status: ["owned", "want"],
     },
   },
 } as const

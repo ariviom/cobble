@@ -1,11 +1,8 @@
-import {
-  createServerClient,
-  type CookieMethodsServer,
-  type CookieOptions,
-} from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import type { Database } from '@/supabase/types';
+import { createMiddlewareCookieMethods } from '@/utils/supabase/cookies';
 
 /**
  * Middleware helper to keep Supabase auth cookies in sync for SSR.
@@ -27,26 +24,7 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const cookieMethods: CookieMethodsServer = {
-    getAll: async () => {
-      const all = request.cookies.getAll();
-      if (!all || all.length === 0) return null;
-      return all.map(cookie => ({
-        name: cookie.name,
-        value: cookie.value,
-      }));
-    },
-    setAll: async cookiesToSet => {
-      for (const cookie of cookiesToSet) {
-        const options: CookieOptions = cookie.options ?? {};
-        response.cookies.set({
-          name: cookie.name,
-          value: cookie.value,
-          ...options,
-        });
-      }
-    },
-  };
+  const cookieMethods = createMiddlewareCookieMethods(request, response);
 
   const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: cookieMethods,

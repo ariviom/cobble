@@ -169,5 +169,58 @@ export async function getSetSubsets(
   return list
 }
 
+export type ScriptBLMinifigPart = {
+  color_id: number
+  color_name?: string
+  item: { no: string; type: string; name?: string }
+  quantity: number
+}
+
+/**
+ * Fetch component parts of a BrickLink minifig.
+ * Uses /items/MINIFIG/{minifigNo}/subsets which returns the parts that make up the minifig.
+ */
+export async function getMinifigParts(
+  minifigNo: string,
+): Promise<ScriptBLMinifigPart[]> {
+  const data = await blGet<unknown[] | { entries?: unknown[] }>(
+    `/items/MINIFIG/${encodeURIComponent(minifigNo)}/subsets`,
+    {},
+  )
+
+  const raw: unknown[] = Array.isArray(data)
+    ? data
+    : Array.isArray((data as { entries?: unknown[] }).entries)
+      ? ((data as { entries?: unknown[] }).entries ?? [])
+      : []
+
+  const list: ScriptBLMinifigPart[] = raw
+    .flatMap(group => {
+      if (
+        group &&
+        typeof group === 'object' &&
+        Array.isArray((group as { entries?: unknown[] }).entries)
+      ) {
+        return (group as { entries: ScriptBLMinifigPart[] }).entries
+      }
+      return [group as ScriptBLMinifigPart]
+    })
+    .filter(
+      entry =>
+        entry &&
+        entry.item &&
+        entry.item.type === 'PART' &&
+        typeof entry.item.no === 'string',
+    ) as ScriptBLMinifigPart[]
+
+  // eslint-disable-next-line no-console
+  console.log('[bricklink-script] minifig parts', {
+    minifigNo,
+    count: list.length,
+  })
+
+  return list
+}
+
 
 

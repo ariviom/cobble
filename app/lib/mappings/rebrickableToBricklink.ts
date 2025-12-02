@@ -1,8 +1,8 @@
 // Color mapping cache - populated from API endpoint
 // Keys are Rebrickable color IDs; values are BrickLink color IDs from external_ids
 let colorMappingCache: Record<number, number> | null = null;
-const partMappingCache = new Map<string, string | null>();
-const PART_SUFFIX_PATTERN = /^\d+[a-z]$/i;
+// Part mapping cache - only caches successful mappings (not null)
+const partMappingCache = new Map<string, string>();
 
 function getApiBaseUrl(): string {
   // In the browser, a relative URL is fine
@@ -53,7 +53,8 @@ async function fetchBrickLinkItemNo(partId: string): Promise<string | null> {
     const res = await fetch(
       `${base}/api/parts/bricklink?part=${encodeURIComponent(partId)}`,
       {
-        cache: 'force-cache',
+        // Use default caching - the API handles mapping lookups and suffix fallbacks
+        cache: 'default',
       }
     );
     if (!res.ok) {
@@ -69,28 +70,19 @@ async function fetchBrickLinkItemNo(partId: string): Promise<string | null> {
 }
 
 async function fetchPartMapping(partId: string): Promise<string | null> {
-  if (partMappingCache.has(partId)) return partMappingCache.get(partId)!;
+  // Only return cached values if they're not null - allows re-lookup after fixes
+  const cached = partMappingCache.get(partId);
+  if (cached) return cached;
 
-  let mapped = await fetchBrickLinkItemNo(partId);
+  // The API handles suffix stripping and mapping table lookups
+  const mapped = await fetchBrickLinkItemNo(partId);
 
-  if (!mapped && PART_SUFFIX_PATTERN.test(partId)) {
-    const baseId = partId.slice(0, -1);
-    if (baseId) {
-      mapped = await fetchBrickLinkItemNo(baseId);
-      if (mapped) {
-        partMappingCache.set(baseId, mapped);
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn('[mapToBrickLink] stripped suffix for part', {
-            partId,
-            fallback: baseId,
-          });
-        }
-      }
-    }
+  // Only cache successful mappings - don't cache null to allow re-lookup
+  if (mapped) {
+    partMappingCache.set(partId, mapped);
   }
 
-  partMappingCache.set(partId, mapped ?? null);
-  return mapped ?? null;
+  return mapped;
 }
 
 type BrickLinkMapResult = {

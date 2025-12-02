@@ -303,7 +303,16 @@ export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
     const serverInitialTheme = serverInitialThemeRef.current;
 
     if (serverInitialTheme && isThemePreference(serverInitialTheme)) {
-      applyTheme(serverInitialTheme, user ? 'user' : 'device');
+      // Server provided a theme from Supabase - apply visually but don't
+      // persist to localStorage. Supabase is source of truth for authenticated
+      // users; the second useEffect will fetch fresh data and update cache.
+      const nextResolved = resolveThemePreference(serverInitialTheme);
+      setThemeState(serverInitialTheme);
+      setResolvedTheme(nextResolved);
+      setScope(user ? 'user' : 'device');
+      applyDocumentClass(nextResolved);
+      // Note: NOT persisting to localStorage here - wait for Supabase fetch
+
       const initialColor = determineInitialThemeColor();
       applyThemeColor(initialColor.color, initialColor.scope);
       setIsInitialized(true);
@@ -344,23 +353,9 @@ export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
       return;
     }
 
-    const storedUserTheme = readStoredTheme(USER_THEME_KEY);
-    const storedUserColor = readStoredThemeColor(USER_THEME_COLOR_KEY);
-    const hasStoredTheme = !!storedUserTheme;
-    const hasStoredColor = !!storedUserColor;
-
-    if (storedUserTheme) {
-      applyTheme(storedUserTheme, 'user');
-    }
-    if (storedUserColor) {
-      applyThemeColor(storedUserColor, 'user');
-    }
-
-    if (hasStoredTheme && hasStoredColor) {
-      fetchedUserIdRef.current = user.id;
-      return;
-    }
-
+    // For authenticated users, ALWAYS fetch from Supabase (source of truth).
+    // Local storage is just a cache - we update it after fetching.
+    // This ensures any changes made on other devices are picked up.
     let cancelled = false;
     setIsSyncing(true);
 
@@ -379,20 +374,24 @@ export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
           throw error;
         }
 
+        // Apply theme from Supabase (source of truth)
         if (data?.theme && isThemePreference(data.theme)) {
           applyTheme(data.theme, 'user');
-        } else if (!hasStoredTheme) {
+        } else {
+          // No Supabase preference - use device preference as default
           const fallbackTheme = readStoredTheme(DEVICE_THEME_KEY) ?? 'system';
-          applyTheme(fallbackTheme, 'device');
+          applyTheme(fallbackTheme, 'user');
         }
 
+        // Apply theme color from Supabase (source of truth)
         if (data?.theme_color && isThemeColor(data.theme_color)) {
           applyThemeColor(data.theme_color, 'user');
-        } else if (!hasStoredColor) {
+        } else {
+          // No Supabase preference - use device preference as default
           const fallbackColor =
             readStoredThemeColor(DEVICE_THEME_COLOR_KEY) ??
             DEFAULT_THEME_COLOR;
-          applyThemeColor(fallbackColor, 'device');
+          applyThemeColor(fallbackColor, 'user');
         }
 
         fetchedUserIdRef.current = user.id;
@@ -400,6 +399,15 @@ export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
         if (process.env.NODE_ENV === 'development') {
           // In development we still want visibility, but avoid noisy runtime errors in production.
           console.warn('Failed to load theme preference', error);
+        }
+        // On error, fall back to cached local state if available
+        const storedUserTheme = readStoredTheme(USER_THEME_KEY);
+        const storedUserColor = readStoredThemeColor(USER_THEME_COLOR_KEY);
+        if (storedUserTheme) {
+          applyTheme(storedUserTheme, 'user');
+        }
+        if (storedUserColor) {
+          applyThemeColor(storedUserColor, 'user');
         }
       } finally {
         if (!cancelled) {

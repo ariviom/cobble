@@ -153,5 +153,10 @@ export async function POST(req: NextRequest) {
     } catch {}
   }
 
-  return NextResponse.json({ prices });
+  // Prices can be cached briefly - they don't change frequently and
+  // stale-while-revalidate gives a snappy UX while background refreshing.
+  return NextResponse.json(
+    { prices },
+    { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=3600' } }
+  );
 }

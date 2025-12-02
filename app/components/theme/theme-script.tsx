@@ -77,6 +77,10 @@ function buildThemeBootstrapScript(initialTheme?: ThemePreference): string {
         var scope = storedUserTheme ? 'user' : storedDeviceTheme ? 'device' : 'system';
         var theme = storedUserTheme || storedDeviceTheme || 'system';
 
+        // If SSR provides a theme from Supabase, use it for first paint but
+        // do NOT write to localStorage. Supabase is the source of truth for
+        // authenticated users; localStorage is just a cache that gets updated
+        // by ThemeProvider after client-side hydration.
         if (
           INITIAL_THEME === 'light' ||
           INITIAL_THEME === 'dark' ||
@@ -84,11 +88,8 @@ function buildThemeBootstrapScript(initialTheme?: ThemePreference): string {
         ) {
           theme = INITIAL_THEME;
           scope = 'user';
-          try {
-            if (typeof localStorage !== 'undefined') {
-              localStorage.setItem(USER_THEME_KEY, INITIAL_THEME);
-            }
-          } catch {}
+          // Intentionally NOT writing to localStorage here - ThemeProvider
+          // will sync from Supabase and update the cache appropriately.
         }
 
         var resolvedTheme = resolveTheme(theme);

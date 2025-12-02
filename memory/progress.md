@@ -52,6 +52,22 @@
     - `SetPageClient` calls group-session APIs with `credentials: 'same-origin'` instead of constructing Authorization headers.
  - Supabase catalog security:
    - Added a Supabase CLI migration (`20251201060928_enable_rls_on_catalog_tables.sql`) that enables RLS on internal BrickLink/Rebrickable catalog tables (`bricklink_minifigs`, `bricklink_minifig_mappings`, `bl_sets`, `bl_set_minifigs`, `rb_minifig_parts`) so database linter rule `0013_rls_disabled_in_public` is satisfied without exposing these tables to anon/auth roles.
+- Part ID mapping infrastructure (RB→BL):
+  - Added `part_id_mappings` table for manual and auto-generated part ID mappings.
+  - Modified `/api/parts/bricklink` to check mapping table first and auto-persist successful suffix fallbacks (e.g., `3957a` → `3957`).
+  - **Fixed** `external_ids` parsing bug: Rebrickable returns `"BrickLink":["3024"]` (array), not `{ext_ids:[...]}` (object).
+  - Added `bl_minifig_parts` table to cache BrickLink minifig component parts.
+  - Extended `minifig-mapping-core.ts` with `processMinifigComponentMappings()` to map RB minifig parts → BL parts.
+  - Updated bulk mapping scripts with two phases:
+    - Phase 1: Map minifigs (controlled by `MINIFIG_MAPPING_MAX_SETS`, default 500).
+    - Phase 2: Map minifig component parts (controlled by `MINIFIG_COMPONENT_API_BUDGET`, default 500).
+  - Total daily BrickLink API budget: 2500 calls split between set mapping and component mapping.
+- BrickLink part ID propagation in UI:
+  - Added `bricklinkPartId` field to `InventoryRow` type.
+  - Updated `getSetInventoryLocal` (catalog.ts) to fetch `external_ids` and extract BrickLink IDs.
+  - Updated `getSetInventory` (rebrickable.ts) to include `inc_part_details=1` for external_ids.
+  - Updated `getMinifigPartsCached` to include `inc_part_details=1` for minifig components.
+  - Updated `InventoryItem.tsx` to use `bricklinkPartId` for constructing BrickLink URLs.
 
 ## Planned / In Progress
 
@@ -82,6 +98,9 @@ Implementation is in progress: core data flow via server proxies and virtualized
 
 - Rebrickable rate limits or incomplete inventories for very old sets.
 - ID/color mapping mismatches between Rebrickable and BrickLink affecting CSV exports.
+  - Mitigated by `part_id_mappings` table with auto-suffix fallback (e.g., `3957a` → `3957`).
+  - Mitigated by minifig component part mapping pipeline for heads, torsos, legs, etc.
 - Large inventories (>1000 parts) may require careful virtualization and memoization to stay fast.
 - CSV specs must exactly match marketplace requirements to import successfully.
 - Debounced owned writes delay flush by ~500ms; acceptable trade-off for UI responsiveness.
+- BrickLink API rate limits (2500/day) constrain bulk mapping throughput; scripts are capped accordingly.

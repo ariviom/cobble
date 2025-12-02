@@ -2,10 +2,14 @@ import 'dotenv/config'
 
 import {
     createSupabaseClient,
+    processMinifigComponentMappings,
     processSetForMinifigMapping,
 } from './minifig-mapping-core'
 
-const MAX_SETS_PER_RUN = Number(process.env.MINIFIG_MAPPING_MAX_SETS ?? 2500)
+// Total daily API budget: 2500 calls
+// We split between set mapping (1 call per set) and component mapping (1 call per unique minifig)
+const MAX_SETS_PER_RUN = Number(process.env.MINIFIG_MAPPING_MAX_SETS ?? 500)
+const MAX_COMPONENT_API_CALLS = Number(process.env.MINIFIG_COMPONENT_API_BUDGET ?? 500)
 const LOG_PREFIX = '[minifig-mapping:user]'
 
 async function buildMappingsForUserSets() {
@@ -34,8 +38,35 @@ async function buildMappingsForUserSets() {
     `${LOG_PREFIX} Processing up to ${uniqueSetNums.length} distinct user sets (cap ${MAX_SETS_PER_RUN}).`,
   )
 
+  // Phase 1: Map minifigs for each set
+  const allPairs: Array<{ rbFigId: string; blItemId: string }> = []
+  let setsProcessed = 0
+
   for (const setNum of uniqueSetNums) {
-    await processSetForMinifigMapping(supabase, setNum, LOG_PREFIX)
+    const result = await processSetForMinifigMapping(supabase, setNum, LOG_PREFIX)
+    if (result.processed) {
+      setsProcessed++
+      allPairs.push(...result.pairs)
+    }
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(`${LOG_PREFIX} Phase 1 complete: ${setsProcessed} sets processed, ${allPairs.length} minifig pairs.`)
+
+  // Phase 2: Map component parts for minifig pairs (with rate limiting)
+  if (allPairs.length > 0 && MAX_COMPONENT_API_CALLS > 0) {
+    // eslint-disable-next-line no-console
+    console.log(`${LOG_PREFIX} Phase 2: Mapping component parts (budget: ${MAX_COMPONENT_API_CALLS} API calls)...`)
+
+    const { apiCallsMade, partsMapped } = await processMinifigComponentMappings(
+      supabase,
+      allPairs,
+      MAX_COMPONENT_API_CALLS,
+      LOG_PREFIX,
+    )
+
+    // eslint-disable-next-line no-console
+    console.log(`${LOG_PREFIX} Phase 2 complete: ${apiCallsMade} API calls, ${partsMapped} parts mapped.`)
   }
 }
 

@@ -70,9 +70,13 @@ export function InventoryItem({
   const effectiveMinifigId = isMinifig
     ? (bricklinkFigId ?? rebrickableFigId)
     : rebrickableFigId;
+  // For parts: use bricklinkPartId if available, otherwise fall back to partId
+  const effectivePartId = isFigId
+    ? row.partId
+    : (row.bricklinkPartId ?? row.partId);
   const displayId = isFigId
     ? (bricklinkFigId ?? rebrickableFigId ?? row.partId)
-    : row.partId;
+    : effectivePartId;
   const linkHash =
     !isFigId && typeof bricklinkColorId === 'number'
       ? `#T=S&C=${bricklinkColorId}`
@@ -82,7 +86,7 @@ export function InventoryItem({
         effectiveMinifigId ?? ''
       )}${linkHash}`
     : `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(
-        displayId
+        effectivePartId
       )}${linkHash}`;
   const hasPrice = typeof unitPrice === 'number' && Number.isFinite(unitPrice);
   const hasRange =

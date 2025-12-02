@@ -34,6 +34,12 @@ export type InventoryRow = {
    * server via Supabase-backed mappings and used for linking/pricing.
    */
   bricklinkFigId?: string | null;
+  /**
+   * Canonical BrickLink part ID when different from the Rebrickable partId.
+   * Populated server-side from Rebrickable's external_ids.BrickLink field.
+   * Used for constructing BrickLink URLs and pricing lookups.
+   */
+  bricklinkPartId?: string | null;
 };
 
 export type SortKey = 'name' | 'color' | 'size' | 'category' | 'price';

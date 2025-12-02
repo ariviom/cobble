@@ -10,6 +10,7 @@ import {
 import { filterExactMatches } from '@/app/lib/searchExactMatch';
 import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import type { MatchType } from '@/app/types/search';
+import type { Json } from '@/supabase/types';
 
 type LocalTheme = {
   id: number;
@@ -315,7 +316,7 @@ export async function getSetInventoryLocal(
     partNums.length
       ? supabase
           .from('rb_parts')
-          .select('part_num, name, part_cat_id, image_url')
+          .select('part_num, name, part_cat_id, image_url, external_ids')
           .in('part_num', partNums)
       : Promise.resolve({ data: [], error: null } as {
           data: {
@@ -323,6 +324,7 @@ export async function getSetInventoryLocal(
             name: string;
             part_cat_id: number | null;
             image_url: string | null;
+            external_ids: Json;
           }[];
           error: null;
         }),
@@ -358,10 +360,37 @@ export async function getSetInventoryLocal(
       name: string;
       part_cat_id: number | null;
       image_url: string | null;
+      external_ids: Json;
     }
   >();
   for (const part of parts) {
     partMap.set(part.part_num, part);
+  }
+
+  // Helper to extract BrickLink part ID from external_ids
+  function extractBricklinkPartId(
+    externalIds: Json | null | undefined
+  ): string | null {
+    if (!externalIds || typeof externalIds !== 'object') return null;
+    const record = externalIds as Record<string, unknown>;
+    const blIds = record.BrickLink as unknown;
+    // BrickLink IDs can be an array ["3024"] or object {ext_ids: [...]}
+    if (Array.isArray(blIds) && blIds.length > 0) {
+      const first = blIds[0];
+      return typeof first === 'string' || typeof first === 'number'
+        ? String(first)
+        : null;
+    }
+    if (blIds && typeof blIds === 'object' && 'ext_ids' in blIds) {
+      const extIds = (blIds as { ext_ids?: unknown }).ext_ids;
+      if (Array.isArray(extIds) && extIds.length > 0) {
+        const first = extIds[0];
+        return typeof first === 'string' || typeof first === 'number'
+          ? String(first)
+          : null;
+      }
+    }
+    return null;
   }
 
   const colorMap = new Map<number, { id: number; name: string }>();
@@ -404,6 +433,7 @@ export async function getSetInventoryLocal(
       typeof catId === 'number' ? categoryMap.get(catId)?.name : undefined;
     const parentCategory =
       catName != null ? mapCategoryNameToParent(catName) : undefined;
+    const bricklinkPartId = extractBricklinkPartId(part?.external_ids);
 
     return {
       setNumber: trimmedSet,
@@ -418,6 +448,10 @@ export async function getSetInventoryLocal(
       ...(catName && { partCategoryName: catName }),
       ...(parentCategory && { parentCategory }),
       inventoryKey: `${row.part_num}:${row.color_id}`,
+      // Only include bricklinkPartId if different from partId
+      ...(bricklinkPartId && bricklinkPartId !== row.part_num && {
+        bricklinkPartId,
+      }),
     };
   });
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
@@ -12,11 +12,18 @@ import {
 } from '@/app/store/user-sets';
 import type { UserSetWithMeta, UserSetsResponse } from '@/app/api/user-sets/route';
 
-const hydratedState = {
-  userId: null as string | null,
-  inflightUserId: null as string | null,
-  inflight: null as Promise<void> | null,
+/**
+ * Global hydration state for deduplication across component instances.
+ * 
+ * We use a global Map + Promise pattern to prevent duplicate fetches when
+ * multiple components mount simultaneously. Each user ID gets at most one
+ * inflight request, and subsequent hook instances wait on the existing promise.
+ */
+type HydrationEntry = {
+  promise: Promise<void>;
+  completed: boolean;
 };
+const hydrationByUser = new Map<string, HydrationEntry>();
 
 function localStatusToDb(
   status: SetStatus
@@ -72,26 +79,33 @@ function mapDbStatusToLocal(status: 'owned' | 'want'): SetStatus {
 export function useHydrateUserSets() {
   const { user } = useSupabaseUser();
   const hydrate = useUserSetsStore(state => state.hydrateFromSupabase);
+  // Use ref to track per-instance cancellation (safe for Concurrent Mode)
+  const cancelledRef = useRef(false);
 
   useEffect(() => {
+    cancelledRef.current = false;
+
     if (!user) {
-      hydratedState.userId = null;
-      hydratedState.inflightUserId = null;
-      hydratedState.inflight = null;
+      // Clean up hydration state for logged-out users
+      // Don't clear the map - completed entries serve as cache
       return;
     }
-    if (hydratedState.userId === user.id) {
+
+    const userId = user.id;
+    const existing = hydrationByUser.get(userId);
+
+    // If already completed successfully, skip
+    if (existing?.completed) {
       return;
     }
-    if (
-      hydratedState.inflightUserId === user.id &&
-      hydratedState.inflight
-    ) {
+
+    // If there's an inflight request, wait for it instead of duplicating
+    if (existing && !existing.completed) {
+      void existing.promise;
       return;
     }
 
     const supabase = getSupabaseBrowserClient();
-    let cancelled = false;
 
     const run = async () => {
       try {
@@ -112,17 +126,21 @@ export function useHydrateUserSets() {
             'useHydrateUserSets: API request failed',
             response.status
           );
+          // Don't mark as completed so retry is possible
+          hydrationByUser.delete(userId);
           return;
         }
 
         const data = await response.json() as UserSetsResponse;
         
-        if (cancelled) return;
+        if (cancelledRef.current) return;
 
         if (!data.sets || data.sets.length === 0) {
           // No remote sets - sync local sets to Supabase
-          await syncLocalSetsToSupabase(user.id, supabase);
-          hydratedState.userId = user.id;
+          await syncLocalSetsToSupabase(userId, supabase);
+          // Mark as completed
+          const entry = hydrationByUser.get(userId);
+          if (entry) entry.completed = true;
           return;
         }
 
@@ -150,22 +168,21 @@ export function useHydrateUserSets() {
         });
 
         hydrate(hydratedEntries);
-        hydratedState.userId = user.id;
+        // Mark as completed
+        const entry = hydrationByUser.get(userId);
+        if (entry) entry.completed = true;
       } catch (err) {
         console.error('useHydrateUserSets failed', err);
-      } finally {
-        if (hydratedState.inflightUserId === user.id) {
-          hydratedState.inflightUserId = null;
-          hydratedState.inflight = null;
-        }
+        // Allow retry on error by removing the entry
+        hydrationByUser.delete(userId);
       }
     };
 
-    hydratedState.inflightUserId = user.id;
     const promise = run();
-    hydratedState.inflight = promise;
+    hydrationByUser.set(userId, { promise, completed: false });
+
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
     };
   }, [user, hydrate]);
 }
