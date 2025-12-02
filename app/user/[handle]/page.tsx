@@ -6,7 +6,7 @@ import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import { buildUserHandle } from '@/app/lib/users';
 import { Lock } from 'lucide-react';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 export const revalidate = 0;
 
@@ -30,12 +30,43 @@ type RouteParams = {
   handle?: string | string[];
 };
 
+type SearchParams = Record<string, string | string[] | undefined>;
+
+function extractInitialView(
+  params: SearchParams
+): 'all' | 'owned' | 'wishlist' {
+  const raw = params.view;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (value === 'owned') return 'owned';
+  if (value === 'wishlist') return 'wishlist';
+  // Treat legacy ?view=collections as "all" for compatibility.
+  return 'all';
+}
+
+function buildSearchQueryString(params: SearchParams): string {
+  const qp = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === 'string') {
+      qp.set(key, value);
+    } else if (Array.isArray(value)) {
+      for (const v of value) {
+        qp.append(key, v);
+      }
+    }
+  }
+  return qp.toString();
+}
+
 export default async function PublicProfilePage({
   params,
+  searchParams,
 }: {
   params?: Promise<RouteParams>;
+  searchParams?: Promise<SearchParams>;
 }) {
   const resolvedParams = params ? await params : undefined;
+  const resolvedSearch = searchParams ? await searchParams : {};
+  const initialView = extractInitialView(resolvedSearch);
   const handleParam = resolvedParams?.handle;
   const handleValue = Array.isArray(handleParam) ? handleParam[0] : handleParam;
   const handle = handleValue?.trim();
@@ -65,10 +96,10 @@ export default async function PublicProfilePage({
           </div>
           <div className="flex flex-col gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              This account is private
+              This user’s sets are private.
             </h1>
             <p className="text-sm text-foreground-muted">
-              {displayName} has chosen to keep their collections private.
+              {displayName} has chosen to keep their sets private.
             </p>
           </div>
           <div className="mt-2 rounded-md border border-subtle bg-card px-3 py-2">
@@ -90,6 +121,21 @@ export default async function PublicProfilePage({
   }
 
   const profile = resolved.profile;
+  const canonicalHandle = buildUserHandle({
+    user_id: profile.user_id,
+    username: profile.username,
+  });
+
+  // If the requested handle doesn't match the canonical handle (username when present,
+  // otherwise user_id), redirect to the canonical URL, preserving any query params.
+  if (handle !== canonicalHandle) {
+    const qs = buildSearchQueryString(resolvedSearch);
+    const target = qs
+      ? `/user/${canonicalHandle}?${qs}`
+      : `/user/${canonicalHandle}`;
+    redirect(target);
+  }
+
   const supabase = getSupabaseServerClient();
 
   const [{ data: userSets }, { data: collections }, { data: memberships }] =
@@ -219,6 +265,7 @@ export default async function PublicProfilePage({
         allSets={allSets}
         collections={collectionsById}
         initialThemes={themes}
+        initialView={initialView}
       />
     </PageLayout>
   );

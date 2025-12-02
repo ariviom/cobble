@@ -33,7 +33,7 @@ export function PublicSetCard({
       className={`group relative overflow-hidden rounded-lg border border-subtle bg-card ${className ?? ''}`}
     >
       <Link
-        href={`/sets/${encodeURIComponent(setNumber)}`}
+        href={`/sets/id/${encodeURIComponent(setNumber)}`}
         className="block w-full"
       >
         <div className="w-full">

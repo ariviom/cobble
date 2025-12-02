@@ -10,6 +10,7 @@ import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useUserCollections } from '@/app/hooks/useUserCollections';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useUserSetsStore } from '@/app/store/user-sets';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 type ThemeInfo = {
@@ -21,6 +22,8 @@ type ThemeInfo = {
 type CustomCollectionFilter = `collection:${string}`;
 type CollectionFilter = 'all' | 'owned' | 'wishlist' | CustomCollectionFilter;
 type GroupBy = 'status' | 'theme';
+
+type UserSetsView = 'all' | 'owned' | 'wishlist';
 
 type ThemeMap = Map<number, ThemeInfo>;
 
@@ -141,9 +144,13 @@ function getRootThemeName(themeId: number, themeMap: ThemeMap): string | null {
 
 type UserSetsOverviewProps = {
   initialThemes?: ThemeInfo[];
+  initialView?: UserSetsView;
 };
 
-export function UserSetsOverview({ initialThemes }: UserSetsOverviewProps) {
+export function UserSetsOverview({
+  initialThemes,
+  initialView = 'all',
+}: UserSetsOverviewProps) {
   const [mounted, setMounted] = useState(false);
   useHydrateUserSets();
   const { user } = useSupabaseUser();
@@ -153,8 +160,13 @@ export function UserSetsOverview({ initialThemes }: UserSetsOverviewProps) {
     isLoading: collectionsLoading,
     error: collectionsError,
   } = useUserCollections();
-  const [collectionFilter, setCollectionFilter] =
-    useState<CollectionFilter>('all');
+  const [collectionFilter, setCollectionFilter] = useState<CollectionFilter>(
+    () => {
+      if (initialView === 'owned') return 'owned';
+      if (initialView === 'wishlist') return 'wishlist';
+      return 'all';
+    }
+  );
   const [groupBy, setGroupBy] = useState<GroupBy>('status');
   const [themeFilter, setThemeFilter] = useState<number | 'all'>('all');
   const [collectionMembership, setCollectionMembership] = useState<
@@ -171,6 +183,24 @@ export function UserSetsOverview({ initialThemes }: UserSetsOverviewProps) {
     () => extractCollectionId(collectionFilter),
     [collectionFilter]
   );
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Sync the selected collection from the ?collection=<name> query param when present.
+  useEffect(() => {
+    const collectionName = searchParams?.get('collection');
+    if (!collectionName) return;
+
+    const match = collections.find(col => col.name === collectionName);
+    if (!match) return;
+
+    const targetFilter = makeCustomCollectionFilter(match.id);
+    setCollectionFilter(current =>
+      current === targetFilter ? current : targetFilter
+    );
+  }, [collections, searchParams]);
 
 
   useEffect(() => {
@@ -395,9 +425,47 @@ export function UserSetsOverview({ initialThemes }: UserSetsOverviewProps) {
                   id="collection-filter"
                   className="px-2 py-1 text-xs"
                   value={collectionFilter}
-                  onChange={event =>
-                    setCollectionFilter(event.target.value as CollectionFilter)
-                  }
+                  onChange={event => {
+                    const next = event.target.value as CollectionFilter;
+                    setCollectionFilter(next);
+
+                    if (!pathname) {
+                      return;
+                    }
+
+                    const params = new URLSearchParams(
+                      searchParams ? searchParams.toString() : undefined
+                    );
+
+                    if (next === 'all') {
+                      // "All" is the default view – drop explicit params.
+                      params.delete('view');
+                      params.delete('collection');
+                    } else if (next === 'owned' || next === 'wishlist') {
+                      params.set('view', next);
+                      params.delete('collection');
+                    } else {
+                      // A specific collection selected.
+                      const collectionId = extractCollectionId(next);
+                      if (collectionId) {
+                        const match = collections.find(
+                          col => col.id === collectionId
+                        );
+                        if (match) {
+                          params.set('collection', match.name);
+                        } else {
+                          params.delete('collection');
+                        }
+                      } else {
+                        params.delete('collection');
+                      }
+                      params.delete('view');
+                    }
+
+                    const query = params.toString();
+                    const href = query ? `${pathname}?${query}` : pathname;
+                    router.replace(href, { scroll: false });
+                  }}
                 >
                   <option value="all">All</option>
                   <option value="owned">Owned</option>

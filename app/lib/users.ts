@@ -8,6 +8,7 @@ const RESERVED_USERNAMES = new Set<string>([
   'identify',
   'api',
   'u',
+  'id',
   'admin',
   'support',
   'help',

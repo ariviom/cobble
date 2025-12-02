@@ -5,7 +5,8 @@ import { Button } from '@/app/components/ui/Button';
 import { CollectionGroupHeading } from '@/app/components/ui/CollectionGroupHeading';
 import { Select } from '@/app/components/ui/Select';
 import { cn } from '@/app/components/ui/utils';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 type PublicSetSummary = {
   set_num: string;
@@ -32,6 +33,8 @@ type ThemeInfo = {
 type CustomCollectionFilter = `collection:${string}`;
 type CollectionFilter = 'all' | 'owned' | 'wishlist' | CustomCollectionFilter;
 type GroupBy = 'status' | 'theme';
+
+type PublicSetsView = 'all' | 'owned' | 'wishlist';
 
 function makeCustomCollectionFilter(id: string): CustomCollectionFilter {
   return `collection:${id}`;
@@ -75,17 +78,42 @@ type PublicUserSetsOverviewProps = {
   allSets: PublicSetSummary[];
   collections: PublicCollection[];
   initialThemes?: ThemeInfo[];
+  initialView?: PublicSetsView;
 };
 
 export function PublicUserSetsOverview({
   allSets,
   collections,
   initialThemes = [],
+  initialView = 'all',
 }: PublicUserSetsOverviewProps) {
-  const [collectionFilter, setCollectionFilter] =
-    useState<CollectionFilter>('all');
+  const [collectionFilter, setCollectionFilter] = useState<CollectionFilter>(
+    () => {
+      if (initialView === 'owned') return 'owned';
+      if (initialView === 'wishlist') return 'wishlist';
+      return 'all';
+    }
+  );
   const [groupBy, setGroupBy] = useState<GroupBy>('status');
   const [themeFilter, setThemeFilter] = useState<number | 'all'>('all');
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Sync the selected collection from the ?collection=<name> query param when present.
+  useEffect(() => {
+    const collectionName = searchParams?.get('collection');
+    if (!collectionName) return;
+
+    const match = collections.find(col => col.name === collectionName);
+    if (!match) return;
+
+    const targetFilter = makeCustomCollectionFilter(match.id);
+    setCollectionFilter(current =>
+      current === targetFilter ? current : targetFilter
+    );
+  }, [collections, searchParams]);
 
   const themeMap = useMemo(() => {
     const map = new Map<number, ThemeInfo>();
@@ -239,9 +267,47 @@ export function PublicUserSetsOverview({
                   id="collection-filter"
                   className="px-2 py-1 text-xs"
                   value={collectionFilter}
-                  onChange={event =>
-                    setCollectionFilter(event.target.value as CollectionFilter)
-                  }
+                  onChange={event => {
+                    const next = event.target.value as CollectionFilter;
+                    setCollectionFilter(next);
+
+                    if (!pathname) {
+                      return;
+                    }
+
+                    const params = new URLSearchParams(
+                      searchParams ? searchParams.toString() : undefined
+                    );
+
+                    if (next === 'all') {
+                      // "All" is the default view – drop explicit params.
+                      params.delete('view');
+                      params.delete('collection');
+                    } else if (next === 'owned' || next === 'wishlist') {
+                      params.set('view', next);
+                      params.delete('collection');
+                    } else {
+                      // A specific collection selected.
+                      const collectionId = extractCollectionId(next);
+                      if (collectionId) {
+                        const match = collections.find(
+                          col => col.id === collectionId
+                        );
+                        if (match) {
+                          params.set('collection', match.name);
+                        } else {
+                          params.delete('collection');
+                        }
+                      } else {
+                        params.delete('collection');
+                      }
+                      params.delete('view');
+                    }
+
+                    const query = params.toString();
+                    const href = query ? `${pathname}?${query}` : pathname;
+                    router.replace(href, { scroll: false });
+                  }}
                 >
                   <option value="all">All</option>
                   <option value="owned">Owned</option>

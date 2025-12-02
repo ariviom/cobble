@@ -1,13 +1,30 @@
 import { PageLayout } from '@/app/components/layout/PageLayout';
+import { UserSetsOverview } from '@/app/components/home/UserSetsOverview';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { fetchThemes } from '@/app/lib/services/themes';
 import { buildUserHandle } from '@/app/lib/users';
 import type { Tables } from '@/supabase/types';
 import { redirect } from 'next/navigation';
+
+type RouteParams = {
+  user?: string | string[];
+};
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
 type UserProfileRow = Tables<'user_profiles'>;
 type UserId = UserProfileRow['user_id'];
+
+function extractInitialView(
+  params: SearchParams
+): 'all' | 'owned' | 'wishlist' {
+  const raw = params.view;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (value === 'owned') return 'owned';
+  if (value === 'wishlist') return 'wishlist';
+  // Treat legacy ?view=collections as "all" for compatibility.
+  return 'all';
+}
 
 function buildSearchQueryString(params: SearchParams): string {
   const qp = new URLSearchParams();
@@ -23,11 +40,15 @@ function buildSearchQueryString(params: SearchParams): string {
   return qp.toString();
 }
 
-export default async function SetsPage({
-  searchParams,
-}: {
+type UserSetsPageProps = {
+  params?: Promise<RouteParams>;
   searchParams?: Promise<SearchParams>;
-}) {
+};
+
+export default async function UserSetsPage({
+  params,
+  searchParams,
+}: UserSetsPageProps) {
   const supabase = await getSupabaseAuthServerClient();
 
   let userId: string | null = null;
@@ -69,9 +90,11 @@ export default async function SetsPage({
     username = null;
   }
 
+  const resolvedParams = params ? await params : {};
   const resolvedSearch = searchParams ? await searchParams : {};
+  const initialView = extractInitialView(resolvedSearch);
 
-  // If not logged in, keep /sets as the "create account" explainer page.
+  // If not logged in, show the same "create account" message as /sets.
   if (!userId) {
     return (
       <PageLayout>
@@ -99,14 +122,32 @@ export default async function SetsPage({
     );
   }
 
-  const handle = buildUserHandle({
+  const canonicalHandle = buildUserHandle({
     user_id: userId,
     username,
   });
 
-  const qs = buildSearchQueryString(resolvedSearch);
-  const target = qs ? `/sets/${handle}?${qs}` : `/sets/${handle}`;
+  const handleParam = resolvedParams.user;
+  const handleValue = Array.isArray(handleParam) ? handleParam[0] : handleParam;
+  const requestedHandle = handleValue?.trim();
 
-  redirect(target);
+  // If the requested handle doesn't match the logged-in user's canonical handle,
+  // redirect to the correct URL while preserving any query string.
+  if (!requestedHandle || requestedHandle !== canonicalHandle) {
+    const qs = buildSearchQueryString(resolvedSearch);
+    const target = qs
+      ? `/sets/${canonicalHandle}?${qs}`
+      : `/sets/${canonicalHandle}`;
+    redirect(target);
+  }
+
+  const themes = await fetchThemes().catch(() => []);
+
+  return (
+    <PageLayout>
+      <UserSetsOverview initialThemes={themes} initialView={initialView} />
+    </PageLayout>
+  );
 }
+
 

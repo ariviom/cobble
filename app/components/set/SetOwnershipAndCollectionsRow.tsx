@@ -4,19 +4,22 @@ import { Modal } from '@/app/components/ui/Modal';
 import { StatusToggleButton } from '@/app/components/ui/StatusToggleButton';
 import { cn } from '@/app/components/ui/utils';
 import type { SetOwnershipState } from '@/app/hooks/useSetOwnershipState';
-import { Check, Heart, ListPlus, Plus } from 'lucide-react';
+import { Check, Heart, ListPlus, Plus, ExternalLink } from 'lucide-react';
+import { MoreDropdownButton } from '@/app/components/ui/MoreDropdown';
 import { useState } from 'react';
 
 type SetOwnershipAndCollectionsRowProps = {
   ownership: SetOwnershipState;
   variant?: 'default' | 'inline' | 'dropdown';
   className?: string;
+  bricklinkUrl?: string | null;
 };
 
 export function SetOwnershipAndCollectionsRow({
   className,
   ownership,
   variant = 'default',
+  bricklinkUrl,
 }: SetOwnershipAndCollectionsRowProps) {
   const {
     status,
@@ -106,6 +109,15 @@ export function SetOwnershipAndCollectionsRow({
           onClick={handleOpenCollections}
           variant={variant === 'dropdown' ? 'inline' : variant}
         />
+        {variant === 'dropdown' && bricklinkUrl && (
+          <MoreDropdownButton
+            icon={<ExternalLink className="size-4" />}
+            label="View on BrickLink"
+            href={bricklinkUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+          />
+        )}
       </div>
       {showAuthHint && (
         <div className="mt-1 text-[11px] text-foreground-muted">
