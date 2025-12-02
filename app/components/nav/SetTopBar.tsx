@@ -64,6 +64,9 @@ export function SetTopBar({
   });
   const participantCount = searchParty?.participants.length ?? 0;
   const totalPiecesFound = searchParty?.totalPiecesFound ?? 0;
+  const bricklinkSetUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?S=${encodeURIComponent(
+    setNumber
+  )}`;
   const sessionCode = useMemo(() => {
     const joinUrl = searchParty?.joinUrl;
     if (!joinUrl) return null;
@@ -150,6 +153,7 @@ export function SetTopBar({
                   <SetOwnershipAndCollectionsRow
                     ownership={ownership}
                     variant="dropdown"
+                    bricklinkUrl={bricklinkSetUrl}
                   />
                 )}
               </MoreDropdown>

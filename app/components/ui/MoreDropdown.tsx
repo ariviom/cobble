@@ -11,6 +11,8 @@ type MoreDropdownButtonBaseProps = {
   icon: ReactNode;
   label: string;
   className?: string;
+  target?: string;
+  rel?: string;
 };
 
 type MoreDropdownButtonButtonProps = MoreDropdownButtonBaseProps & {
@@ -37,11 +39,13 @@ export function MoreDropdownButton(props: MoreDropdownButtonProps) {
   );
 
   if ('href' in props && props.href) {
-    const { href, onClick } = props;
+    const { href, onClick, target, rel } = props;
     return (
       <Link
         href={href}
         className={sharedClassName}
+        target={target}
+        rel={rel}
         onClick={event => {
           event.stopPropagation();
           onClick?.();

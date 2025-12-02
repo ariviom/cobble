@@ -5,7 +5,7 @@ import {
   MoreDropdown,
   MoreDropdownButton,
 } from '@/app/components/ui/MoreDropdown';
-import { Info, Pin, Search, Users } from 'lucide-react';
+import { ExternalLink, Info, Pin, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { InventoryRow } from '../types';
@@ -44,7 +44,6 @@ type Props = {
 };
 
 export function InventoryItem({
-  setNumber,
   row,
   owned,
   unitPrice,
@@ -144,7 +143,7 @@ export function InventoryItem({
       <div className="relative flex w-full justify-start gap-6 rounded-lg border border-subtle bg-card p-4 grid:flex-col">
         <MoreDropdown
           ariaLabel="More actions"
-          className="absolute top-3 right-3 z-50"
+          className="absolute top-3 right-3"
         >
           {() => (
             <div className="min-w-min rounded-md border border-subtle bg-card py-1 text-xs shadow-lg">
@@ -163,20 +162,13 @@ export function InventoryItem({
                   // Keep dropdown row click from triggering when following the link
                 }}
               />
-              {isMinifig && (
-                <a
-                  href={`https://www.bricklink.com/catalogItemInv.asp?S=${encodeURIComponent(
-                    setNumber
-                  )}&viewItemType=M`}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="inline-flex w-full flex-row items-center gap-1 rounded border-r-0 bg-card px-3 py-2 text-xs text-foreground-muted hover:bg-card-muted"
-                  onClick={event => event.stopPropagation()}
-                >
-                  <Users className="size-4" />
-                  <span>View set minifigures</span>
-                </a>
-              )}
+              <MoreDropdownButton
+                icon={<ExternalLink className="size-4" />}
+                label="View on BrickLink"
+                href={bricklinkUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+              />
               <MoreDropdownButton
                 icon={<Info className="size-4" />}
                 label="More info"
