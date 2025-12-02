@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-const STORAGE_KEY = 'quarry_group_client_id_v1';
+const STORAGE_KEY = 'brick_party_group_client_id_v1';
 
 function generateClientId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -12,7 +12,7 @@ function generateClientId(): string {
 }
 
 /**
- * Returns a stable, per-browser identifier used for Search Together sessions.
+ * Returns a stable, per-browser identifier used for Search Party sessions.
  * The value is stored in localStorage so participants can be recognized when
  * they disconnect and rejoin from the same device.
  */

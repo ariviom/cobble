@@ -476,7 +476,7 @@ export default function AccountPageClient({
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
         <p className="mt-2 text-sm text-foreground-muted">
-          Manage your sign-in, profile, and default Quarry behavior.
+          Manage your sign-in, profile, and default Brick Party behavior.
         </p>
       </header>
 
@@ -558,8 +558,8 @@ export default function AccountPageClient({
                 Sign-in &amp; identity
               </CardTitle>
               <CardDescription className="mt-1 text-sm text-foreground-muted">
-                Quarry supports Google Sign-In. Rebrickable and BrickLink are
-                used only as data sources, not as login providers.
+                Brick Party supports Google Sign-In. Rebrickable and BrickLink
+                are used only as data sources, not as login providers.
               </CardDescription>
             </div>
 
@@ -570,8 +570,8 @@ export default function AccountPageClient({
                     Email &amp; password
                   </h3>
                   <p className="text-xs text-foreground-muted">
-                    Manage your Quarry handle and email used for account-related
-                    communication.
+                    Manage your Brick Party handle and email used for
+                    account-related communication.
                   </p>
                   <label className="mt-2 text-[11px] font-medium text-foreground">
                     Username
@@ -625,8 +625,8 @@ export default function AccountPageClient({
                     Change password
                   </h3>
                   <p className="text-xs text-foreground-muted">
-                    Update your Quarry password. You&apos;ll need your current
-                    password to make this change.
+                    Update your Brick Party password. You&apos;ll need your
+                    current password to make this change.
                   </p>
                   <label className="mt-2 text-[11px] font-medium text-foreground">
                     Current password
@@ -721,8 +721,8 @@ export default function AccountPageClient({
               </h3>
               <p className="mt-1 text-xs text-foreground-muted">
                 In the future you’ll be able to link your Rebrickable account so
-                Quarry can read your existing collection (via a Rebrickable user
-                token).
+                Brick Party can read your existing collection (via a Rebrickable
+                user token).
               </p>
               <div className="mt-3 flex flex-col gap-3">
                 <div className="flex flex-col">
@@ -755,8 +755,8 @@ export default function AccountPageClient({
                   Sign out
                 </h3>
                 <p className="mt-1 text-xs text-foreground-muted">
-                  Log out of Quarry on this device. You can sign back in with
-                  Google or email later.
+                  Log out of Brick Party on this device. You can sign back in
+                  with Google or email later.
                 </p>
                 <div className="mt-3">
                   <Button
@@ -791,8 +791,8 @@ export default function AccountPageClient({
                 Display &amp; behavior
               </CardTitle>
               <CardDescription className="mt-1 text-sm text-foreground-muted">
-                Control how Quarry behaves by default. These settings will be
-                stored per account once authentication is wired up.
+                Control how Brick Party behaves by default. These settings will
+                be stored per account once authentication is wired up.
               </CardDescription>
             </div>
 
@@ -925,8 +925,8 @@ export default function AccountPageClient({
                       Accent color
                     </label>
                     <p className="text-xs text-foreground-muted">
-                      Choose Quarry&apos;s primary accent color. These map to
-                      the brand colors defined in the global theme.
+                      Choose Brick Party&apos;s primary accent color. These map
+                      to the brand colors defined in the global theme.
                     </p>
                     <div className="mt-1 flex flex-wrap gap-3 text-xs">
                       {themeColorOptions.map(option => (

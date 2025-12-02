@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Reuse an existing active session for this host + set when possible so
-    // multiple clicks on "Search together" do not create duplicate sessions.
+    // multiple clicks on "Search Party" do not create duplicate sessions.
     const {
       data: existing,
       error: existingError,

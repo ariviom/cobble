@@ -26,7 +26,7 @@ type SetTopBarProps = {
   year?: number;
   numParts?: number;
   themeId?: number | null;
-  searchTogether?: {
+  searchParty?: {
     active: boolean;
     loading: boolean;
     canHost: boolean;
@@ -50,9 +50,9 @@ export function SetTopBar({
   year,
   numParts,
   themeId,
-  searchTogether,
+  searchParty,
 }: SetTopBarProps) {
-  const [searchTogetherModalOpen, setSearchTogetherModalOpen] = useState(false);
+  const [searchPartyModalOpen, setSearchTogetherModalOpen] = useState(false);
   const { isLoading, totalMissing, ownedTotal } = useInventory(setNumber);
   const ownership = useSetOwnershipState({
     setNumber,
@@ -62,10 +62,10 @@ export function SetTopBar({
     ...(typeof numParts === 'number' ? { numParts } : {}),
     ...(typeof themeId === 'number' ? { themeId } : {}),
   });
-  const participantCount = searchTogether?.participants.length ?? 0;
-  const totalPiecesFound = searchTogether?.totalPiecesFound ?? 0;
+  const participantCount = searchParty?.participants.length ?? 0;
+  const totalPiecesFound = searchParty?.totalPiecesFound ?? 0;
   const sessionCode = useMemo(() => {
-    const joinUrl = searchTogether?.joinUrl;
+    const joinUrl = searchParty?.joinUrl;
     if (!joinUrl) return null;
     try {
       const url = new URL(joinUrl, 'https://example.com');
@@ -77,38 +77,38 @@ export function SetTopBar({
       const last = segments[segments.length - 1];
       return last ? last.toUpperCase() : null;
     }
-  }, [searchTogether?.joinUrl]);
+  }, [searchParty?.joinUrl]);
   const rankedParticipants = useMemo(
     () =>
-      (searchTogether?.participants ?? []).slice().sort((a, b) => {
+      (searchParty?.participants ?? []).slice().sort((a, b) => {
         const aPieces = a.piecesFound ?? 0;
         const bPieces = b.piecesFound ?? 0;
         if (bPieces !== aPieces) return bPieces - aPieces;
         return a.displayName.localeCompare(b.displayName);
       }),
-    [searchTogether?.participants]
+    [searchParty?.participants]
   );
 
   const handleStartSearchTogether = async () => {
-    if (!searchTogether) return;
-    if (searchTogether.loading || searchTogether.active) return;
-    await searchTogether.onStart?.();
+    if (!searchParty) return;
+    if (searchParty.loading || searchParty.active) return;
+    await searchParty.onStart?.();
   };
 
   const handleEndSearchTogether = async () => {
-    if (!searchTogether) return;
-    if (!searchTogether.active || searchTogether.loading) return;
-    await searchTogether.onEnd?.();
+    if (!searchParty) return;
+    if (!searchParty.active || searchParty.loading) return;
+    await searchParty.onEnd?.();
   };
 
   const handleCopyShareLink = () => {
-    const link = searchTogether?.joinUrl;
+    const link = searchParty?.joinUrl;
     if (!link) return;
     try {
       void navigator.clipboard?.writeText(link);
     } catch (err) {
       if (process.env.NODE_ENV !== 'production') {
-        console.error('Failed to copy Search Together link', err);
+        console.error('Failed to copy Search Party link', err);
       }
     }
   };
@@ -159,25 +159,25 @@ export function SetTopBar({
                 ? 'Computing…'
                 : `${ownedTotal} / ${totalMissing} parts`}
             </div>
-            {searchTogether && (
+            {searchParty && (
               <button
                 type="button"
-                aria-label="Search Together"
+                aria-label="Search Party"
                 className={cn(
                   'relative mt-2 inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                  searchTogether.active
+                  searchParty.active
                     ? 'text-theme-primary-contrast border-theme-primary bg-theme-primary'
                     : 'hover:text-theme-primary-contrast border-foreground text-foreground hover:border-theme-primary hover:bg-theme-primary'
                 )}
-                disabled={!searchTogether}
+                disabled={!searchParty}
                 onClick={() => {
-                  if (!searchTogether) return;
+                  if (!searchParty) return;
                   setSearchTogetherModalOpen(true);
                 }}
               >
                 <Users className="size-4" />
-                Search Together
-                {searchTogether.active && (
+                Search Party
+                {searchParty.active && (
                   <div className="text-theme-primary-contrast absolute -right-2 -bottom-3 flex size-5 items-center justify-center rounded-full border-2 border-background bg-theme-primary text-sm">
                     {participantCount.toLocaleString()}
                   </div>
@@ -188,13 +188,13 @@ export function SetTopBar({
         </div>
       </div>
       <Modal
-        open={searchTogetherModalOpen && Boolean(searchTogether)}
+        open={searchPartyModalOpen && Boolean(searchParty)}
         onClose={() => setSearchTogetherModalOpen(false)}
-        title="Search Together"
+        title="Search Party"
       >
-        {searchTogether ? (
+        {searchParty ? (
           <div className="flex flex-col gap-4 text-xs">
-            {!searchTogether.active ? (
+            {!searchParty.active ? (
               <Card elevated>
                 <CardHeader className="flex flex-col items-center justify-center gap-1 text-center">
                   <Users className="mb-2 size-6 text-theme-primary" />
@@ -205,22 +205,20 @@ export function SetTopBar({
                   </CardDescription>
                 </CardHeader>
                 <CardFooter className="mt-4">
-                  {searchTogether.canHost ? (
+                  {searchParty.canHost ? (
                     <Button
                       type="button"
                       variant="primary"
                       size="lg"
                       className="w-full"
                       onClick={() => void handleStartSearchTogether()}
-                      disabled={searchTogether.loading}
+                      disabled={searchParty.loading}
                     >
-                      {searchTogether.loading
-                        ? 'Starting…'
-                        : 'Start New Session'}
+                      {searchParty.loading ? 'Starting…' : 'Start New Session'}
                     </Button>
                   ) : (
                     <p className="text-foreground-muted">
-                      Only the session host can start a Search Together session.
+                      Only the session host can start a Search Party session.
                     </p>
                   )}
                 </CardFooter>
@@ -247,7 +245,7 @@ export function SetTopBar({
                           size="md"
                           className="p-3.5"
                           onClick={handleCopyShareLink}
-                          disabled={!searchTogether.joinUrl}
+                          disabled={!searchParty.joinUrl}
                           aria-label="Copy session link"
                         >
                           <Copy className="h-4 w-4" />
@@ -258,7 +256,7 @@ export function SetTopBar({
                           size="md"
                           className="p-3.5"
                           onClick={handleCopyShareLink}
-                          disabled={!searchTogether.joinUrl}
+                          disabled={!searchParty.joinUrl}
                           aria-label="Copy session link (QR)"
                         >
                           <QrCode className="h-4 w-4" />
@@ -292,9 +290,8 @@ export function SetTopBar({
                       <ol className="space-y-1">
                         {rankedParticipants.map((participant, index) => {
                           const isCurrent =
-                            searchTogether.currentParticipantId &&
-                            participant.id ===
-                              searchTogether.currentParticipantId;
+                            searchParty.currentParticipantId &&
+                            participant.id === searchParty.currentParticipantId;
                           return (
                             <li
                               key={participant.id}
@@ -328,21 +325,20 @@ export function SetTopBar({
                     )}
                   </CardContent>
                   <CardFooter className="mt-4">
-                    {searchTogether.canHost ? (
+                    {searchParty.canHost ? (
                       <Button
                         type="button"
                         variant="destructive"
                         size="md"
                         className="w-full"
                         onClick={() => void handleEndSearchTogether()}
-                        disabled={searchTogether.loading}
+                        disabled={searchParty.loading}
                       >
-                        {searchTogether.loading ? 'Ending…' : 'End session'}
+                        {searchParty.loading ? 'Ending…' : 'End session'}
                       </Button>
                     ) : (
                       <p className="text-[11px] text-foreground-muted">
-                        Only the session host can end this Search Together
-                        session.
+                        Only the session host can end this Search Party session.
                       </p>
                     )}
                   </CardFooter>
@@ -352,7 +348,7 @@ export function SetTopBar({
           </div>
         ) : (
           <div className="text-xs text-foreground-muted">
-            Search Together is unavailable for this set.
+            Search Party is unavailable for this set.
           </div>
         )}
       </Modal>

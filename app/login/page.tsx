@@ -1,14 +1,20 @@
 'use client';
 
+import { GoogleIcon } from '@/app/components/icons/GoogleIcon';
+import { Button } from '@/app/components/ui/Button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/app/components/ui/Card';
+import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
+import { Input } from '@/app/components/ui/Input';
 import {
   getAuthRedirectUrl,
   getSupabaseBrowserClient,
 } from '@/app/lib/supabaseClient';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/Card';
-import { GoogleIcon } from '@/app/components/icons/GoogleIcon';
-import { Button } from '@/app/components/ui/Button';
-import { Input } from '@/app/components/ui/Input';
-import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -90,8 +96,8 @@ export default function LoginPage() {
           <div>
             <CardTitle>Sign in with Google</CardTitle>
             <CardDescription>
-              Recommended. Quarry will use your Google account as your primary
-              identity.
+              Recommended. Brick Party will use your Google account as your
+              primary identity.
             </CardDescription>
           </div>
         </CardHeader>
@@ -106,9 +112,7 @@ export default function LoginPage() {
             {!isLoading && <GoogleIcon className="h-4 w-4" />}
             {isLoading ? 'Redirecting…' : 'Sign in with Google'}
           </Button>
-          {error && (
-            <ErrorBanner className="mt-3 text-xs" message={error} />
-          )}
+          {error && <ErrorBanner className="mt-3 text-xs" message={error} />}
         </CardContent>
       </Card>
 

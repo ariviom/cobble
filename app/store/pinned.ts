@@ -32,7 +32,7 @@ type PinnedState = {
   setShowOtherSets: (value: boolean) => void;
 };
 
-const STORAGE_KEY = 'quarry_pinned_v1';
+const STORAGE_KEY = 'brick_party_pinned_v1';
 
 type PersistedShape = {
   pinned: Record<string, string[]>; // setNumber -> piece keys

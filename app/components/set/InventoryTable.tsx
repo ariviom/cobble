@@ -32,12 +32,12 @@ type InventoryTableProps = {
   setName?: string;
   /**
    * When false, Supabase-backed owned sync is disabled and changes remain
-   * local. Used for Search Together participants so only the host persists
+   * local. Used for Search Party participants so only the host persists
    * owned quantities to user_set_parts.
    */
   enableCloudSync?: boolean;
   /**
-   * Optional Search Together session metadata. When provided, owned changes
+   * Optional Search Party session metadata. When provided, owned changes
    * will be broadcast to other participants via Supabase Realtime and
    * incoming updates from others will be applied locally.
    */

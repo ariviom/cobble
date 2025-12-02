@@ -193,7 +193,7 @@ export default async function PublicProfilePage({
     username: profile.username,
   });
 
-  const title = profile.display_name || 'Quarry builder';
+  const title = profile.display_name || 'Brick Party builder';
 
   return (
     <PageLayout>

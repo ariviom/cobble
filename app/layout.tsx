@@ -10,7 +10,7 @@ import type { User } from '@supabase/supabase-js';
 import './styles/globals.css';
 
 export const metadata: Metadata = {
-  title: 'Quarry — LEGO Set Piece Picker',
+  title: 'Brick Party — LEGO Set Piece Picker',
   description:
     'Search LEGO sets, track owned pieces, and export missing parts lists for Rebrickable and BrickLink.',
   keywords: [
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     'Rebrickable',
     'BrickLink',
   ],
-  authors: [{ name: 'Quarry' }],
+  authors: [{ name: 'Brick Party' }],
   robots: {
     index: true,
     follow: true,

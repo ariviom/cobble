@@ -1,8 +1,8 @@
-# Quarry Codebase Review
+# Brick Party Codebase Review
 
 **Date:** November 27, 2025  
 **Reviewer:** AI Code Review  
-**Codebase:** Quarry — LEGO Set Piece Picker
+**Codebase:** Brick Party — LEGO Set Piece Picker
 
 ---
 
@@ -24,7 +24,7 @@ The following critical and high-priority issues from this review have been addre
 
 ## Executive Summary
 
-Quarry is a well-structured Next.js application that helps LEGO builders track owned pieces and export missing parts lists. The codebase demonstrates strong engineering practices including TypeScript strictness, separation of concerns, and thoughtful state management. The transition from local-only MVP to Supabase-backed persistence is underway with solid foundations.
+Brick Party is a well-structured Next.js application that helps LEGO builders track owned pieces and export missing parts lists. The codebase demonstrates strong engineering practices including TypeScript strictness, separation of concerns, and thoughtful state management. The transition from local-only MVP to Supabase-backed persistence is underway with solid foundations.
 
 **Overall Assessment:** 🟢 Good — Production-ready for MVP with clear paths to improvement
 

@@ -1,7 +1,7 @@
 # Project Brief
 
 ## Project Purpose
-Quarry — LEGO Set Piece Picker. A Next.js web app that lets a user enter a LEGO set number, fetch the set’s full parts inventory from Rebrickable (server-side), mark quantities they already own, compute missing quantities, and export a missing-parts list compatible with Rebrickable CSV and BrickLink CSV wanted list formats.
+Brick Party — LEGO Set Piece Picker. A Next.js web app that lets a user enter a LEGO set number, fetch the set’s full parts inventory from Rebrickable (server-side), mark quantities they already own, compute missing quantities, and export a missing-parts list compatible with Rebrickable CSV and BrickLink CSV wanted list formats.
 
 ## User & Problem Context
 Many builders own partial inventories from vintage or modern sets. They need a fast way to see the full parts list for a target set, subtract what they already have, and export the remaining (missing) list into marketplace-friendly formats for purchasing.

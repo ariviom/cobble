@@ -66,7 +66,7 @@ type UserSetsState = {
   hydrateFromSupabase: (entries: HydratedSetInput[]) => void;
 };
 
-const STORAGE_KEY = 'quarry_user_sets_v1';
+const STORAGE_KEY = 'brick_party_user_sets_v1';
 
 type PersistedUserSet = {
   setNumber: string;

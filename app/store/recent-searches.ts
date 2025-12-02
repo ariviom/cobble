@@ -1,9 +1,9 @@
 'use client';
 
 import {
-  readStorage,
-  removeStorage,
-  writeStorage,
+    readStorage,
+    removeStorage,
+    writeStorage,
 } from '@/app/lib/persistence/storage';
 
 export type RecentSearchEntry = {
@@ -11,7 +11,7 @@ export type RecentSearchEntry = {
   lastSearchedAt: number;
 };
 
-const STORAGE_KEY = 'quarry_recent_searches_v1';
+const STORAGE_KEY = 'brick_party_recent_searches_v1';
 const MAX_RECENT = 50;
 
 function loadRecentSearchesUnsafe(): RecentSearchEntry[] {

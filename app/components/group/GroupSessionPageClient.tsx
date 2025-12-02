@@ -49,7 +49,7 @@ export function GroupSessionPageClient({
 
     try {
       const stored = window.localStorage.getItem(
-        `quarry_group_session_name_${slug}`
+        `brick_party_group_session_name_${slug}`
       );
       if (stored && typeof stored === 'string') {
         setDisplayNameInput(stored);
@@ -118,7 +118,7 @@ export function GroupSessionPageClient({
       try {
         if (typeof window !== 'undefined') {
           window.localStorage.setItem(
-            `quarry_group_session_name_${slug}`,
+            `brick_party_group_session_name_${slug}`,
             name
           );
         }
@@ -194,8 +194,8 @@ export function GroupSessionPageClient({
         numParts={numParts}
         themeId={themeId ?? null}
         // Participants joining via link are not hosts; they see read-only
-        // Search Together stats in the top bar.
-        searchTogether={{
+        // Search Party stats in the top bar.
+        searchParty={{
           active: hasJoined,
           loading: isJoining,
           canHost: false,
@@ -210,7 +210,7 @@ export function GroupSessionPageClient({
         <div className="flex flex-1 items-center justify-center px-4 py-8">
           <div className="w-full max-w-sm rounded-md border border-subtle bg-card p-4 text-xs">
             <h1 className="text-sm font-semibold text-foreground">
-              Join this Search Together session
+              Join this Search Party session
             </h1>
             <p className="mt-2 text-foreground-muted">
               Enter a name so others can see who&apos;s helping search this set.

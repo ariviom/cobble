@@ -26,7 +26,7 @@ type UseSetCollectionsArgs = {
 
 const COLLECTION_CACHE_TTL_MS = 5 * 60 * 1000;
 const MEMBERSHIP_CACHE_LIMIT = 40;
-const STORAGE_KEY = 'quarry_set_collections_cache_v2';
+const STORAGE_KEY = 'brick_party_set_collections_cache_v2';
 
 type CollectionsCacheEntry = {
   collections: UserCollection[];

@@ -103,7 +103,12 @@ export function SetPageClient({
       });
 
       const data = (await res.json()) as {
-        session?: { id: string; slug: string; setNumber: string; isActive: boolean };
+        session?: {
+          id: string;
+          slug: string;
+          setNumber: string;
+          isActive: boolean;
+        };
         error?: string;
       };
 
@@ -218,7 +223,10 @@ export function SetPageClient({
     }
   }
 
-  const handleParticipantPiecesDelta = (participantId: string | null, delta: number) => {
+  const handleParticipantPiecesDelta = (
+    participantId: string | null,
+    delta: number
+  ) => {
     if (!participantId || delta === 0) return;
     setParticipants(prev =>
       prev.map(p =>
@@ -254,7 +262,7 @@ export function SetPageClient({
         themeId={themeId ?? null}
         {...(clientId
           ? {
-              searchTogether: {
+              searchParty: {
                 active: !!groupSession,
                 loading: isSearchTogetherLoading,
                 canHost: !!user,

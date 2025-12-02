@@ -17,7 +17,7 @@ export type UseUserCollectionsResult = {
   error: string | null;
 };
 
-const STORAGE_KEY = 'quarry_user_collections_cache_v1';
+const STORAGE_KEY = 'brick_party_user_collections_cache_v1';
 
 type CacheShape = Record<
   string,

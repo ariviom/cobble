@@ -4,6 +4,7 @@ import { NavLinkItem } from '@/app/components/nav/NavLinkItem';
 import { cn } from '@/app/components/ui/utils';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { Camera, Home, Package, Search, User } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -55,10 +56,15 @@ export function Navigation({
             href="/"
             className="hidden items-center gap-3 lg:absolute lg:top-1/2 lg:left-0 lg:flex lg:-translate-y-1/2"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-theme-primary text-neutral-00">
-              <Package className="h-5 w-5" />
+            <div className="flex h-10 w-10 items-center">
+              <Image
+                src="/logo/brickparty_gold.png"
+                alt="Brick Party"
+                width={40}
+                height={40}
+              />
             </div>
-            <h1 className="text-lg font-bold">Quarry</h1>
+            <h1 className="text-lg font-bold">Brick Party</h1>
           </Link>
           <NavLinkItem
             className="lg:hidden"

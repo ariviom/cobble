@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { InventoryRow } from '@/app/components/set/types';
-import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useOwnedStore } from '@/app/store/owned';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type UseSupabaseOwnedArgs = {
   setNumber: string;
@@ -13,7 +13,7 @@ type UseSupabaseOwnedArgs = {
   /**
    * When false, Supabase-backed persistence is disabled and all changes remain
    * local to the in-memory store / localStorage. This is used for participants
-   * in Search Together sessions so only the host writes to user_set_parts.
+   * in Search Party sessions so only the host writes to user_set_parts.
    */
   enableCloudSync?: boolean;
 };
@@ -70,7 +70,7 @@ export function useSupabaseOwned({
 
   const migrationDecisionKey = useMemo(() => {
     if (!userId) return null;
-    return `quarry_owned_migration_${userId}_${setNumber}`;
+    return `brick_party_owned_migration_${userId}_${setNumber}`;
   }, [userId, setNumber]);
 
   const getOwned = useOwnedStore(state => state.getOwned);
@@ -80,7 +80,7 @@ export function useSupabaseOwned({
 
   const flushNow = useCallback(async () => {
     if (!enableCloudSync) {
-      // When cloud sync is disabled (e.g. Search Together participants),
+      // When cloud sync is disabled (e.g. Search Party participants),
       // ensure we don't keep stale pending entries around.
       pendingRef.current.clear();
       return;
@@ -182,7 +182,7 @@ export function useSupabaseOwned({
       setOwned(setNumber, key, nextOwned);
 
       if (!enableCloudSync || !userId) {
-        // Anonymous users or Search Together participants remain
+        // Anonymous users or Search Party participants remain
         // localStorage-only.
         return;
       }

@@ -18,7 +18,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const USER_CACHE_KEY = 'quarry_supabase_user_cache_v1';
+const USER_CACHE_KEY = 'brick_party_supabase_user_cache_v1';
 
 function readCachedUser(): User | null {
   if (typeof window === 'undefined') return null;
