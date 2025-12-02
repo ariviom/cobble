@@ -54,11 +54,11 @@ export function Navigation({
           {/* Desktop brand (hidden on mobile) */}
           <Link
             href="/"
-            className="hidden items-center gap-3 lg:absolute lg:top-1/2 lg:left-0 lg:flex lg:-translate-y-1/2"
+            className="hidden items-center gap-1 lg:absolute lg:top-1/2 lg:left-0 lg:flex lg:-translate-y-1/2"
           >
             <div className="flex h-10 w-10 items-center">
               <Image
-                src="/logo/brickparty_gold.png"
+                src="/logo/brickparty_logo_sm.png"
                 alt="Brick Party"
                 width={40}
                 height={40}

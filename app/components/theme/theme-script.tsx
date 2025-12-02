@@ -41,6 +41,17 @@ function buildThemeBootstrapScript(initialTheme?: ThemePreference): string {
           return value && THEME_COLOR_VALUES[value] ? value : null;
         };
 
+        var setThemeCookie = function (theme) {
+          try {
+            document.cookie =
+              'brickparty_theme_pref=' +
+              theme +
+              '; Path=/; Max-Age=' +
+              60 * 60 * 24 * 365 +
+              '; SameSite=Lax';
+          } catch {}
+        };
+
         var storeThemeColor = function (scope, color) {
           if (typeof localStorage === 'undefined') return;
           var key =
@@ -102,6 +113,10 @@ function buildThemeBootstrapScript(initialTheme?: ThemePreference): string {
             root.classList.remove('dark');
           }
         }
+
+        // Ensure cookie mirrors the resolved preference so server-side
+        // resolution can reuse it on subsequent requests.
+        setThemeCookie(theme);
 
         var storedUserThemeColor = getStoredThemeColor(USER_THEME_COLOR_KEY);
         var storedDeviceThemeColor = getStoredThemeColor(DEVICE_THEME_COLOR_KEY);

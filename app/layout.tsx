@@ -3,9 +3,14 @@ import { AuthProvider } from '@/app/components/providers/auth-provider';
 import { ReactQueryProvider } from '@/app/components/providers/react-query-provider';
 import { ThemeProvider } from '@/app/components/providers/theme-provider';
 import { ThemeScript } from '@/app/components/theme/theme-script';
-import type { ThemePreference } from '@/app/components/theme/constants';
+import type {
+  ResolvedTheme,
+  ThemePreference,
+} from '@/app/components/theme/constants';
+import { resolveThemePreference } from '@/app/lib/theme/resolve';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import type { Metadata, Viewport } from 'next';
+import { cookies } from 'next/headers';
 import type { User } from '@supabase/supabase-js';
 import './styles/globals.css';
 
@@ -40,7 +45,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  let initialTheme: ThemePreference | null = null;
+  const cookieStore = await cookies();
+
+  let dbTheme: ThemePreference | null = null;
   let initialUser: User | null = null;
 
   try {
@@ -64,7 +71,7 @@ export default async function RootLayout({
           preferences.theme === 'dark' ||
           preferences.theme === 'system'
         ) {
-          initialTheme = preferences.theme;
+          dbTheme = preferences.theme;
         }
       }
     }
@@ -72,16 +79,45 @@ export default async function RootLayout({
     // Swallow errors and fall back to client-side theme handling.
   }
 
+  const cookieThemeRaw = cookieStore.get('brickparty_theme_pref')?.value ?? null;
+  const cookieTheme: ThemePreference | null =
+    cookieThemeRaw === 'light' ||
+    cookieThemeRaw === 'dark' ||
+    cookieThemeRaw === 'system'
+      ? cookieThemeRaw
+      : null;
+
+  // On the server we don't know the real system preference; use 'light'
+  // as a conservative default and let the client refine 'system' if needed.
+  const systemTheme: ResolvedTheme = 'light';
+
+  const { preference, resolved } = resolveThemePreference({
+    dbTheme,
+    cookieTheme,
+    systemTheme,
+  });
+
+  const initialTheme: ThemePreference = preference;
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-theme-preference={initialTheme}
+      data-theme-resolved={resolved}
+    >
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <ThemeScript initialTheme={initialTheme ?? undefined} />
+        <meta
+          name="color-scheme"
+          content={resolved === 'dark' ? 'dark light' : 'light dark'}
+        />
+        <ThemeScript initialTheme={initialTheme} />
       </head>
       <body className="bg-background text-foreground antialiased">
         <AuthProvider initialUser={initialUser}>
-          <ThemeProvider initialTheme={initialTheme ?? undefined}>
+          <ThemeProvider initialTheme={initialTheme}>
             <ReactQueryProvider>
               <ErrorBoundary>{children}</ErrorBoundary>
             </ReactQueryProvider>

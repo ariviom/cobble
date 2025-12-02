@@ -303,15 +303,15 @@ export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
     const serverInitialTheme = serverInitialThemeRef.current;
 
     if (serverInitialTheme && isThemePreference(serverInitialTheme)) {
-      // Server provided a theme from Supabase - apply visually but don't
-      // persist to localStorage. Supabase is source of truth for authenticated
-      // users; the second useEffect will fetch fresh data and update cache.
+      // Server already resolved the theme and applied it to the HTML.
+      // Trust that value and treat it as the single source of truth for
+      // initial render on this client. Do not override it based on local
+      // storage or system media queries.
       const nextResolved = resolveThemePreference(serverInitialTheme);
       setThemeState(serverInitialTheme);
       setResolvedTheme(nextResolved);
       setScope(user ? 'user' : 'device');
       applyDocumentClass(nextResolved);
-      // Note: NOT persisting to localStorage here - wait for Supabase fetch
 
       const initialColor = determineInitialThemeColor();
       applyThemeColor(initialColor.color, initialColor.scope);
@@ -374,7 +374,9 @@ export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
           throw error;
         }
 
-        // Apply theme from Supabase (source of truth)
+        // Apply theme from Supabase (source of truth). In the normal case
+        // this matches the server-resolved theme and is a no-op, but we keep
+        // it as a guard rail in case of drift.
         if (data?.theme && isThemePreference(data.theme)) {
           applyTheme(data.theme, 'user');
         } else {
