@@ -22,7 +22,7 @@ export function Navigation({
   onTabChange,
 }: NavigationProps) {
   const pathname = usePathname() ?? '/';
-  const { user } = useSupabaseUser();
+  const { user, handle } = useSupabaseUser();
   const isLoggedIn = !!user;
 
   const inferredTab: NavigationTab = (() => {
@@ -79,7 +79,7 @@ export function Navigation({
             icon={<Package className="h-5 w-5" />}
             ariaLabel="Sets"
             labelMobile="Sets"
-            href="/sets"
+            href={isLoggedIn && handle ? `/sets/${handle}` : '/sets'}
             active={currentTab === 'sets'}
             onClick={handleTabClick('sets')}
           />

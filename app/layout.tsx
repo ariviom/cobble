@@ -9,6 +9,7 @@ import type {
 } from '@/app/components/theme/constants';
 import { resolveThemePreference } from '@/app/lib/theme/resolve';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { buildUserHandle } from '@/app/lib/users';
 import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
 import type { User } from '@supabase/supabase-js';
@@ -49,6 +50,7 @@ export default async function RootLayout({
 
   let dbTheme: ThemePreference | null = null;
   let initialUser: User | null = null;
+  let initialHandle: string | null = null;
 
   try {
     const supabase = await getSupabaseAuthServerClient();
@@ -59,13 +61,14 @@ export default async function RootLayout({
     initialUser = user;
 
     if (user) {
-      const { data: preferences, error } = await supabase
+      // Load theme preference
+      const { data: preferences, error: themeError } = await supabase
         .from('user_preferences')
         .select('theme')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (!error && preferences?.theme) {
+      if (!themeError && preferences?.theme) {
         if (
           preferences.theme === 'light' ||
           preferences.theme === 'dark' ||
@@ -73,6 +76,32 @@ export default async function RootLayout({
         ) {
           dbTheme = preferences.theme;
         }
+      }
+
+      // Load profile to compute canonical handle (username or user_id)
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('user_id,username')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (!profileError) {
+        if (profile) {
+          initialHandle = buildUserHandle({
+            user_id: profile.user_id,
+            username: profile.username,
+          });
+        } else {
+          initialHandle = buildUserHandle({
+            user_id: user.id,
+            username: null,
+          });
+        }
+      } else {
+        initialHandle = buildUserHandle({
+          user_id: user.id,
+          username: null,
+        });
       }
     }
   } catch {
@@ -116,7 +145,7 @@ export default async function RootLayout({
         <ThemeScript initialTheme={initialTheme} />
       </head>
       <body className="bg-background text-foreground antialiased">
-        <AuthProvider initialUser={initialUser}>
+        <AuthProvider initialUser={initialUser} initialHandle={initialHandle}>
           <ThemeProvider initialTheme={initialTheme}>
             <ReactQueryProvider>
               <ErrorBoundary>{children}</ErrorBoundary>

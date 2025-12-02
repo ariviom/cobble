@@ -3,7 +3,11 @@
 import type { InventoryRow } from '@/app/components/set/types';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import { useOwnedStore } from '@/app/store/owned';
+import {
+  enqueueOwnedChange,
+  isIndexedDBAvailable,
+} from '@/app/lib/localDb';
+import { useOwnedStore, type OwnedState } from '@/app/store/owned';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type UseSupabaseOwnedArgs = {
@@ -63,8 +67,8 @@ export function useSupabaseOwned({
   const [isMigrating, setIsMigrating] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
-  const pendingRef = useRef<Map<string, number>>(new Map());
-  const flushTimeoutRef = useRef<number | null>(null);
+  // Client ID for sync queue operations (stable per browser session)
+  const clientIdRef = useRef<string | null>(null);
 
   const userId = user?.id ?? null;
 
@@ -73,127 +77,75 @@ export function useSupabaseOwned({
     return `brick_party_owned_migration_${userId}_${setNumber}`;
   }, [userId, setNumber]);
 
-  const getOwned = useOwnedStore(state => state.getOwned);
-  const setOwned = useOwnedStore(state => state.setOwned);
-  const clearAll = useOwnedStore(state => state.clearAll);
-  const markAllAsOwned = useOwnedStore(state => state.markAllAsOwned);
+  const getOwned = useOwnedStore((state: OwnedState) => state.getOwned);
+  const setOwned = useOwnedStore((state: OwnedState) => state.setOwned);
+  const clearAll = useOwnedStore((state: OwnedState) => state.clearAll);
+  const markAllAsOwned = useOwnedStore((state: OwnedState) => state.markAllAsOwned);
 
-  const flushNow = useCallback(async () => {
-    if (!enableCloudSync) {
-      // When cloud sync is disabled (e.g. Search Party participants),
-      // ensure we don't keep stale pending entries around.
-      pendingRef.current.clear();
-      return;
-    }
-    if (!userId) {
-      pendingRef.current.clear();
-      return;
-    }
-    const supabase = getSupabaseBrowserClient();
-
-    type UpsertRow = {
-      user_id: string;
-      set_num: string;
-      part_num: string;
-      color_id: number;
-      is_spare: boolean;
-      owned_quantity: number;
-    };
-
-    // Aggregate by the actual primary-key tuple to avoid sending duplicate rows
-    // for the same (user_id,set_num,part_num,color_id,is_spare), which would
-    // cause ON CONFLICT errors.
-    const byPk = new Map<string, UpsertRow>();
-
-    for (const [key, owned] of pendingRef.current.entries()) {
-      const parsed = parseInventoryKey(key);
-      if (!parsed) continue;
-      const qty = Math.max(0, Math.floor(owned || 0));
-      const pk = `${parsed.partNum}:${parsed.colorId}:${parsed.isSpare ? 1 : 0}`;
-
-      const existing = byPk.get(pk);
-      if (!existing || qty > existing.owned_quantity) {
-        byPk.set(pk, {
-          user_id: userId,
-          set_num: setNumber,
-          part_num: parsed.partNum,
-          color_id: parsed.colorId,
-          is_spare: parsed.isSpare,
-          owned_quantity: qty,
-        });
-      }
-    }
-
-    pendingRef.current.clear();
-    const toUpsert = Array.from(byPk.values());
-    if (toUpsert.length === 0) return;
-
-    const { error } = await supabase
-      .from('user_set_parts')
-      .upsert(toUpsert, {
-        onConflict: 'user_id,set_num,part_num,color_id,is_spare',
-      });
-
-    if (error) {
-      // We log but do not surface an inline error yet; the UI still reflects local state.
-      // Future iterations can add a non-intrusive toast if needed.
-      console.error(
-        'Supabase owned upsert failed',
-        JSON.stringify(
-          {
-            setNumber,
-            count: toUpsert.length,
-            error,
-          },
-          null,
-          2
-        )
-      );
-    }
-  }, [enableCloudSync, setNumber, userId]);
-
-  const scheduleFlush = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    if (!enableCloudSync) return;
-    if (flushTimeoutRef.current != null) {
-      window.clearTimeout(flushTimeoutRef.current);
-    }
-    flushTimeoutRef.current = window.setTimeout(() => {
-      flushTimeoutRef.current = null;
-      void flushNow();
-    }, 500);
-  }, [enableCloudSync, flushNow]);
-
-  // Clean up pending flush on unmount.
+  // Initialize client ID on mount
   useEffect(() => {
-    return () => {
-      if (typeof window === 'undefined') return;
-      if (!enableCloudSync) return;
-      if (flushTimeoutRef.current != null) {
-        window.clearTimeout(flushTimeoutRef.current);
-        flushTimeoutRef.current = null;
-      }
-      void flushNow();
-    };
-  }, [enableCloudSync, flushNow]);
+    if (typeof window === 'undefined') return;
+    if (clientIdRef.current) return;
 
-  const handleOwnedChange = useCallback(
-    (key: string, nextOwned: number) => {
-      setOwned(setNumber, key, nextOwned);
+    // Try to get existing client ID from localStorage
+    const storedId = window.localStorage.getItem('brick_party_sync_client_id');
+    if (storedId) {
+      clientIdRef.current = storedId;
+    } else {
+      // Generate new client ID
+      const newId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `client_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+      window.localStorage.setItem('brick_party_sync_client_id', newId);
+      clientIdRef.current = newId;
+    }
+  }, []);
 
-      if (!enableCloudSync || !userId) {
-        // Anonymous users or Search Party participants remain
-        // localStorage-only.
-        return;
-      }
+  /**
+   * Enqueue an owned quantity change to the sync queue.
+   * The DataProvider's sync worker will batch and send these to /api/sync.
+   */
+  const enqueueChange = useCallback(
+    (key: string, quantity: number) => {
+      if (!enableCloudSync || !userId) return;
+      if (!isIndexedDBAvailable()) return;
 
       const parsed = parseInventoryKey(key);
       if (!parsed) return;
 
-      pendingRef.current.set(key, nextOwned);
-      scheduleFlush();
+      const clientId = clientIdRef.current ?? 'unknown';
+
+      // Fire-and-forget: enqueue to IndexedDB sync queue
+      enqueueOwnedChange(
+        clientId,
+        setNumber,
+        parsed.partNum,
+        parsed.colorId,
+        parsed.isSpare,
+        quantity
+      ).catch(error => {
+        console.warn('Failed to enqueue owned change:', error);
+      });
     },
-    [enableCloudSync, setOwned, setNumber, userId, scheduleFlush]
+    [enableCloudSync, setNumber, userId]
+  );
+
+  const handleOwnedChange = useCallback(
+    (key: string, nextOwned: number) => {
+      // Update local store immediately (IndexedDB + in-memory cache)
+      setOwned(setNumber, key, nextOwned);
+
+      if (!enableCloudSync || !userId) {
+        // Anonymous users or Search Party participants remain
+        // local-only (no Supabase sync).
+        return;
+      }
+
+      // Enqueue change for sync to Supabase via the sync worker
+      enqueueChange(key, nextOwned);
+    },
+    [enableCloudSync, setOwned, setNumber, userId, enqueueChange]
   );
 
   // Initial hydration + migration prompt detection.
@@ -341,48 +293,15 @@ export function useSupabaseOwned({
     if (!enableCloudSync || !userId || !migrationDecisionKey) return;
     setIsMigrating(true);
     try {
-      const supabase = getSupabaseBrowserClient();
-      type UpsertRow = {
-        user_id: string;
-        set_num: string;
-        part_num: string;
-        color_id: number;
-        is_spare: boolean;
-        owned_quantity: number;
-      };
-
-      const byPk = new Map<string, UpsertRow>();
-
+      // Enqueue all local owned data to sync queue
+      // The sync worker will batch and send these to Supabase
       for (const key of keys) {
         const parsed = parseInventoryKey(key);
         if (!parsed) continue;
         const owned = getOwned(setNumber, key);
         const qty = Math.max(0, Math.floor(owned || 0));
-        const pk = `${parsed.partNum}:${parsed.colorId}:${parsed.isSpare ? 1 : 0}`;
-
-        const existing = byPk.get(pk);
-        if (!existing || qty > existing.owned_quantity) {
-          byPk.set(pk, {
-            user_id: userId,
-            set_num: setNumber,
-            part_num: parsed.partNum,
-            color_id: parsed.colorId,
-            is_spare: parsed.isSpare,
-            owned_quantity: qty,
-          });
-        }
-      }
-
-      const upserts = Array.from(byPk.values());
-
-      if (upserts.length > 0) {
-        const { error } = await supabase
-          .from('user_set_parts')
-          .upsert(upserts, {
-            onConflict: 'user_id,set_num,part_num,color_id,is_spare',
-          });
-        if (error) {
-          throw error;
+        if (qty > 0) {
+          enqueueChange(key, qty);
         }
       }
 
@@ -404,7 +323,7 @@ export function useSupabaseOwned({
     } finally {
       setIsMigrating(false);
     }
-  }, [enableCloudSync, keys, migrationDecisionKey, getOwned, setNumber, userId]);
+  }, [enableCloudSync, keys, migrationDecisionKey, getOwned, setNumber, userId, enqueueChange]);
 
   const keepCloudData = useCallback(async () => {
     if (!enableCloudSync || !userId || !migrationDecisionKey) {

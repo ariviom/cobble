@@ -39,15 +39,44 @@
 
 ## Persistence & Auth Patterns
 
-- **Local-first owned state**
-  - Owned quantities live in a Zustand store backed by `localStorage` under a versioned key.
-  - Reads hydrate from local cache; writes are debounced and prefer `requestIdleCallback` when available to avoid blocking the main thread.
+- **Local-first with IndexedDB (SyncedDB architecture)**
+  - Primary client storage uses Dexie-backed IndexedDB (`app/lib/localDb/`) with normalized tables:
+    - `catalogSets`, `catalogParts`, `catalogColors`, `catalogSetParts`, `catalogSetMeta` — cached catalog data
+    - `localOwned` — owned quantities per set (mirrors `user_set_parts`)
+    - `syncQueue` — pending write operations for Supabase sync
+    - `meta` — key-value store for sync timestamps, catalog versions, migration state
+  - Zustand store (`app/store/owned.ts`) maintains an in-memory cache with:
+    - Synchronous reads from in-memory cache only (no localStorage fallback)
+    - Async hydration from IndexedDB on set page load via `hydrateFromIndexedDB()`
+    - Debounced writes to IndexedDB only
+    - Exposes `isHydrated(setNumber)` and `isStorageAvailable()` for UI state
+  - `useOwnedSnapshot` hook returns `{ ownedByKey, isHydrated, isStorageAvailable }`:
+    - `isHydrated` is false until IndexedDB hydration completes for that set
+    - `isStorageAvailable` is false if IndexedDB is unavailable (in-memory only mode)
+  - `InventoryTable` shows:
+    - Loading spinner with "Loading your progress…" while `isHydrating` (not hydrated but not loading inventory)
+    - Warning banner when `!isStorageAvailable`: "Local storage unavailable; your progress will be lost when you close this tab"
+  - `DataProvider` (`app/components/providers/data-provider.tsx`) manages:
+    - Database initialization on app start
+    - localStorage → IndexedDB migration for owned data with write+read verification
+    - Deletion of localStorage keys after successful migration
+    - Sync worker that batches pending operations and sends to `/api/sync`
+- **Inventory caching**
+  - `useInventory` hook checks IndexedDB cache first via `getCachedInventory()`
+  - Cache miss triggers network fetch to `/api/inventory`, then caches result
+  - 24-hour TTL on cached inventories; invalidation via catalog version checks
+- **Sync queue for Supabase writes**
+  - Owned quantity changes are enqueued to `syncQueue` table instead of direct Supabase writes
+  - `/api/sync` endpoint accepts batched operations and applies them transactionally
+  - Sync worker runs every 30 seconds, on visibility change, and on page unload
+  - Conflict resolution: last-write-wins based on timestamps
 - **Supabase-backed sync**
   - Supabase tables hold user profiles, preferences, per-set status, per-set owned parts, and optional global parts inventory.
-  - The intended flow is: anonymous users use local-only; on first login, local owned state is migrated into Supabase and then kept in sync.
+  - Anonymous users use local-only storage; authenticated users sync via the queue
+  - Migration prompts handle divergent local vs cloud data on first load
 - **Group builds**
   - Collaborative sessions are represented by `group_sessions` and related tables in Supabase.
-  - The host’s owned state is the single source of truth; participant edits stream via Supabase Realtime channels keyed by `group_sessions.id` and are applied to the host’s rows.
+  - The host's owned state is the single source of truth; participant edits stream via Supabase Realtime channels keyed by `group_sessions.id` and are applied to the host's rows.
 
 ## SSR vs Client Architecture
 

@@ -11,9 +11,8 @@ import { useInventory } from '@/app/hooks/useInventory';
 import { useInventoryPrices } from '@/app/hooks/useInventoryPrices';
 import { useInventoryViewModel } from '@/app/hooks/useInventoryViewModel';
 import { useSupabaseOwned } from '@/app/hooks/useSupabaseOwned';
-import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
 import { InventoryControls } from './InventoryControls';
 import { InventoryItem } from './items/InventoryItem';
@@ -71,6 +70,8 @@ export function InventoryTable({
     error,
     keys,
     ownedByKey,
+    isOwnedHydrated,
+    isStorageAvailable,
     sortKey,
     sortDir,
     filter,
@@ -113,7 +114,6 @@ export function InventoryTable({
       ...(onPriceTotalsChange ? { onPriceTotalsChange } : {}),
     });
 
-  const ownedStore = useOwnedStore();
   const pinnedStore = usePinnedStore();
 
   const {
@@ -188,16 +188,19 @@ export function InventoryTable({
     return idxs;
   }, [sortedIndices, sortKey, sortDir, keys, pricesByKey, rows]);
 
-  useEffect(() => {
-    // warm localStorage read
-    for (const k of keys) {
-      ownedStore.getOwned(setNumber, k);
-    }
-  }, [setNumber, keys, ownedStore]);
+  // Show loading state while owned data is hydrating from IndexedDB
+  const isHydrating = !isOwnedHydrated && !isLoading;
 
   // Do not early-return to preserve hooks order
   return (
     <div className="pb-2 lg:grid lg:h-full lg:grid-rows-[var(--spacing-controls-height)_minmax(0,1fr)]">
+      {/* Storage unavailable warning */}
+      {!isStorageAvailable && (
+        <div className="mx-4 mb-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-400">
+          <span className="font-medium">Local storage unavailable.</span> Your
+          progress will be lost when you close this tab.
+        </div>
+      )}
       {migration?.open && (
         <Modal
           open={migration.open}
@@ -287,12 +290,13 @@ export function InventoryTable({
         <div className="flex flex-col p-2">
           {error ? (
             <ErrorBanner message="Failed to load inventory. Please try again." />
-          ) : rows.length === 0 || isLoading ? (
-            isLoading ? (
-              <Spinner className="p-4" label="Loading inventory…" />
-            ) : (
-              <EmptyState message="No inventory found." />
-            )
+          ) : isLoading || isHydrating ? (
+            <Spinner
+              className="p-4"
+              label={isHydrating ? 'Loading your progress…' : 'Loading inventory…'}
+            />
+          ) : rows.length === 0 ? (
+            <EmptyState message="No inventory found." />
           ) : groupBy === 'none' ? (
             <div
               data-view={view}

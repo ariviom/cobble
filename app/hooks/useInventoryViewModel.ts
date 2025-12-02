@@ -25,6 +25,12 @@ export type InventoryViewModel = {
   isLoading: boolean;
   error: Error | null;
 
+  // Hydration state
+  /** Whether owned data has been hydrated from IndexedDB */
+  isOwnedHydrated: boolean;
+  /** Whether IndexedDB is available (false = in-memory only, data will be lost) */
+  isStorageAvailable: boolean;
+
   // UI controls
   sortKey: SortKey;
   sortDir: 'asc' | 'desc';
@@ -54,7 +60,15 @@ export type InventoryViewModel = {
 };
 
 export function useInventoryViewModel(setNumber: string): InventoryViewModel {
-  const { rows, isLoading, error, keys, ownedByKey } = useInventory(setNumber);
+  const {
+    rows,
+    isLoading,
+    error,
+    keys,
+    ownedByKey,
+    isOwnedHydrated,
+    isStorageAvailable,
+  } = useInventory(setNumber);
 
   const {
     sortKey,
@@ -255,6 +269,8 @@ export function useInventoryViewModel(setNumber: string): InventoryViewModel {
     ownedByKey,
     isLoading,
     error,
+    isOwnedHydrated,
+    isStorageAvailable,
     sortKey,
     sortDir,
     filter,

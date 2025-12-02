@@ -1,14 +1,30 @@
 'use client';
 
-import { useMemo } from 'react';
-import { useOwnedStore } from '@/app/store/owned';
+import { useEffect, useMemo } from 'react';
+import { useOwnedStore, type OwnedState } from '@/app/store/owned';
+
+export type UseOwnedSnapshotResult = {
+  ownedByKey: Record<string, number>;
+  isHydrated: boolean;
+  isStorageAvailable: boolean;
+};
 
 export function useOwnedSnapshot(
   setNumber: string,
   keys: string[]
-): Record<string, number> {
-  const version = useOwnedStore(state => state._version);
-  const getOwned = useOwnedStore(state => state.getOwned);
+): UseOwnedSnapshotResult {
+  const version = useOwnedStore((state: OwnedState) => state._version);
+  const hydratedSets = useOwnedStore((state: OwnedState) => state._hydratedSets);
+  const storageAvailable = useOwnedStore((state: OwnedState) => state._storageAvailable);
+  const getOwned = useOwnedStore((state: OwnedState) => state.getOwned);
+  const hydrateFromIndexedDB = useOwnedStore((state: OwnedState) => state.hydrateFromIndexedDB);
+
+  // Trigger IndexedDB hydration on mount
+  useEffect(() => {
+    void hydrateFromIndexedDB(setNumber);
+  }, [setNumber, hydrateFromIndexedDB]);
+
+  const isHydrated = hydratedSets.has(setNumber);
 
   const ownedByKey = useMemo(() => {
     // Touch version so React Hooks exhaustive-deps understands this dependency
@@ -21,7 +37,11 @@ export function useOwnedSnapshot(
     return result;
   }, [getOwned, setNumber, keys, version]);
 
-  return ownedByKey;
+  return {
+    ownedByKey,
+    isHydrated,
+    isStorageAvailable: storageAvailable,
+  };
 }
 
 

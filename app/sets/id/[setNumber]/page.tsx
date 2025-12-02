@@ -1,3 +1,4 @@
+import { LocalDataProviderBoundary } from '@/app/components/providers/LocalDataProviderBoundary';
 import { SetPageClient } from '@/app/components/set/SetPageClient';
 import { getSetSummaryLocal } from '@/app/lib/catalog';
 import { getSetSummary } from '@/app/lib/rebrickable';
@@ -23,15 +24,17 @@ export default async function SetPage({ params }: SetPageProps) {
   if (!summary) notFound();
 
   return (
-    <SetPageClient
-      setNumber={summary.setNumber}
-      setName={summary.name}
-      year={summary.year}
-      imageUrl={summary.imageUrl}
-      numParts={summary.numParts}
-      themeId={summary.themeId ?? null}
-      themeName={summary.themeName ?? null}
-    />
+    <LocalDataProviderBoundary>
+      <SetPageClient
+        setNumber={summary.setNumber}
+        setName={summary.name}
+        year={summary.year}
+        imageUrl={summary.imageUrl}
+        numParts={summary.numParts}
+        themeId={summary.themeId ?? null}
+        themeName={summary.themeName ?? null}
+      />
+    </LocalDataProviderBoundary>
   );
 }
 

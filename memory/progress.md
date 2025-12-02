@@ -68,11 +68,38 @@
   - Updated `getSetInventory` (rebrickable.ts) to include `inc_part_details=1` for external_ids.
   - Updated `getMinifigPartsCached` to include `inc_part_details=1` for minifig components.
   - Updated `InventoryItem.tsx` to use `bricklinkPartId` for constructing BrickLink URLs.
+- **Local-first IndexedDB architecture (SyncedDB migration)**:
+  - Added Dexie for IndexedDB abstraction (`app/lib/localDb/`).
+  - Normalized schema with tables:
+    - `catalogSets`, `catalogParts`, `catalogColors`, `catalogSetParts`, `catalogSetMeta` — cached catalog data
+    - `localOwned` — owned quantities per set
+    - `syncQueue` — pending write operations for Supabase sync
+    - `meta` — key-value store for sync timestamps and versions
+    - `uiState`, `recentSets` — UI preferences (reserved for future use)
+  - `DataProvider` component (`app/components/providers/data-provider.tsx`):
+    - Initializes IndexedDB on app start
+    - Runs localStorage → IndexedDB migration for owned data (with write+read verification)
+    - Deletes localStorage keys after successful migration to IndexedDB
+    - Implements sync worker that batches operations and sends to `/api/sync` every 30 seconds
+  - `useInventory` hook now checks IndexedDB cache first for inventory data (24-hour TTL)
+  - `useOwnedStore` refactored to use IndexedDB-only persistence:
+    - In-memory cache for synchronous reads
+    - Async hydration from IndexedDB on set page load
+    - Debounced writes to IndexedDB only (no localStorage)
+    - Exposes `isHydrated` and `isStorageAvailable` for UI state
+  - `useOwnedSnapshot` returns hydration state (`isHydrated`, `isStorageAvailable`)
+  - `InventoryTable` shows:
+    - Loading spinner with "Loading your progress…" while hydrating owned data
+    - Warning banner when IndexedDB unavailable: "Local storage unavailable; your progress will be lost when you close this tab"
+  - `useSupabaseOwned` refactored to use sync queue:
+    - Changes enqueued to `syncQueue` table instead of direct Supabase writes
+    - Sync worker in DataProvider handles batched sync to `/api/sync`
+  - New `/api/sync` endpoint for batched owned quantity sync
 
 ## Planned / In Progress
 
-- Supabase auth and user accounts, with a path to sync local state (owned, pinned, user sets) to the backend.
-- Supabase-backed persistence for user sets/status, collections, and per-set owned parts while keeping anonymous users fully functional.
+- Catalog version checking to invalidate stale IndexedDB cache
+- Pull-on-login for multi-device sync (fetch user data from Supabase on new device)
 - Hardening of error states and retries for search and inventory requests; surface normalized `AppError` codes in the UI instead of generic messages.
 - Tests for CSV export generators (Rebrickable + BrickLink) and for Rebrickable client retry/backoff behavior.
 

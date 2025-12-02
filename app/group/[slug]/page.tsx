@@ -1,4 +1,5 @@
 import { GroupSessionPageClient } from '@/app/components/group/GroupSessionPageClient';
+import { LocalDataProviderBoundary } from '@/app/components/providers/LocalDataProviderBoundary';
 import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import { notFound } from 'next/navigation';
 
@@ -42,16 +43,18 @@ export default async function GroupSessionPage({
   }
 
   return (
-    <GroupSessionPageClient
-      sessionId={session.id}
-      slug={slug}
-      setNumber={setRow.set_num}
-      setName={setRow.name}
-      year={setRow.year ?? 0}
-      imageUrl={setRow.image_url}
-      numParts={setRow.num_parts ?? 0}
-      themeId={setRow.theme_id}
-    />
+    <LocalDataProviderBoundary>
+      <GroupSessionPageClient
+        sessionId={session.id}
+        slug={slug}
+        setNumber={setRow.set_num}
+        setName={setRow.name}
+        year={setRow.year ?? 0}
+        imageUrl={setRow.image_url}
+        numParts={setRow.num_parts ?? 0}
+        themeId={setRow.theme_id}
+      />
+    </LocalDataProviderBoundary>
   );
 }
 

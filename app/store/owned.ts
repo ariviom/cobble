@@ -1,7 +1,11 @@
 'use client';
 
 import { create } from 'zustand';
-import { readStorage, writeStorage } from '@/app/lib/persistence/storage';
+import {
+  getOwnedForSet,
+  setOwnedForSet,
+  isIndexedDBAvailable,
+} from '@/app/lib/localDb';
 
 export type OwnedState = {
   getOwned: (setNumber: string, key: string) => number;
@@ -12,29 +16,70 @@ export type OwnedState = {
     keys: string[],
     quantities: number[]
   ) => void;
+  /** Hydrate owned data for a set from IndexedDB (async, call on set page load) */
+  hydrateFromIndexedDB: (setNumber: string) => Promise<void>;
+  /** Check if a set has been hydrated from IndexedDB */
+  isHydrated: (setNumber: string) => boolean;
+  /** Check if IndexedDB is available (false means in-memory only mode) */
+  isStorageAvailable: () => boolean;
   _version: number; // Version counter for triggering re-renders
+  /** Track which sets have been hydrated from IndexedDB */
+  _hydratedSets: Set<string>;
+  /** Whether IndexedDB is available for persistence */
+  _storageAvailable: boolean;
 };
 
-const STORAGE_PREFIX = 'brick_party_owned_';
-const STORAGE_VERSION_SUFFIX = '_v1';
 const WRITE_DEBOUNCE_MS = 500; // longer debounce per UX guidance
 
-function storageKey(setNumber: string) {
-  return `${STORAGE_PREFIX}${setNumber}${STORAGE_VERSION_SUFFIX}`;
-}
-
-// Simple in-memory cache to avoid repeated localStorage reads per render cycle
+// Simple in-memory cache - this is the synchronous read source
 const cache: Map<string, Record<string, number>> = new Map();
 
 // Debounced write scheduling per setNumber
 const pendingWrites: Map<string, Record<string, number>> = new Map();
 const writeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
-function flushWriteNow(setNumber: string) {
+// Track ongoing hydration to prevent duplicate calls
+const hydrationPromises: Map<string, Promise<void>> = new Map();
+
+// Track if IndexedDB is available (checked once on init)
+let storageAvailable: boolean | null = null;
+
+function checkStorageAvailable(): boolean {
+  if (storageAvailable !== null) return storageAvailable;
+  storageAvailable = isIndexedDBAvailable();
+  return storageAvailable;
+}
+
+/**
+ * Flush writes to IndexedDB.
+ */
+async function flushWriteToIndexedDB(setNumber: string): Promise<void> {
   const data = pendingWrites.get(setNumber);
   if (!data) return;
-  writeStorage(storageKey(setNumber), JSON.stringify(data));
-  pendingWrites.delete(setNumber);
+  
+  if (!checkStorageAvailable()) {
+    // In-memory only mode - just clear the pending write
+    pendingWrites.delete(setNumber);
+    return;
+  }
+  
+  try {
+    await setOwnedForSet(setNumber, data);
+    pendingWrites.delete(setNumber);
+  } catch (error) {
+    console.warn('Failed to flush owned data to IndexedDB:', error);
+    // Keep in pending writes for retry on next flush
+  }
+}
+
+/**
+ * Flush a single set's pending writes to IndexedDB.
+ */
+function flushWriteNow(setNumber: string) {
+  // Fire-and-forget async write to IndexedDB
+  flushWriteToIndexedDB(setNumber).catch(error => {
+    console.warn('Failed to persist owned data:', error);
+  });
 }
 
 /**
@@ -48,9 +93,11 @@ function flushAllPendingWrites() {
   }
   writeTimers.clear();
 
-  // Flush all pending writes synchronously
+  // Flush all pending writes (fire-and-forget since we're unloading)
   for (const setNumber of pendingWrites.keys()) {
-    flushWriteNow(setNumber);
+    flushWriteToIndexedDB(setNumber).catch(() => {
+      // Swallow errors on unload - nothing we can do
+    });
   }
 }
 
@@ -84,20 +131,18 @@ function scheduleWrite(setNumber: string) {
   writeTimers.set(setNumber, timer);
 }
 
+/**
+ * Read owned data for a set from in-memory cache.
+ * Returns empty object if not yet hydrated - UI should show loading state.
+ */
 function read(setNumber: string): Record<string, number> {
-  const cached = cache.get(setNumber);
-  if (cached) return cached;
-  const raw = readStorage(storageKey(setNumber));
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw) as Record<string, number>;
-    cache.set(setNumber, parsed);
-    return parsed;
-  } catch {
-    return {};
-  }
+  return cache.get(setNumber) ?? {};
 }
 
+/**
+ * Write owned data for a set.
+ * Updates in-memory cache immediately, then schedules async persistence to IndexedDB.
+ */
 function write(setNumber: string, data: Record<string, number>) {
   // Update in-memory cache immediately for responsive reads
   cache.set(setNumber, data);
@@ -105,12 +150,24 @@ function write(setNumber: string, data: Record<string, number>) {
   scheduleWrite(setNumber);
 }
 
-export const useOwnedStore = create<OwnedState>(set => ({
+export const useOwnedStore = create<OwnedState>((set, get) => ({
   _version: 0,
+  _hydratedSets: new Set<string>(),
+  _storageAvailable: true, // Assume true until checked
+  
+  isHydrated: (setNumber: string) => {
+    return get()._hydratedSets.has(setNumber);
+  },
+  
+  isStorageAvailable: () => {
+    return checkStorageAvailable();
+  },
+  
   getOwned: (setNumber, key) => {
     const state = read(setNumber);
     return state[key] ?? 0;
   },
+  
   setOwned: (setNumber, key, qty) => {
     const state = read(setNumber);
     const nextQty = Math.max(0, Math.floor(qty || 0));
@@ -126,10 +183,12 @@ export const useOwnedStore = create<OwnedState>(set => ({
     // Increment version to trigger re-renders for components subscribed to _version
     set(state => ({ ...state, _version: (state._version ?? 0) + 1 }));
   },
+  
   clearAll: setNumber => {
     write(setNumber, {});
     set(state => ({ ...state, _version: (state._version ?? 0) + 1 }));
   },
+  
   markAllAsOwned: (setNumber, keys, quantities) => {
     const data: Record<string, number> = {};
     for (let i = 0; i < keys.length; i++) {
@@ -138,6 +197,63 @@ export const useOwnedStore = create<OwnedState>(set => ({
     }
     write(setNumber, data);
     set(state => ({ ...state, _version: (state._version ?? 0) + 1 }));
+  },
+  
+  hydrateFromIndexedDB: async (setNumber: string) => {
+    // Check if already hydrated
+    const currentState = useOwnedStore.getState();
+    if (currentState._hydratedSets.has(setNumber)) {
+      return;
+    }
+
+    // Check if hydration is already in progress
+    const existingPromise = hydrationPromises.get(setNumber);
+    if (existingPromise) {
+      return existingPromise;
+    }
+
+    // Start hydration
+    const hydrationPromise = (async () => {
+      // Check storage availability and update state if needed
+      const available = checkStorageAvailable();
+      if (!available) {
+        // No IndexedDB - mark as hydrated with empty data (in-memory only mode)
+        set(state => ({
+          ...state,
+          _storageAvailable: false,
+          _hydratedSets: new Set([...state._hydratedSets, setNumber]),
+        }));
+        return;
+      }
+
+      try {
+        const indexedDBData = await getOwnedForSet(setNumber);
+        
+        // Update in-memory cache with IndexedDB data
+        cache.set(setNumber, indexedDBData);
+
+        // Mark as hydrated and trigger re-render
+        set(state => ({
+          ...state,
+          _version: state._version + 1,
+          _hydratedSets: new Set([...state._hydratedSets, setNumber]),
+        }));
+      } catch (error) {
+        console.warn('Failed to hydrate owned data from IndexedDB:', error);
+        // Mark storage as unavailable and hydrated (in-memory only mode)
+        storageAvailable = false;
+        set(state => ({
+          ...state,
+          _storageAvailable: false,
+          _hydratedSets: new Set([...state._hydratedSets, setNumber]),
+        }));
+      } finally {
+        hydrationPromises.delete(setNumber);
+      }
+    })();
+
+    hydrationPromises.set(setNumber, hydrationPromise);
+    return hydrationPromise;
   },
 }));
 

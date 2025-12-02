@@ -14,6 +14,8 @@ import {
 type AuthContextValue = {
   user: User | null;
   isLoading: boolean;
+  /** Canonical handle for the current user (username or user_id fallback). */
+  handle: string | null;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -56,13 +58,24 @@ type AuthProviderProps = PropsWithChildren<{
    * waiting for a client-side session check.
    */
   initialUser: User | null;
+  /**
+   * Canonical handle for the current user, resolved on the server.
+   * Used for building URLs like /sets/[handle] without extra round-trips.
+   */
+  initialHandle: string | null;
 }>;
 
-export function AuthProvider({ initialUser, children }: AuthProviderProps) {
+export function AuthProvider({
+  initialUser,
+  initialHandle,
+  children,
+}: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(() => {
     if (initialUser) return initialUser;
     return readCachedUser();
   });
+
+  const [handle, setHandle] = useState<string | null>(() => initialHandle ?? null);
 
   const [isLoading, setIsLoading] = useState<boolean>(() => {
     if (initialUser) return false;
@@ -77,6 +90,12 @@ export function AuthProvider({ initialUser, children }: AuthProviderProps) {
       // If we already have a user from SSR or cache, we don't need an
       // additional round-trip just to decide login state.
       if (initialUser || readCachedUser()) {
+        const existingUser = initialUser ?? readCachedUser();
+        if (existingUser && !initialHandle) {
+          // Fallback: when we don't have a server-resolved handle,
+          // use user_id so we can still build stable URLs.
+          setHandle(existingUser.id);
+        }
         setIsLoading(false);
         return;
       }
@@ -91,10 +110,12 @@ export function AuthProvider({ initialUser, children }: AuthProviderProps) {
         const nextUser = session?.user ?? null;
         setUser(nextUser);
         writeCachedUser(nextUser);
+        setHandle(nextUser ? nextUser.id : null);
       } catch {
         if (cancelled) return;
         setUser(null);
         writeCachedUser(null);
+        setHandle(null);
       } finally {
         if (!cancelled) {
           setIsLoading(false);
@@ -111,6 +132,14 @@ export function AuthProvider({ initialUser, children }: AuthProviderProps) {
       const nextUser = session?.user ?? null;
       setUser(nextUser);
       writeCachedUser(nextUser);
+      // If we have a server-resolved handle (username/user_id), preserve it.
+      // Only fall back to user.id when we don't have an initialHandle.
+      if (!initialHandle) {
+        setHandle(nextUser ? nextUser.id : null);
+      } else if (!nextUser) {
+        // On logout, clear handle.
+        setHandle(null);
+      }
       setIsLoading(false);
     });
 
@@ -118,14 +147,15 @@ export function AuthProvider({ initialUser, children }: AuthProviderProps) {
       cancelled = true;
       subscription.unsubscribe();
     };
-  }, [initialUser]);
+  }, [initialHandle, initialUser]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       isLoading,
+      handle,
     }),
-    [isLoading, user]
+    [handle, isLoading, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
