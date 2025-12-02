@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   EMPTY_SET_STATUS,
   type SetStatus,
@@ -45,14 +45,7 @@ export function useSetStatus({
     return entry?.status ?? EMPTY_SET_STATUS;
   });
   const setStatus = useUserSetsStore(state => state.setStatus);
-
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const status = mounted ? rawStatus : EMPTY_SET_STATUS;
+  const status = rawStatus;
 
   const meta: UserSetMeta = useMemo(
     () => ({
