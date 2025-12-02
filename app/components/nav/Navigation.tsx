@@ -2,6 +2,7 @@
 
 import { NavLinkItem } from '@/app/components/nav/NavLinkItem';
 import { cn } from '@/app/components/ui/utils';
+import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { Camera, Home, Package, Search, User } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -20,6 +21,8 @@ export function Navigation({
   onTabChange,
 }: NavigationProps) {
   const pathname = usePathname() ?? '/';
+  const { user } = useSupabaseUser();
+  const isLoggedIn = !!user;
 
   const inferredTab: NavigationTab = (() => {
     if (pathname === '/' || pathname.startsWith('/?')) return 'home';
@@ -28,6 +31,7 @@ export function Navigation({
     if (pathname.startsWith('/sets') || pathname.startsWith('/set/'))
       return 'sets';
     if (pathname.startsWith('/account')) return 'profile';
+    if (pathname.startsWith('/login')) return 'profile';
     return 'home';
   })();
 
@@ -91,10 +95,10 @@ export function Navigation({
           />
           <NavLinkItem
             icon={<User className="h-5 w-5" />}
-            ariaLabel="Account"
-            labelMobile="Profile"
-            labelDesktop="Account"
-            href="/account"
+            ariaLabel={isLoggedIn ? 'Account' : 'Login'}
+            labelMobile={isLoggedIn ? 'Account' : 'Login'}
+            labelDesktop={isLoggedIn ? 'Account' : 'Login'}
+            href={isLoggedIn ? '/account' : '/login'}
             active={currentTab === 'profile'}
             onClick={handleTabClick('profile')}
             className="lg:absolute lg:top-1/2 lg:right-0 lg:-translate-y-1/2"

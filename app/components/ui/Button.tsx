@@ -12,6 +12,7 @@ const buttonVariants = cva(
         primary:
           'bg-theme-primary text-theme-primary-contrast border-theme-primary hover:bg-theme-primary/90',
         secondary: 'bg-card text-foreground border-subtle hover:bg-card-muted',
+        google: 'bg-card-muted text-foreground border-subtle hover:bg-card',
         ghost:
           'bg-transparent text-foreground border-transparent hover:bg-background-muted',
         outline:

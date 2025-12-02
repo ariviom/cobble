@@ -1,10 +1,12 @@
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
+import { AuthProvider } from '@/app/components/providers/auth-provider';
 import { ReactQueryProvider } from '@/app/components/providers/react-query-provider';
 import { ThemeProvider } from '@/app/components/providers/theme-provider';
 import { ThemeScript } from '@/app/components/theme/theme-script';
 import type { ThemePreference } from '@/app/components/theme/constants';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import type { Metadata, Viewport } from 'next';
+import type { User } from '@supabase/supabase-js';
 import './styles/globals.css';
 
 export const metadata: Metadata = {
@@ -39,12 +41,15 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   let initialTheme: ThemePreference | null = null;
+  let initialUser: User | null = null;
 
   try {
     const supabase = await getSupabaseAuthServerClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
+    initialUser = user;
 
     if (user) {
       const { data: preferences, error } = await supabase
@@ -75,11 +80,13 @@ export default async function RootLayout({
         <ThemeScript initialTheme={initialTheme ?? undefined} />
       </head>
       <body className="bg-background text-foreground antialiased">
-        <ThemeProvider initialTheme={initialTheme ?? undefined}>
-          <ReactQueryProvider>
-            <ErrorBoundary>{children}</ErrorBoundary>
-          </ReactQueryProvider>
-        </ThemeProvider>
+        <AuthProvider initialUser={initialUser}>
+          <ThemeProvider initialTheme={initialTheme ?? undefined}>
+            <ReactQueryProvider>
+              <ErrorBoundary>{children}</ErrorBoundary>
+            </ReactQueryProvider>
+          </ThemeProvider>
+        </AuthProvider>
         {/* <svg
           width="0"
           height="0"

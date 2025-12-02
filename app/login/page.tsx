@@ -5,6 +5,7 @@ import {
   getSupabaseBrowserClient,
 } from '@/app/lib/supabaseClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/app/components/ui/Card';
+import { GoogleIcon } from '@/app/components/icons/GoogleIcon';
 import { Button } from '@/app/components/ui/Button';
 import { Input } from '@/app/components/ui/Input';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
@@ -97,12 +98,13 @@ export default function LoginPage() {
         <CardContent>
           <Button
             type="button"
-            variant="primary"
-            className="w-full"
+            variant="google"
+            className="flex w-full items-center justify-center gap-2"
             onClick={handleGoogleLogin}
             disabled={isLoading}
           >
-            {isLoading ? 'Redirecting…' : 'Continue with Google'}
+            {!isLoading && <GoogleIcon className="h-4 w-4" />}
+            {isLoading ? 'Redirecting…' : 'Sign in with Google'}
           </Button>
           {error && (
             <ErrorBanner className="mt-3 text-xs" message={error} />

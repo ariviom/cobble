@@ -27,6 +27,7 @@ import { useUserSetsStore } from '@/app/store/user-sets';
 import type { Tables } from '@/supabase/types';
 import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 type UserProfileRow = Tables<'user_profiles'>;
@@ -46,6 +47,7 @@ export default function AccountPageClient({
   initialPricingCountry,
 }: AccountPageClientProps) {
   useHydrateUserSets();
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(initialUser);
   const [profile, setProfile] = useState<UserProfileRow | null>(initialProfile);
   const [isLoading, setIsLoading] = useState(() => !initialUser);
@@ -75,6 +77,7 @@ export default function AccountPageClient({
   const [isSavingPricing, setIsSavingPricing] = useState(false);
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [pricingMessage, setPricingMessage] = useState<string | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const {
     theme: selectedTheme,
     setTheme: updateTheme,
@@ -184,10 +187,7 @@ export default function AccountPageClient({
 
         setUser(fetchedUser);
 
-        const {
-          data: existingProfile,
-          error: profileError,
-        } = await supabase
+        const { data: existingProfile, error: profileError } = await supabase
           .from('user_profiles')
           .select('*')
           .eq('user_id', fetchedUser.id as UserId)
@@ -200,16 +200,11 @@ export default function AccountPageClient({
         if (!existingProfile) {
           const displayName =
             (fetchedUser.user_metadata &&
-              (fetchedUser.user_metadata.full_name as
-                | string
-                | undefined)) ||
+              (fetchedUser.user_metadata.full_name as string | undefined)) ||
             fetchedUser.email ||
             null;
 
-          const {
-            data: createdProfile,
-            error: insertError,
-          } = await supabase
+          const { data: createdProfile, error: insertError } = await supabase
             .from('user_profiles')
             .insert({
               user_id: fetchedUser.id as UserId,
@@ -448,6 +443,31 @@ export default function AccountPageClient({
       }
     } finally {
       setIsSavingCollectionsPublic(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (!user || isLoggingOut) return;
+
+    setIsLoggingOut(true);
+    setError(null);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: signOutError } = await supabase.auth.signOut();
+
+      if (signOutError) {
+        setError('Failed to log out. Please try again.');
+        return;
+      }
+
+      setUser(null);
+      setProfile(null);
+      router.push('/login');
+    } catch {
+      setError('Failed to log out. Please try again.');
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -728,6 +748,30 @@ export default function AccountPageClient({
                 </div>
               </div>
             </div>
+
+            {isLoggedIn && (
+              <div className="mt-6 border-t border-subtle pt-4">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Sign out
+                </h3>
+                <p className="mt-1 text-xs text-foreground-muted">
+                  Log out of Quarry on this device. You can sign back in with
+                  Google or email later.
+                </p>
+                <div className="mt-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => void handleLogout()}
+                    disabled={isLoggingOut}
+                    className="inline-flex items-center px-3 py-1.5 text-[11px]"
+                  >
+                    {isLoggingOut ? 'Signing out…' : 'Log out'}
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -1048,7 +1092,7 @@ export default function AccountPageClient({
                     </Button>
                   </div>
                   {pricingError && (
-                    <p className="mt-1 text-[11px] text-destructive">
+                    <p className="text-destructive mt-1 text-[11px]">
                       {pricingError}
                     </p>
                   )}
@@ -1069,9 +1113,7 @@ export default function AccountPageClient({
                       those guides when pricing is wired up.
                     </p>
                     <Select className="mt-1 w-full text-xs">
-                      <option>
-                        Price range (min–max of current listings)
-                      </option>
+                      <option>Price range (min–max of current listings)</option>
                       <option>Average price (current listings)</option>
                       <option>Average price (last 6 months sold)</option>
                     </Select>
@@ -1134,6 +1176,3 @@ export default function AccountPageClient({
     </div>
   );
 }
-
-
-
