@@ -24,12 +24,12 @@ export function SetOwnershipAndCollectionsRow({
   const {
     status,
     toggleStatus,
-    collections,
-    selectedCollectionIds,
-    collectionsLoading,
-    collectionsError,
-    toggleCollection,
-    createCollection,
+    lists,
+    selectedListIds,
+    listsLoading,
+    listsError,
+    toggleList,
+    createList,
     isAuthenticating,
     isAuthenticated,
   } = ownership;
@@ -42,7 +42,7 @@ export function SetOwnershipAndCollectionsRow({
   const handleCreateCollection = () => {
     const trimmed = newCollectionName.trim();
     if (!trimmed) return;
-    createCollection(trimmed);
+    createList(trimmed);
     setNewCollectionName('');
   };
 
@@ -130,13 +130,13 @@ export function SetOwnershipAndCollectionsRow({
         onClose={() => setShowCollections(false)}
       >
         <div className="flex flex-col gap-2 text-xs">
-          {collectionsLoading && collections.length === 0 && (
+          {listsLoading && lists.length === 0 && (
             <div className="text-[10px] text-foreground-muted">Loading…</div>
           )}
-          {collections.length > 0 && (
+          {lists.length > 0 && (
             <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
-              {collections.map(collection => {
-                const selected = selectedCollectionIds.includes(collection.id);
+              {lists.map(collection => {
+                const selected = selectedListIds.includes(collection.id);
                 return (
                   <button
                     key={collection.id}
@@ -149,7 +149,7 @@ export function SetOwnershipAndCollectionsRow({
                     onClick={event => {
                       event.preventDefault();
                       event.stopPropagation();
-                      toggleCollection(collection.id);
+                      toggleList(collection.id);
                     }}
                   >
                     <span className="flex items-center gap-1">
@@ -185,9 +185,9 @@ export function SetOwnershipAndCollectionsRow({
               <span>Create</span>
             </button>
           </div>
-          {collectionsError && (
+          {listsError && (
             <div className="mt-1 text-[10px] text-brand-red">
-              {collectionsError}
+              {listsError}
             </div>
           )}
         </div>
