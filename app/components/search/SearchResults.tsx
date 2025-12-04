@@ -8,10 +8,14 @@ import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { SearchResultListItem } from './SearchResultListItem';
+import { MinifigSearchResultItem } from '@/app/components/minifig/MinifigSearchResultItem';
 import type {
   FilterType,
+  MinifigSearchPage,
+  MinifigSearchResult,
   SearchPage,
   SearchResult,
+  SearchType,
   SortOption,
 } from '@/app/types/search';
 
@@ -37,6 +41,23 @@ async function fetchSearchPage(
   return data;
 }
 
+async function fetchMinifigSearchPage(
+  q: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<MinifigSearchPage> {
+  if (!q) return { results: [], nextPage: null };
+  const url = `/api/search/minifigs?q=${encodeURIComponent(
+    q
+  )}&page=${page}&pageSize=${pageSize}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    await throwAppErrorFromResponse(res, 'search_failed');
+  }
+  const data = (await res.json()) as MinifigSearchPage;
+  return data;
+}
+
 function parseFilterParam(value: string | null): FilterType {
   if (
     value === 'set' ||
@@ -55,12 +76,18 @@ function parseExactParam(value: string | null): boolean {
   return normalized === '1' || normalized === 'true' || normalized === 'yes';
 }
 
+function parseTypeParam(value: string | null): SearchType {
+  if (value === 'minifig') return 'minifig';
+  return 'set';
+}
+
 export function SearchResults() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const q = params.get('q') ?? '';
   const hasQuery = q.trim().length > 0;
+  const searchType = parseTypeParam(params.get('type'));
   const [sort, setSort] = useState<SortOption>('relevance');
   const [pageSize, setPageSize] = useState<number>(20);
   const filterFromParams = parseFilterParam(params.get('filter'));
@@ -101,7 +128,7 @@ export function SearchResults() {
     const nextSearch = sp.toString();
     router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname);
   };
-  const query = useInfiniteQuery<
+  const setQuery = useInfiniteQuery<
     SearchPage,
     AppError,
     InfiniteData<SearchPage, number>,
@@ -123,21 +150,104 @@ export function SearchResults() {
       ),
     getNextPageParam: (lastPage: SearchPage) => lastPage.nextPage,
     initialPageParam: 1,
-    enabled: hasQuery,
+    enabled: hasQuery && searchType === 'set',
   });
   const {
-    data,
-    isLoading,
-    error,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = query;
+    data: setData,
+    isLoading: isSetLoading,
+    error: setError,
+    fetchNextPage: fetchNextSetPage,
+    hasNextPage: hasNextSetPage,
+    isFetchingNextPage: isFetchingNextSetPage,
+  } = setQuery;
+
+  const minifigQuery = useInfiniteQuery<
+    MinifigSearchPage,
+    AppError,
+    InfiniteData<MinifigSearchPage, number>,
+    [string, { q: string; pageSize: number }],
+    number
+  >({
+    queryKey: [
+      'search-minifigs',
+      { q, pageSize },
+    ],
+    queryFn: ({ pageParam = 1 }) =>
+      fetchMinifigSearchPage(q, pageParam as number, pageSize),
+    getNextPageParam: (lastPage: MinifigSearchPage) => lastPage.nextPage,
+    initialPageParam: 1,
+    enabled: hasQuery && searchType === 'minifig',
+  });
+  const {
+    data: minifigData,
+    isLoading: isMinifigLoading,
+    error: minifigError,
+    fetchNextPage: fetchNextMinifigPage,
+    hasNextPage: hasNextMinifigPage,
+    isFetchingNextPage: isFetchingNextMinifigPage,
+  } = minifigQuery;
 
   if (!hasQuery) {
     return null;
   }
-  const pages = (data?.pages as SearchPage[] | undefined) ?? [];
+  if (searchType === 'minifig') {
+    const pages =
+      (minifigData?.pages as MinifigSearchPage[] | undefined) ?? [];
+    const results =
+      pages.flatMap((p: MinifigSearchPage) => p.results) ?? [];
+    return (
+      <div className="w-full">
+        <p className="mb-3 text-[11px] text-foreground-muted">
+          Minifigure search looks up Rebrickable minifigs by ID or name. You
+          can add results to your Owned / Wishlist minifig collection and to
+          shared lists.
+        </p>
+        {isMinifigLoading && (
+          <Spinner className="mt-2" label="Loading minifigure results…" />
+        )}
+        {minifigError && (
+          <ErrorBanner
+            className="mt-2"
+            message="Failed to load minifigure results. Please try again."
+          />
+        )}
+        {!isMinifigLoading && !minifigError && results.length > 0 && (
+          <div className="mt-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              {results.map((r: MinifigSearchResult) => (
+                <MinifigSearchResultItem
+                  key={`${r.figNum}-${r.name}`}
+                  figNum={r.figNum}
+                  name={r.name}
+                  imageUrl={r.imageUrl}
+                  numParts={r.numParts}
+                />
+              ))}
+            </div>
+            {hasNextMinifigPage && (
+              <div className="mb-8 flex justify-center py-4">
+                <button
+                  onClick={() => fetchNextMinifigPage()}
+                  disabled={isFetchingNextMinifigPage}
+                  className="rounded-md border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
+                >
+                  {isFetchingNextMinifigPage ? 'Loading…' : 'Load More'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        {!isMinifigLoading && !minifigError && results.length === 0 && (
+          <EmptyState
+            className="mt-4"
+            message="No minifigures found. Try a different ID or name."
+          />
+        )}
+      </div>
+    );
+  }
+
+  const pages = (setData?.pages as SearchPage[] | undefined) ?? [];
   const results = pages.flatMap((p: SearchPage) => p.results) ?? [];
   return (
     <div className="w-full">
@@ -197,16 +307,16 @@ export function SearchResults() {
         results to sets/themes that match your query exactly (set numbers may
         include standard &ldquo;-1&rdquo; style suffixes).
       </p>
-      {isLoading && (
+      {isSetLoading && (
         <Spinner className="mt-2" label="Loading search results…" />
       )}
-      {error && (
+      {setError && (
         <ErrorBanner
           className="mt-2"
           message="Failed to load search results. Please try again."
         />
       )}
-      {!isLoading && !error && results.length > 0 && (
+      {!isSetLoading && !setError && results.length > 0 && (
         <div className="mt-2">
           <div
             data-item-size="md"
@@ -219,20 +329,20 @@ export function SearchResults() {
               />
             ))}
           </div>
-          {hasNextPage && (
+          {hasNextSetPage && (
             <div className="mb-8 flex justify-center py-4">
               <button
-                onClick={() => fetchNextPage()}
-                disabled={isFetchingNextPage}
+                onClick={() => fetchNextSetPage()}
+                disabled={isFetchingNextSetPage}
                 className="rounded-md border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
               >
-                {isFetchingNextPage ? 'Loading…' : 'Load More'}
+                {isFetchingNextSetPage ? 'Loading…' : 'Load More'}
               </button>
             </div>
           )}
         </div>
       )}
-      {!isLoading && !error && results.length === 0 && (
+      {!isSetLoading && !setError && results.length === 0 && (
         <EmptyState
           className="mt-4"
           message="No results found. Try different keywords or check spelling."

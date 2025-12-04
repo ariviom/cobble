@@ -6,8 +6,8 @@ import { Button } from '@/app/components/ui/Button';
 import { CollectionGroupHeading } from '@/app/components/ui/CollectionGroupHeading';
 import { Select } from '@/app/components/ui/Select';
 import { cn } from '@/app/components/ui/utils';
-import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 
 type PublicSetSummary = {
   set_num: string;
@@ -83,9 +83,7 @@ function getRootThemeName(
   return root?.name ?? null;
 }
 
-function getMinifigStatusLabel(
-  status: PublicMinifigSummary['status']
-): string {
+function getMinifigStatusLabel(status: PublicMinifigSummary['status']): string {
   switch (status) {
     case 'owned':
       return 'Owned';
@@ -190,7 +188,8 @@ export function PublicUserCollectionOverview({
   );
 
   const selectedList = useMemo(
-    () => (selectedListId ? lists.find(list => list.id === selectedListId) : null),
+    () =>
+      selectedListId ? lists.find(list => list.id === selectedListId) : null,
     [lists, selectedListId]
   );
 
@@ -215,13 +214,7 @@ export function PublicUserCollectionOverview({
       }
       return true;
     });
-  }, [
-    allSets,
-    collectionFilter,
-    selectedList,
-    themeFilter,
-    themeMap,
-  ]);
+  }, [allSets, collectionFilter, selectedList, themeFilter, themeMap]);
 
   const groupedSets = useMemo(() => {
     const groups = new Map<string, typeof filteredSets>();
@@ -250,7 +243,8 @@ export function PublicUserCollectionOverview({
     const membership = selectedList ? new Set(selectedList.minifigIds) : null;
     return allMinifigs.filter(fig => {
       if (collectionFilter === 'owned' && fig.status !== 'owned') return false;
-      if (collectionFilter === 'wishlist' && fig.status !== 'want') return false;
+      if (collectionFilter === 'wishlist' && fig.status !== 'want')
+        return false;
       if (membership && !membership.has(fig.fig_num)) return false;
       return true;
     });
@@ -272,13 +266,9 @@ export function PublicUserCollectionOverview({
 
   const hasAnySets = allSets.length > 0;
   const hasAnyMinifigs = allMinifigs.length > 0;
-  const hasAnyItems =
-    collectionType === 'sets' ? hasAnySets : hasAnyMinifigs;
+  const hasAnyItems = collectionType === 'sets' ? hasAnySets : hasAnyMinifigs;
 
-  const heading =
-    collectionType === 'sets'
-      ? 'Public sets'
-      : 'Public minifigures';
+  const heading = collectionType === 'sets' ? 'Sets' : 'Minifigures';
 
   const handleFilterChange = (next: CollectionFilter) => {
     setCollectionFilter(next);
@@ -487,38 +477,36 @@ export function PublicUserCollectionOverview({
             </div>
           )}
 
-        {collectionType === 'sets' &&
-          hasAnySets &&
-          filteredSets.length > 0 && (
-            <div className="mt-4 flex flex-col gap-6">
-              {groupedSets.map(group => (
-                <div key={group.label} className="flex flex-col gap-2">
-                  <CollectionGroupHeading>{group.label}</CollectionGroupHeading>
-                  <div
-                    data-item-size="md"
-                    className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-                  >
-                    {group.items.map(set => (
-                      <PublicSetCard
-                        key={set.set_num}
-                        setNumber={set.set_num}
-                        name={set.name}
-                        year={set.year}
-                        imageUrl={set.image_url}
-                        numParts={set.num_parts}
-                        themeLabel={
-                          typeof set.theme_id === 'number' &&
-                          Number.isFinite(set.theme_id)
-                            ? getRootThemeName(set.theme_id, themeMap)
-                            : null
-                        }
-                      />
-                    ))}
-                  </div>
+        {collectionType === 'sets' && hasAnySets && filteredSets.length > 0 && (
+          <div className="mt-4 flex flex-col gap-6">
+            {groupedSets.map(group => (
+              <div key={group.label} className="flex flex-col gap-2">
+                <CollectionGroupHeading>{group.label}</CollectionGroupHeading>
+                <div
+                  data-item-size="md"
+                  className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+                >
+                  {group.items.map(set => (
+                    <PublicSetCard
+                      key={set.set_num}
+                      setNumber={set.set_num}
+                      name={set.name}
+                      year={set.year}
+                      imageUrl={set.image_url}
+                      numParts={set.num_parts}
+                      themeLabel={
+                        typeof set.theme_id === 'number' &&
+                        Number.isFinite(set.theme_id)
+                          ? getRootThemeName(set.theme_id, themeMap)
+                          : null
+                      }
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {collectionType === 'minifigs' &&
           hasAnyMinifigs &&

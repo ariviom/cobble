@@ -4,9 +4,11 @@ import { Button } from '@/app/components/ui/Button';
 import { Input } from '@/app/components/ui/Input';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import type { SearchType } from '@/app/types/search';
 
 type SearchBarProps = {
   initialQuery?: string;
+  initialType?: SearchType;
 };
 
 function getCurrentSearchParams(): URLSearchParams {
@@ -16,10 +18,14 @@ function getCurrentSearchParams(): URLSearchParams {
   return new URLSearchParams(window.location.search);
 }
 
-export function SearchBar({ initialQuery = '' }: SearchBarProps) {
+export function SearchBar({
+  initialQuery = '',
+  initialType = 'set',
+}: SearchBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [q, setQ] = useState<string>(initialQuery);
+  const [type, setType] = useState<SearchType>(initialType);
 
   useEffect(() => {
     setQ(initialQuery);
@@ -29,6 +35,8 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
     const handlePopState = () => {
       const params = getCurrentSearchParams();
       setQ(params.get('q') ?? '');
+      const rawType = params.get('type');
+      setType(rawType === 'minifig' ? 'minifig' : 'set');
     };
     window.addEventListener('popstate', handlePopState);
     return () => {
@@ -40,18 +48,25 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
     e.preventDefault();
     const next = q.trim();
     setQ(next);
-    if (pathname !== '/search') {
-      router.push(next ? `/search?q=${encodeURIComponent(next)}` : '/search');
-      return;
-    }
-    const sp = getCurrentSearchParams();
+    const params = pathname === '/search' ? getCurrentSearchParams() : new URLSearchParams();
     if (next) {
-      sp.set('q', next);
+      params.set('q', next);
     } else {
-      sp.delete('q');
+      params.delete('q');
     }
-    const queryString = sp.toString();
-    router.replace(queryString ? `/search?${queryString}` : '/search');
+    // Only persist non-default type in the URL to keep links clean.
+    if (type === 'minifig') {
+      params.set('type', 'minifig');
+    } else {
+      params.delete('type');
+    }
+    const queryString = params.toString();
+    const href = queryString ? `/search?${queryString}` : '/search';
+    if (pathname !== '/search') {
+      router.push(href);
+    } else {
+      router.replace(href);
+    }
   }
 
   function onClear() {
@@ -67,7 +82,7 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
         className="mb-2 block text-sm font-medium text-foreground"
         htmlFor="global-search"
       >
-        Search set
+        {type === 'minifig' ? 'Search minifigure' : 'Search set'}
       </label>
       <form onSubmit={onSubmit} className="flex items-center gap-2">
         <div className="relative flex-1">
@@ -96,6 +111,25 @@ export function SearchBar({ initialQuery = '' }: SearchBarProps) {
         <Button type="submit" variant="primary" className="px-3 py-2">
           Search
         </Button>
+        <div className="flex items-center">
+          <label
+            htmlFor="search-type"
+            className="mr-1 text-xs font-medium text-foreground-muted"
+          >
+            Type
+          </label>
+          <select
+            id="search-type"
+            className="rounded-md border border-subtle bg-card px-2 py-1 text-xs"
+            value={type}
+            onChange={event =>
+              setType(event.target.value === 'minifig' ? 'minifig' : 'set')
+            }
+          >
+            <option value="set">Sets</option>
+            <option value="minifig">Minifigures</option>
+          </select>
+        </div>
       </form>
     </div>
   );

@@ -1,5 +1,12 @@
 export type MatchType = 'set' | 'theme' | 'subtheme';
 
+/**
+ * High-level search type for the /search page.
+ * - 'set'      → standard set search
+ * - 'minifig'  → minifigure search
+ */
+export type SearchType = 'set' | 'minifig';
+
 export type FilterType = 'all' | MatchType;
 
 export type SearchResult = {
@@ -35,4 +42,17 @@ export type SearchPage = {
   results: SearchResult[];
   nextPage: number | null;
 };
+
+export type MinifigSearchResult = {
+  figNum: string;
+  name: string;
+  imageUrl: string | null;
+  numParts: number | null;
+};
+
+export type MinifigSearchPage = {
+  results: MinifigSearchResult[];
+  nextPage: number | null;
+};
+
 

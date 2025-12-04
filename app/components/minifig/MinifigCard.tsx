@@ -1,53 +1,72 @@
 'use client';
 
-type MinifigStatus = 'owned' | 'want';
+import { useMinifigMeta } from '@/app/hooks/useMinifigMeta';
 
 type MinifigCardProps = {
   figNum: string;
   name: string;
-  status: MinifigStatus;
   numParts?: number | null;
+  quantity?: number | null;
 };
-
-function getStatusMeta(status: MinifigStatus): { label: string; className: string } {
-  switch (status) {
-    case 'owned':
-      return { label: 'Owned', className: 'bg-emerald-100 text-emerald-700' };
-    case 'want':
-      return { label: 'Wishlist', className: 'bg-amber-100 text-amber-800' };
-    default:
-      return { label: 'Wishlist', className: 'bg-amber-100 text-amber-800' };
-  }
-}
 
 export function MinifigCard({
   figNum,
   name,
-  status,
   numParts,
+  quantity,
 }: MinifigCardProps) {
-  const statusMeta = getStatusMeta(status);
+  const { meta } = useMinifigMeta(figNum);
+  // Only show BL ID when available - never show RB fig_num
+  const displayId = meta?.blId ?? null;
+  const imageUrl = meta?.imageUrl ?? null;
+  const displayName =
+    (meta?.name && meta.name.trim()) || (name && name.trim()) || figNum;
+  const partsCount =
+    typeof meta?.numParts === 'number' && Number.isFinite(meta.numParts)
+      ? meta.numParts
+      : (numParts ?? null);
 
   return (
-    <div className="rounded-lg border border-subtle bg-card p-3 shadow-sm transition-colors hover:border-strong">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-col">
-          <span className="text-sm font-semibold text-foreground">
-            {name}
-          </span>
-          <span className="text-xs text-foreground-muted">{figNum}</span>
+    <div className="rounded-lg border border-subtle bg-card shadow-sm transition-colors hover:border-strong">
+      <div className="w-full">
+        <div className="relative w-full bg-card-muted">
+          <div className="relative mx-auto w-full max-w-full bg-card p-2">
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={imageUrl}
+                alt={displayName}
+                className="aspect-square h-full w-full overflow-hidden rounded-lg object-cover"
+              />
+            ) : (
+              <div className="flex aspect-square items-center justify-center text-xs text-foreground-muted">
+                No image
+              </div>
+            )}
+          </div>
         </div>
-        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${statusMeta.className}`}>
-          {statusMeta.label}
-        </span>
+        <div className="flex items-start gap-2 px-3 py-3">
+          <div className="min-w-0 flex-1">
+            <div className="line-clamp-2 w-full overflow-hidden font-medium">
+              {displayName}
+            </div>
+            <div className="mt-1 w-full text-xs text-foreground-muted">
+              {displayId && <span>{displayId}</span>}
+              {typeof partsCount === 'number' && partsCount > 0 && (
+                <span className={displayId ? 'ml-1' : ''}>
+                  {displayId && '• '}
+                  {partsCount} parts
+                </span>
+              )}
+              {typeof quantity === 'number' && quantity > 0 && (
+                <span className="ml-1">
+                  • {quantity} {quantity === 1 ? 'copy' : 'copies'}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-      {typeof numParts === 'number' && numParts > 0 && (
-        <p className="mt-3 text-[11px] text-foreground-muted">
-          {numParts} parts
-        </p>
-      )}
     </div>
   );
 }
-
-

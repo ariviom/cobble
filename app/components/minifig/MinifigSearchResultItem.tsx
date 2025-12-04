@@ -1,34 +1,25 @@
 'use client';
 
-import { useMinifigMeta } from '@/app/hooks/useMinifigMeta';
+import { MinifigOwnershipAndCollectionsRow } from '@/app/components/minifig/MinifigOwnershipAndCollectionsRow';
+import { useMinifigOwnershipState } from '@/app/hooks/useMinifigOwnershipState';
 
-type PublicMinifigCardProps = {
+type MinifigSearchResultItemProps = {
   figNum: string;
   name: string;
-  numParts?: number | null;
-  status?: 'owned' | 'want' | null;
+  imageUrl: string | null;
+  numParts: number | null;
 };
 
-export function PublicMinifigCard({
+export function MinifigSearchResultItem({
   figNum,
   name,
+  imageUrl,
   numParts,
-}: PublicMinifigCardProps) {
-  const { meta } = useMinifigMeta(figNum);
-  // Only show BL ID when available - never show RB fig_num
-  const displayId = meta?.blId ?? null;
-  const imageUrl = meta?.imageUrl ?? null;
-  const displayName =
-    (meta?.name && meta.name.trim()) ||
-    (name && name.trim()) ||
-    figNum;
-  const partsCount =
-    typeof meta?.numParts === 'number' && Number.isFinite(meta.numParts)
-      ? meta.numParts
-      : numParts ?? null;
+}: MinifigSearchResultItemProps) {
+  const ownership = useMinifigOwnershipState({ figNum });
 
   return (
-    <div className="rounded-lg border border-subtle bg-card shadow-sm">
+    <div className="group relative flex flex-col overflow-hidden rounded-lg border border-subtle bg-card">
       <div className="w-full">
         <div className="relative w-full bg-card-muted">
           <div className="relative mx-auto w-full max-w-full bg-card p-2">
@@ -36,7 +27,7 @@ export function PublicMinifigCard({
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={imageUrl}
-                alt={displayName}
+                alt={name}
                 className="aspect-square h-full w-full overflow-hidden rounded-lg object-cover"
               />
             ) : (
@@ -49,20 +40,22 @@ export function PublicMinifigCard({
         <div className="flex items-start gap-2 px-3 py-3">
           <div className="min-w-0 flex-1">
             <div className="line-clamp-2 w-full overflow-hidden font-medium">
-              {displayName}
+              {name}
             </div>
             <div className="mt-1 w-full text-xs text-foreground-muted">
-              {displayId && <span>{displayId}</span>}
-              {typeof partsCount === 'number' && partsCount > 0 && (
-                <span className={displayId ? 'ml-1' : ''}>
-                  {displayId && '• '}{partsCount} parts
-                </span>
+              <span>{figNum}</span>
+              {typeof numParts === 'number' && numParts > 0 && (
+                <span className="ml-1">• {numParts} parts</span>
               )}
             </div>
           </div>
         </div>
       </div>
+      <div className="px-3 pb-3">
+        <MinifigOwnershipAndCollectionsRow ownership={ownership} />
+      </div>
     </div>
   );
 }
+
 

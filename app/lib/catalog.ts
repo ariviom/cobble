@@ -9,6 +9,7 @@ import {
 } from '@/app/lib/rebrickable';
 import { filterExactMatches } from '@/app/lib/searchExactMatch';
 import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
+import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import type { MatchType } from '@/app/types/search';
 import type { Json } from '@/supabase/types';
 
@@ -530,6 +531,69 @@ export async function getSetSummaryLocal(setNumber: string): Promise<{
     themeId: rawThemeId,
     themeName,
   };
+}
+
+export type LocalSetMinifig = {
+  figNum: string;
+  quantity: number;
+};
+
+export async function getSetMinifigsLocal(
+  setNumber: string
+): Promise<LocalSetMinifig[]> {
+  const trimmed = setNumber.trim();
+  if (!trimmed) return [];
+
+  // Uses service-role client because rb_inventories / rb_inventory_minifigs are
+  // internal catalog tables with RLS enabled and no anon/auth read policies.
+  const supabase = getSupabaseServiceRoleClient();
+
+  const { data: inventories, error: invError } = await supabase
+    .from('rb_inventories')
+    .select('id')
+    .eq('set_num', trimmed);
+
+  if (invError) {
+    throw new Error(
+      `Supabase getSetMinifigsLocal rb_inventories failed: ${invError.message}`
+    );
+  }
+
+  const inventoryIds = (inventories ?? []).map(row => row.id);
+  if (!inventoryIds.length) {
+    return [];
+  }
+
+  const { data: invMinifigs, error: figsError } = await supabase
+    .from('rb_inventory_minifigs')
+    .select('inventory_id,fig_num,quantity')
+    .in('inventory_id', inventoryIds);
+
+  if (figsError) {
+    throw new Error(
+      `Supabase getSetMinifigsLocal rb_inventory_minifigs failed: ${figsError.message}`
+    );
+  }
+
+  if (!invMinifigs || invMinifigs.length === 0) {
+    return [];
+  }
+
+  const byFig = new Map<string, number>();
+  for (const row of invMinifigs) {
+    if (!row.fig_num) continue;
+    const current = byFig.get(row.fig_num) ?? 0;
+    const q =
+      typeof row.quantity === 'number' && Number.isFinite(row.quantity)
+        ? row.quantity
+        : 0;
+    byFig.set(row.fig_num, current + q);
+  }
+
+  return Array.from(byFig.entries()).map(([figNum, quantity]) => ({
+    figNum,
+    quantity,
+  }));
 }
 
 

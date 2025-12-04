@@ -782,15 +782,15 @@ export function UserCollectionOverview({
                 <div key={group.label} className="flex flex-col gap-2">
                   <CollectionGroupHeading>{group.label}</CollectionGroupHeading>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                    {group.items.map(fig => (
-                      <MinifigCard
-                        key={fig.figNum}
-                        figNum={fig.figNum}
-                        name={fig.name}
-                        status={fig.status}
-                        numParts={fig.numParts}
-                      />
-                    ))}
+                  {group.items.map(fig => (
+                    <MinifigCard
+                      key={fig.figNum}
+                      figNum={fig.figNum}
+                      name={fig.name}
+                      numParts={fig.numParts}
+                      quantity={fig.quantity}
+                    />
+                  ))}
                   </div>
                 </div>
               ))}

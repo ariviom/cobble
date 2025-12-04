@@ -1,10 +1,10 @@
-import { PageLayout } from '@/app/components/layout/PageLayout';
 import { UserCollectionOverview } from '@/app/components/home/UserCollectionOverview';
+import { PageLayout } from '@/app/components/layout/PageLayout';
 import { PublicUserCollectionOverview } from '@/app/components/user/PublicUserCollectionOverview';
-import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
-import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import { resolvePublicUser } from '@/app/lib/publicUsers';
 import { fetchThemes } from '@/app/lib/services/themes';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import { buildUserHandle } from '@/app/lib/users';
 import type { Tables } from '@/supabase/types';
 import { Lock } from 'lucide-react';
@@ -115,20 +115,23 @@ export default async function CollectionHandlePage({
     if (user) {
       currentUserId = user.id;
 
-      const {
-        data: profile,
-      } = await (supabaseAuth as unknown as {
-        from: (table: 'user_profiles') => {
-          select: (columns: 'user_id,username') => {
-            eq: (column: 'user_id', value: UserId) => {
-              maybeSingle: () => Promise<{
-                data: Pick<UserProfileRow, 'user_id' | 'username'> | null;
-                error: { message: string } | null;
-              }>;
+      const { data: profile } = await (
+        supabaseAuth as unknown as {
+          from: (table: 'user_profiles') => {
+            select: (columns: 'user_id,username') => {
+              eq: (
+                column: 'user_id',
+                value: UserId
+              ) => {
+                maybeSingle: () => Promise<{
+                  data: Pick<UserProfileRow, 'user_id' | 'username'> | null;
+                  error: { message: string } | null;
+                }>;
+              };
             };
           };
-        };
-      })
+        }
+      )
         .from('user_profiles')
         .select('user_id,username')
         .eq('user_id', user.id as UserId)
@@ -377,26 +380,15 @@ export default async function CollectionHandlePage({
   }));
 
   const themes = await fetchThemes().catch(() => []);
-  const title = publicProfile.display_name || 'Brick Party builder';
+  const title = publicProfile.username || 'Brick Party - User Collection';
 
   return (
     <PageLayout>
       <section className="mb-8">
         <div className="mx-auto w-full max-w-7xl">
-          <div className="my-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-semibold">{title}</h2>
-              <div className="flex flex-wrap items-center gap-3 text-xs text-foreground-muted">
-                <span className="rounded-full bg-card-muted px-2 py-0.5 font-mono text-[11px] text-foreground-muted">
-                  /collection/{canonicalHandle}
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  Lists public
-                </span>
-              </div>
-            </div>
-          </div>
+          <h2 className="my-4 w-full text-center text-2xl font-semibold">
+            {title}
+          </h2>
         </div>
       </section>
       <PublicUserCollectionOverview
@@ -410,5 +402,3 @@ export default async function CollectionHandlePage({
     </PageLayout>
   );
 }
-
-

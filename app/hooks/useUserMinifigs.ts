@@ -10,6 +10,7 @@ export type UserMinifig = {
   name: string;
   numParts: number | null;
   status: Tables<'user_minifigs'>['status'];
+  quantity: number | null;
 };
 
 type UseUserMinifigsResult = {
@@ -40,8 +41,8 @@ export function useUserMinifigs(): UseUserMinifigsResult {
       setIsLoading(true);
       const { data, error: queryError } = await supabase
         .from('user_minifigs')
-        .select<'fig_num,status,rb_minifigs(name,num_parts)'>(
-          'fig_num,status,rb_minifigs(name,num_parts)'
+        .select<'fig_num,status,quantity,rb_minifigs(name,num_parts)'>(
+          'fig_num,status,quantity,rb_minifigs(name,num_parts)'
         )
         .eq('user_id', user.id)
         .order('fig_num', { ascending: true });
@@ -70,6 +71,10 @@ export function useUserMinifigs(): UseUserMinifigsResult {
         status: row.status,
         name: row.rb_minifigs?.name ?? row.fig_num,
         numParts: row.rb_minifigs?.num_parts ?? null,
+        quantity:
+          typeof row.quantity === 'number' && Number.isFinite(row.quantity)
+            ? row.quantity
+            : null,
       }));
 
       setMinifigs(normalized);

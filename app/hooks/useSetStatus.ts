@@ -80,25 +80,38 @@ export function useSetStatus({
 
     // When turning a status on, we store exactly that status.
     // When turning a status off, we clear all flags and delete the row.
-    if (!nextValue) {
-      void supabase
-        .from('user_sets')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('set_num', setNumber);
-    } else {
-      const dbStatus = localKeyToDbStatus(key);
-      void supabase
-        .from('user_sets')
-        .upsert(
-          {
-            user_id: user.id,
-            set_num: setNumber,
-            status: dbStatus,
-          },
-          { onConflict: 'user_id,set_num' }
-        );
-    }
+    void (async () => {
+      if (!nextValue) {
+        await supabase
+          .from('user_sets')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('set_num', setNumber);
+      } else {
+        const dbStatus = localKeyToDbStatus(key);
+        await supabase
+          .from('user_sets')
+          .upsert(
+            {
+              user_id: user.id,
+              set_num: setNumber,
+              status: dbStatus,
+            },
+            { onConflict: 'user_id,set_num' }
+          );
+      }
+
+      // After user_sets is updated, kick off a best-effort sync of minifigs
+      // derived from user sets. This keeps user_minifigs in sync without
+      // blocking the UI.
+      try {
+        await fetch('/api/user/minifigs/sync-from-sets', {
+          method: 'POST',
+        });
+      } catch (err) {
+        console.error('Failed to sync minifigs from sets', err);
+      }
+    })();
   };
 
   return { status, toggleStatus };

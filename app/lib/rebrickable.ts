@@ -951,6 +951,67 @@ export async function searchParts(
   return data.results ?? [];
 }
 
+type RebrickableMinifigSearchResult = {
+  fig_num?: string;
+  set_num?: string;
+  name: string;
+  num_parts?: number;
+  set_img_url?: string | null;
+};
+
+export async function searchMinifigs(
+  query: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<{
+  results: {
+    figNum: string;
+    name: string;
+    imageUrl: string | null;
+    numParts: number | null;
+  }[];
+  nextPage: number | null;
+}> {
+  const trimmed = query.trim();
+  if (!trimmed) {
+    return { results: [], nextPage: null };
+  }
+  const data = await rbFetch<{
+    results: RebrickableMinifigSearchResult[];
+    next: string | null;
+  }>('/lego/minifigs/', {
+    search: trimmed,
+    page_size: Math.max(1, Math.min(100, pageSize)),
+    page,
+  });
+
+  const mapped =
+    data.results?.map(result => {
+      const rawId =
+        (typeof result.fig_num === 'string' && result.fig_num.trim()) ||
+        (typeof result.set_num === 'string' && result.set_num.trim()) ||
+        '';
+      const figNum = rawId || '';
+      const name = result.name || figNum || trimmed;
+      const numParts =
+        typeof result.num_parts === 'number' && Number.isFinite(result.num_parts)
+          ? result.num_parts
+          : null;
+      const imageUrl =
+        typeof result.set_img_url === 'string' ? result.set_img_url : null;
+      return {
+        figNum,
+        name,
+        imageUrl,
+        numParts,
+      };
+    }) ?? [];
+
+  const results = mapped.filter(r => r.figNum);
+  const nextPage = data.next ? page + 1 : null;
+  return { results, nextPage };
+}
+
 export type ResolvedPart = {
   partNum: string;
   name: string;
