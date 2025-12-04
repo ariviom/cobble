@@ -1,4 +1,5 @@
 import { MinifigPageClient } from '@/app/components/minifig/MinifigPageClient';
+import { PageLayout } from '@/app/components/layout/PageLayout';
 import { notFound } from 'next/navigation';
 
 type RouteParams = {
@@ -16,7 +17,11 @@ export default async function MinifigPage({ params }: MinifigPageProps) {
     notFound();
   }
 
-  return <MinifigPageClient figNum={figNum} />;
+  return (
+    <PageLayout>
+      <MinifigPageClient figNum={figNum} />
+    </PageLayout>
+  );
 }
 
 

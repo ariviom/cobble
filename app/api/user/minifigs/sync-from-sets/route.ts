@@ -1,14 +1,17 @@
 import { getSetMinifigsLocal } from '@/app/lib/catalog';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { loadUserMinifigSyncPreferences } from '@/app/lib/userMinifigSyncPreferences';
 import type { Enums, Tables } from '@/supabase/types';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 type SyncResponse = {
   ok: boolean;
   updated: number;
 };
 
-export async function POST(): Promise<NextResponse<SyncResponse>> {
+export async function POST(
+  req: NextRequest
+): Promise<NextResponse<SyncResponse>> {
   try {
     const supabase = await getSupabaseAuthServerClient();
     const {
@@ -21,6 +24,19 @@ export async function POST(): Promise<NextResponse<SyncResponse>> {
         { ok: false, updated: 0 },
         { status: 401 }
       );
+    }
+
+    const forceParam = req.nextUrl.searchParams.get('force');
+    const force =
+      forceParam === '1' ||
+      forceParam === 'true' ||
+      (forceParam ?? '').toLowerCase() === 'yes';
+
+    if (!force) {
+      const prefs = await loadUserMinifigSyncPreferences(supabase, user.id);
+      if (!prefs.syncOwnedFromSets) {
+        return NextResponse.json({ ok: true, updated: 0 });
+      }
     }
 
     const { data: userSets, error: setsError } = await supabase
@@ -48,14 +64,11 @@ export async function POST(): Promise<NextResponse<SyncResponse>> {
       return NextResponse.json({ ok: true, updated: 0 });
     }
 
-    const contributions = new Map<
-      string,
-      { owned: number; want: number }
-    >();
+    const contributions = new Map<string, { owned: number }>();
 
     for (const row of sets) {
       const status = row.status as Enums<'set_status'>;
-      if (status !== 'owned' && status !== 'want') continue;
+      if (status !== 'owned') continue;
       if (!row.set_num) continue;
 
       let minifigs: Awaited<ReturnType<typeof getSetMinifigsLocal>> = [];
@@ -71,11 +84,9 @@ export async function POST(): Promise<NextResponse<SyncResponse>> {
 
       for (const fig of minifigs) {
         if (!fig.figNum) continue;
-        const entry = contributions.get(fig.figNum) ?? { owned: 0, want: 0 };
+        const entry = contributions.get(fig.figNum) ?? { owned: 0 };
         if (status === 'owned') {
           entry.owned += fig.quantity;
-        } else if (status === 'want') {
-          entry.want += fig.quantity;
         }
         contributions.set(fig.figNum, entry);
       }
@@ -119,12 +130,10 @@ export async function POST(): Promise<NextResponse<SyncResponse>> {
 
     for (const [figNum, counts] of contributions.entries()) {
       const existing = existingMap.get(figNum);
-      const computedStatus: Enums<'set_status'> | null =
-        counts.owned > 0
-          ? 'owned'
-          : counts.want > 0
-            ? 'want'
-            : null;
+      const hasOwned = counts.owned > 0;
+      const computedStatus: Enums<'set_status'> | null = hasOwned
+        ? 'owned'
+        : null;
 
       let nextStatus: Enums<'set_status'> | null = null;
 
@@ -133,8 +142,9 @@ export async function POST(): Promise<NextResponse<SyncResponse>> {
         nextStatus = 'owned';
       } else if (existing?.status === 'want') {
         if (computedStatus === 'owned') {
+          // Promote wishlist minifig to owned when owned sets contribute.
           nextStatus = 'owned';
-        } else if (computedStatus === 'want' || computedStatus === null) {
+        } else {
           // Keep existing wishlist even if sets no longer contribute.
           nextStatus = 'want';
         }
@@ -148,14 +158,10 @@ export async function POST(): Promise<NextResponse<SyncResponse>> {
       }
 
       const ownedQuantity = counts.owned > 0 ? counts.owned : null;
-      const wantQuantity =
-        counts.want > 0 && counts.owned === 0 ? counts.want : null;
 
       let quantity: number | null = existing?.quantity ?? null;
       if (nextStatus === 'owned' && ownedQuantity != null) {
         quantity = ownedQuantity;
-      } else if (nextStatus === 'want' && wantQuantity != null) {
-        quantity = wantQuantity;
       }
 
       upserts.push({

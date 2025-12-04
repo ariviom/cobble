@@ -2,6 +2,7 @@ import AccountPageClient from '@/app/account/AccountPageClient';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { DEFAULT_PRICING_PREFERENCES } from '@/app/lib/pricing';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
+import { loadUserMinifigSyncPreferences } from '@/app/lib/userMinifigSyncPreferences';
 import type { Tables } from '@/supabase/types';
 import type { User } from '@supabase/supabase-js';
 
@@ -15,19 +16,21 @@ export default async function AccountPage() {
   let initialProfile: UserProfileRow | null = null;
   let initialPricingCurrency = DEFAULT_PRICING_PREFERENCES.currencyCode;
   let initialPricingCountry = DEFAULT_PRICING_PREFERENCES.countryCode;
+  let initialSyncOwnedMinifigsFromSets = true;
 
   try {
         const {
           data: { user },
         } = await supabase.auth.getUser();
 
-        if (!user) {
+    if (!user) {
       return (
         <AccountPageClient
           initialUser={null}
           initialProfile={null}
           initialPricingCurrency={initialPricingCurrency}
           initialPricingCountry={initialPricingCountry}
+          initialSyncOwnedMinifigsFromSets={initialSyncOwnedMinifigsFromSets}
         />
       );
     }
@@ -70,6 +73,17 @@ export default async function AccountPage() {
     } catch {
       // Ignore pricing preference failures on the server; client can retry.
     }
+
+    try {
+      const minifigPrefs = await loadUserMinifigSyncPreferences(
+        supabase,
+        user.id
+      );
+      initialSyncOwnedMinifigsFromSets = !!minifigPrefs.syncOwnedFromSets;
+    } catch {
+      // Fall back to default sync behavior if preferences fail to load.
+      initialSyncOwnedMinifigsFromSets = true;
+    }
   } catch {
     // If server-side auth fails, fall back to client-only behavior.
   }
@@ -80,6 +94,7 @@ export default async function AccountPage() {
       initialProfile={initialProfile}
       initialPricingCurrency={initialPricingCurrency}
       initialPricingCountry={initialPricingCountry}
+      initialSyncOwnedMinifigsFromSets={initialSyncOwnedMinifigsFromSets}
     />
   );
 }

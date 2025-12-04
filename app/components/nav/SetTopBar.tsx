@@ -19,9 +19,11 @@ import { QuantityDropdown } from '@/app/components/ui/QuantityDropdown';
 import { cn } from '@/app/components/ui/utils';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
+import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { Copy, ExternalLink, QrCode, Trophy, Users } from 'lucide-react';
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type SetTopBarProps = {
   setNumber: string;
@@ -67,6 +69,7 @@ export function SetTopBar({
     ...(typeof numParts === 'number' ? { numParts } : {}),
     ...(typeof themeId === 'number' ? { themeId } : {}),
   });
+  const { user } = useSupabaseUser();
   const participantCount = searchParty?.participants.length ?? 0;
   const totalPiecesFound = searchParty?.totalPiecesFound ?? 0;
   const bricklinkSetUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?S=${encodeURIComponent(
@@ -119,6 +122,67 @@ export function SetTopBar({
         console.error('Failed to copy Search Party link', err);
       }
     }
+  };
+
+  // Load persisted set-level quantity from Supabase when available.
+  useEffect(() => {
+    if (!user) {
+      setSetQuantity(1);
+      return;
+    }
+
+    let cancelled = false;
+    const supabase = getSupabaseBrowserClient();
+
+    const run = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_sets')
+          .select<'quantity'>('quantity')
+          .eq('user_id', user.id)
+          .eq('set_num', setNumber)
+          .maybeSingle();
+        if (cancelled || error || !data) return;
+        const q =
+          typeof data.quantity === 'number' &&
+          Number.isFinite(data.quantity) &&
+          data.quantity > 0
+            ? data.quantity
+            : 1;
+        setSetQuantity(q);
+      } catch (err) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('SetTopBar: failed to load set quantity', err);
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, setNumber]);
+
+  const handleQuantityChange = (next: number) => {
+    const normalized = Math.max(1, Math.floor(next || 1));
+    setSetQuantity(normalized);
+
+    // Only persist when the user is authenticated and the set is tracked
+    // (Owned or Wishlist). For anonymous users this stays local only.
+    if (
+      !user ||
+      (!ownership.status.owned && !ownership.status.wantToBuild)
+    ) {
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    void supabase
+      .from('user_sets')
+      .update({ quantity: normalized })
+      .eq('user_id', user.id)
+      .eq('set_num', setNumber);
   };
 
   return (
@@ -182,7 +246,7 @@ export function SetTopBar({
                 <span>Copies</span>
                 <QuantityDropdown
                   value={setQuantity}
-                  onChange={setSetQuantity}
+                  onChange={handleQuantityChange}
                   max={20}
                   aria-label="Set quantity"
                 />

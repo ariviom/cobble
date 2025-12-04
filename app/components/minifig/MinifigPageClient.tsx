@@ -70,7 +70,7 @@ export function MinifigPageClient({ figNum }: MinifigPageClientProps) {
   };
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-6 lg:py-8">
+    <section className="mx-auto w-full max-w-4xl px-4 py-6 lg:py-8">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="truncate text-xl font-semibold lg:text-2xl">
@@ -169,7 +169,7 @@ export function MinifigPageClient({ figNum }: MinifigPageClientProps) {
           </div>
         </div>
       </section>
-    </main>
+    </section>
   );
 }
 
