@@ -1,14 +1,14 @@
 import { getSetMinifigsLocal } from '@/app/lib/catalog';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import type { Enums, Tables } from '@/supabase/types';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 type SyncResponse = {
   ok: boolean;
   updated: number;
 };
 
-export async function POST(_req: NextRequest): Promise<NextResponse<SyncResponse>> {
+export async function POST(): Promise<NextResponse<SyncResponse>> {
   try {
     const supabase = await getSupabaseAuthServerClient();
     const {

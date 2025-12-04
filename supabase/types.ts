@@ -474,6 +474,24 @@ export type Database = {
           },
         ]
       }
+      rb_minifig_images: {
+        Row: {
+          fig_num: string
+          image_url: string | null
+          last_fetched_at: string | null
+        }
+        Insert: {
+          fig_num: string
+          image_url?: string | null
+          last_fetched_at?: string | null
+        }
+        Update: {
+          fig_num?: string
+          image_url?: string | null
+          last_fetched_at?: string | null
+        }
+        Relationships: []
+      }
       rb_minifigs: {
         Row: {
           fig_num: string
@@ -820,6 +838,7 @@ export type Database = {
           status: Database["public"]["Enums"]["set_status"]
           updated_at: string
           user_id: string
+          quantity: number | null
         }
         Insert: {
           created_at?: string
@@ -827,6 +846,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["set_status"]
           updated_at?: string
           user_id: string
+          quantity?: number | null
         }
         Update: {
           created_at?: string
@@ -834,6 +854,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["set_status"]
           updated_at?: string
           user_id?: string
+          quantity?: number | null
         }
         Relationships: [
           {

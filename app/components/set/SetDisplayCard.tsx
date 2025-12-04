@@ -1,7 +1,6 @@
 'use client';
 
-import { SetOwnershipAndCollectionsRow } from '@/app/components/set/SetOwnershipAndCollectionsRow';
-import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
+import type { ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -20,6 +19,12 @@ export type SetDisplayCardProps = {
   themeId?: number | null;
   onRemove?: () => void;
   className?: string;
+  /**
+   * Optional footer content rendered below the card body (for example,
+   * ownership and list controls). This lets callers decide in which contexts
+   * controls are shown (search vs. collection views).
+   */
+  children?: ReactNode;
 };
 
 export function SetDisplayCard({
@@ -30,8 +35,8 @@ export function SetDisplayCard({
   numParts,
   quantity,
   themeLabel,
-  themeId,
   className,
+  children,
 }: SetDisplayCardProps) {
   // Infer metadata display: prefer numParts, fallback to quantity.
   const metadataParts: string[] = [setNumber, String(year)];
@@ -40,15 +45,6 @@ export function SetDisplayCard({
   } else if (typeof quantity === 'number' && Number.isFinite(quantity)) {
     metadataParts.push(`${quantity} pieces`);
   }
-
-  const ownership = useSetOwnershipState({
-    setNumber,
-    name,
-    imageUrl,
-    ...(typeof year === 'number' ? { year } : {}),
-    ...(typeof numParts === 'number' ? { numParts } : {}),
-    ...(typeof themeId === 'number' ? { themeId } : {}),
-  });
 
   return (
     <div
@@ -91,7 +87,8 @@ export function SetDisplayCard({
           </div>
         </div>
       </Link>
-      <SetOwnershipAndCollectionsRow ownership={ownership} />
+      {children}
     </div>
   );
 }
+

@@ -11,11 +11,15 @@ import {
   CardTitle,
 } from '@/app/components/ui/Card';
 import { Modal } from '@/app/components/ui/Modal';
-import { MoreDropdown } from '@/app/components/ui/MoreDropdown';
+import {
+  MoreDropdown,
+  MoreDropdownButton,
+} from '@/app/components/ui/MoreDropdown';
+import { QuantityDropdown } from '@/app/components/ui/QuantityDropdown';
 import { cn } from '@/app/components/ui/utils';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
-import { Copy, QrCode, Trophy, Users } from 'lucide-react';
+import { Copy, ExternalLink, QrCode, Trophy, Users } from 'lucide-react';
 import Image from 'next/image';
 import { useMemo, useState } from 'react';
 
@@ -53,6 +57,7 @@ export function SetTopBar({
   searchParty,
 }: SetTopBarProps) {
   const [searchPartyModalOpen, setSearchTogetherModalOpen] = useState(false);
+  const [setQuantity, setSetQuantity] = useState<number>(1);
   const { isLoading, totalMissing, ownedTotal } = useInventory(setNumber);
   const ownership = useSetOwnershipState({
     setNumber,
@@ -150,11 +155,15 @@ export function SetTopBar({
                 className="absolute top-3 right-3 ml-auto flex-shrink-0"
               >
                 {() => (
-                  <SetOwnershipAndCollectionsRow
-                    ownership={ownership}
-                    variant="dropdown"
-                    bricklinkUrl={bricklinkSetUrl}
-                  />
+                  <div className="min-w-min rounded-md border border-subtle bg-card py-1 text-xs shadow-lg">
+                    <MoreDropdownButton
+                      icon={<ExternalLink className="size-4" />}
+                      label="View on BrickLink"
+                      href={bricklinkSetUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    />
+                  </div>
                 )}
               </MoreDropdown>
             </div>
@@ -163,31 +172,47 @@ export function SetTopBar({
                 ? 'Computing…'
                 : `${ownedTotal} / ${totalMissing} parts`}
             </div>
-            {searchParty && (
-              <button
-                type="button"
-                aria-label="Search Party"
-                className={cn(
-                  'relative mt-2 inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                  searchParty.active
-                    ? 'text-theme-primary-contrast border-theme-primary bg-theme-primary'
-                    : 'hover:text-theme-primary-contrast border-foreground text-foreground hover:border-theme-primary hover:bg-theme-primary'
-                )}
-                disabled={!searchParty}
-                onClick={() => {
-                  if (!searchParty) return;
-                  setSearchTogetherModalOpen(true);
-                }}
-              >
-                <Users className="size-4" />
-                Search Party
-                {searchParty.active && (
-                  <div className="text-theme-primary-contrast absolute -right-2 -bottom-3 flex size-5 items-center justify-center rounded-full border-2 border-background bg-theme-primary text-sm">
-                    {participantCount.toLocaleString()}
-                  </div>
-                )}
-              </button>
-            )}
+            <div className="mt-2 flex w-full flex-wrap items-center gap-2">
+              <SetOwnershipAndCollectionsRow
+                ownership={ownership}
+                variant="inline"
+                className="mt-0 flex-shrink-0 gap-2"
+              />
+              <div className="flex items-center gap-1 text-xs text-foreground-muted">
+                <span>Copies</span>
+                <QuantityDropdown
+                  value={setQuantity}
+                  onChange={setSetQuantity}
+                  max={20}
+                  aria-label="Set quantity"
+                />
+              </div>
+              {searchParty && (
+                <button
+                  type="button"
+                  aria-label="Search Party"
+                  className={cn(
+                    'relative inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                    searchParty.active
+                      ? 'text-theme-primary-contrast border-theme-primary bg-theme-primary'
+                      : 'hover:text-theme-primary-contrast border-foreground text-foreground hover:border-theme-primary hover:bg-theme-primary'
+                  )}
+                  disabled={!searchParty}
+                  onClick={() => {
+                    if (!searchParty) return;
+                    setSearchTogetherModalOpen(true);
+                  }}
+                >
+                  <Users className="size-4" />
+                  Search Party
+                  {searchParty.active && (
+                    <div className="text-theme-primary-contrast absolute -right-2 -bottom-3 flex size-5 items-center justify-center rounded-full border-2 border-background bg-theme-primary text-sm">
+                      {participantCount.toLocaleString()}
+                    </div>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

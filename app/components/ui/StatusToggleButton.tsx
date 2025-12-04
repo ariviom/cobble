@@ -12,11 +12,12 @@ export type StatusToggleButtonProps =
   };
 
 const baseStyles =
-  'inline-flex items-center w-full gap-1 rounded px-3 py-2 text-xs text-foreground-muted bg-card hover:bg-card-muted border-r border-subtle last:border-r-0';
+  'inline-flex items-center gap-1 rounded px-3 py-1.5 text-xs text-foreground-muted bg-card hover:bg-card-muted';
 
-const defaultStyles = 'group-[.status-row]:flex-col';
+const defaultStyles =
+  'w-full border-r border-subtle last:border-r-0 group-[.status-row]:flex-col';
 
-const inlineStyles = 'flex-row border-r-0';
+const inlineStyles = 'w-auto border border-subtle flex-row';
 
 const activeStyles = 'bg-theme-primary/10 text-theme-primary';
 

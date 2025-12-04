@@ -1,6 +1,6 @@
 'use client';
 
-import { SetDisplayCard } from '@/app/components/set/SetDisplayCard';
+import { SetSearchResultCard } from '@/app/components/set/SetSearchResultCard';
 import { X } from 'lucide-react';
 import type { IdentifySet } from './types';
 
@@ -27,7 +27,7 @@ export function IdentifySetListItem({ item, onRemove }: Props) {
           <X className="size-4" />
         </button>
       )}
-      <SetDisplayCard
+      <SetSearchResultCard
         setNumber={item.setNumber}
         name={item.name}
         year={item.year}

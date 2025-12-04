@@ -1,11 +1,11 @@
 'use client';
 
-import { SetDisplayCard } from '@/app/components/set/SetDisplayCard';
+import { SetSearchResultCard } from '@/app/components/set/SetSearchResultCard';
 import type { SearchResult } from '@/app/types/search';
 
 export function SearchResultListItem({ result }: { result: SearchResult }) {
   return (
-    <SetDisplayCard
+    <SetSearchResultCard
       setNumber={result.setNumber}
       name={result.name}
       year={result.year}

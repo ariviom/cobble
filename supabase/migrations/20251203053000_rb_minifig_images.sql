@@ -21,3 +21,4 @@ create policy "Allow read rb_minifig_images"
   using (true);
 
 
+

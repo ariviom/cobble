@@ -11,17 +11,12 @@ type MinifigMetaResponse = {
   numParts: number | null;
 };
 
-type RouteParams = {
-  params: {
-    figNum?: string;
-  };
-};
-
 export async function GET(
   _req: NextRequest,
-  { params }: RouteParams
+  context: unknown
 ): Promise<NextResponse<MinifigMetaResponse | { error: string }>> {
-  const raw = params.figNum ?? '';
+  const { params } = (context as { params?: { figNum?: string } }) ?? {};
+  const raw = params?.figNum ?? '';
   const figNum = raw.trim();
   if (!figNum) {
     return NextResponse.json(

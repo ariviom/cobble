@@ -33,3 +33,4 @@ create policy "Allow read rb_minifig_parts"
   to anon, authenticated
   using (true);
 
+
