@@ -1,8 +1,13 @@
 import { getPart } from '@/app/lib/rebrickable';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
+import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
 const PART_SUFFIX_PATTERN = /^(\d+)[a-z]$/i;
+const RATE_WINDOW_MS =
+  Number.parseInt(process.env.BL_RATE_WINDOW_MS ?? '', 10) || 60_000;
+const RATE_LIMIT_PER_MINUTE =
+  Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE ?? '', 10) || 60;
 
 async function checkMappingTable(partId: string): Promise<string | null> {
   try {
@@ -151,6 +156,24 @@ export async function GET(req: NextRequest) {
   const part = searchParams.get('part');
   if (!part || !part.trim()) {
     return NextResponse.json({ error: 'missing_part' }, { status: 400 });
+  }
+  const clientIp = (await getClientIp(req)) ?? 'unknown';
+  const ipLimit = await consumeRateLimit(`ip:${clientIp}`, {
+    windowMs: RATE_WINDOW_MS,
+    maxHits: RATE_LIMIT_PER_MINUTE,
+  });
+  if (!ipLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: 'rate_limited',
+        scope: 'ip',
+        retryAfterSeconds: ipLimit.retryAfterSeconds,
+      },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+      }
+    );
   }
   try {
     const itemNo = await resolveBrickLinkId(part.trim());

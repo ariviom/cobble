@@ -6,6 +6,7 @@ import {
 } from '@/app/lib/pricing';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
+import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
 type PriceRequestItem = {
@@ -40,6 +41,12 @@ type PriceResponseEntry = {
 
 const MAX_ITEMS = 100;
 const BATCH_SIZE = 10;
+const RATE_WINDOW_MS =
+  Number.parseInt(process.env.BL_RATE_WINDOW_MS ?? '', 10) || 60_000;
+const RATE_LIMIT_PER_MINUTE =
+  Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE ?? '', 10) || 60;
+const RATE_LIMIT_PER_MINUTE_USER =
+  Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE_USER ?? '', 10) || 60;
 
 export async function POST(req: NextRequest) {
   let body: PriceRequestBody;
@@ -53,6 +60,8 @@ export async function POST(req: NextRequest) {
   if (!rawItems.length) {
     return NextResponse.json({ prices: {} satisfies Record<string, never> });
   }
+
+  const clientIp = (await getClientIp(req)) ?? 'unknown';
 
   const items: PriceRequestItem[] = rawItems
     .filter(
@@ -78,6 +87,7 @@ export async function POST(req: NextRequest) {
   // Determine pricing preferences for this request (user-specific when
   // authenticated via Supabase cookies; otherwise fall back to global USD).
   let pricingPrefs = DEFAULT_PRICING_PREFERENCES;
+  let userId: string | null = null;
   try {
     const supabase = await getSupabaseAuthServerClient();
     const {
@@ -86,6 +96,7 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!userError && user) {
+      userId = user.id;
       pricingPrefs = await loadUserPricingPreferences(supabase, user.id);
     }
   } catch (err) {
@@ -99,6 +110,44 @@ export async function POST(req: NextRequest) {
   }
 
   const scopeLabel = formatPricingScopeLabel(pricingPrefs);
+
+  const ipLimit = await consumeRateLimit(`ip:${clientIp}`, {
+    windowMs: RATE_WINDOW_MS,
+    maxHits: RATE_LIMIT_PER_MINUTE,
+  });
+  if (!ipLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: 'rate_limited',
+        scope: 'ip',
+        retryAfterSeconds: ipLimit.retryAfterSeconds,
+      },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+      }
+    );
+  }
+
+  if (userId) {
+    const userLimit = await consumeRateLimit(`user:${userId}`, {
+      windowMs: RATE_WINDOW_MS,
+      maxHits: RATE_LIMIT_PER_MINUTE_USER,
+    });
+    if (!userLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: 'rate_limited',
+          scope: 'user',
+          retryAfterSeconds: userLimit.retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(userLimit.retryAfterSeconds) },
+        }
+      );
+    }
+  }
 
   // Simple batched concurrency limiter to avoid hammering BrickLink
   for (let i = 0; i < items.length; i += BATCH_SIZE) {

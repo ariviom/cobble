@@ -1,12 +1,36 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { blGetPartSupersets, type BLSupersetItem } from '@/app/lib/bricklink';
 import { getSetSummary } from '@/app/lib/rebrickable';
+import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
+import { NextRequest, NextResponse } from 'next/server';
+
+const RATE_WINDOW_MS =
+  Number.parseInt(process.env.BL_RATE_WINDOW_MS ?? '', 10) || 60_000;
+const RATE_LIMIT_PER_MINUTE =
+  Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE ?? '', 10) || 30;
 
 export async function GET(req: NextRequest) {
 	const { searchParams } = new URL(req.url);
 	const blPart = searchParams.get('part');
 	const blColorIdRaw = searchParams.get('blColorId');
 	if (!blPart) return NextResponse.json({ error: 'missing_bl_part' });
+	const clientIp = (await getClientIp(req)) ?? 'unknown';
+	const ipLimit = await consumeRateLimit(`ip:${clientIp}`, {
+		windowMs: RATE_WINDOW_MS,
+		maxHits: RATE_LIMIT_PER_MINUTE,
+	});
+	if (!ipLimit.allowed) {
+		return NextResponse.json(
+			{
+				error: 'rate_limited',
+				scope: 'ip',
+				retryAfterSeconds: ipLimit.retryAfterSeconds,
+			},
+			{
+				status: 429,
+				headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+			}
+		);
+	}
 	const blColorId = blColorIdRaw && blColorIdRaw.trim() !== '' ? Number(blColorIdRaw) : undefined;
 	try {
 		let supersets: BLSupersetItem[] = [];

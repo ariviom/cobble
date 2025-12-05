@@ -2,8 +2,8 @@ import crypto from 'crypto';
 import 'server-only';
 
 import {
-  DEFAULT_PRICING_PREFERENCES,
-  type PricingPreferences,
+    DEFAULT_PRICING_PREFERENCES,
+    type PricingPreferences,
 } from '@/app/lib/pricing';
 
 const BL_STORE_BASE = 'https://api.bricklink.com/api/store/v1';
@@ -96,6 +96,9 @@ function buildOAuthHeader(
   return header;
 }
 
+const BL_REQUEST_TIMEOUT_MS =
+  Number.parseInt(process.env.BL_REQUEST_TIMEOUT_MS ?? '', 10) || 30_000;
+
 async function blGet<T>(
   path: string,
   params?: Record<string, string | number>
@@ -112,14 +115,24 @@ async function blGet<T>(
     url.origin + url.pathname,
     Object.fromEntries(url.searchParams.entries())
   );
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: authHeader,
-      Accept: 'application/json',
-    },
-    next: { revalidate: 60 * 60 },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, BL_REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: authHeader,
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+      next: { revalidate: 60 * 60 },
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
   if (process.env.NODE_ENV !== 'production') {
     try {
       console.log('BL store GET', {
