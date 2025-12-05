@@ -439,6 +439,20 @@ This gives you a BrickLink-aware pricing layer similar in spirit to Minifigapp, 
 
 ---
 
+## Addendum: pricing display states (Dec 2025)
+
+- User-facing states:
+  - **Real-time** (on-demand) price: used today; future can shift to BYOK/pro. Label in UI: “Real-time.”
+  - **Historical average** price: served from `item_color_prices` periodic aggregates. Label: “Historical avg.” Store `last_updated_at` for future freshness displays but keep UI minimal for now.
+  - **Unavailable**: no historical data and on-demand blocked by rate limit/budget. Show: “Price unavailable; BrickLink limit hit; retry after daily reset.”
+- API shape: include `pricing_source: 'real_time' | 'historical' | 'unavailable'`; include `last_updated_at` only when `pricing_source='historical'`; include `next_refresh_at` only when `pricing_source='unavailable'`.
+- Behavior:
+  - If budgets are exhausted but historical exists, serve historical and mark `pricing_source='historical'` (no queueing).
+  - If nothing cached and budgets exhausted, return `pricing_source='unavailable'` with `next_refresh_at` for retry messaging.
+- Observability: a lightweight counter for `pricing_unavailable` is sufficient; no granular stale reasons needed.
+
+---
+
 ## 9. Optional Pro Feature: Bring Your Own BrickLink Key (BYOK)
 
 For **pro users who want near-realtime data**, you can offer a BYOK mode where each user supplies their own BrickLink API credentials. This shifts rate limits to the user’s own key while keeping your default, snapshot-based system for everyone else.
