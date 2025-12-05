@@ -2,8 +2,8 @@ import crypto from 'crypto';
 import 'server-only';
 
 import {
-    DEFAULT_PRICING_PREFERENCES,
-    type PricingPreferences,
+  DEFAULT_PRICING_PREFERENCES,
+  type PricingPreferences,
 } from '@/app/lib/pricing';
 
 const BL_STORE_BASE = 'https://api.bricklink.com/api/store/v1';
@@ -98,11 +98,62 @@ function buildOAuthHeader(
 
 const BL_REQUEST_TIMEOUT_MS =
   Number.parseInt(process.env.BL_REQUEST_TIMEOUT_MS ?? '', 10) || 30_000;
+const BL_MAX_CONCURRENCY =
+  Number.parseInt(process.env.BL_MAX_CONCURRENCY ?? '', 10) || 8;
+const BL_BREAKER_THRESHOLD =
+  Number.parseInt(process.env.BL_BREAKER_THRESHOLD ?? '', 10) || 5;
+const BL_BREAKER_COOLDOWN_MS =
+  Number.parseInt(process.env.BL_BREAKER_COOLDOWN_MS ?? '', 10) || 60_000;
+
+let activeRequests = 0;
+const waitQueue: Array<() => void> = [];
+let consecutiveFailures = 0;
+let breakerOpenUntil = 0;
+
+async function acquireSlot(): Promise<void> {
+  if (activeRequests < BL_MAX_CONCURRENCY) {
+    activeRequests += 1;
+    return;
+  }
+  await new Promise<void>(resolve => {
+    waitQueue.push(() => {
+      activeRequests += 1;
+      resolve();
+    });
+  });
+}
+
+function releaseSlot(): void {
+  activeRequests = Math.max(0, activeRequests - 1);
+  const next = waitQueue.shift();
+  if (next) next();
+}
+
+function assertBreakerOpen(): void {
+  const now = Date.now();
+  if (breakerOpenUntil > now) {
+    throw new Error('bricklink_circuit_open');
+  }
+}
+
+function recordSuccess(): void {
+  consecutiveFailures = 0;
+}
+
+function recordFailure(): void {
+  consecutiveFailures += 1;
+  if (consecutiveFailures >= BL_BREAKER_THRESHOLD) {
+    breakerOpenUntil = Date.now() + BL_BREAKER_COOLDOWN_MS;
+    consecutiveFailures = 0;
+  }
+}
 
 async function blGet<T>(
   path: string,
   params?: Record<string, string | number>
 ): Promise<T> {
+  assertBreakerOpen();
+  await acquireSlot();
   const url = new URL(`${BL_STORE_BASE}${path}`);
   if (params) {
     for (const [k, v] of Object.entries(params)) {
@@ -141,18 +192,25 @@ async function blGet<T>(
       });
     } catch {}
   }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`BrickLink ${res.status}: ${text.slice(0, 200)}`);
+  try {
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      recordFailure();
+      throw new Error(`BrickLink ${res.status}: ${text.slice(0, 200)}`);
+    }
+    type BLResponse = { meta?: { code?: number; message?: string }; data: T };
+    const json = (await res.json()) as BLResponse;
+    if (json?.meta && json.meta.code && json.meta.code !== 200) {
+      recordFailure();
+      throw new Error(
+        `BrickLink meta ${json.meta.code}: ${json.meta.message ?? 'error'}`
+      );
+    }
+    recordSuccess();
+    return json.data;
+  } finally {
+    releaseSlot();
   }
-  type BLResponse = { meta?: { code?: number; message?: string }; data: T };
-  const json = (await res.json()) as BLResponse;
-  if (json?.meta && json.meta.code && json.meta.code !== 200) {
-    throw new Error(
-      `BrickLink meta ${json.meta.code}: ${json.meta.message ?? 'error'}`
-    );
-  }
-  return json.data;
 }
 
 export type BLPart = {
