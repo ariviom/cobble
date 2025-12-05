@@ -191,16 +191,20 @@ export type BLPriceGuide = {
   minPriceUsed: number | null;
   maxPriceUsed: number | null;
   currencyCode: string | null;
+  /** Internal marker to indicate a miss (all prices null) for negative caching */
+  __miss?: boolean;
 };
 
-type CacheEntry<T> = { at: number; value: T };
+type CacheEntry<T> = { at: number; value: T; ttlMs: number };
 const ONE_HOUR_MS = 60 * 60 * 1000;
+const PRICE_GUIDE_TTL_MS = 30 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 500;
 
 const subsetsCache = new Map<string, CacheEntry<BLSubsetItem[]>>();
 const supersetsCache = new Map<string, CacheEntry<BLSupersetItem[]>>();
 const colorsCache = new Map<string, CacheEntry<BLColorEntry[]>>();
 const priceGuideCache = new Map<string, CacheEntry<BLPriceGuide>>();
+const priceGuideInFlight = new Map<string, Promise<BLPriceGuide>>();
 
 function makeKey(no: string, colorId?: number): string {
   return `${no.trim().toLowerCase()}::${
@@ -211,17 +215,18 @@ function makeKey(no: string, colorId?: number): string {
 function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string): T | null {
   const now = Date.now();
   const entry = map.get(key);
-  if (entry && now - entry.at < ONE_HOUR_MS) return entry.value;
+  if (entry && now - entry.at < entry.ttlMs) return entry.value;
   return null;
 }
 
 function cacheSet<T>(
   map: Map<string, CacheEntry<T>>,
   key: string,
-  value: T
+  value: T,
+  ttlMs: number = ONE_HOUR_MS
 ): void {
   const now = Date.now();
-  map.set(key, { at: now, value });
+  map.set(key, { at: now, value, ttlMs });
   // naive cap eviction: delete oldest when over cap
   if (map.size > MAX_CACHE_ENTRIES) {
     let oldestKey: string | null = null;
@@ -516,6 +521,10 @@ async function fetchPriceGuide(
   const cached = cacheGet(priceGuideCache, key);
   if (cached) return cached;
 
+  const inFlight = priceGuideInFlight.get(key);
+  if (inFlight) return inFlight;
+
+  const promise = (async (): Promise<BLPriceGuide> => {
   const typeSegment =
     itemType === 'MINIFIG'
       ? STORE_ITEM_TYPE_MINIFIG
@@ -599,8 +608,24 @@ async function fetchPriceGuide(
     currencyCode: data.currency_code ?? effectivePrefs.currencyCode,
   };
 
-  cacheSet(priceGuideCache, key, pg);
+  if (
+    pg.unitPriceUsed == null &&
+    pg.minPriceUsed == null &&
+    pg.maxPriceUsed == null
+  ) {
+    pg.__miss = true;
+  }
+
+  cacheSet(priceGuideCache, key, pg, PRICE_GUIDE_TTL_MS);
   return pg;
+  })();
+
+  priceGuideInFlight.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    priceGuideInFlight.delete(key);
+  }
 }
 
 export async function blGetPartPriceGuide(
@@ -610,7 +635,7 @@ export async function blGetPartPriceGuide(
   prefs?: PricingPreferences
 ): Promise<BLPriceGuide> {
   const primary = await fetchPriceGuide(no, colorId, itemType, 'stock', prefs);
-  if (primary.unitPriceUsed != null) return primary;
+  if (!primary.__miss) return primary;
   const fallback = await fetchPriceGuide(no, colorId, itemType, 'sold', prefs);
   if (fallback.unitPriceUsed == null && process.env.NODE_ENV !== 'production') {
     console.warn('BL price guide missing even after fallback', {
