@@ -1,21 +1,21 @@
 'use client';
 
-import { useMemo, type Dispatch, type SetStateAction } from 'react';
-import type {
-  GroupBy,
-  InventoryFilter,
-  InventoryRow,
-  ItemSize,
-  SortKey,
-  ViewType,
-} from '@/app/components/set/types';
 import {
-  computeMissing,
-  deriveCategory,
-  parseStudAreaFromName,
+    computeMissing,
+    deriveCategory,
+    parseStudAreaFromName,
 } from '@/app/components/set/inventory-utils';
+import type {
+    GroupBy,
+    InventoryFilter,
+    InventoryRow,
+    ItemSize,
+    SortKey,
+    ViewType,
+} from '@/app/components/set/types';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useInventoryControls } from '@/app/hooks/useInventoryControls';
+import { useMemo, type Dispatch, type SetStateAction } from 'react';
 
 export type InventoryViewModel = {
   // Raw data
@@ -85,20 +85,53 @@ export function useInventoryViewModel(setNumber: string): InventoryViewModel {
     setGroupBy,
   } = useInventoryControls();
 
-  const sizeByIndex = useMemo(
-    () => rows.map(r => parseStudAreaFromName(r.partName) ?? -1),
-    [rows]
-  );
+  const {
+    sizeByIndex,
+    categoryByIndex,
+    parentByIndex,
+    subcategoriesByParent,
+    colorOptions,
+  } = useMemo(() => {
+    const sizeByIndex: number[] = [];
+    const categoryByIndex: Array<string | null> = [];
+    const parentByIndex: string[] = [];
+    const colorOptionsSet = new Set<string>();
+    const subcategoryMap = new Map<string, Set<string>>();
 
-  const categoryByIndex = useMemo(
-    () => rows.map(r => r.partCategoryName ?? deriveCategory(r.partName)),
-    [rows]
-  );
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]!;
+      sizeByIndex.push(parseStudAreaFromName(row.partName) ?? -1);
 
-  const parentByIndex = useMemo(
-    () => rows.map(r => r.parentCategory ?? 'Misc'),
-    [rows]
-  );
+      const category =
+        row.partCategoryName ?? deriveCategory(row.partName) ?? 'Uncategorized';
+      categoryByIndex.push(category);
+
+      const parent = row.parentCategory ?? 'Misc';
+      parentByIndex.push(parent);
+
+      colorOptionsSet.add(row.colorName);
+
+      if (!subcategoryMap.has(parent)) {
+        subcategoryMap.set(parent, new Set());
+      }
+      subcategoryMap.get(parent)!.add(category);
+    }
+
+    const subcategoriesByParent: Record<string, string[]> = {};
+    for (const [parent, subs] of subcategoryMap.entries()) {
+      subcategoriesByParent[parent] = Array.from(subs).sort();
+    }
+
+    return {
+      sizeByIndex,
+      categoryByIndex,
+      parentByIndex,
+      subcategoriesByParent,
+      colorOptions: Array.from(colorOptionsSet).sort((a, b) =>
+        a.localeCompare(b)
+      ),
+    };
+  }, [rows]);
 
   const visibleIndices = useMemo(() => {
     const idxs = rows.map((_, i) => i);
@@ -213,27 +246,6 @@ export function useInventoryViewModel(setNumber: string): InventoryViewModel {
         return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6';
     }
   }, [itemSize])!;
-
-  const subcategoriesByParent = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    rows.forEach((_, idx) => {
-      const parent = parentByIndex[idx] ?? 'Misc';
-      const sub = categoryByIndex[idx] ?? 'Uncategorized';
-      if (!map.has(parent)) map.set(parent, new Set());
-      map.get(parent)!.add(sub);
-    });
-    const obj: Record<string, string[]> = {};
-    for (const [parent, subs] of map.entries()) {
-      obj[parent] = Array.from(subs).sort();
-    }
-    return obj;
-  }, [rows, parentByIndex, categoryByIndex]);
-
-  const colorOptions = useMemo(() => {
-    const set = new Set<string>();
-    rows.forEach(row => set.add(row.colorName));
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [rows]);
 
   const countsByParent = useMemo(() => {
     const counts: Record<string, number> = {};

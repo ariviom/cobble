@@ -6,8 +6,8 @@ import { throwAppErrorFromResponse } from '@/app/lib/domain/errors';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
 import {
   getCachedInventory,
-  setCachedInventory,
   isIndexedDBAvailable,
+  setCachedInventory,
 } from '@/app/lib/localDb';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -38,25 +38,26 @@ export type UseInventoryResult = {
  * 3. Otherwise, fetch from /api/inventory
  * 4. Cache the result in IndexedDB for future use
  */
-async function fetchInventory(setNumber: string): Promise<InventoryRow[]> {
+async function fetchInventory(
+  setNumber: string,
+  signal?: AbortSignal
+): Promise<InventoryRow[]> {
   // Try local cache first (if IndexedDB is available)
   if (isIndexedDBAvailable()) {
     try {
       const cached = await getCachedInventory(setNumber);
       if (cached && cached.length > 0) {
-        // Return cached data immediately
-        // TanStack Query will handle background revalidation if configured
         return cached;
       }
     } catch (error) {
-      // Cache read failed, fall through to network fetch
       console.warn('Failed to read inventory from cache:', error);
     }
   }
 
-  // Fetch from network
+  const fetchInit: RequestInit = signal ? { signal } : {};
   const res = await fetch(
-    `/api/inventory?set=${encodeURIComponent(setNumber)}`
+    `/api/inventory?set=${encodeURIComponent(setNumber)}`,
+    fetchInit
   );
   if (!res.ok) {
     await throwAppErrorFromResponse(res, 'inventory_failed');
@@ -64,7 +65,6 @@ async function fetchInventory(setNumber: string): Promise<InventoryRow[]> {
   const data = (await res.json()) as { rows: InventoryRow[] };
   const rows = data.rows;
 
-  // Cache the result for future use (fire-and-forget)
   if (isIndexedDBAvailable() && rows.length > 0) {
     setCachedInventory(setNumber, rows).catch(error => {
       console.warn('Failed to cache inventory:', error);
@@ -77,18 +77,18 @@ async function fetchInventory(setNumber: string): Promise<InventoryRow[]> {
 export function useInventory(setNumber: string): UseInventoryResult {
   const { data, isLoading, error } = useQuery({
     queryKey: ['inventory', setNumber],
-    queryFn: () => fetchInventory(setNumber),
+    queryFn: ({ signal }) => fetchInventory(setNumber, signal),
+    staleTime: 5 * 60 * 1000, // align with short-lived cache window
+    gcTime: 60 * 60 * 1000,
   });
+
   const rows = useMemo(() => data ?? [], [data]);
+
   const keys = useMemo(
     () => rows.map(r => r.inventoryKey ?? `${r.partId}:${r.colorId}`),
     [rows]
   );
   const required = useMemo(() => rows.map(r => r.quantityRequired), [rows]);
-  const totalRequired = useMemo(
-    () => required.reduce((acc, n) => acc + n, 0),
-    [required]
-  );
 
   const {
     ownedByKey,
@@ -96,19 +96,22 @@ export function useInventory(setNumber: string): UseInventoryResult {
     isStorageAvailable,
   } = useOwnedSnapshot(setNumber, keys);
 
-  const totalMissing = useMemo(() => {
-    return rows.reduce((acc, r, idx) => {
-      const k = keys[idx]!;
-      const own = ownedByKey[k] ?? 0;
-      const missing = Math.max(0, r.quantityRequired - own);
-      return acc + missing;
-    }, 0);
+  const totals = useMemo(() => {
+    let totalRequired = 0;
+    let totalMissing = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]!;
+      const k = keys[i]!;
+      totalRequired += r.quantityRequired;
+      const owned = ownedByKey[k] ?? 0;
+      totalMissing += Math.max(0, r.quantityRequired - owned);
+    }
+    return {
+      totalRequired,
+      totalMissing,
+      ownedTotal: totalRequired - totalMissing,
+    };
   }, [rows, keys, ownedByKey]);
-
-  const ownedTotal = useMemo(
-    () => totalRequired - totalMissing,
-    [totalRequired, totalMissing]
-  );
 
   const computeMissingRows = () => {
     const result: MissingRow[] = [];
@@ -136,9 +139,9 @@ export function useInventory(setNumber: string): UseInventoryResult {
     error: error instanceof Error ? error : null,
     keys,
     required,
-    totalRequired,
-    totalMissing,
-    ownedTotal,
+    totalRequired: totals.totalRequired,
+    totalMissing: totals.totalMissing,
+    ownedTotal: totals.ownedTotal,
     ownedByKey,
     computeMissingRows,
     isOwnedHydrated,

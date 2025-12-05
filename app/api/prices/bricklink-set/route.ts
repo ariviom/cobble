@@ -52,6 +52,10 @@ export async function POST(req: NextRequest) {
       minPrice: guide.minPriceUsed,
       maxPrice: guide.maxPriceUsed,
       currency: guide.currencyCode,
+      pricingSource: 'real_time' as const,
+      pricing_source: 'real_time' as const,
+      lastUpdatedAt: null,
+      nextRefreshAt: null,
     });
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') {

@@ -33,6 +33,7 @@ type Props = {
   minPrice?: number | null;
   maxPrice?: number | null;
   currency?: string | null;
+  pricingSource?: 'real_time' | 'historical' | 'unavailable' | null;
   pricingScopeLabel?: string | null;
   bricklinkColorId?: number | null;
   isPricePending?: boolean;
@@ -50,6 +51,7 @@ export function InventoryItem({
   minPrice,
   maxPrice,
   currency,
+  pricingSource,
   pricingScopeLabel,
   bricklinkColorId,
   isPricePending,
@@ -95,6 +97,12 @@ export function InventoryItem({
     Number.isFinite(maxPrice) &&
     maxPrice >= minPrice;
   const currencyCode = currency ?? 'USD';
+  const pricingBadge =
+    pricingSource === 'historical'
+      ? 'Historical avg'
+      : pricingSource === 'real_time'
+        ? 'Real-time'
+        : null;
   const identifyHref = {
     pathname: '/identify',
     query: {
@@ -249,9 +257,19 @@ export function InventoryItem({
                     ? ` – ${formatCurrency(maxPrice as number, currencyCode)}`
                     : ''}
                   {pricingScopeLabel ? ` (${pricingScopeLabel})` : ''}
+                  {pricingBadge ? (
+                    <span className="ml-2 inline-flex items-center rounded-full bg-foreground-muted/10 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-foreground-muted uppercase">
+                      {pricingBadge}
+                    </span>
+                  ) : null}
                 </p>
               ) : isPricePending ? (
                 <p className="text-foreground-muted italic">Fetching price…</p>
+              ) : pricingSource === 'unavailable' ? (
+                <p className="text-foreground-muted italic">
+                  Price unavailable; BrickLink limit hit. Retry after daily
+                  reset.
+                </p>
               ) : null}
             </div>
           </div>
@@ -322,9 +340,18 @@ export function InventoryItem({
                       )} – ${formatCurrency(maxPrice as number, currencyCode)}`
                     : formatCurrency(unitPrice as number, currencyCode)}
                 </a>
+                {pricingBadge ? (
+                  <span className="ml-2 inline-flex items-center rounded-full bg-foreground-muted/10 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-foreground-muted uppercase">
+                    {pricingBadge}
+                  </span>
+                ) : null}
               </p>
             ) : isPricePending ? (
               <p className="text-foreground-muted italic">Fetching price…</p>
+            ) : pricingSource === 'unavailable' ? (
+              <p className="text-foreground-muted italic">
+                Price unavailable; BrickLink limit hit. Retry after daily reset.
+              </p>
             ) : canRequestPrice && onRequestPrice ? (
               <button
                 type="button"

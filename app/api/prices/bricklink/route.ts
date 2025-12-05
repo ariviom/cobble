@@ -1,11 +1,11 @@
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
+import { mapToBrickLink } from '@/app/lib/mappings/rebrickableToBricklink';
 import {
-  DEFAULT_PRICING_PREFERENCES,
-  formatPricingScopeLabel,
+    DEFAULT_PRICING_PREFERENCES,
+    formatPricingScopeLabel,
 } from '@/app/lib/pricing';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
-import { mapToBrickLink } from '@/app/lib/mappings/rebrickableToBricklink';
 import { NextRequest, NextResponse } from 'next/server';
 
 type PriceRequestItem = {
@@ -17,6 +17,8 @@ type PriceRequestItem = {
 type PriceRequestBody = {
   items: PriceRequestItem[];
 };
+
+type PricingSource = 'real_time' | 'historical' | 'unavailable';
 
 type PriceResponseEntry = {
   unitPrice: number | null;
@@ -30,9 +32,13 @@ type PriceResponseEntry = {
     * "EUR/Germany".
     */
   scopeLabel: string | null;
+  pricingSource: PricingSource;
+  pricing_source: PricingSource;
+  lastUpdatedAt: string | null;
+  nextRefreshAt: string | null;
 };
 
-const MAX_ITEMS = 500;
+const MAX_ITEMS = 100;
 const BATCH_SIZE = 10;
 
 export async function POST(req: NextRequest) {
@@ -127,6 +133,10 @@ export async function POST(req: NextRequest) {
             bricklinkColorId: mapped.colorId ?? null,
             itemType: mapped.itemType,
             scopeLabel,
+            pricingSource: 'real_time',
+            pricing_source: 'real_time',
+            lastUpdatedAt: null,
+            nextRefreshAt: null,
           };
         } catch (err) {
           if (process.env.NODE_ENV !== 'production') {

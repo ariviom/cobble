@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
 import type { InventoryRow } from '@/app/components/set/types';
+import { useCallback, useEffect, useState } from 'react';
 
 type PriceStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -10,6 +10,10 @@ export type BasePriceInfo = {
   minPrice: number | null;
   maxPrice: number | null;
   currency: string | null;
+  pricingSource?: 'real_time' | 'historical' | 'unavailable';
+  pricing_source?: 'real_time' | 'historical' | 'unavailable';
+  lastUpdatedAt?: string | null;
+  nextRefreshAt?: string | null;
   /**
    * Optional human-readable reminder of pricing context (e.g. "USD/Global").
    */
@@ -190,6 +194,10 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
               minPrice: null,
               maxPrice: null,
               currency: null,
+              pricingSource: 'unavailable',
+              pricing_source: 'unavailable',
+              lastUpdatedAt: null,
+              nextRefreshAt: null,
             } as TPriceInfo;
           }
         }

@@ -100,6 +100,10 @@ export function InventoryTable({
     minPrice: number | null;
     maxPrice: number | null;
     currency: string | null;
+    pricingSource?: 'real_time' | 'historical' | 'unavailable';
+    pricing_source?: 'real_time' | 'historical' | 'unavailable';
+    lastUpdatedAt?: string | null;
+    nextRefreshAt?: string | null;
     scopeLabel?: string | null;
     bricklinkColorId: number | null;
     itemType: 'PART' | 'MINIFIG';
@@ -293,7 +297,9 @@ export function InventoryTable({
           ) : isLoading || isHydrating ? (
             <Spinner
               className="p-4"
-              label={isHydrating ? 'Loading your progress…' : 'Loading inventory…'}
+              label={
+                isHydrating ? 'Loading your progress…' : 'Loading inventory…'
+              }
             />
           ) : rows.length === 0 ? (
             <EmptyState message="No inventory found." />
@@ -320,6 +326,11 @@ export function InventoryTable({
                     minPrice={priceInfo?.minPrice ?? null}
                     maxPrice={priceInfo?.maxPrice ?? null}
                     currency={priceInfo?.currency ?? null}
+                    pricingSource={
+                      priceInfo?.pricingSource ??
+                      priceInfo?.pricing_source ??
+                      null
+                    }
                     pricingScopeLabel={priceInfo?.scopeLabel ?? null}
                     bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
                     isPricePending={pendingKeys.has(key)}
