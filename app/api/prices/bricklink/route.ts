@@ -6,17 +6,15 @@ import {
 } from '@/app/lib/pricing';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
+import { incrementCounter, logEvent } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 type PriceRequestItem = {
   key: string;
   partId: string;
   colorId: number;
-};
-
-type PriceRequestBody = {
-  items: PriceRequestItem[];
 };
 
 type PricingSource = 'real_time' | 'historical' | 'unavailable';
@@ -48,36 +46,37 @@ const RATE_LIMIT_PER_MINUTE =
 const RATE_LIMIT_PER_MINUTE_USER =
   Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE_USER ?? '', 10) || 60;
 
-export async function POST(req: NextRequest) {
-  let body: PriceRequestBody;
-  try {
-    body = (await req.json()) as PriceRequestBody;
-  } catch {
-    return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
-  }
-
-  const rawItems = Array.isArray(body.items) ? body.items : [];
-  if (!rawItems.length) {
-    return NextResponse.json({ prices: {} satisfies Record<string, never> });
-  }
-
-  const clientIp = (await getClientIp(req)) ?? 'unknown';
-
-  const items: PriceRequestItem[] = rawItems
-    .filter(
-      it =>
-        it &&
-        typeof it.key === 'string' &&
-        typeof it.partId === 'string' &&
-        typeof it.colorId === 'number'
+const schema = z.object({
+  items: z
+    .array(
+      z.object({
+        key: z.string().min(1).max(200),
+        partId: z.string().min(1).max(200),
+        colorId: z.number().int(),
+      })
     )
-    .slice(0, MAX_ITEMS);
+    .min(1)
+    .max(MAX_ITEMS),
+});
+
+export async function POST(req: NextRequest) {
+  const parsed = schema.safeParse(await req.json());
+  if (!parsed.success) {
+    const issues = parsed.error.flatten();
+    incrementCounter('prices_bricklink_validation_failed', { issues });
+    return NextResponse.json(
+      { error: 'validation_failed', details: issues },
+      { status: 400 }
+    );
+  }
+
+  const items: PriceRequestItem[] = parsed.data.items;
+  const clientIp = (await getClientIp(req)) ?? 'unknown';
 
   if (process.env.NODE_ENV !== 'production') {
     try {
       console.log('prices/bricklink POST', {
-        rawCount: rawItems.length,
-        filteredCount: items.length,
+        itemCount: items.length,
       });
     } catch {}
   }
@@ -116,6 +115,7 @@ export async function POST(req: NextRequest) {
     maxHits: RATE_LIMIT_PER_MINUTE,
   });
   if (!ipLimit.allowed) {
+    incrementCounter('prices_bricklink_rate_limited', { scope: 'ip' });
     return NextResponse.json(
       {
         error: 'rate_limited',
@@ -135,6 +135,7 @@ export async function POST(req: NextRequest) {
       maxHits: RATE_LIMIT_PER_MINUTE_USER,
     });
     if (!userLimit.allowed) {
+      incrementCounter('prices_bricklink_rate_limited', { scope: 'user' });
       return NextResponse.json(
         {
           error: 'rate_limited',
@@ -187,7 +188,12 @@ export async function POST(req: NextRequest) {
             lastUpdatedAt: null,
             nextRefreshAt: null,
           };
+          incrementCounter('prices_bricklink_fetched');
         } catch (err) {
+          incrementCounter('prices_bricklink_item_failed', {
+            key: item.key,
+            error: err instanceof Error ? err.message : String(err),
+          });
           if (process.env.NODE_ENV !== 'production') {
             try {
               console.error('prices/bricklink: price fetch failed', {
@@ -211,6 +217,10 @@ export async function POST(req: NextRequest) {
       });
     } catch {}
   }
+
+  logEvent('prices_bricklink_response', {
+    pricedCount: Object.keys(prices).length,
+  });
 
   // Prices can be cached briefly - they don't change frequently and
   // stale-while-revalidate gives a snappy UX while background refreshing.

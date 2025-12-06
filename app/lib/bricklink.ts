@@ -305,6 +305,50 @@ export async function blGetPart(no: string): Promise<BLPart> {
   );
 }
 
+type BLSubsetResponse =
+  | { entries?: BLSubsetItem[]; [k: string]: unknown }
+  | BLSubsetItem
+  | BLSubsetItem[];
+
+function normalizeSubsetEntries(raw: BLSubsetResponse[]): BLSubsetItem[] {
+  const result: BLSubsetItem[] = [];
+  for (const group of raw) {
+    if (
+      group &&
+      typeof group === 'object' &&
+      Array.isArray((group as { entries?: BLSubsetItem[] }).entries)
+    ) {
+      const entries = (group as { entries: BLSubsetItem[] }).entries ?? [];
+      for (const e of entries) {
+        if (e && typeof e === 'object') {
+          result.push(e);
+        }
+      }
+      continue;
+    }
+    if (group && typeof group === 'object') {
+      result.push(group as BLSubsetItem);
+    }
+  }
+  return result;
+}
+
+async function fetchSubsets(
+  no: string,
+  colorId?: number
+): Promise<BLSubsetItem[]> {
+  const data = await blGet<BLSubsetResponse[] | { entries?: BLSubsetResponse[] }>(
+    `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}/subsets`,
+    colorId ? { color_id: colorId } : {}
+  );
+  const raw: BLSubsetResponse[] = Array.isArray(data)
+    ? data
+    : Array.isArray((data as { entries?: BLSubsetResponse[] }).entries)
+      ? ((data as { entries?: BLSubsetResponse[] }).entries ?? [])
+      : [];
+  return normalizeSubsetEntries(raw);
+}
+
 export async function blGetPartSubsets(
   no: string,
   colorId?: number
@@ -312,28 +356,7 @@ export async function blGetPartSubsets(
   const key = makeKey(no, colorId);
   const cached = cacheGet(subsetsCache, key);
   if (cached) return cached;
-  // BrickLink returns "data" as an array of groups: { match_no, entries: BLSubsetItem[] }.
-  const data = await blGet<unknown[] | { entries: unknown[] }>(
-    `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}/subsets`,
-    colorId ? { color_id: colorId } : {}
-  );
-  const raw: unknown[] = Array.isArray(data)
-    ? data
-    : Array.isArray((data as { entries?: unknown[] }).entries)
-      ? ((data as { entries?: unknown[] }).entries ?? [])
-      : [];
-  const list: BLSubsetItem[] = raw
-    .flatMap(group => {
-      if (
-        group &&
-        typeof group === 'object' &&
-        Array.isArray((group as { entries?: unknown[] }).entries)
-      ) {
-        return (group as { entries: BLSubsetItem[] }).entries;
-      }
-      return [group as BLSubsetItem];
-    })
-    .filter(Boolean) as BLSubsetItem[];
+  const list = await fetchSubsets(no, colorId);
   if (process.env.NODE_ENV !== 'production') {
     try {
       console.log('BL subsets', {
@@ -347,6 +370,70 @@ export async function blGetPartSubsets(
   return list;
 }
 
+type BLSupersetResponse =
+  | { entries?: BLSupersetItem[]; item?: { no?: string; name?: string; image_url?: string; quantity?: number }; quantity?: number }
+  | BLSupersetItem
+  | BLSupersetItem[];
+
+function normalizeSupersetEntries(raw: BLSupersetResponse[]): BLSupersetItem[] {
+  const result: BLSupersetItem[] = [];
+  for (const group of raw) {
+    if (
+      group &&
+      typeof group === 'object' &&
+      Array.isArray((group as { entries?: BLSupersetItem[] }).entries)
+    ) {
+      const entries = (group as { entries: BLSupersetItem[] }).entries ?? [];
+      for (const e of entries) {
+        if (e && typeof e === 'object' && typeof (e as { setNumber?: string }).setNumber === 'string') {
+          result.push(e);
+        }
+      }
+      continue;
+    }
+
+    if (group && typeof group === 'object') {
+      type ItemLike = {
+        no?: unknown;
+        name?: unknown;
+        image_url?: unknown;
+        quantity?: unknown;
+      };
+      const record = group as { item?: ItemLike; quantity?: unknown } & ItemLike;
+      const item: ItemLike = record.item ?? record;
+      const setNumber = item && typeof item.no === 'string' ? item.no : '';
+      if (!setNumber) continue;
+      const name = item && typeof item.name === 'string' ? item.name : '';
+      const imageUrl =
+        item && typeof item.image_url === 'string' ? item.image_url : null;
+      const quantity =
+        typeof record.quantity === 'number'
+          ? record.quantity
+          : item && typeof item.quantity === 'number'
+            ? item.quantity
+            : 1;
+      result.push({ setNumber, name, imageUrl, quantity });
+    }
+  }
+  return result;
+}
+
+async function fetchSupersets(
+  no: string,
+  colorId?: number
+): Promise<BLSupersetItem[]> {
+  const data = await blGet<BLSupersetResponse[] | { entries?: BLSupersetResponse[] }>(
+    `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}/supersets`,
+    colorId ? { color_id: colorId } : {}
+  );
+  const raw: BLSupersetResponse[] = Array.isArray(data)
+    ? data
+    : Array.isArray((data as { entries?: BLSupersetResponse[] }).entries)
+      ? ((data as { entries?: BLSupersetResponse[] }).entries ?? [])
+      : [];
+  return normalizeSupersetEntries(raw);
+}
+
 export async function blGetPartSupersets(
   no: string,
   colorId?: number
@@ -354,56 +441,7 @@ export async function blGetPartSupersets(
   const key = makeKey(no, colorId);
   const cached = cacheGet(supersetsCache, key);
   if (cached) return cached;
-  // "data" is an array; keep a fallback for potential { entries } wrappers.
-  const data = await blGet<unknown[] | { entries: unknown[] }>(
-    `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}/supersets`,
-    colorId ? { color_id: colorId } : {}
-  );
-  const raw: unknown[] = Array.isArray(data)
-    ? data
-    : Array.isArray((data as { entries?: unknown[] }).entries)
-      ? ((data as { entries?: unknown[] }).entries ?? [])
-      : [];
-  // Each element is either a group { color_id, entries: [...] } or a direct entry.
-  const flatEntries: unknown[] = raw.flatMap(group => {
-    if (
-      group &&
-      typeof group === 'object' &&
-      Array.isArray((group as { entries?: unknown[] }).entries)
-    ) {
-      return (group as { entries: unknown[] }).entries;
-    }
-    return [group];
-  });
-  const list: BLSupersetItem[] = flatEntries
-    .map((r): BLSupersetItem | null => {
-      if (!r || typeof r !== 'object') return null;
-      type ItemLike = {
-        no?: unknown;
-        name?: unknown;
-        image_url?: unknown;
-        quantity?: unknown;
-      };
-      const record = r as {
-        item?: ItemLike;
-        quantity?: unknown;
-      } & ItemLike;
-      const item: ItemLike = record.item ?? record;
-      const setNumber = item && typeof item.no === 'string' ? item.no : '';
-      if (!setNumber) return null;
-      const name = item && typeof item.name === 'string' ? item.name : '';
-      const imageUrl =
-        item && typeof item.image_url === 'string' ? item.image_url : null;
-      // Supersets entries always imply at least one occurrence in a set; default missing quantity to 1.
-      const quantity =
-        typeof record.quantity === 'number'
-          ? record.quantity
-          : item && typeof item.quantity === 'number'
-            ? item.quantity
-            : 1;
-      return { setNumber, name, imageUrl, quantity };
-    })
-    .filter(Boolean) as BLSupersetItem[];
+  const list = await fetchSupersets(no, colorId);
   if (process.env.NODE_ENV !== 'production') {
     try {
       console.log('BL supersets', {

@@ -1,5 +1,6 @@
 import { blGetPartSupersets, type BLSupersetItem } from '@/app/lib/bricklink';
 import { getSetSummary } from '@/app/lib/rebrickable';
+import { incrementCounter, logEvent } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -12,13 +13,17 @@ export async function GET(req: NextRequest) {
 	const { searchParams } = new URL(req.url);
 	const blPart = searchParams.get('part');
 	const blColorIdRaw = searchParams.get('blColorId');
-	if (!blPart) return NextResponse.json({ error: 'missing_bl_part' });
+	if (!blPart) {
+		incrementCounter('identify_supersets_validation_failed');
+		return NextResponse.json({ error: 'missing_bl_part' });
+	}
 	const clientIp = (await getClientIp(req)) ?? 'unknown';
 	const ipLimit = await consumeRateLimit(`ip:${clientIp}`, {
 		windowMs: RATE_WINDOW_MS,
 		maxHits: RATE_LIMIT_PER_MINUTE,
 	});
 	if (!ipLimit.allowed) {
+		incrementCounter('identify_supersets_rate_limited');
 		return NextResponse.json(
 			{
 				error: 'rate_limited',
@@ -63,6 +68,8 @@ export async function GET(req: NextRequest) {
 			);
 			sets = [...enriched, ...sets.slice(top.length)];
 		} catch {}
+		incrementCounter('identify_supersets_fetched', { count: sets.length });
+		logEvent('identify_supersets_response', { part: blPart, count: sets.length });
 		if (process.env.NODE_ENV !== 'production') {
 			try {
 				console.log('identify/bl-supersets', {
@@ -75,6 +82,10 @@ export async function GET(req: NextRequest) {
 		}
 		return NextResponse.json({ sets });
 	} catch (err) {
+		incrementCounter('identify_supersets_failed', {
+			part: blPart,
+			error: err instanceof Error ? err.message : String(err),
+		});
 		if (process.env.NODE_ENV !== 'production') {
 			try {
 				console.log('identify/bl-supersets failed', {

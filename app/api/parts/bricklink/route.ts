@@ -1,5 +1,6 @@
 import { getPart } from '@/app/lib/rebrickable';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
+import { incrementCounter, logEvent } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -155,6 +156,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const part = searchParams.get('part');
   if (!part || !part.trim()) {
+    incrementCounter('parts_bricklink_validation_failed');
     return NextResponse.json({ error: 'missing_part' }, { status: 400 });
   }
   const clientIp = (await getClientIp(req)) ?? 'unknown';
@@ -163,6 +165,7 @@ export async function GET(req: NextRequest) {
     maxHits: RATE_LIMIT_PER_MINUTE,
   });
   if (!ipLimit.allowed) {
+    incrementCounter('parts_bricklink_rate_limited', { scope: 'ip' });
     return NextResponse.json(
       {
         error: 'rate_limited',
@@ -177,8 +180,15 @@ export async function GET(req: NextRequest) {
   }
   try {
     const itemNo = await resolveBrickLinkId(part.trim());
+    const found = Boolean(itemNo);
+    incrementCounter('parts_bricklink_fetched', { found });
+    logEvent('parts_bricklink_response', { part: part.trim(), found });
     return NextResponse.json({ itemNo });
   } catch (err) {
+    incrementCounter('parts_bricklink_failed', {
+      part: part.trim(),
+      error: err instanceof Error ? err.message : String(err),
+    });
     if (process.env.NODE_ENV !== 'production') {
       console.error('parts/bricklink lookup failed', {
         part,

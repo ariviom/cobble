@@ -2,12 +2,10 @@ import { blGetSetPriceGuide } from '@/app/lib/bricklink';
 import { DEFAULT_PRICING_PREFERENCES } from '@/app/lib/pricing';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
+import { incrementCounter, logEvent } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
-
-type Body = {
-  setNumber: string;
-};
+import { z } from 'zod';
 
 const RATE_WINDOW_MS =
   Number.parseInt(process.env.BL_RATE_WINDOW_MS ?? '', 10) || 60_000;
@@ -16,18 +14,22 @@ const RATE_LIMIT_PER_MINUTE =
 const RATE_LIMIT_PER_MINUTE_USER =
   Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE_USER ?? '', 10) || 60;
 
+const schema = z.object({
+  setNumber: z.string().min(1).max(200),
+});
+
 export async function POST(req: NextRequest) {
-  let body: Body;
-  try {
-    body = (await req.json()) as Body;
-  } catch {
-    return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
+  const parsed = schema.safeParse(await req.json());
+  if (!parsed.success) {
+    const issues = parsed.error.flatten();
+    incrementCounter('prices_bricklink_set_validation_failed', { issues });
+    return NextResponse.json(
+      { error: 'validation_failed', details: issues },
+      { status: 400 }
+    );
   }
 
-  const setNumber = body.setNumber?.trim();
-  if (!setNumber) {
-    return NextResponse.json({ error: 'missing_set_number' }, { status: 400 });
-  }
+  const setNumber = parsed.data.setNumber.trim();
 
   const clientIp = (await getClientIp(req)) ?? 'unknown';
 
@@ -62,6 +64,7 @@ export async function POST(req: NextRequest) {
     maxHits: RATE_LIMIT_PER_MINUTE,
   });
   if (!ipLimit.allowed) {
+    incrementCounter('prices_bricklink_set_rate_limited', { scope: 'ip' });
     return NextResponse.json(
       {
         error: 'rate_limited',
@@ -81,6 +84,7 @@ export async function POST(req: NextRequest) {
       maxHits: RATE_LIMIT_PER_MINUTE_USER,
     });
     if (!userLimit.allowed) {
+      incrementCounter('prices_bricklink_set_rate_limited', { scope: 'user' });
       return NextResponse.json(
         {
           error: 'rate_limited',
@@ -97,6 +101,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const guide = await blGetSetPriceGuide(setNumber, pricingPrefs);
+    incrementCounter('prices_bricklink_set_fetched', { setNumber });
+    logEvent('prices_bricklink_set_response', { setNumber });
     return NextResponse.json({
       total: guide.unitPriceUsed,
       minPrice: guide.minPriceUsed,
@@ -108,6 +114,10 @@ export async function POST(req: NextRequest) {
       nextRefreshAt: null,
     });
   } catch (err) {
+    incrementCounter('prices_bricklink_set_failed', {
+      setNumber,
+      error: err instanceof Error ? err.message : String(err),
+    });
     if (process.env.NODE_ENV !== 'production') {
       console.error('bricklink-set price failed', {
         setNumber,
