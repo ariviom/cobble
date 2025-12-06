@@ -1,45 +1,68 @@
 import { searchSetsPage } from '@/app/lib/services/search';
 import type { FilterType } from '@/app/types/search';
+import { incrementCounter, logEvent } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 // Search results can be cached briefly since set data rarely changes
 const CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
 
+const allowedFilters: FilterType[] = ['all', 'set', 'theme', 'subtheme'];
+const allowedSizes = new Set([20, 40, 60, 80, 100]);
+
+const querySchema = z.object({
+  q: z.string().default(''),
+  sort: z.string().default('relevance'),
+  page: z
+    .string()
+    .optional()
+    .transform(v => Math.max(1, Number(v ?? '1') || 1)),
+  pageSize: z
+    .string()
+    .optional()
+    .transform(v => Number(v ?? '20') || 20)
+    .transform(size => (allowedSizes.has(size) ? size : 20)),
+  filter: z
+    .string()
+    .optional()
+    .transform(v => (allowedFilters.includes((v as FilterType) ?? 'all') ? (v as FilterType) : 'all')),
+  exact: z
+    .string()
+    .optional()
+    .transform(v =>
+      v === '1' || v === 'true' || v?.toLowerCase() === 'yes'
+    ),
+});
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const q = searchParams.get('q') ?? '';
-  const sort = searchParams.get('sort') ?? 'relevance';
-  const pageParam = searchParams.get('page');
-  const page = Math.max(1, Number(pageParam ?? '1') || 1);
-  const requestedSize = Number(searchParams.get('pageSize') ?? '20') || 20;
-  const allowedSizes = new Set([20, 40, 60, 80, 100]);
-  const pageSize = allowedSizes.has(requestedSize) ? requestedSize : 20;
-  const allowedFilters: FilterType[] = ['all', 'set', 'theme', 'subtheme'];
-  const filterParam = searchParams.get('filter');
-  const filterType: FilterType = allowedFilters.includes(
-    (filterParam as FilterType) ?? 'all'
-  )
-    ? ((filterParam as FilterType) ?? 'all')
-    : 'all';
-  const exactParam = searchParams.get('exact');
-  const exactMatch =
-    exactParam === '1' ||
-    exactParam === 'true' ||
-    exactParam?.toLowerCase() === 'yes';
+  const parsed = querySchema.safeParse(Object.fromEntries(searchParams.entries()));
+  if (!parsed.success) {
+    incrementCounter('search_validation_failed', { issues: parsed.error.flatten() });
+    return NextResponse.json({ error: 'validation_failed' }, { status: 400 });
+  }
+
+  const { q, sort, page, pageSize, filter, exact } = parsed.data;
   try {
     const { slice, nextPage } = await searchSetsPage({
       query: q,
       sort,
       page,
       pageSize,
-      filterType,
-      exactMatch,
+      filterType: filter,
+      exactMatch: exact,
     });
+    incrementCounter('search_succeeded', { count: slice.length });
+    logEvent('search_response', { q, page, pageSize, count: slice.length });
     return NextResponse.json(
       { results: slice, nextPage },
       { headers: { 'Cache-Control': CACHE_CONTROL } }
     );
   } catch (err) {
+    incrementCounter('search_failed', {
+      query: q,
+      error: err instanceof Error ? err.message : String(err),
+    });
     console.error('Search failed:', {
       query: q,
       sort,

@@ -1,5 +1,7 @@
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { incrementCounter, logEvent } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 /**
  * Sync endpoint for batched client-side writes.
@@ -9,21 +11,6 @@ import { NextRequest, NextResponse } from 'next/server';
  * each operation so the client can update its queue accordingly.
  */
 
-type SyncOperation = {
-  id: number;
-  table:
-    | 'user_set_parts'
-    | 'user_lists'
-    | 'user_list_items'
-    | 'user_minifigs';
-  operation: 'upsert' | 'delete';
-  payload: Record<string, unknown>;
-};
-
-type SyncRequest = {
-  operations: SyncOperation[];
-};
-
 type SyncResponse = {
   success: boolean;
   processed: number;
@@ -32,6 +19,28 @@ type SyncResponse = {
 
 // Maximum operations per request to prevent abuse
 const MAX_OPERATIONS_PER_REQUEST = 100;
+
+const userSetPartsPayloadSchema = z.object({
+  set_num: z.string(),
+  part_num: z.string(),
+  color_id: z.number(),
+  is_spare: z.boolean().default(false).optional(),
+  owned_quantity: z.number().optional(),
+});
+
+const syncOperationSchema = z.object({
+  id: z.number().int(),
+  table: z.literal('user_set_parts'),
+  operation: z.union([z.literal('upsert'), z.literal('delete')]),
+  payload: userSetPartsPayloadSchema,
+});
+
+const syncRequestSchema = z.object({
+  operations: z
+    .array(syncOperationSchema)
+    .min(1)
+    .max(MAX_OPERATIONS_PER_REQUEST),
+});
 
 export async function POST(req: NextRequest): Promise<NextResponse<SyncResponse>> {
   try {
@@ -43,37 +52,23 @@ export async function POST(req: NextRequest): Promise<NextResponse<SyncResponse>
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
+      incrementCounter('sync_unauthorized');
       return NextResponse.json(
         { success: false, processed: 0, failed: [{ id: -1, error: 'unauthorized' }] },
         { status: 401 }
       );
     }
 
-    // Parse request body
-    const body = (await req.json()) as SyncRequest;
-    const { operations } = body;
-
-    if (!Array.isArray(operations)) {
+    const parsed = syncRequestSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      incrementCounter('sync_validation_failed', { issues: parsed.error.flatten() });
       return NextResponse.json(
-        { success: false, processed: 0, failed: [{ id: -1, error: 'invalid_request' }] },
+        { success: false, processed: 0, failed: [{ id: -1, error: 'validation_failed' }] },
         { status: 400 }
       );
     }
 
-    if (operations.length === 0) {
-      return NextResponse.json({ success: true, processed: 0 });
-    }
-
-    if (operations.length > MAX_OPERATIONS_PER_REQUEST) {
-      return NextResponse.json(
-        {
-          success: false,
-          processed: 0,
-          failed: [{ id: -1, error: `max_operations_exceeded:${MAX_OPERATIONS_PER_REQUEST}` }],
-        },
-        { status: 400 }
-      );
-    }
+    const { operations } = parsed.data;
 
     // Process operations
     const failed: Array<{ id: number; error: string }> = [];
@@ -102,58 +97,34 @@ export async function POST(req: NextRequest): Promise<NextResponse<SyncResponse>
       };
     }> = [];
 
-    // Validate and categorize operations
+    // Validate and categorize operations (table already constrained by schema)
     for (const op of operations) {
-      if (op.table === 'user_set_parts') {
-        const payload = op.payload as {
-          set_num?: string;
-          part_num?: string;
-          color_id?: number;
-          is_spare?: boolean;
-          owned_quantity?: number;
-        };
+      const payload = op.payload;
+      const isSpare = payload.is_spare ?? false;
 
-        // Validate required fields
-        if (
-          typeof payload.set_num !== 'string' ||
-          typeof payload.part_num !== 'string' ||
-          typeof payload.color_id !== 'number'
-        ) {
-          failed.push({ id: op.id, error: 'invalid_payload' });
-          continue;
-        }
-
-        const isSpare = payload.is_spare ?? false;
-
-        if (op.operation === 'upsert') {
-          const quantity = payload.owned_quantity ?? 0;
-          userSetPartsUpserts.push({
-            id: op.id,
-            payload: {
-              user_id: user.id,
-              set_num: payload.set_num,
-              part_num: payload.part_num,
-              color_id: payload.color_id,
-              is_spare: isSpare,
-              owned_quantity: Math.max(0, Math.floor(quantity)),
-            },
-          });
-        } else if (op.operation === 'delete') {
-          userSetPartsDeletes.push({
-            id: op.id,
-            payload: {
-              set_num: payload.set_num,
-              part_num: payload.part_num,
-              color_id: payload.color_id,
-              is_spare: isSpare,
-            },
-          });
-        } else {
-          failed.push({ id: op.id, error: 'unknown_operation' });
-        }
+      if (op.operation === 'upsert') {
+        const quantity = payload.owned_quantity ?? 0;
+        userSetPartsUpserts.push({
+          id: op.id,
+          payload: {
+            user_id: user.id,
+            set_num: payload.set_num,
+            part_num: payload.part_num,
+            color_id: payload.color_id,
+            is_spare: isSpare,
+            owned_quantity: Math.max(0, Math.floor(quantity)),
+          },
+        });
       } else {
-        // Unsupported table for now
-        failed.push({ id: op.id, error: `unsupported_table:${op.table}` });
+        userSetPartsDeletes.push({
+          id: op.id,
+          payload: {
+            set_num: payload.set_num,
+            part_num: payload.part_num,
+            color_id: payload.color_id,
+            is_spare: isSpare,
+          },
+        });
       }
     }
 
@@ -194,12 +165,22 @@ export async function POST(req: NextRequest): Promise<NextResponse<SyncResponse>
       }
     }
 
-    return NextResponse.json({
+    const response: SyncResponse = {
       success: failed.length === 0,
       processed,
       ...(failed.length > 0 ? { failed } : {}),
-    });
+    };
+    if (failed.length === 0) {
+      incrementCounter('sync_succeeded', { processed });
+    } else {
+      incrementCounter('sync_partial_failed', { processed, failed: failed.length });
+    }
+    logEvent('sync_response', { processed, failed: failed.length });
+    return NextResponse.json(response);
   } catch (error) {
+    incrementCounter('sync_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     console.error('Sync endpoint error:', error);
     return NextResponse.json(
       {
