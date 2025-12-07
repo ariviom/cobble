@@ -27,6 +27,11 @@ export async function searchSetsPage(args: {
   slice: Awaited<ReturnType<typeof getAggregatedSearchResults>>;
   page: number;
   nextPage: number | null;
+  _debugSearch?: {
+    usedLocal: boolean;
+    usedFallback: boolean;
+    total: number;
+  };
 }> {
   const {
     query,
@@ -39,12 +44,15 @@ export async function searchSetsPage(args: {
 
   type ResultArray = Awaited<ReturnType<typeof getAggregatedSearchResults>>;
   let all: ResultArray = [];
+  let usedLocal = false;
+  let usedFallback = false;
 
   // Prefer Supabase-backed catalog search when available.
   try {
     const local = await searchSetsLocal(query, sort, { exactMatch });
     if (local.length > 0) {
       all = local as ResultArray;
+      usedLocal = true;
     }
   } catch (err) {
     console.error('Supabase searchSetsLocal failed, falling back to Rebrickable', {
@@ -57,6 +65,7 @@ export async function searchSetsPage(args: {
   // Fallback to live Rebrickable search when Supabase has no results or errors.
   if (all.length === 0) {
     all = await getAggregatedSearchResults(query, sort, { exactMatch });
+    usedFallback = true;
   }
 
   const filtered = applyFilter(all, filterType);
@@ -70,6 +79,9 @@ export async function searchSetsPage(args: {
     slice,
     page,
     nextPage,
+    ...(process.env.NODE_ENV !== 'production'
+      ? { _debugSearch: { usedLocal, usedFallback, total: filtered.length } }
+      : {}),
   };
 }
 

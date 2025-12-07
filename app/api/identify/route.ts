@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { identifyWithBrickognize, extractCandidatePartNumbers } from '@/app/lib/brickognize';
+import { getSetsForPartLocal, getSetSummaryLocal } from '@/app/lib/catalog';
 import {
 	getSetsForPart,
 	resolvePartIdToRebrickable,
@@ -259,7 +260,16 @@ export async function POST(req: NextRequest) {
 			const blCand = candidates.find(c => typeof c.bricklinkId === 'string');
 			if (blCand && blCand.bricklinkId) {
 				const blId = blCand.bricklinkId as string;
-				let setsFromBL: Array<{ setNumber: string; name: string; year: number; imageUrl: string | null; quantity: number }> = [];
+				let setsFromBL: Array<{
+					setNumber: string;
+					name: string;
+					year: number;
+					imageUrl: string | null;
+					quantity: number;
+					numParts?: number | null;
+					themeId?: number | null;
+					themeName?: string | null;
+				}> = [];
 				let partImage: string | null = blCand.imageUrl ?? null;
 				let partName = '';
 				try {
@@ -274,6 +284,9 @@ export async function POST(req: NextRequest) {
 							year: 0,
 							imageUrl: s.imageUrl,
 							quantity: s.quantity,
+							numParts: null,
+							themeId: null,
+							themeName: null,
 						}));
 					} else {
 						// Try supersets by color variants to improve match rate
@@ -293,6 +306,9 @@ export async function POST(req: NextRequest) {
 										year: 0,
 										imageUrl: s.imageUrl,
 										quantity: s.quantity,
+										numParts: null,
+										themeId: null,
+										themeName: null,
 									});
 								}
 								if (setsFromBL.length >= BL_SUPERSET_TOTAL_LIMIT) break;
@@ -330,6 +346,9 @@ export async function POST(req: NextRequest) {
 												year: 0,
 												imageUrl: s.imageUrl,
 												quantity: s.quantity,
+												numParts: null,
+												themeId: null,
+												themeName: null,
 											});
 										}
 										if (setsFromBL.length >= BL_SUPERSET_TOTAL_LIMIT) break;
@@ -395,6 +414,9 @@ export async function POST(req: NextRequest) {
 									...set,
 									year: summary.year ?? set.year,
 									imageUrl: summary.imageUrl ?? set.imageUrl,
+									numParts: summary.numParts ?? set.numParts ?? null,
+									themeId: summary.themeId ?? set.themeId ?? null,
+									themeName: summary.themeName ?? set.themeName ?? null,
 								};
 							} catch (err) {
 								if (isBudgetError(err)) throw err;
@@ -442,6 +464,25 @@ export async function POST(req: NextRequest) {
 			partNum: string,
 			preferredColorId?: number
 		): Promise<PartInSet[]> {
+			// Catalog-first (Supabase) lookup
+			try {
+				const local = await getSetsForPartLocal(
+					partNum,
+					typeof preferredColorId === 'number' ? preferredColorId : null
+				);
+				if (local.length) return local;
+				// If color-specific lookup is empty, try without color to broaden results.
+				if (typeof preferredColorId === 'number') {
+					const localAll = await getSetsForPartLocal(partNum, null);
+					if (localAll.length) return localAll;
+				}
+			} catch (err) {
+				console.error('identify fetchCandidateSets local lookup failed', {
+					partNum,
+					preferredColorId,
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
 			// Try with preferred color if provided, then without color
 			if (typeof preferredColorId === 'number') {
 				try {
@@ -506,7 +547,16 @@ export async function POST(req: NextRequest) {
 			const blCand = candidates.find(c => typeof c.bricklinkId === 'string');
 			if (blCand && blCand.bricklinkId) {
 				const blId = blCand.bricklinkId as string;
-				let setsFromBL: Array<{ setNumber: string; name: string; year: number; imageUrl: string | null; quantity: number }> = [];
+				let setsFromBL: Array<{
+					setNumber: string;
+					name: string;
+					year: number;
+					imageUrl: string | null;
+					quantity: number;
+					numParts?: number | null;
+					themeId?: number | null;
+					themeName?: string | null;
+				}> = [];
 				let partImage: string | null = chosen.imageUrl ?? null;
 				let partName: string = chosen.name ?? '';
 				try {
@@ -521,6 +571,9 @@ export async function POST(req: NextRequest) {
 							year: 0,
 							imageUrl: s.imageUrl,
 							quantity: s.quantity,
+							numParts: null,
+							themeId: null,
+							themeName: null,
 						}));
 					} else {
 						// Try supersets by color variants as a fallback
@@ -551,6 +604,9 @@ export async function POST(req: NextRequest) {
 										year: 0,
 										imageUrl: s.imageUrl,
 										quantity: s.quantity,
+										numParts: null,
+										themeId: null,
+										themeName: null,
 									});
 								}
 								if (setsFromBL.length >= BL_SUPERSET_TOTAL_LIMIT) break;
@@ -587,6 +643,9 @@ export async function POST(req: NextRequest) {
 												year: 0,
 												imageUrl: s.imageUrl,
 												quantity: s.quantity,
+												numParts: null,
+												themeId: null,
+												themeName: null,
 											});
 										}
 										if (setsFromBL.length >= BL_SUPERSET_TOTAL_LIMIT) break;
@@ -639,6 +698,9 @@ export async function POST(req: NextRequest) {
 									...set,
 									year: summary.year ?? set.year,
 									imageUrl: summary.imageUrl ?? set.imageUrl,
+									numParts: summary.numParts ?? set.numParts ?? null,
+									themeId: summary.themeId ?? set.themeId ?? null,
+									themeName: summary.themeName ?? set.themeName ?? null,
 								};
 							} catch (err) {
 								if (isBudgetError(err)) throw err;
@@ -680,6 +742,65 @@ export async function POST(req: NextRequest) {
 			}
 		}
 
+		const needsEnrichment = sets.some(
+			s =>
+				!s.name ||
+				s.name.trim() === '' ||
+				s.year === 0 ||
+				s.numParts == null ||
+				s.themeName == null
+		);
+
+		let finalSets = sets;
+
+		if (needsEnrichment) {
+			// Enrich with set summary metadata for parity with set search cards.
+			const ENRICH_LIMIT = 30;
+			const enrichTargets = sets.slice(0, ENRICH_LIMIT);
+		const summaries = await Promise.all(
+			enrichTargets.map(async set => {
+				try {
+					const summary =
+						(await getSetSummaryLocal(set.setNumber)) ??
+						(await getSetSummary(set.setNumber));
+					return { setNumber: set.setNumber.toLowerCase(), summary };
+				} catch (err) {
+					if (process.env.NODE_ENV !== 'production') {
+						console.log('identify enrichment failed', {
+							set: set.setNumber,
+							error: err instanceof Error ? err.message : String(err),
+						});
+					}
+					return null;
+				}
+			})
+		);
+			const summaryBySet = new Map<string, Awaited<ReturnType<typeof getSetSummary>>>();
+			for (const item of summaries) {
+				if (item?.summary) summaryBySet.set(item.setNumber, item.summary);
+			}
+			finalSets = sets.map(s => {
+				const summary = summaryBySet.get(s.setNumber.toLowerCase());
+				return {
+					...s,
+					year: summary?.year ?? s.year,
+					imageUrl: summary?.imageUrl ?? s.imageUrl,
+					numParts: summary?.numParts ?? s.numParts ?? null,
+					themeId: summary?.themeId ?? s.themeId ?? null,
+					themeName: summary?.themeName ?? s.themeName ?? null,
+				};
+			});
+		}
+
+		if (process.env.NODE_ENV !== 'production') {
+			console.log('identify route source', {
+				part: chosen.partNum,
+				usedLocal: !needsEnrichment, // local provided complete metadata
+				fellBack: needsEnrichment,
+				count: finalSets.length,
+			});
+		}
+
 		return NextResponse.json({
 			part: {
 				partNum: chosen.partNum,
@@ -692,7 +813,7 @@ export async function POST(req: NextRequest) {
 			candidates: valid.slice(0, 5),
 			availableColors,
 			selectedColorId: chosenColorId ?? null,
-			sets,
+			sets: finalSets,
 		});
 	} catch (err) {
 		if (err instanceof Error && err.message === 'external_budget_exhausted') {

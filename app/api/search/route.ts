@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
 
   const { q, sort, page, pageSize, filter, exact } = parsed.data;
   try {
-    const { slice, nextPage } = await searchSetsPage({
+    const { slice, nextPage, _debugSearch } = await searchSetsPage({
       query: q,
       sort,
       page,
@@ -52,6 +52,14 @@ export async function GET(req: NextRequest) {
       filterType: filter,
       exactMatch: exact,
     });
+    if (process.env.NODE_ENV !== 'production' && _debugSearch) {
+      console.log('search route source', {
+        query: q,
+        usedLocal: _debugSearch.usedLocal,
+        usedFallback: _debugSearch.usedFallback,
+        total: _debugSearch.total,
+      });
+    }
     incrementCounter('search_succeeded', { count: slice.length });
     logEvent('search_response', { q, page, pageSize, count: slice.length });
     return NextResponse.json(

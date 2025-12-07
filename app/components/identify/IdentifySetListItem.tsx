@@ -32,7 +32,7 @@ export function IdentifySetListItem({ item, onRemove }: Props) {
         name={item.name}
         year={item.year}
         imageUrl={item.imageUrl}
-        quantity={item.quantity}
+        {...(typeof item.numParts === 'number' ? { numParts: item.numParts } : {})}
         themeId={item.themeId ?? null}
         themeLabel={item.themeName ?? null}
       />

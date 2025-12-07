@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ versions });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'version_unexpected_error' }, { status: 500 });
   }
 }

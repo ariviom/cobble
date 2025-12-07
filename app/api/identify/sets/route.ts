@@ -6,6 +6,7 @@ import {
     mapBrickLinkFigToRebrickable,
     mapRebrickableFigToBrickLinkOnDemand,
 } from '@/app/lib/minifigMapping';
+import { getSetsForPartLocal, getSetSummaryLocal } from '@/app/lib/catalog';
 import {
     getPart,
     getPartColorsForPart,
@@ -30,9 +31,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'missing_part' });
   }
 
-  // Minifig path: we use our internal fig: prefix to signal a minifigure id.
-  if (part.startsWith('fig:')) {
-    const token = part.slice(4).trim();
+  const looksLikeBricklinkFig = /^[a-z]{3}\d{3,}$/i.test(part.trim());
+
+  // Minifig path: internal fig: prefix, or BL fig id fallback (e.g., "ext014")
+  if (part.startsWith('fig:') || looksLikeBricklinkFig) {
+    const tokenRaw = part.startsWith('fig:') ? part.slice(4) : part;
+    const token = tokenRaw.trim();
     if (!token) {
       return NextResponse.json({
         error: 'missing_minifig_id',
@@ -62,6 +66,7 @@ export async function GET(req: NextRequest) {
       let sets: PartInSet[] = [];
       if (figNum) {
         try {
+          // Catalog-first: use local minifig lookup if available (via getSetsForMinifig which is RB-backed)
           sets = await getSetsForMinifig(figNum);
         } catch {
           sets = [];
@@ -100,6 +105,54 @@ export async function GET(req: NextRequest) {
         } catch {
           // ignore logging failures
         }
+      }
+
+      // Enrich sets with catalog summary (local first, then RB)
+      if (sets.length) {
+        const ENRICH_LIMIT = 30;
+        const targets = sets.slice(0, ENRICH_LIMIT);
+        const summaries = await Promise.all(
+          targets.map(async set => {
+            try {
+              const summary =
+                (await getSetSummaryLocal(set.setNumber)) ??
+                (await getSetSummary(set.setNumber));
+              return { setNumber: set.setNumber.toLowerCase(), summary };
+            } catch {
+              return null;
+            }
+          })
+        );
+        const summaryBySet = new Map<
+          string,
+          Awaited<ReturnType<typeof getSetSummary>>
+        >();
+        for (const item of summaries) {
+          if (item?.summary) summaryBySet.set(item.setNumber, item.summary);
+        }
+        sets = sets.map(s => {
+          const summary = summaryBySet.get(s.setNumber.toLowerCase());
+          return {
+            ...s,
+            year: summary?.year ?? s.year,
+            imageUrl: summary?.imageUrl ?? s.imageUrl,
+            numParts: summary?.numParts ?? s.numParts ?? null,
+            themeId: summary?.themeId ?? s.themeId ?? null,
+            themeName: summary?.themeName ?? s.themeName ?? null,
+          };
+        });
+      }
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('identify/sets (minifig)', {
+          inputPart: part,
+          figNum: figNum ?? null,
+          bricklinkFigId,
+          setsCount: sets.length,
+          usedLocal: sets.some(
+            s => s.numParts != null || s.themeName != null || s.year !== 0
+          ),
+        });
       }
 
       return NextResponse.json({
@@ -187,59 +240,76 @@ export async function GET(req: NextRequest) {
     }
 
     let sets: PartInSet[] = [];
-    if (typeof selectedColorId === 'number') {
-      // Single-color path: respect the explicit RB color id.
-      try {
-        sets = await getSetsForPart(rbPart, selectedColorId);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        if (msg.includes('Rebrickable error 404')) {
-          // Retry without color filter if not found
+    // 1) Try catalog (Supabase) first for full set metadata.
+    try {
+      const local = await getSetsForPartLocal(rbPart, selectedColorId ?? null);
+      if (local.length) {
+        sets = local;
+      }
+    } catch (err) {
+      // log and fall back
+      console.error('identify/sets local catalog lookup failed', {
+        part: rbPart,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // 2) Fallback to Rebrickable when catalog is empty or failed.
+    if (sets.length === 0) {
+      if (typeof selectedColorId === 'number') {
+        // Single-color path: respect the explicit RB color id.
+        try {
+          sets = await getSetsForPart(rbPart, selectedColorId);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (msg.includes('Rebrickable error 404')) {
+            // Retry without color filter if not found
+            try {
+              sets = await getSetsForPart(rbPart, undefined);
+            } catch {
+              sets = [];
+            }
+          } else {
+            sets = [];
+          }
+        }
+      } else {
+        // "All colors" path: when the user selects "All colors" in the UI we
+        // receive no color filter. For parts where only color-scoped endpoints
+        // return data, union sets across all known RB colors instead of calling
+        // the unscoped /sets endpoint, which may be empty.
+        const colorList = availableColors ?? [];
+        if (colorList.length > 0 && colorList.length <= 10) {
+          const bySet = new Map<string, PartInSet>();
+          for (const c of colorList) {
+            let perColor: PartInSet[] = [];
+            try {
+              perColor = await getSetsForPart(rbPart, c.id);
+            } catch {
+              perColor = [];
+            }
+            for (const s of perColor) {
+              const existing = bySet.get(s.setNumber);
+              if (!existing) {
+                bySet.set(s.setNumber, { ...s });
+              } else {
+                existing.quantity += s.quantity;
+                if (s.year > existing.year) existing.year = s.year;
+                if (!existing.imageUrl && s.imageUrl) {
+                  existing.imageUrl = s.imageUrl;
+                }
+              }
+            }
+          }
+          sets = [...bySet.values()];
+        } else {
+          // Fallback: behave like the previous implementation and ask RB for
+          // unscoped sets when we either have no color data or too many colors.
           try {
             sets = await getSetsForPart(rbPart, undefined);
           } catch {
             sets = [];
           }
-        } else {
-          sets = [];
-        }
-      }
-    } else {
-      // "All colors" path: when the user selects "All colors" in the UI we
-      // receive no color filter. For parts where only color-scoped endpoints
-      // return data, union sets across all known RB colors instead of calling
-      // the unscoped /sets endpoint, which may be empty.
-      const colorList = availableColors ?? [];
-      if (colorList.length > 0 && colorList.length <= 10) {
-        const bySet = new Map<string, PartInSet>();
-        for (const c of colorList) {
-          let perColor: PartInSet[] = [];
-          try {
-            perColor = await getSetsForPart(rbPart, c.id);
-          } catch {
-            perColor = [];
-          }
-          for (const s of perColor) {
-            const existing = bySet.get(s.setNumber);
-            if (!existing) {
-              bySet.set(s.setNumber, { ...s });
-            } else {
-              existing.quantity += s.quantity;
-              if (s.year > existing.year) existing.year = s.year;
-              if (!existing.imageUrl && s.imageUrl) {
-                existing.imageUrl = s.imageUrl;
-              }
-            }
-          }
-        }
-        sets = [...bySet.values()];
-      } else {
-        // Fallback: behave like the previous implementation and ask RB for
-        // unscoped sets when we either have no color data or too many colors.
-        try {
-          sets = await getSetsForPart(rbPart, undefined);
-        } catch {
-          sets = [];
         }
       }
     }
@@ -287,6 +357,9 @@ export async function GET(req: NextRequest) {
           year: 0,
           imageUrl: s.imageUrl,
           quantity: s.quantity,
+          numParts: null,
+          themeId: null,
+          themeName: null,
         }));
 
         // Enrich BL-derived sets with Rebrickable set metadata (year/image)
@@ -300,6 +373,9 @@ export async function GET(req: NextRequest) {
                   ...set,
                   year: summary.year ?? set.year,
                   imageUrl: summary.imageUrl ?? set.imageUrl,
+                  numParts: summary.numParts ?? set.numParts ?? null,
+                  themeId: summary.themeId ?? set.themeId ?? null,
+                  themeName: summary.themeName ?? set.themeName ?? null,
                 };
               } catch {
                 return set;
@@ -338,6 +414,65 @@ export async function GET(req: NextRequest) {
       return b.year - a.year;
     });
 
+    const needsEnrichment = sorted.some(
+      s =>
+        !s.name ||
+        s.name.trim() === '' ||
+        s.year === 0 ||
+        s.numParts == null ||
+        s.themeName == null
+    );
+
+    let finalSets = sorted;
+
+    if (needsEnrichment) {
+      // Enrich with full set metadata (numParts/theme) for parity with set search cards.
+      const ENRICH_LIMIT = 30;
+      const enrichTargets = sorted.slice(0, ENRICH_LIMIT);
+      const summaries = await Promise.all(
+        enrichTargets.map(async set => {
+          try {
+            const summary =
+              (await getSetSummaryLocal(set.setNumber)) ??
+              (await getSetSummary(set.setNumber));
+            return { setNumber: set.setNumber.toLowerCase(), summary };
+          } catch (err) {
+            if (process.env.NODE_ENV !== 'production') {
+              console.log('identify/sets enrichment failed', {
+                set: set.setNumber,
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+            return null;
+          }
+        })
+      );
+      const summaryBySet = new Map<string, Awaited<ReturnType<typeof getSetSummary>>>();
+      for (const item of summaries) {
+        if (item?.summary) summaryBySet.set(item.setNumber, item.summary);
+      }
+      finalSets = sorted.map(s => {
+        const summary = summaryBySet.get(s.setNumber.toLowerCase());
+        return {
+          ...s,
+          year: summary?.year ?? s.year,
+          imageUrl: summary?.imageUrl ?? s.imageUrl,
+          numParts: summary?.numParts ?? s.numParts ?? null,
+          themeId: summary?.themeId ?? s.themeId ?? null,
+          themeName: summary?.themeName ?? s.themeName ?? null,
+        };
+      });
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('identify/sets source', {
+        part: rbPart,
+        colorId: selectedColorId ?? null,
+        usedLocal: sets.some(s => s.numParts != null || s.themeName != null),
+        count: sets.length,
+      });
+    }
+
     return NextResponse.json({
       part: {
         partNum: rbPart,
@@ -346,7 +481,7 @@ export async function GET(req: NextRequest) {
       },
       availableColors,
       selectedColorId: selectedColorId ?? null,
-      sets: sorted,
+      sets: finalSets,
     });
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') {

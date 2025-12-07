@@ -1110,7 +1110,17 @@ export type PartInSet = {
   name: string;
   year: number;
   imageUrl: string | null;
+  /**
+   * Count of this part in the set.
+   */
   quantity: number;
+  /**
+   * Total part count for the set (parity with search cards). Optional because
+   * the Rebrickable part-sets endpoints do not include it.
+   */
+  numParts?: number | null;
+  themeId?: number | null;
+  themeName?: string | null;
 };
 
 export async function getSetsForPart(
@@ -1233,6 +1243,9 @@ export async function getSetsForPart(
           imageUrl: r.set.set_img_url,
           // Rebrickable sometimes omits quantity on these endpoints; treat missing as at least 1.
           quantity: typeof r.quantity === 'number' ? r.quantity : 1,
+          numParts: null,
+          themeId: null,
+          themeName: null,
         };
       }
       // Color-scoped shape (top-level fields)
@@ -1250,6 +1263,9 @@ export async function getSetsForPart(
         imageUrl: top.set_img_url,
         // Color-scoped endpoint usually omits quantity; default to 1 so "qty in set" is never 0.
         quantity: typeof top.quantity === 'number' ? top.quantity : 1,
+        numParts: null,
+        themeId: null,
+        themeName: null,
       };
     });
   }

@@ -5,7 +5,7 @@ import {
   getCatalogReadClient,
   getCatalogWriteClient,
 } from '@/app/lib/db/catalogAccess';
-import type { SimpleSet } from '@/app/lib/rebrickable';
+import type { PartInSet, SimpleSet } from '@/app/lib/rebrickable';
 import {
     mapCategoryNameToParent,
     normalizeText,
@@ -537,6 +537,136 @@ export async function getSetSummaryLocal(setNumber: string): Promise<{
     themeId: rawThemeId,
     themeName,
   };
+}
+
+function deriveRootThemeName(
+  themeById: Map<number, LocalTheme>,
+  themeId: number | null
+): string | null {
+  if (themeId == null || !Number.isFinite(themeId)) return null;
+  const visited = new Set<number>();
+  let current: LocalTheme | null | undefined = themeById.get(themeId) ?? null;
+  let rootName: string | null = current?.name ?? null;
+  while (current && current.parent_id != null && !visited.has(current.id)) {
+    visited.add(current.id);
+    const parent = themeById.get(current.parent_id);
+    if (!parent) break;
+    rootName = parent.name ?? rootName;
+    current = parent;
+  }
+  return rootName;
+}
+
+export async function getSetsForPartLocal(
+  partNum: string,
+  colorId?: number | null
+): Promise<PartInSet[]> {
+  const trimmed = partNum.trim();
+  if (!trimmed) return [];
+
+  const supabase = getCatalogReadClient();
+  const query = supabase
+    .from('rb_set_parts')
+    .select(
+      `
+        set_num,
+        quantity,
+        color_id,
+        rb_sets!inner (
+          set_num,
+          name,
+          year,
+          num_parts,
+          image_url,
+          theme_id
+        )
+      `
+    )
+    .eq('part_num', trimmed)
+    .eq('is_spare', false)
+    .limit(1000);
+
+  if (typeof colorId === 'number') {
+    query.eq('color_id', colorId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(
+      `Supabase getSetsForPartLocal failed: ${error.message}`
+    );
+  }
+
+  if (!data || data.length === 0) return [];
+
+  const themes = await getThemesLocal();
+  const themeById = new Map<number, LocalTheme>(
+    (themes ?? []).map(t => [t.id, t])
+  );
+
+  const bySet = new Map<string, PartInSet>();
+
+  for (const row of data) {
+    const set = (row as unknown as { rb_sets?: Record<string, unknown> }).rb_sets;
+    if (!set) continue;
+
+    const setNum = String((set as { set_num?: unknown }).set_num ?? row.set_num ?? '').trim();
+    if (!setNum) continue;
+
+    const key = setNum.toLowerCase();
+    const quantity =
+      typeof row.quantity === 'number' && Number.isFinite(row.quantity)
+        ? row.quantity
+        : 1;
+
+    const rawThemeId =
+      typeof (set as { theme_id?: unknown }).theme_id === 'number' &&
+      Number.isFinite((set as { theme_id?: number }).theme_id)
+        ? (set as { theme_id: number }).theme_id
+        : null;
+    const themeName = deriveRootThemeName(themeById, rawThemeId);
+
+    const base: PartInSet = {
+      setNumber: setNum,
+      name: String((set as { name?: unknown }).name ?? setNum),
+      year:
+        typeof (set as { year?: unknown }).year === 'number' &&
+        Number.isFinite((set as { year: number }).year)
+          ? (set as { year: number }).year
+          : 0,
+      imageUrl:
+        typeof (set as { image_url?: unknown }).image_url === 'string'
+          ? ((set as { image_url: string }).image_url ?? null)
+          : null,
+      quantity,
+      numParts:
+        typeof (set as { num_parts?: unknown }).num_parts === 'number' &&
+        Number.isFinite((set as { num_parts: number }).num_parts)
+          ? (set as { num_parts: number }).num_parts
+          : null,
+      themeId: rawThemeId,
+      themeName: themeName ?? null,
+    };
+
+    const existing = bySet.get(key);
+    if (!existing) {
+      bySet.set(key, base);
+    } else {
+      existing.quantity += base.quantity;
+      if (existing.year === 0 && base.year !== 0) existing.year = base.year;
+      if (existing.numParts == null && base.numParts != null) {
+        existing.numParts = base.numParts;
+      }
+      if (!existing.themeId && base.themeId) existing.themeId = base.themeId;
+      if (!existing.themeName && base.themeName) {
+        existing.themeName = base.themeName;
+      }
+      if (!existing.imageUrl && base.imageUrl) existing.imageUrl = base.imageUrl;
+      if (!existing.name && base.name) existing.name = base.name;
+    }
+  }
+
+  return Array.from(bySet.values());
 }
 
 export type LocalSetMinifig = {

@@ -34,6 +34,7 @@ export type IdentifySet = {
 	year: number;
 	imageUrl: string | null;
 	quantity: number;
+	numParts?: number | null;
 	themeId?: number | null;
 	themeName?: string | null;
 };

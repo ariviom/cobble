@@ -154,7 +154,20 @@ export type PartInSet = {
   name: string;
   year: number;
   imageUrl: string | null;
+  /**
+   * How many times the specific part appears in the set.
+   */
   quantity: number;
+  /**
+   * Total parts in the set (identical to set search cards). Optional because
+   * Rebrickable set-part endpoints do not return it directly.
+   */
+  numParts?: number | null;
+  /**
+   * Theme metadata for parity with regular set search results.
+   */
+  themeId?: number | null;
+  themeName?: string | null;
 };
 
 

@@ -1,5 +1,5 @@
 import { blGetPartSupersets, type BLSupersetItem } from '@/app/lib/bricklink';
-import { getSetSummary } from '@/app/lib/rebrickable';
+import { getSetSummary, type PartInSet } from '@/app/lib/rebrickable';
 import { incrementCounter, logEvent } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
@@ -42,12 +42,15 @@ export async function GET(req: NextRequest) {
 		try {
 			supersets = await blGetPartSupersets(blPart, blColorId);
 		} catch {}
-		let sets = (supersets ?? []).map(s => ({
+		let sets: PartInSet[] = (supersets ?? []).map(s => ({
 			setNumber: s.setNumber,
 			name: s.name,
 			year: 0,
 			imageUrl: s.imageUrl,
 			quantity: s.quantity,
+			numParts: null,
+			themeId: null,
+			themeName: null,
 		}));
 		// Enrich with RB set images (and year) when possible
 		try {
@@ -60,6 +63,9 @@ export async function GET(req: NextRequest) {
 							...set,
 							year: summary.year ?? set.year,
 							imageUrl: summary.imageUrl ?? set.imageUrl,
+							numParts: summary.numParts ?? set.numParts ?? null,
+							themeId: summary.themeId ?? set.themeId ?? null,
+							themeName: summary.themeName ?? set.themeName ?? null,
 						};
 					} catch {
 						return set;
