@@ -5,6 +5,18 @@ export type IdentifyPart = {
 	confidence: number;
 	colorId: number | null;
 	colorName: string | null;
+	/**
+	 * True when this Identify entry represents a minifigure rather than a part.
+	 */
+	isMinifig?: boolean;
+	/**
+	 * Rebrickable minifig ID (e.g. "fig-007") when applicable.
+	 */
+	rebrickableFigId?: string | null;
+	/**
+	 * BrickLink minifig ID (e.g. "cas432") when available.
+	 */
+	bricklinkFigId?: string | null;
 };
 
 export type IdentifyCandidate = {

@@ -1,19 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server';
 import {
-  getPart,
-  getPartColorsForPart,
-  getSetSummary,
-  getSetsForMinifig,
-  getSetsForPart,
-  mapBrickLinkColorIdToRebrickableColorId,
-  resolvePartIdToRebrickable,
-  type PartAvailableColor,
-  type PartInSet,
-} from '@/app/lib/rebrickable';
-import {
-  blGetPartSupersets,
-  type BLSupersetItem,
+    blGetPartSupersets,
+    type BLSupersetItem,
 } from '@/app/lib/bricklink';
+import {
+    mapBrickLinkFigToRebrickable,
+    mapRebrickableFigToBrickLinkOnDemand,
+} from '@/app/lib/minifigMapping';
+import {
+    getPart,
+    getPartColorsForPart,
+    getSetSummary,
+    getSetsForMinifig,
+    getSetsForPart,
+    mapBrickLinkColorIdToRebrickableColorId,
+    resolvePartIdToRebrickable,
+    type PartAvailableColor,
+    type PartInSet,
+} from '@/app/lib/rebrickable';
+import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
+import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -27,8 +32,8 @@ export async function GET(req: NextRequest) {
 
   // Minifig path: we use our internal fig: prefix to signal a minifigure id.
   if (part.startsWith('fig:')) {
-    const figNum = part.slice(4).trim();
-    if (!figNum) {
+    const token = part.slice(4).trim();
+    if (!token) {
       return NextResponse.json({
         error: 'missing_minifig_id',
         part: { partNum: part, name: '', imageUrl: null },
@@ -36,28 +41,78 @@ export async function GET(req: NextRequest) {
       });
     }
     try {
-      let sets: PartInSet[] = [];
-      try {
-        sets = await getSetsForMinifig(figNum);
-      } catch {
-        sets = [];
+      let figNum: string | null = null;
+      let bricklinkFigId: string | null = null;
+
+      // Prefer treating the token as a BrickLink ID first; if that fails,
+      // fall back to using it as a Rebrickable fig id.
+      const mappedRb = await mapBrickLinkFigToRebrickable(token);
+      if (mappedRb) {
+        figNum = mappedRb;
+        bricklinkFigId = token;
+      } else {
+        figNum = token;
+        try {
+          bricklinkFigId = await mapRebrickableFigToBrickLinkOnDemand(figNum);
+        } catch {
+          bricklinkFigId = null;
+        }
       }
+
+      let sets: PartInSet[] = [];
+      if (figNum) {
+        try {
+          sets = await getSetsForMinifig(figNum);
+        } catch {
+          sets = [];
+        }
+      }
+
+      // Resolve a human-friendly minifig name from the catalog when possible.
+      let displayName: string = figNum ?? token;
+      if (figNum) {
+        try {
+          const supabase = getSupabaseServiceRoleClient();
+          const { data, error } = await supabase
+            .from('rb_minifigs')
+            .select('name')
+            .eq('fig_num', figNum)
+            .maybeSingle();
+          if (!error && data && typeof data.name === 'string') {
+            const trimmedName = data.name.trim();
+            if (trimmedName) {
+              displayName = trimmedName;
+            }
+          }
+        } catch {
+          // best-effort only; fall back to figNum/token
+        }
+      }
+
       if (process.env.NODE_ENV !== 'production') {
         try {
           console.log('identify/sets (minifig)', {
             inputPart: part,
-            figNum,
+            figNum: figNum ?? null,
+            bricklinkFigId,
             setsCount: sets.length,
           });
         } catch {
           // ignore logging failures
         }
       }
+
       return NextResponse.json({
         part: {
-          partNum: figNum,
-          name: figNum,
+          partNum: figNum ?? token,
+          name: displayName,
           imageUrl: null,
+          confidence: 0,
+          colorId: null,
+          colorName: null,
+          isMinifig: true,
+          rebrickableFigId: figNum,
+          bricklinkFigId,
         },
         availableColors: [] as PartAvailableColor[],
         selectedColorId: null,

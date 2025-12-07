@@ -1,6 +1,6 @@
 'use client';
 
-import { useMinifigMeta } from '@/app/hooks/useMinifigMeta';
+import { getMinifigDisplayIds } from '@/app/lib/minifigIds';
 import Link from 'next/link';
 
 type MinifigCardProps = {
@@ -8,6 +8,8 @@ type MinifigCardProps = {
   name: string;
   numParts?: number | null;
   quantity?: number | null;
+  imageUrl?: string | null;
+  blId?: string | null;
 };
 
 export function MinifigCard({
@@ -15,21 +17,20 @@ export function MinifigCard({
   name,
   numParts,
   quantity,
+  imageUrl,
+  blId,
 }: MinifigCardProps) {
-  const { meta } = useMinifigMeta(figNum);
-  // Only show BL ID when available - never show RB fig_num
-  const displayId = meta?.blId ?? null;
-  const imageUrl = meta?.imageUrl ?? null;
-  const displayName =
-    (meta?.name && meta.name.trim()) || (name && name.trim()) || figNum;
+  const { displayLabel, routeId } = getMinifigDisplayIds({
+    bricklinkId: blId ?? null,
+    rebrickableId: figNum,
+  });
+  const displayName = (name && name.trim()) || figNum;
   const partsCount =
-    typeof meta?.numParts === 'number' && Number.isFinite(meta.numParts)
-      ? meta.numParts
-      : (numParts ?? null);
+    typeof numParts === 'number' && Number.isFinite(numParts) ? numParts : null;
 
   return (
     <Link
-      href={`/minifigs/id/${encodeURIComponent(figNum)}`}
+      href={`/minifigs/id/${encodeURIComponent(routeId || figNum)}`}
       className="block w-full"
     >
       <div className="rounded-lg border border-subtle bg-card shadow-sm transition-colors hover:border-strong">
@@ -56,12 +57,9 @@ export function MinifigCard({
                 {displayName}
               </div>
               <div className="mt-1 w-full text-xs text-foreground-muted">
-                {displayId && <span>{displayId}</span>}
+                <span>{displayLabel}</span>
                 {typeof partsCount === 'number' && partsCount > 0 && (
-                  <span className={displayId ? 'ml-1' : ''}>
-                    {displayId && '• '}
-                    {partsCount} parts
-                  </span>
+                  <span className="ml-1">• {partsCount} parts</span>
                 )}
                 {typeof quantity === 'number' && quantity > 0 && (
                   <span className="ml-1">

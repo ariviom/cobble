@@ -24,6 +24,8 @@ type PublicMinifigSummary = {
   name: string | null;
   num_parts: number | null;
   status: 'owned' | 'want' | null;
+  image_url?: string | null;
+  bl_id?: string | null;
 };
 
 type PublicListSummary = {
@@ -521,6 +523,8 @@ export function PublicUserCollectionOverview({
                         key={fig.fig_num}
                         figNum={fig.fig_num}
                         name={fig.name ?? fig.fig_num}
+                        imageUrl={fig.image_url ?? null}
+                        blId={fig.bl_id ?? null}
                         numParts={fig.num_parts}
                         status={fig.status}
                       />

@@ -45,6 +45,7 @@ export type SearchPage = {
 
 export type MinifigSearchResult = {
   figNum: string;
+  blId?: string | null;
   name: string;
   imageUrl: string | null;
   numParts: number | null;

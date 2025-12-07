@@ -5,24 +5,12 @@ import {
   MoreDropdown,
   MoreDropdownButton,
 } from '@/app/components/ui/MoreDropdown';
+import { formatMinifigId } from '@/app/lib/minifigIds';
 import { ExternalLink, Info, Pin, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { InventoryRow } from '../types';
 import { OwnedQuantityControl } from './OwnedQuantityControl';
-
-function formatCurrency(amount: number, currencyCode: string): string {
-  try {
-    const formatter = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currencyCode,
-      minimumFractionDigits: 2,
-    });
-    return formatter.format(amount);
-  } catch {
-    return `${currencyCode} ${amount.toFixed(2)}`;
-  }
-}
 
 type Props = {
   setNumber: string;
@@ -32,6 +20,7 @@ type Props = {
   unitPrice?: number | null;
   minPrice?: number | null;
   maxPrice?: number | null;
+  // pricing fields kept for future expansion; currently unused in this component
   currency?: string | null;
   pricingSource?: 'real_time' | 'historical' | 'unavailable' | null;
   pricingScopeLabel?: string | null;
@@ -50,9 +39,7 @@ export function InventoryItem({
   unitPrice,
   minPrice,
   maxPrice,
-  currency,
   pricingSource,
-  pricingScopeLabel,
   bricklinkColorId,
   isPricePending,
   onOwnedChange,
@@ -75,9 +62,11 @@ export function InventoryItem({
   const effectivePartId = isFigId
     ? row.partId
     : (row.bricklinkPartId ?? row.partId);
-  const displayId = isFigId
-    ? (bricklinkFigId ?? rebrickableFigId ?? row.partId)
-    : effectivePartId;
+  const minifigIdDisplay = formatMinifigId({
+    bricklinkId: bricklinkFigId ?? null,
+    rebrickableId: rebrickableFigId ?? row.partId,
+  });
+  const displayId = isFigId ? minifigIdDisplay.displayId : effectivePartId;
   const linkHash =
     !isFigId && typeof bricklinkColorId === 'number'
       ? `#T=S&C=${bricklinkColorId}`
@@ -96,18 +85,17 @@ export function InventoryItem({
     typeof maxPrice === 'number' &&
     Number.isFinite(maxPrice) &&
     maxPrice >= minPrice;
-  const currencyCode = currency ?? 'USD';
-  const pricingBadge =
-    pricingSource === 'historical'
-      ? 'Historical avg'
-      : pricingSource === 'real_time'
-        ? 'Real-time'
-        : null;
+  const identifyPart = isMinifig
+    ? bricklinkFigId
+      ? `fig:${bricklinkFigId}`
+      : row.partId
+    : row.partId;
+
   const identifyHref = {
     pathname: '/identify',
     query: {
       mode: 'part',
-      part: row.partId,
+      part: identifyPart,
       ...(typeof bricklinkColorId === 'number' && !isFigId
         ? { blColorId: bricklinkColorId }
         : {}),
@@ -185,8 +173,17 @@ export function InventoryItem({
             </div>
           )}
         </MoreDropdown>
-        <div
-          className={`relative list:grow-0 list:items-center grid:w-full list:item-sm:size-16 list:item-md:size-20 list:item-lg:size-32`}
+        <button
+          className={`relative cursor-pointer list:grow-0 list:items-center grid:w-full list:item-sm:size-16 list:item-md:size-20 list:item-lg:size-32`}
+          role="button"
+          tabIndex={0}
+          onClick={handleOpenMoreInfo}
+          onKeyDown={event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              handleOpenMoreInfo();
+            }
+          }}
         >
           {row.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -226,7 +223,7 @@ export function InventoryItem({
               </span>
             )}
           </div>
-        </div>
+        </button>
         <div className="flex h-full max-h-min w-full flex-1 flex-col justify-between gap-x-6 gap-y-3 sm:flex-row sm:items-center grid:flex-col">
           <div className="h-full w-full list:pr-12 lg:list:pr-0">
             <p className="line-clamp-1 w-full overflow-hidden font-medium lg:line-clamp-2">
@@ -234,19 +231,12 @@ export function InventoryItem({
             </p>
             <div className="mt-1 w-full text-sm text-foreground-muted">
               {isMinifig ? (
-                <p>
-                  BrickLink ID:{' '}
-                  {bricklinkFigId ? (
-                    <span>{bricklinkFigId}</span>
-                  ) : (
-                    <span className="text-foreground-muted">ID Missing</span>
-                  )}
-                </p>
+                <p>{minifigIdDisplay.label}</p>
               ) : (
                 <p>Part ID: {displayId}</p>
               )}
               {!isMinifig && row.colorName && <p>Color: {row.colorName}</p>}
-              {hasPrice ? (
+              {/* {hasPrice ? (
                 <p>
                   Estimated price{' '}
                   {formatCurrency(
@@ -270,7 +260,7 @@ export function InventoryItem({
                   Price unavailable; BrickLink limit hit. Retry after daily
                   reset.
                 </p>
-              ) : null}
+              ) : null} */}
             </div>
           </div>
           <div className="w-full sm:list:w-auto">
@@ -319,34 +309,20 @@ export function InventoryItem({
             )}
             <div className="flex flex-1 flex-col gap-1">
               <p className="text-sm font-medium">{row.partName}</p>
-              <p>ID: {displayId}</p>
-              <p>Color: {row.colorName}</p>
+              {isMinifig ? (
+                <>
+                  <p>{minifigIdDisplay.label}</p>
+                </>
+              ) : (
+                <>
+                  <p>ID: {displayId}</p>
+                  <p>Color: {row.colorName}</p>
+                </>
+              )}
             </div>
           </div>
           <div className="space-y-1">
-            {hasPrice ? (
-              <p>
-                Estimated price:{' '}
-                <a
-                  href={bricklinkUrl}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="underline hover:text-theme-primary"
-                >
-                  {hasRange
-                    ? `${formatCurrency(
-                        minPrice as number,
-                        currencyCode
-                      )} – ${formatCurrency(maxPrice as number, currencyCode)}`
-                    : formatCurrency(unitPrice as number, currencyCode)}
-                </a>
-                {pricingBadge ? (
-                  <span className="ml-2 inline-flex items-center rounded-full bg-foreground-muted/10 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-foreground-muted uppercase">
-                    {pricingBadge}
-                  </span>
-                ) : null}
-              </p>
-            ) : isPricePending ? (
+            {hasPrice ? null : isPricePending ? (
               <p className="text-foreground-muted italic">Fetching price…</p>
             ) : pricingSource === 'unavailable' ? (
               <p className="text-foreground-muted italic">
@@ -379,6 +355,15 @@ export function InventoryItem({
           >
             View more sets with this piece
           </Link>
+          {isMinifig && rebrickableFigId && (
+            <Link
+              href={`/minifigs/id/${encodeURIComponent(rebrickableFigId)}`}
+              className="inline-flex items-center justify-center rounded-md border border-subtle bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-muted"
+              onClick={event => event.stopPropagation()}
+            >
+              Open minifig details
+            </Link>
+          )}
         </div>
       </Modal>
     </>

@@ -1,15 +1,53 @@
 import { getSetInventoryLocal } from '@/app/lib/catalog';
-import { getSetInventory } from '@/app/lib/rebrickable';
 import {
-  mapRebrickableFigToBrickLink,
-  mapSetRebrickableFigsToBrickLinkOnDemand,
+  getMinifigMappingsForSetBatched,
+  getGlobalMinifigMappingsBatch,
   normalizeRebrickableFigId,
-} from '@/app/lib/minifigMapping';
+} from '@/app/lib/minifigMappingBatched';
+import { getSetInventory } from '@/app/lib/rebrickable';
 import type { InventoryRow } from '@/app/components/set/types';
 
+export type InventoryResult = {
+  rows: InventoryRow[];
+  /** Metadata about minifig mapping status */
+  minifigMappingMeta?: {
+    /** How many minifigs in the set */
+    totalMinifigs: number;
+    /** How many have BrickLink IDs */
+    mappedCount: number;
+    /** Sync status: 'ok' | 'error' | 'pending' | null */
+    syncStatus: 'ok' | 'error' | 'pending' | null;
+    /** Whether a sync was triggered during this request */
+    syncTriggered: boolean;
+    /** Fig IDs that remain unmapped */
+    unmappedFigIds: string[];
+  };
+};
+
+/**
+ * Get inventory rows for a set with minifig BrickLink ID enrichment.
+ * 
+ * This function:
+ * 1. Loads inventory from Supabase catalog (falls back to Rebrickable API)
+ * 2. Identifies minifig rows and extracts their Rebrickable fig IDs
+ * 3. Uses batched lookup to get BrickLink IDs (single query + optional sync)
+ * 4. Falls back to global mappings for any remaining unmapped figs
+ * 5. Returns enriched rows with mapping metadata
+ */
 export async function getSetInventoryRows(
   setNumber: string
 ): Promise<InventoryRow[]> {
+  const result = await getSetInventoryRowsWithMeta(setNumber);
+  return result.rows;
+}
+
+/**
+ * Extended version that returns mapping metadata alongside rows.
+ * Useful for debugging and for UI that wants to show sync status.
+ */
+export async function getSetInventoryRowsWithMeta(
+  setNumber: string
+): Promise<InventoryResult> {
   // Prefer Supabase-backed catalog inventory when available.
   let rows: InventoryRow[] = [];
   try {
@@ -32,7 +70,7 @@ export async function getSetInventoryRows(
     rows = await getSetInventory(setNumber);
   }
 
-  // Enrich minifigure parent rows with canonical BrickLink IDs when available.
+  // Identify minifigure parent rows
   const figRows = rows.filter(
     row =>
       row.parentCategory === 'Minifigure' &&
@@ -41,7 +79,7 @@ export async function getSetInventoryRows(
   );
 
   if (!figRows.length) {
-    return rows;
+    return { rows };
   }
 
   const uniqueFigIds = Array.from(
@@ -53,39 +91,55 @@ export async function getSetInventoryRows(
   );
 
   if (!uniqueFigIds.length) {
-    return rows;
+    return { rows };
   }
 
-  const setScopedMappings = await mapSetRebrickableFigsToBrickLinkOnDemand(
+  // Use batched lookup - single query for mappings + sync status
+  const batchedResult = await getMinifigMappingsForSetBatched(
     setNumber,
-    uniqueFigIds
+    uniqueFigIds,
+    { triggerSyncIfMissing: true }
   );
 
   const byFigId = new Map<string, string | null>();
-  const missing: string[] = [];
-
-  for (const figId of uniqueFigIds) {
-    const normalized = normalizeRebrickableFigId(figId);
-    if (setScopedMappings.has(normalized)) {
-      byFigId.set(figId, setScopedMappings.get(normalized) ?? null);
-    } else {
-      missing.push(figId);
-    }
-  }
-
-  if (missing.length > 0) {
-    const fallbackMappings = await Promise.all(
-      missing.map(async figId => {
-        const blId = await mapRebrickableFigToBrickLink(figId);
-        return { figId, blId };
-      })
+  
+  // Copy per-set mappings
+  for (const [normalized, blId] of batchedResult.mappings.entries()) {
+    // Find original figId that matches this normalized key
+    const originalId = uniqueFigIds.find(
+      id => normalizeRebrickableFigId(id) === normalized
     );
-    for (const { figId, blId } of fallbackMappings) {
-      byFigId.set(figId, blId ?? null);
+    if (originalId) {
+      byFigId.set(originalId, blId);
     }
   }
 
-  return rows.map(row => {
+  // Get global fallback mappings for any still-unmapped figs
+  const stillMissing = uniqueFigIds.filter(id => !byFigId.has(id));
+  
+  if (stillMissing.length > 0) {
+    const globalMappings = await getGlobalMinifigMappingsBatch(stillMissing);
+    for (const figId of stillMissing) {
+      const normalized = normalizeRebrickableFigId(figId);
+      const blId = globalMappings.get(normalized) ?? null;
+      byFigId.set(figId, blId);
+    }
+  }
+
+  // Count mapped vs unmapped
+  let mappedCount = 0;
+  const finalUnmapped: string[] = [];
+  for (const figId of uniqueFigIds) {
+    const blId = byFigId.get(figId);
+    if (blId) {
+      mappedCount++;
+    } else {
+      finalUnmapped.push(figId);
+    }
+  }
+
+  // Enrich rows with BrickLink IDs
+  const enrichedRows = rows.map(row => {
     if (
       row.parentCategory === 'Minifigure' &&
       typeof row.partId === 'string' &&
@@ -93,15 +147,19 @@ export async function getSetInventoryRows(
     ) {
       const cleanId = row.partId.replace(/^fig:/, '').trim();
       const blId = cleanId ? byFigId.get(cleanId) ?? null : null;
-      if (blId == null) {
-        return { ...row, bricklinkFigId: null };
-      }
       return { ...row, bricklinkFigId: blId };
     }
     return row;
   });
+
+  return {
+    rows: enrichedRows,
+    minifigMappingMeta: {
+      totalMinifigs: uniqueFigIds.length,
+      mappedCount,
+      syncStatus: batchedResult.syncStatus,
+      syncTriggered: batchedResult.syncTriggered,
+      unmappedFigIds: finalUnmapped,
+    },
+  };
 }
-
-
-
-

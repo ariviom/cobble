@@ -1,4 +1,7 @@
 'use client';
+
+import { useMinifigMeta } from '@/app/hooks/useMinifigMeta';
+import { formatMinifigId } from '@/app/lib/minifigIds';
 import type { IdentifyCandidate, IdentifyPart } from './types';
 
 export function IdentifyResultCard({
@@ -8,6 +11,7 @@ export function IdentifyResultCard({
   colorOptions,
   selectedColorId,
   onChangeColor,
+  showConfidence = true,
 }: {
   part: IdentifyPart;
   candidates: IdentifyCandidate[];
@@ -15,15 +19,36 @@ export function IdentifyResultCard({
   colorOptions?: Array<{ id: number; name: string }>;
   selectedColorId?: number | null;
   onChangeColor?: (id: number | null) => void;
+  showConfidence?: boolean;
 }) {
+  const looksLikeRbFigId = /^fig-[a-z0-9]+$/i.test(part.partNum);
+  const rebrickableFigId =
+    part.rebrickableFigId ?? (looksLikeRbFigId ? part.partNum : null);
+  const isMinifig = part.isMinifig === true || Boolean(rebrickableFigId);
+
+  const idLabel = isMinifig
+    ? formatMinifigId({
+        bricklinkId: part.bricklinkFigId ?? undefined,
+        rebrickableId: rebrickableFigId ?? undefined,
+      }).label
+    : part.partNum;
+
+  const { meta } = useMinifigMeta(
+    isMinifig && rebrickableFigId ? rebrickableFigId : ''
+  );
+
+  const displayName =
+    (isMinifig && meta?.name && meta.name.trim()) || part.name;
+  const displayImageUrl = (isMinifig && meta?.imageUrl) || part.imageUrl;
+
   return (
     <div className="mb-4 overflow-hidden rounded-lg border border-subtle bg-card p-4">
       <div className="flex items-start gap-4">
         <div className="relative h-24 w-24 shrink-0 rounded bg-card-muted p-2">
-          {part.imageUrl ? (
+          {displayImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={part.imageUrl}
+              src={displayImageUrl}
               alt=""
               className="h-full w-full object-cover"
             />
@@ -32,9 +57,14 @@ export function IdentifyResultCard({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium">{part.name}</div>
+          <div className="text-sm font-medium">{displayName}</div>
           <div className="mt-1 text-xs text-foreground-muted">
-            {part.partNum} • confidence {(part.confidence * 100).toFixed(0)}%
+            {idLabel}
+            {showConfidence &&
+              typeof part.confidence === 'number' &&
+              !Number.isNaN(part.confidence) && (
+                <> • confidence {(part.confidence * 100).toFixed(0)}%</>
+              )}
           </div>
           <div className="mt-2 flex items-center gap-2">
             {typeof selectedColorId !== 'undefined' &&

@@ -151,7 +151,7 @@ function getRootThemeName(themeId: number, themeMap: ThemeMap): string | null {
   return root?.name ?? null;
 }
 
-function getMinifigStatusLabel(status: Tables<'user_minifigs'>['status']): string {
+function getMinifigStatusLabel(status: Tables<'user_minifigs'>['status'] | null): string {
   switch (status) {
     case 'owned':
       return 'Owned';
@@ -787,6 +787,8 @@ export function UserCollectionOverview({
                       key={fig.figNum}
                       figNum={fig.figNum}
                       name={fig.name}
+                      imageUrl={fig.imageUrl}
+                      blId={fig.blId ?? null}
                       numParts={fig.numParts}
                       quantity={fig.quantity}
                     />

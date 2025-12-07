@@ -60,12 +60,24 @@ function IdentifyPageInner() {
     }) => {
       const trimmed = partId.trim();
       if (!trimmed) return;
+
+      // Treat obvious Rebrickable minifig IDs as minifigs without requiring
+      // the user to type the internal "fig:" prefix. For example, "fig-00034"
+      // becomes "fig:fig-00034" for the API, which then resolves BL/RB ids.
+      const lower = trimmed.toLowerCase();
+      const looksLikeRbFig = /^fig-\w+$/i.test(trimmed);
+      const alreadyPrefixed = lower.startsWith('fig:');
+      const partParam = alreadyPrefixed
+        ? trimmed
+        : looksLikeRbFig
+          ? `fig:${trimmed}`
+          : trimmed;
       setError(null);
       setIsLoading(true);
       setHasSearched(false);
       try {
         const url = new URL('/api/identify/sets', window.location.origin);
-        url.searchParams.set('part', trimmed);
+        url.searchParams.set('part', partParam);
         if (typeof colorId === 'number') {
           url.searchParams.set('colorId', String(colorId));
         } else if (typeof blColorId === 'number') {
@@ -77,30 +89,47 @@ function IdentifyPageInner() {
         }
         const payload: unknown = await res.json();
         const payloadAny = payload as {
-          part?: { partNum: string; name: string; imageUrl: string | null };
+          part?: {
+            partNum: string;
+            name: string;
+            imageUrl: string | null;
+            confidence?: number;
+            colorId?: number | null;
+            colorName?: string | null;
+            isMinifig?: boolean;
+            rebrickableFigId?: string | null;
+            bricklinkFigId?: string | null;
+          };
           sets?: IdentifySet[];
           availableColors?: Array<{ id: number; name: string }>;
           selectedColorId?: number | null;
         };
 
         if (payloadAny.part) {
-          setPart(prev =>
-            prev
-              ? {
-                  ...prev,
-                  partNum: payloadAny.part!.partNum,
-                  name: payloadAny.part!.name,
-                  imageUrl: payloadAny.part!.imageUrl,
-                }
-              : ({
-                  partNum: payloadAny.part!.partNum,
-                  name: payloadAny.part!.name,
-                  imageUrl: payloadAny.part!.imageUrl,
-                  confidence: 0,
-                  colorId: null,
-                  colorName: null,
-                } satisfies IdentifyPart)
-          );
+          setPart(prev => {
+            const base: IdentifyPart = {
+              partNum: payloadAny.part!.partNum,
+              name: payloadAny.part!.name,
+              imageUrl: payloadAny.part!.imageUrl,
+              confidence: payloadAny.part!.confidence ?? prev?.confidence ?? 0,
+              colorId:
+                typeof payloadAny.part!.colorId !== 'undefined'
+                  ? payloadAny.part!.colorId!
+                  : (prev?.colorId ?? null),
+              colorName:
+                typeof payloadAny.part!.colorName !== 'undefined'
+                  ? payloadAny.part!.colorName!
+                  : (prev?.colorName ?? null),
+              isMinifig: payloadAny.part!.isMinifig ?? prev?.isMinifig ?? false,
+              rebrickableFigId:
+                payloadAny.part!.rebrickableFigId ??
+                prev?.rebrickableFigId ??
+                null,
+              bricklinkFigId:
+                payloadAny.part!.bricklinkFigId ?? prev?.bricklinkFigId ?? null,
+            };
+            return base;
+          });
         }
 
         setSets((payloadAny.sets as IdentifySet[]) ?? []);
@@ -263,22 +292,40 @@ function IdentifyPageInner() {
         const payload = await res.json();
         // payload.part has authoritative name/image; prefer it
         const payloadAny = payload as unknown as {
-          part?: { partNum: string; name: string; imageUrl: string | null };
+          part?: {
+            partNum: string;
+            name: string;
+            imageUrl: string | null;
+            confidence?: number;
+            colorId?: number | null;
+            colorName?: string | null;
+            isMinifig?: boolean;
+            rebrickableFigId?: string | null;
+            bricklinkFigId?: string | null;
+          };
           sets?: IdentifySet[];
           availableColors?: Array<{ id: number; name: string }>;
           selectedColorId?: number | null;
         };
         if (payloadAny.part) {
-          setPart(prev =>
-            prev
-              ? {
-                  ...prev,
-                  partNum: payloadAny.part!.partNum,
-                  name: payloadAny.part!.name,
-                  imageUrl: payloadAny.part!.imageUrl,
-                }
-              : (payloadAny.part as IdentifyPart)
-          );
+          setPart(prev => {
+            const base: IdentifyPart = {
+              partNum: payloadAny.part!.partNum,
+              name: payloadAny.part!.name,
+              imageUrl: payloadAny.part!.imageUrl,
+              confidence: payloadAny.part!.confidence ?? 0,
+              colorId: payloadAny.part!.colorId ?? null,
+              colorName: payloadAny.part!.colorName ?? null,
+              isMinifig: payloadAny.part!.isMinifig ?? prev?.isMinifig ?? false,
+              rebrickableFigId:
+                payloadAny.part!.rebrickableFigId ??
+                prev?.rebrickableFigId ??
+                null,
+              bricklinkFigId:
+                payloadAny.part!.bricklinkFigId ?? prev?.bricklinkFigId ?? null,
+            };
+            return base;
+          });
         }
         setSets((payloadAny.sets as IdentifySet[]) ?? []);
         if (Array.isArray(payloadAny.availableColors)) {
@@ -376,7 +423,11 @@ function IdentifyPageInner() {
     if (partFromQuery && partFromQuery.trim() !== '') {
       hasBootstrappedFromQueryRef.current = true;
       setMode('part');
-      setPartSearchInput(partFromQuery);
+      const trimmedPart = partFromQuery.trim();
+      const visiblePart = trimmedPart.toLowerCase().startsWith('fig:')
+        ? trimmedPart.slice(4)
+        : trimmedPart;
+      setPartSearchInput(visiblePart);
       const colorId =
         colorIdFromQuery && colorIdFromQuery.trim() !== ''
           ? Number(colorIdFromQuery)
@@ -507,12 +558,12 @@ function IdentifyPageInner() {
             ) : (
               <>
                 <label className="mb-1 block text-xs font-medium text-foreground">
-                  Part or minifig ID
+                  Part or minifig ID (BrickLink or Rebrickable)
                 </label>
                 <Input
                   value={partSearchInput}
                   onChange={event => setPartSearchInput(event.target.value)}
-                  placeholder="e.g. 3001, 2336pr0003, fig-007"
+                  placeholder="e.g. 3001, cas432, fig-007"
                   size="md"
                   className="w-full"
                 />
@@ -558,6 +609,7 @@ function IdentifyPageInner() {
               colorOptions={colorOptions}
               selectedColorId={selectedColorId}
               onChangeColor={onChangeColor}
+              showConfidence={mode === 'camera'}
             />
             <IdentifySetList items={sets} />
           </div>

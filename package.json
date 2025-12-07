@@ -14,6 +14,8 @@
     "ingest:bricklink-minifigs": "tsx scripts/ingest-bricklink-minifigs.ts",
     "build:minifig-mappings:user": "tsx scripts/build-minifig-mappings-from-user-sets.ts",
     "build:minifig-mappings:all": "tsx scripts/build-minifig-mappings-from-all-sets.ts",
+    "fetch:minifig-parts": "tsx scripts/fetch-minifig-parts.ts",
+    "fetch:minifig-parts:user": "MINIFIG_PARTS_USER_FIRST=true tsx scripts/fetch-minifig-parts.ts",
     "generate-types": "npx supabase gen types typescript --schema public --project-id nrrunazjjrwxaonlvvhh > supabase/types.ts"
   },
   "dependencies": {

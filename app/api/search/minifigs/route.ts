@@ -1,3 +1,4 @@
+import { mapRebrickableFigToBrickLink } from '@/app/lib/minifigMapping';
 import { searchMinifigs } from '@/app/lib/rebrickable';
 import type { MinifigSearchPage } from '@/app/types/search';
 import { NextRequest, NextResponse } from 'next/server';
@@ -15,7 +16,18 @@ export async function GET(req: NextRequest) {
 
   try {
     const { results, nextPage } = await searchMinifigs(q, page, pageSize);
-    const payload: MinifigSearchPage = { results, nextPage };
+    const withIds = await Promise.all(
+      (results ?? []).map(async result => {
+        let blId: string | null = null;
+        try {
+          blId = await mapRebrickableFigToBrickLink(result.figNum);
+        } catch {
+          blId = null;
+        }
+        return { ...result, blId };
+      })
+    );
+    const payload: MinifigSearchPage = { results: withIds, nextPage };
     return NextResponse.json(payload, {
       headers: { 'Cache-Control': CACHE_CONTROL },
     });

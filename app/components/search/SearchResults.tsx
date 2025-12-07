@@ -1,14 +1,10 @@
 'use client';
 
+import { MinifigSearchResultItem } from '@/app/components/minifig/MinifigSearchResultItem';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Spinner } from '@/app/components/ui/Spinner';
 import { AppError, throwAppErrorFromResponse } from '@/app/lib/domain/errors';
-import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { SearchResultListItem } from './SearchResultListItem';
-import { MinifigSearchResultItem } from '@/app/components/minifig/MinifigSearchResultItem';
 import type {
   FilterType,
   MinifigSearchPage,
@@ -18,6 +14,10 @@ import type {
   SearchType,
   SortOption,
 } from '@/app/types/search';
+import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { SearchResultListItem } from './SearchResultListItem';
 
 async function fetchSearchPage(
   q: string,
@@ -132,22 +132,21 @@ export function SearchResults() {
     SearchPage,
     AppError,
     InfiniteData<SearchPage, number>,
-    [string, { q: string; sort: SortOption; pageSize: number; filter: FilterType; exact: boolean }],
+    [
+      string,
+      {
+        q: string;
+        sort: SortOption;
+        pageSize: number;
+        filter: FilterType;
+        exact: boolean;
+      },
+    ],
     number
   >({
-    queryKey: [
-      'search',
-      { q, sort, pageSize, filter, exact },
-    ],
+    queryKey: ['search', { q, sort, pageSize, filter, exact }],
     queryFn: ({ pageParam = 1 }) =>
-      fetchSearchPage(
-        q,
-        sort,
-        pageParam as number,
-        pageSize,
-        filter,
-        exact
-      ),
+      fetchSearchPage(q, sort, pageParam as number, pageSize, filter, exact),
     getNextPageParam: (lastPage: SearchPage) => lastPage.nextPage,
     initialPageParam: 1,
     enabled: hasQuery && searchType === 'set',
@@ -168,10 +167,7 @@ export function SearchResults() {
     [string, { q: string; pageSize: number }],
     number
   >({
-    queryKey: [
-      'search-minifigs',
-      { q, pageSize },
-    ],
+    queryKey: ['search-minifigs', { q, pageSize }],
     queryFn: ({ pageParam = 1 }) =>
       fetchMinifigSearchPage(q, pageParam as number, pageSize),
     getNextPageParam: (lastPage: MinifigSearchPage) => lastPage.nextPage,
@@ -191,16 +187,14 @@ export function SearchResults() {
     return null;
   }
   if (searchType === 'minifig') {
-    const pages =
-      (minifigData?.pages as MinifigSearchPage[] | undefined) ?? [];
-    const results =
-      pages.flatMap((p: MinifigSearchPage) => p.results) ?? [];
+    const pages = (minifigData?.pages as MinifigSearchPage[] | undefined) ?? [];
+    const results = pages.flatMap((p: MinifigSearchPage) => p.results) ?? [];
     return (
       <div className="w-full">
         <p className="mb-3 text-[11px] text-foreground-muted">
-          Minifigure search looks up Rebrickable minifigs by ID or name. You
-          can add results to your Owned / Wishlist minifig collection and to
-          shared lists.
+          Minifigure search looks up Rebrickable minifigs by ID or name. You can
+          add results to your Owned / Wishlist minifig collection and to shared
+          lists.
         </p>
         {isMinifigLoading && (
           <Spinner className="mt-2" label="Loading minifigure results…" />
@@ -218,6 +212,7 @@ export function SearchResults() {
                 <MinifigSearchResultItem
                   key={`${r.figNum}-${r.name}`}
                   figNum={r.figNum}
+                  blId={r.blId ?? null}
                   name={r.name}
                   imageUrl={r.imageUrl}
                   numParts={r.numParts}
@@ -264,7 +259,7 @@ export function SearchResults() {
           <option value="year-asc">Year (asc)</option>
           <option value="year-desc">Year (desc)</option>
         </select>
-        <span className="mx-1 h-4 w-px bg-border-subtle" />
+        <span className="bg-border-subtle mx-1 h-4 w-px" />
         <label className="text-xs font-medium">Per page</label>
         <select
           className="rounded-md border border-subtle bg-card px-2 py-1 text-xs"
@@ -277,7 +272,7 @@ export function SearchResults() {
           <option value={80}>80</option>
           <option value={100}>100</option>
         </select>
-        <span className="mx-1 h-4 w-px bg-border-subtle" />
+        <span className="bg-border-subtle mx-1 h-4 w-px" />
         <label className="text-xs font-medium">Filter</label>
         <select
           className="rounded-md border border-subtle bg-card px-2 py-1 text-xs"
@@ -289,7 +284,7 @@ export function SearchResults() {
           <option value="theme">Theme</option>
           <option value="subtheme">Subtheme</option>
         </select>
-        <span className="mx-1 h-4 w-px bg-border-subtle" />
+        <span className="bg-border-subtle mx-1 h-4 w-px" />
         <label className="inline-flex items-center gap-1 text-xs font-medium">
           <input
             type="checkbox"

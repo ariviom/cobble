@@ -4,7 +4,7 @@ import { PublicUserCollectionOverview } from '@/app/components/user/PublicUserCo
 import { resolvePublicUser } from '@/app/lib/publicUsers';
 import { fetchThemes } from '@/app/lib/services/themes';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
-import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
+import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import { buildUserHandle } from '@/app/lib/users';
 import type { Tables } from '@/supabase/types';
 import { Lock } from 'lucide-react';
@@ -35,6 +35,8 @@ type PublicMinifigSummary = {
   name: string | null;
   num_parts: number | null;
   status: 'owned' | 'want' | null;
+  image_url: string | null;
+  bl_id: string | null;
 };
 
 type PublicList = {
@@ -214,7 +216,7 @@ export default async function CollectionHandlePage({
     );
   }
 
-  const supabase = getSupabaseServerClient();
+  const supabase = getSupabaseServiceRoleClient();
 
   if (resolved.type !== 'public') {
     notFound();
@@ -355,21 +357,67 @@ export default async function CollectionHandlePage({
 
   let minifigMeta: Record<
     string,
-    { name: string | null; num_parts: number | null }
+  { name: string | null; num_parts: number | null; image_url?: string | null; bl_id?: string | null }
   > = {};
 
   if (allMinifigIds.length > 0) {
-    const { data: minifigs } = await supabase
-      .from('rb_minifigs')
-      .select<'fig_num,name,num_parts'>('fig_num,name,num_parts')
-      .in('fig_num', allMinifigIds);
+  const { data: minifigs } = await supabase
+    .from('rb_minifigs')
+    .select<'fig_num,name,num_parts'>('fig_num,name,num_parts')
+    .in('fig_num', allMinifigIds);
 
     minifigMeta = Object.fromEntries(
       (minifigs ?? []).map(fig => [
         fig.fig_num,
-        { name: fig.name, num_parts: fig.num_parts },
+        {
+          name: fig.name,
+          num_parts: fig.num_parts,
+        image_url: null,
+          bl_id: null,
+        },
       ])
     );
+
+  // Load BrickLink IDs for these figs.
+  // BL mappings: global, then per-set fallback.
+  const { data: mappings, error: mapErr } = await supabase
+    .from('bricklink_minifig_mappings')
+    .select('rb_fig_id,bl_item_id')
+    .in('rb_fig_id', allMinifigIds);
+  if (!mapErr) {
+    for (const row of mappings ?? []) {
+      const rbId = row.rb_fig_id;
+      if (!rbId) continue;
+      const existing = minifigMeta[rbId];
+      minifigMeta[rbId] = {
+        name: existing?.name ?? null,
+        num_parts: existing?.num_parts ?? null,
+        image_url: existing?.image_url ?? null,
+        bl_id: row.bl_item_id ?? null,
+      };
+    }
+  }
+
+  const missingForBl = allMinifigIds.filter(id => !(minifigMeta[id]?.bl_id));
+  if (missingForBl.length > 0) {
+    const { data: setMap, error: setErr } = await supabase
+      .from('bl_set_minifigs')
+      .select('rb_fig_id,minifig_no')
+      .in('rb_fig_id', missingForBl);
+    if (!setErr) {
+      for (const row of setMap ?? []) {
+        const rbId = row.rb_fig_id;
+        if (!rbId) continue;
+        const existing = minifigMeta[rbId];
+        minifigMeta[rbId] = {
+          name: existing?.name ?? null,
+          num_parts: existing?.num_parts ?? null,
+          image_url: existing?.image_url ?? null,
+          bl_id: existing?.bl_id ?? row.minifig_no ?? null,
+        };
+      }
+    }
+  }
   }
 
   const allMinifigs: PublicMinifigSummary[] = allMinifigIds.map(figNum => ({
@@ -377,6 +425,8 @@ export default async function CollectionHandlePage({
     name: minifigMeta[figNum]?.name ?? figNum,
     num_parts: minifigMeta[figNum]?.num_parts ?? null,
     status: minifigStatusMap.get(figNum) ?? null,
+    image_url: minifigMeta[figNum]?.image_url ?? null,
+    bl_id: minifigMeta[figNum]?.bl_id ?? null,
   }));
 
   const themes = await fetchThemes().catch(() => []);

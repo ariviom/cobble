@@ -1,15 +1,14 @@
 'use client';
 
-import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import type { Tables } from '@/supabase/types';
 import { useEffect, useState } from 'react';
 
 export type UserMinifig = {
   figNum: string;
   name: string;
   numParts: number | null;
-  status: Tables<'user_minifigs'>['status'];
+  imageUrl: string | null;
+  blId: string | null;
+  status: 'owned' | 'want' | null;
   quantity: number | null;
 };
 
@@ -20,65 +19,47 @@ type UseUserMinifigsResult = {
 };
 
 export function useUserMinifigs(): UseUserMinifigsResult {
-  const { user } = useSupabaseUser();
   const [minifigs, setMinifigs] = useState<UserMinifig[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      setMinifigs([]);
-      setIsLoading(false);
-      setError(null);
-      return;
-    }
-
     let cancelled = false;
-    const supabase = getSupabaseBrowserClient();
 
     const run = async () => {
       setError(null);
       setIsLoading(true);
-      const { data, error: queryError } = await supabase
-        .from('user_minifigs')
-        .select<'fig_num,status,quantity,rb_minifigs(name,num_parts)'>(
-          'fig_num,status,quantity,rb_minifigs(name,num_parts)'
-        )
-        .eq('user_id', user.id)
-        .order('fig_num', { ascending: true });
-
-      if (cancelled) return;
-
-      if (queryError) {
-        console.error('useUserMinifigs query failed', queryError);
-        setError(queryError.message ?? 'Failed to load minifigures');
+      try {
+        const res = await fetch('/api/user/minifigs', {
+          credentials: 'same-origin',
+        });
+        if (res.status === 401) {
+          setMinifigs([]);
+          setIsLoading(false);
+          return;
+        }
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          const code = payload?.error ?? 'minifigs_fetch_failed';
+          throw new Error(code);
+        }
+        const payload = (await res.json()) as {
+          minifigs?: UserMinifig[];
+        };
+        if (cancelled) return;
+        setMinifigs(payload.minifigs ?? []);
+        setIsLoading(false);
+      } catch (err) {
+        if (cancelled) return;
+        console.error('useUserMinifigs fetch failed', err);
+        setError(
+          err instanceof Error ? err.message : 'Failed to load minifigures'
+        );
         setMinifigs([]);
         setIsLoading(false);
-        return;
       }
-
-      const rows = (data ?? []) as Array<
-        Tables<'user_minifigs'> & {
-          rb_minifigs?: {
-            name: string | null;
-            num_parts: number | null;
-          } | null;
-        }
-      >;
-
-      const normalized: UserMinifig[] = rows.map(row => ({
-        figNum: row.fig_num,
-        status: row.status,
-        name: row.rb_minifigs?.name ?? row.fig_num,
-        numParts: row.rb_minifigs?.num_parts ?? null,
-        quantity:
-          typeof row.quantity === 'number' && Number.isFinite(row.quantity)
-            ? row.quantity
-            : null,
-      }));
-
-      setMinifigs(normalized);
-      setIsLoading(false);
     };
 
     void run();
@@ -86,7 +67,7 @@ export function useUserMinifigs(): UseUserMinifigsResult {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, []);
 
   return { minifigs, isLoading, error };
 }

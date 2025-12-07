@@ -1,4 +1,4 @@
-import { getSetInventoryRows } from '@/app/lib/services/inventory';
+import { getSetInventoryRowsWithMeta } from '@/app/lib/services/inventory';
 import { incrementCounter, logEvent } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -8,6 +8,8 @@ const CACHE_CONTROL = 'public, max-age=300, stale-while-revalidate=3600';
 
 const querySchema = z.object({
   set: z.string().min(1).max(200),
+  // Optional: include minifig mapping metadata in response
+  includeMeta: z.enum(['true', 'false']).optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -18,14 +20,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'validation_failed' }, { status: 400 });
   }
   const set = parsed.data.set;
+  const includeMeta = parsed.data.includeMeta === 'true';
+  
   try {
-    const rows = await getSetInventoryRows(set);
+    const result = await getSetInventoryRowsWithMeta(set);
     incrementCounter('inventory_fetched', { setNumber: set });
-    logEvent('inventory_response', { setNumber: set, count: rows.length });
-    return NextResponse.json(
-      { rows },
-      { headers: { 'Cache-Control': CACHE_CONTROL } }
-    );
+    logEvent('inventory_response', { 
+      setNumber: set, 
+      count: result.rows.length,
+      minifigsMapped: result.minifigMappingMeta?.mappedCount,
+      syncTriggered: result.minifigMappingMeta?.syncTriggered,
+    });
+    
+    // Return rows and optionally include metadata
+    const response: {
+      rows: typeof result.rows;
+      meta?: typeof result.minifigMappingMeta;
+    } = { rows: result.rows };
+    
+    if (includeMeta && result.minifigMappingMeta) {
+      response.meta = result.minifigMappingMeta;
+    }
+    
+    return NextResponse.json(response, { 
+      headers: { 'Cache-Control': CACHE_CONTROL } 
+    });
   } catch (err) {
     incrementCounter('inventory_failed', {
       setNumber: set,

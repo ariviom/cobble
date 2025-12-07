@@ -2,10 +2,12 @@
 
 import { MinifigOwnershipAndCollectionsRow } from '@/app/components/minifig/MinifigOwnershipAndCollectionsRow';
 import { useMinifigOwnershipState } from '@/app/hooks/useMinifigOwnershipState';
+import { getMinifigDisplayIds } from '@/app/lib/minifigIds';
 import Link from 'next/link';
 
 type MinifigSearchResultItemProps = {
   figNum: string;
+  blId?: string | null | undefined;
   name: string;
   imageUrl: string | null;
   numParts: number | null;
@@ -13,16 +15,21 @@ type MinifigSearchResultItemProps = {
 
 export function MinifigSearchResultItem({
   figNum,
+  blId,
   name,
   imageUrl,
   numParts,
 }: MinifigSearchResultItemProps) {
   const ownership = useMinifigOwnershipState({ figNum });
+  const { displayLabel, routeId } = getMinifigDisplayIds({
+    bricklinkId: blId ?? null,
+    rebrickableId: figNum,
+  });
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-lg border border-subtle bg-card">
       <Link
-        href={`/minifigs/id/${encodeURIComponent(figNum)}`}
+        href={`/minifigs/id/${encodeURIComponent(routeId || figNum)}`}
         className="block w-full"
       >
         <div className="w-full">
@@ -48,7 +55,7 @@ export function MinifigSearchResultItem({
                 {name}
               </div>
               <div className="mt-1 w-full text-xs text-foreground-muted">
-                <span>{figNum}</span>
+                <span>{displayLabel}</span>
                 {typeof numParts === 'number' && numParts > 0 && (
                   <span className="ml-1">• {numParts} parts</span>
                 )}

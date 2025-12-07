@@ -95,6 +95,24 @@
     - Changes enqueued to `syncQueue` table instead of direct Supabase writes
     - Sync worker in DataProvider handles batched sync to `/api/sync`
   - New `/api/sync` endpoint for batched owned quantity sync
+- **Data fetching architecture improvements** (2025-12-06):
+  - **Batched minifig mapping** (`app/lib/minifigMappingBatched.ts`):
+    - `getMinifigMappingsForSetBatched()` reduces DB calls from 6-8 sequential queries to 1-2 parallel queries.
+    - Built-in request deduplication via `inFlightSyncs` Map prevents duplicate BrickLink API calls.
+    - `getGlobalMinifigMappingsBatch()` efficiently looks up multiple fig IDs at once.
+    - Legacy functions re-exported for backward compatibility.
+  - **Centralized Supabase client selection** (`app/lib/db/catalogAccess.ts`):
+    - Tables classified into `ANON_READABLE_TABLES`, `SERVICE_ROLE_TABLES`, and `USER_TABLES`.
+    - `getCatalogReadClient()` and `getCatalogWriteClient()` provide correct client based on table access requirements.
+    - Eliminates mental overhead of choosing correct client per-query.
+    - Documents RLS policy requirements in a single location.
+  - **Minifig sync module** (`app/lib/sync/minifigSync.ts`):
+    - Separates read operations (`checkSetSyncStatus()`) from write operations (`triggerMinifigSync()`).
+    - Explicit sync control with deduplication and 60-second cooldown.
+    - Sync status tracking: `'ok' | 'error' | 'pending' | 'never_synced'`.
+  - **Inventory service improvements** (`app/lib/services/inventory.ts`):
+    - `getSetInventoryRowsWithMeta()` returns optional `minifigMappingMeta` with sync status.
+    - `/api/inventory` now accepts `includeMeta=true` query param to return mapping metadata.
 
 ## Planned / In Progress
 

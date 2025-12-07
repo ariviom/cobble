@@ -1,6 +1,10 @@
 import 'server-only';
 
 import type { InventoryRow } from '@/app/components/set/types';
+import {
+  getCatalogReadClient,
+  getCatalogWriteClient,
+} from '@/app/lib/db/catalogAccess';
 import type { SimpleSet } from '@/app/lib/rebrickable';
 import {
     mapCategoryNameToParent,
@@ -8,8 +12,6 @@ import {
     sortAggregatedResults,
 } from '@/app/lib/rebrickable';
 import { filterExactMatches } from '@/app/lib/searchExactMatch';
-import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
-import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import type { MatchType } from '@/app/types/search';
 import type { Json } from '@/supabase/types';
 
@@ -34,7 +36,8 @@ export async function getThemesLocal(): Promise<LocalTheme[]> {
     return localThemesCache.items;
   }
 
-  const supabase = getSupabaseServerClient();
+  // rb_themes is publicly readable (anon SELECT policy)
+  const supabase = getCatalogReadClient();
   const { data, error } = await supabase
     .from('rb_themes')
     .select('id, parent_id, name')
@@ -60,7 +63,8 @@ export async function searchSetsLocal(
   if (!trimmed) return [];
   const exactMatch = options?.exactMatch ?? false;
 
-  const supabase = getSupabaseServerClient();
+  // rb_sets is publicly readable (anon SELECT policy)
+  const supabase = getCatalogReadClient();
 
   // We fetch by set number prefix and by name contains, and merge with theme-
   // based matches, then sort in-memory for relevance and other sort modes.
@@ -289,7 +293,8 @@ export async function getSetInventoryLocal(
   const trimmedSet = setNumber.trim();
   if (!trimmedSet) return [];
 
-  const supabase = getSupabaseServerClient();
+  // rb_set_parts, rb_parts, rb_colors, rb_part_categories are publicly readable
+  const supabase = getCatalogReadClient();
 
   const { data: setParts, error: setPartsError } = await supabase
     .from('rb_set_parts')
@@ -474,7 +479,8 @@ export async function getSetSummaryLocal(setNumber: string): Promise<{
   const trimmed = setNumber.trim();
   if (!trimmed) return null;
 
-  const supabase = getSupabaseServerClient();
+  // rb_sets is publicly readable (anon SELECT policy)
+  const supabase = getCatalogReadClient();
   const { data, error } = await supabase
     .from('rb_sets')
     .select('set_num, name, year, num_parts, image_url, theme_id')
@@ -544,9 +550,9 @@ export async function getSetMinifigsLocal(
   const trimmed = setNumber.trim();
   if (!trimmed) return [];
 
-  // Uses service-role client because rb_inventories / rb_inventory_minifigs are
-  // internal catalog tables with RLS enabled and no anon/auth read policies.
-  const supabase = getSupabaseServiceRoleClient();
+  // rb_inventories / rb_inventory_minifigs are internal catalog tables
+  // (RLS enabled, no anon/auth read policies) → requires service role
+  const supabase = getCatalogWriteClient();
 
   const { data: inventories, error: invError } = await supabase
     .from('rb_inventories')

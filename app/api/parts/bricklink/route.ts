@@ -1,5 +1,5 @@
+import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { getPart } from '@/app/lib/rebrickable';
-import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import { incrementCounter, logEvent } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,7 +12,8 @@ const RATE_LIMIT_PER_MINUTE =
 
 async function checkMappingTable(partId: string): Promise<string | null> {
   try {
-    const supabase = getSupabaseServiceRoleClient();
+    // part_id_mappings requires service role
+    const supabase = getCatalogWriteClient();
     const { data, error } = await supabase
       .from('part_id_mappings')
       .select('bl_part_id')
@@ -43,7 +44,8 @@ async function persistMapping(
   source: string
 ): Promise<void> {
   try {
-    const supabase = getSupabaseServiceRoleClient();
+    // part_id_mappings requires service role
+    const supabase = getCatalogWriteClient();
     const { error } = await supabase.from('part_id_mappings').upsert(
       {
         rb_part_id: rbPartId,

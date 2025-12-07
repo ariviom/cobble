@@ -17,13 +17,17 @@
       - Matches RB ↔ BL minifigs by normalized name, Jaccard similarity, and a greedy fallback within the set's small candidate list.
       - Upserts mappings into `bl_set_minifigs` and a global `bricklink_minifig_mappings` cache.
       - Optionally fetches minifig component parts via `/items/MINIFIG/{minifigNo}/subsets` and maps RB minifig parts → BL parts.
-    - A server-only helper (`app/lib/minifigMapping.ts`) that:
-      - Reads per-set mappings (`mapSetRebrickableFigsToBrickLink`).
-      - Provides an **on-demand** variant (`mapSetRebrickableFigsToBrickLinkOnDemand`) that:
-        - Detects missing RB fig IDs for a set.
-        - Checks `bl_sets.minifig_sync_status` and, if not `'ok'`, runs `processSetForMinifigMapping` to hit BrickLink once for that set.
-        - Re-reads `bl_set_minifigs` and merges the new mappings so the UI shows BrickLink IDs instead of "Not mapped".
-      - Falls back to the global `bricklink_minifig_mappings` table for any remaining unmapped RB IDs.
+    - **Batched mapping module** (`app/lib/minifigMappingBatched.ts`) that reduces DB round-trips:
+      - `getMinifigMappingsForSetBatched()` fetches mappings + sync status in a single parallel query (down from 6-8 sequential calls).
+      - Built-in request deduplication via `inFlightSyncs` Map prevents duplicate BrickLink API calls for concurrent requests.
+      - `getGlobalMinifigMappingsBatch()` efficiently looks up multiple fig IDs in one query.
+      - Legacy functions (`mapSetRebrickableFigsToBrickLinkOnDemand`, etc.) re-exported for backward compatibility.
+    - **Minifig sync module** (`app/lib/sync/minifigSync.ts`) separates read and write concerns:
+      - `checkSetSyncStatus()` is a pure read operation.
+      - `triggerMinifigSync()` explicitly triggers sync with deduplication and cooldown.
+      - Sync status tracking with `'ok' | 'error' | 'pending' | 'never_synced'` states.
+      - 60-second cooldown between syncs to prevent API hammering.
+    - The inventory service (`app/lib/services/inventory.ts`) uses the batched module and returns optional `minifigMappingMeta` with sync status, mapped/unmapped counts.
 - **Part ID Mapping** (RB → BL):
   - `part_id_mappings` table stores manual and auto-generated mappings with columns `rb_part_id`, `bl_part_id`, `source`, `confidence`.
   - Sources include: `'auto-suffix'` (automatic suffix stripping), `'minifig-component'` (from minifig part mapping), `'manual'`.
@@ -149,9 +153,16 @@
   - Tables used only by ingestion scripts and service-role clients (for example, `bricklink_minifigs`, `bricklink_minifig_mappings`, `bl_sets`, `bl_set_minifigs`, `rb_minifig_parts`) are treated as internal catalog data:
     - They have `ALTER TABLE public.<table> ENABLE ROW LEVEL SECURITY;` in a Supabase CLI migration.
     - They do not define `SELECT` policies for `anon` / `authenticated`; access happens through the `SUPABASE_SERVICE_ROLE_KEY` client, which bypasses RLS.
+- **Centralized client selection** (`app/lib/db/catalogAccess.ts`)
+  - Tables are classified into three access levels:
+    - **ANON_READABLE_TABLES**: `rb_sets`, `rb_parts`, `rb_colors`, `rb_themes`, `rb_part_categories`, `rb_set_parts`, `rb_download_versions` → use `getCatalogReadClient()` (anon key)
+    - **SERVICE_ROLE_TABLES**: `rb_inventories`, `rb_inventory_parts`, `rb_inventory_minifigs`, `rb_minifigs`, `rb_minifig_parts`, `rb_minifig_images`, `bl_*`, `bricklink_*`, `part_id_mappings` → use `getCatalogWriteClient()` (service role)
+    - **USER_TABLES**: `user_profiles`, `user_preferences`, `user_sets`, `user_minifigs`, etc. → use auth server client or service role depending on context
+  - This eliminates the mental overhead of choosing the right client per-table and documents RLS policy requirements in one place.
 - **Future catalog tables**
   - New BrickLink/Rebrickable-backed catalog tables should default to the same internal-only pattern unless there is an explicit requirement for direct anon/auth reads.
   - If anon/auth reads are ever needed, add explicit `SELECT` policies in the creating migration and document the decision here.
+  - Always add new tables to the appropriate set in `catalogAccess.ts` to maintain centralized client selection.
 
 ## Exports & Pricing
 

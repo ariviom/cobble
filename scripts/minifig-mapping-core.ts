@@ -442,6 +442,23 @@ async function createMinifigMappingsForSet(
     return { count: 0, pairs: [] }
   }
 
+  // Log mapping quality for observability.
+  const confidences = mappingRows.map(row => row.confidence ?? 0)
+  const total = confidences.length
+  const avgConfidence =
+    confidences.reduce((sum, v) => sum + v, 0) / (total || 1)
+  const minConfidence = confidences.length
+    ? Math.min(...confidences)
+    : null
+  const lowConfidenceCount = confidences.filter(v => v < 0.5).length
+  // eslint-disable-next-line no-console
+  console.log(`${logPrefix} Mapping stats for set ${setNum}`, {
+    total,
+    lowConfidenceCount,
+    minConfidence,
+    avgConfidence: Number.isFinite(avgConfidence) ? avgConfidence : null,
+  })
+
   return { count: mappingRows.length, pairs: pairedIds }
 }
 

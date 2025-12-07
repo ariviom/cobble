@@ -8,6 +8,8 @@ type MinifigMeta = {
   imageUrl: string | null;
   name: string;
   numParts: number | null;
+  year?: number | null;
+  themeName?: string | null;
 };
 
 type UseMinifigMetaResult = {
@@ -37,7 +39,7 @@ export function useMinifigMeta(figNum: string): UseMinifigMetaResult {
       setError(null);
       try {
         const res = await fetch(
-          `/api/minifigs/${encodeURIComponent(trimmed)}`,
+          `/api/minifigs/${encodeURIComponent(trimmed)}?includeSubparts=false&includePricing=false`,
           { cache: 'force-cache' }
         );
         if (!res.ok) {
