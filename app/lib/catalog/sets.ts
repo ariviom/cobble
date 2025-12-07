@@ -279,7 +279,8 @@ export async function getSetInventoryLocal(
   const trimmedSet = setNumber.trim();
   if (!trimmedSet) return [];
 
-  // rb_set_parts, rb_parts, rb_colors, rb_part_categories are publicly readable
+  // Catalog reads use anon client. Inventory parts come from the public view
+  // rb_inventory_parts_public, which exposes non-sensitive columns with RLS in place.
   const supabase = getCatalogReadClient();
 
   type InventoryPartRow = {
@@ -316,7 +317,7 @@ export async function getSetInventoryLocal(
     );
     const selectedInventoryId = inventoryCandidates[0]!.id;
     const { data: inventoryParts, error: inventoryPartsError } = await supabase
-      .from('rb_inventory_parts')
+      .from('rb_inventory_parts_public')
       .select('part_num, color_id, quantity, is_spare, element_id, img_url')
       .eq('inventory_id', selectedInventoryId)
       .eq('is_spare', false);

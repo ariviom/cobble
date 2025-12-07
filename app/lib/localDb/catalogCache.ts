@@ -8,13 +8,13 @@
 
 import type { InventoryRow } from '@/app/components/set/types';
 import {
-  getLocalDb,
-  isIndexedDBAvailable,
-  type CatalogSet,
-  type CatalogSetPart,
-  type CatalogPart,
-  type CatalogColor,
-  type CatalogMinifig,
+    getLocalDb,
+    isIndexedDBAvailable,
+    type CatalogColor,
+    type CatalogMinifig,
+    type CatalogPart,
+    type CatalogSet,
+    type CatalogSetPart,
 } from './schema';
 
 // Cache TTL: long-lived; version mismatches will force invalidation
@@ -46,7 +46,6 @@ export async function getCachedInventory(
     if (
       typeof expectedVersion === 'string' &&
       expectedVersion.length > 0 &&
-      meta.inventoryVersion &&
       meta.inventoryVersion !== expectedVersion
     ) {
       return null;

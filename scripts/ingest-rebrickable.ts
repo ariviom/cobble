@@ -23,10 +23,66 @@ type DownloadInfo = {
   url: string;
 };
 
+// Pipeline salt to force re-ingest when downstream schema/logic changes
+// even if the source URLs stay the same. Bump this to invalidate cache.
+const PIPELINE_VERSION = "img-url-v1";
+
+type ForceConfig = {
+  all: boolean;
+  sources: Set<SourceKey>;
+};
+
 // Basic CLI logging helper
 function log(message: string) {
   // eslint-disable-next-line no-console
   console.log(`[ingest-rebrickable] ${message}`);
+}
+
+function parseForceArg(argv: string[]): ForceConfig {
+  const forceArg = argv.find(arg => arg.startsWith("--force"));
+  if (!forceArg) {
+    return { all: false, sources: new Set<SourceKey>() };
+  }
+
+  // Supported forms:
+  // --force                 (treat as all)
+  // --force=all
+  // --force=inventory_parts
+  // --force=parts,inventory_parts
+  const [, rawValue] = forceArg.split("=", 2);
+  if (!rawValue || rawValue.trim().length === 0) {
+    return { all: true, sources: new Set<SourceKey>() };
+  }
+
+  const tokens = rawValue
+    .split(",")
+    .map(token => token.trim())
+    .filter(Boolean);
+
+  if (tokens.length === 0 || tokens.includes("all")) {
+    return { all: true, sources: new Set<SourceKey>() };
+  }
+
+  const validSources: SourceKey[] = [
+    "themes",
+    "colors",
+    "part_categories",
+    "parts",
+    "sets",
+    "minifigs",
+    "inventories",
+    "inventory_parts",
+    "inventory_minifigs",
+  ];
+
+  const sources = new Set<SourceKey>();
+  for (const token of tokens) {
+    if (validSources.includes(token as SourceKey)) {
+      sources.add(token as SourceKey);
+    }
+  }
+
+  return { all: false, sources };
 }
 
 function getEnv(name: string): string {
@@ -563,16 +619,22 @@ async function main() {
   const supabaseServiceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
 
   const supabase = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
+  const forceConfig = parseForceArg(process.argv);
 
   const downloads = await getDownloadUrls();
 
   for (const info of downloads) {
-    // For now, we treat the full URL as the "version" marker.
-    // If Rebrickable adds timestamp params (e.g. ?1732304679), that will change
-    // automatically; otherwise, a manual change of URLs here will force re-ingest.
+    const versionKey = `${info.url}#${PIPELINE_VERSION}`;
     const currentVersion = await readCurrentVersion(supabase, info.source);
-    if (currentVersion === info.url) {
-      log(`Skipping ${info.source}, version already ingested.`);
+    const isForced =
+      forceConfig.all || forceConfig.sources.has(info.source as SourceKey);
+
+    if (isForced) {
+      log(`Forcing ingest for ${info.source} (version ${versionKey}).`);
+    } else if (currentVersion === versionKey) {
+      log(
+        `Skipping ${info.source}, version already ingested (version ${versionKey}).`
+      );
       continue;
     }
 
@@ -598,8 +660,8 @@ async function main() {
       await ingestInventoryMinifigs(supabase, stream);
     }
 
-    await updateVersion(supabase, info.source, info.url);
-    log(`Finished ingest for ${info.source}`);
+    await updateVersion(supabase, info.source, versionKey);
+    log(`Finished ingest for ${info.source} (stored version ${versionKey}).`);
   }
 
   log("All ingestion tasks complete.");
