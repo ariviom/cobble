@@ -83,14 +83,12 @@ export async function GET(req: NextRequest) {
 		incrementCounter('identify_supersets_fetched', { count: sets.length });
 		logEvent('identify_supersets_response', { part: blPart, count: sets.length });
 		if (process.env.NODE_ENV !== 'production') {
-			try {
-				console.log('identify/bl-supersets', {
-					blPart,
-					blColorId: typeof blColorId === 'number' ? blColorId : null,
-					count: sets.length,
-					sample: sets.length ? sets[0] : null,
-				});
-			} catch {}
+			logEvent('identify.bl_supersets', {
+				blPart,
+				blColorId: typeof blColorId === 'number' ? blColorId : null,
+				count: sets.length,
+				sample: sets.length ? sets[0] : null,
+			});
 		}
 		return NextResponse.json({ sets });
 	} catch (err) {
@@ -99,12 +97,10 @@ export async function GET(req: NextRequest) {
 			error: err instanceof Error ? err.message : String(err),
 		});
 		if (process.env.NODE_ENV !== 'production') {
-			try {
-				console.log('identify/bl-supersets failed', {
-					part: blPart,
-					error: err instanceof Error ? err.message : String(err),
-				});
-			} catch {}
+			logEvent('identify.bl_supersets_failed', {
+				part: blPart,
+				error: err instanceof Error ? err.message : String(err),
+			});
 		}
 		return NextResponse.json({ error: 'identify_bl_supersets_failed', sets: [] });
 	}

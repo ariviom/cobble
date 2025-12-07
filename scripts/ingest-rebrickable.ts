@@ -424,7 +424,9 @@ async function ingestInventoryParts(
     })
   );
 
-  type InsertRow = Database["public"]["Tables"]["rb_inventory_parts"]["Insert"];
+  type InsertRow = Database["public"]["Tables"]["rb_inventory_parts"]["Insert"] & {
+    img_url?: string | null;
+  };
 
   // We may see duplicate keys (same PK) within a single CSV chunk.
   // To avoid ON CONFLICT updating the same row twice in one statement,
@@ -470,6 +472,11 @@ async function ingestInventoryParts(
       record.is_spare === "true" ||
       record.is_spare === "1";
     const element_id = (record.element_id as string | undefined) ?? "";
+    const img_url_raw = (record.img_url as string | undefined) ?? "";
+    const img_url =
+      typeof img_url_raw === "string" && img_url_raw.trim().length > 0
+        ? img_url_raw.trim()
+        : null;
 
     const key = `${inventory_id}|${part_num}|${color_id}|${is_spare ? 1 : 0}|${element_id}`;
     const existing = batchMap.get(key);
@@ -477,6 +484,9 @@ async function ingestInventoryParts(
     if (existing) {
       // Aggregate quantities for duplicate keys.
       existing.quantity = (existing.quantity ?? 0) + quantity;
+      if (!existing.img_url && img_url) {
+        existing.img_url = img_url;
+      }
     } else {
       batchMap.set(key, {
         inventory_id,
@@ -485,6 +495,7 @@ async function ingestInventoryParts(
         quantity,
         is_spare,
         element_id,
+        img_url,
       });
     }
 

@@ -1,6 +1,16 @@
 import type { NextConfig } from 'next';
 
+const compiler =
+  process.env.NODE_ENV === 'production'
+    ? {
+        removeConsole: {
+          exclude: ['error', 'warn'],
+        },
+      }
+    : undefined;
+
 const nextConfig: NextConfig = {
+  ...(compiler ? { compiler } : {}),
   images: {
     remotePatterns: [
       {

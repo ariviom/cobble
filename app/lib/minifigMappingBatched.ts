@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
+import { logger } from '@/lib/metrics';
 import { processSetForMinifigMapping } from '@/scripts/minifig-mapping-core';
 
 // =============================================================================
@@ -44,7 +45,7 @@ async function executeSetSyncDeduplicated(
 ): Promise<boolean> {
   const existing = inFlightSyncs.get(setNumber);
   if (existing) {
-    console.log('[minifigMapping:batched] Joining existing sync for', setNumber);
+    logger.debug('minifig_mapping.batched.join_existing_sync', { setNumber });
     return existing;
   }
 
@@ -59,7 +60,7 @@ async function executeSetSyncDeduplicated(
       );
       return true;
     } catch (err) {
-      console.error('[minifigMapping:batched] Sync failed', {
+      logger.error('minifig_mapping.batched.sync_failed', {
         setNumber,
         error: err instanceof Error ? err.message : String(err),
       });
@@ -386,6 +387,7 @@ export async function mapBrickLinkFigToRebrickable(
   const cacheKey = blId.trim().toLowerCase();
   
   if (globalMinifigBlToRbCache.has(cacheKey)) {
+    logger.debug('minifig_mapping.batched.bl_to_rb_cache_hit', { blId });
     return globalMinifigBlToRbCache.get(cacheKey)!;
   }
 
@@ -401,6 +403,10 @@ export async function mapBrickLinkFigToRebrickable(
 
   if (explicitMapping?.rb_fig_id) {
     globalMinifigBlToRbCache.set(cacheKey, explicitMapping.rb_fig_id);
+    logger.debug('minifig_mapping.batched.explicit_mapping', {
+      blId,
+      rbFigId: explicitMapping.rb_fig_id,
+    });
     return explicitMapping.rb_fig_id;
   }
 
@@ -415,6 +421,10 @@ export async function mapBrickLinkFigToRebrickable(
 
   if (setMapping?.rb_fig_id) {
     globalMinifigBlToRbCache.set(cacheKey, setMapping.rb_fig_id);
+    logger.debug('minifig_mapping.batched.set_mapping', {
+      blId,
+      rbFigId: setMapping.rb_fig_id,
+    });
     return setMapping.rb_fig_id;
   }
 
@@ -452,7 +462,7 @@ export async function mapRebrickableFigToBrickLinkOnDemand(
     .maybeSingle();
 
   if (invErr || !inventoryRow?.inventory_id) {
-    console.error('[minifigMapping:batched] could not find inventory for fig', {
+    logger.error('minifig_mapping.batched.inventory_lookup_failed', {
       figId,
       error: invErr?.message,
     });
@@ -467,7 +477,7 @@ export async function mapRebrickableFigToBrickLinkOnDemand(
     .maybeSingle();
 
   if (setErr || !inventory?.set_num) {
-    console.error('[minifigMapping:batched] could not find set for inventory', {
+    logger.error('minifig_mapping.batched.set_lookup_failed', {
       figId,
       inventoryId: inventoryRow.inventory_id,
       error: setErr?.message,
@@ -490,7 +500,7 @@ export async function mapRebrickableFigToBrickLinkOnDemand(
   }
 
   // Trigger on-demand sync for this set (deduplicated).
-  console.log('[minifigMapping:batched] triggering on-demand sync for minifig', {
+  logger.debug('minifig_mapping.batched.trigger_on_demand_sync', {
     figId,
     setNum,
   });

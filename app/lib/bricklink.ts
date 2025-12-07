@@ -3,10 +3,12 @@ import 'server-only';
 
 import { LRUCache } from '@/app/lib/cache/lru';
 import { CACHE } from '@/app/lib/constants';
+import { hasProperty, isRecord } from '@/app/lib/domain/guards';
 import {
     DEFAULT_PRICING_PREFERENCES,
     type PricingPreferences,
 } from '@/app/lib/pricing';
+import { logger } from '@/lib/metrics';
 
 const BL_STORE_BASE = 'https://api.bricklink.com/api/store/v1';
 // BrickLink Store v1 uses uppercase type segments in the URI (e.g., /items/PART/{no})
@@ -187,12 +189,10 @@ async function blGet<T>(
     clearTimeout(timeout);
   }
   if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.log('BL store GET', {
-        path: url.pathname,
-        query: url.search,
-      });
-    } catch {}
+    logger.debug('bricklink.store_get', {
+      path: url.pathname,
+      query: url.search,
+    });
   }
   try {
     if (!res.ok) {
@@ -282,12 +282,8 @@ type BLSubsetResponse =
 function normalizeSubsetEntries(raw: BLSubsetResponse[]): BLSubsetItem[] {
   const result: BLSubsetItem[] = [];
   for (const group of raw) {
-    if (
-      group &&
-      typeof group === 'object' &&
-      Array.isArray((group as { entries?: BLSubsetItem[] }).entries)
-    ) {
-      const entries = (group as { entries: BLSubsetItem[] }).entries ?? [];
+    if (isRecord(group) && hasProperty(group, 'entries') && Array.isArray(group.entries)) {
+      const entries = (group.entries ?? []) as BLSubsetItem[];
       for (const e of entries) {
         if (e && typeof e === 'object') {
           result.push(e);
@@ -295,7 +291,7 @@ function normalizeSubsetEntries(raw: BLSubsetResponse[]): BLSubsetItem[] {
       }
       continue;
     }
-    if (group && typeof group === 'object') {
+    if (isRecord(group)) {
       result.push(group as BLSubsetItem);
     }
   }
@@ -327,13 +323,11 @@ export async function blGetPartSubsets(
   if (cached) return cached;
   const list = await fetchSubsets(no, colorId);
   if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.log('BL subsets', {
-        no,
-        colorId: typeof colorId === 'number' ? colorId : null,
-        count: Array.isArray(list) ? list.length : 0,
-      });
-    } catch {}
+    logger.debug('bricklink.subsets', {
+      no,
+      colorId: typeof colorId === 'number' ? colorId : null,
+      count: Array.isArray(list) ? list.length : 0,
+    });
   }
   subsetsCache.set(key, list);
   return list;
@@ -347,39 +341,32 @@ type BLSupersetResponse =
 function normalizeSupersetEntries(raw: BLSupersetResponse[]): BLSupersetItem[] {
   const result: BLSupersetItem[] = [];
   for (const group of raw) {
-    if (
-      group &&
-      typeof group === 'object' &&
-      Array.isArray((group as { entries?: BLSupersetItem[] }).entries)
-    ) {
-      const entries = (group as { entries: BLSupersetItem[] }).entries ?? [];
+    if (isRecord(group) && hasProperty(group, 'entries') && Array.isArray(group.entries)) {
+      const entries = (group.entries ?? []) as BLSupersetItem[];
       for (const e of entries) {
-        if (e && typeof e === 'object' && typeof (e as { setNumber?: string }).setNumber === 'string') {
+        if (isRecord(e) && typeof (e as { setNumber?: string }).setNumber === 'string') {
           result.push(e);
         }
       }
       continue;
     }
 
-    if (group && typeof group === 'object') {
-      type ItemLike = {
-        no?: unknown;
-        name?: unknown;
-        image_url?: unknown;
-        quantity?: unknown;
-      };
-      const record = group as { item?: ItemLike; quantity?: unknown } & ItemLike;
-      const item: ItemLike = record.item ?? record;
-      const setNumber = item && typeof item.no === 'string' ? item.no : '';
+    if (isRecord(group)) {
+      const record: Record<string, unknown> = group;
+      const item =
+        hasProperty(record, 'item') && isRecord(record.item) ? record.item : record;
+      const setNumber = typeof (item as { no?: unknown }).no === 'string' ? (item as { no: string }).no : '';
       if (!setNumber) continue;
-      const name = item && typeof item.name === 'string' ? item.name : '';
+      const name = typeof (item as { name?: unknown }).name === 'string' ? (item as { name: string }).name : '';
       const imageUrl =
-        item && typeof item.image_url === 'string' ? item.image_url : null;
+        typeof (item as { image_url?: unknown }).image_url === 'string'
+          ? (item as { image_url: string }).image_url
+          : null;
       const quantity =
         typeof record.quantity === 'number'
           ? record.quantity
-          : item && typeof item.quantity === 'number'
-            ? item.quantity
+          : typeof (item as { quantity?: unknown }).quantity === 'number'
+            ? (item as { quantity: number }).quantity
             : 1;
       result.push({ setNumber, name, imageUrl, quantity });
     }
@@ -412,13 +399,11 @@ export async function blGetPartSupersets(
   if (cached) return cached;
   const list = await fetchSupersets(no, colorId);
   if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.log('BL supersets', {
-        no,
-        colorId: typeof colorId === 'number' ? colorId : null,
-        count: Array.isArray(list) ? list.length : 0,
-      });
-    } catch {}
+    logger.debug('bricklink.supersets', {
+      no,
+      colorId: typeof colorId === 'number' ? colorId : null,
+      count: Array.isArray(list) ? list.length : 0,
+    });
   }
   supersetsCache.set(key, list);
   return list;
@@ -453,12 +438,10 @@ export async function blGetSetSubsets(
     })
     .filter(Boolean) as BLSubsetItem[];
   if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.log('BL set subsets', {
-        setNum,
-        count: Array.isArray(list) ? list.length : 0,
-      });
-    } catch {}
+    logger.debug('bricklink.set_subsets', {
+      setNum,
+      count: Array.isArray(list) ? list.length : 0,
+    });
   }
   subsetsCache.set(key, list);
   return list;
@@ -479,12 +462,10 @@ export async function blGetPartColors(no: string): Promise<BLColorEntry[]> {
     list = (data as { entries: BLColorEntry[] }).entries ?? [];
   }
   if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.log('BL colors', {
-        no,
-        count: Array.isArray(list) ? list.length : 0,
-      });
-    } catch {}
+    logger.debug('bricklink.colors', {
+      no,
+      count: Array.isArray(list) ? list.length : 0,
+    });
   }
   colorsCache.set(key, list);
   return list;
@@ -497,12 +478,10 @@ export async function blGetColor(
     `/colors/${encodeURIComponent(colorId)}`
   );
   if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.log('BL color', {
-        colorId,
-        name: typeof data.color_name === 'string' ? data.color_name : null,
-      });
-    } catch {}
+    logger.debug('bricklink.color', {
+      colorId,
+      name: typeof data.color_name === 'string' ? data.color_name : null,
+    });
   }
   return data;
 }
@@ -521,16 +500,14 @@ export async function blGetPartImageUrl(
     )}/images/${encodeURIComponent(colorId)}`
   );
   if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.log('BL image', {
-        no,
-        colorId,
-        thumbnail:
-          typeof data.thumbnail_url === 'string' || data.thumbnail_url === null
-            ? data.thumbnail_url
-            : null,
-      });
-    } catch {}
+    logger.debug('bricklink.image', {
+      no,
+      colorId,
+      thumbnail:
+        typeof data.thumbnail_url === 'string' || data.thumbnail_url === null
+          ? data.thumbnail_url
+          : null,
+    });
   }
   return data;
 }
@@ -608,19 +585,15 @@ async function fetchPriceGuide(
   );
 
   if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.log('BL price guide raw', {
-        no,
-        colorId: typeof colorId === 'number' ? colorId : null,
-        itemType,
-        guideType,
-        currency_code: data.currency_code ?? null,
-        topLevelAvg: data.avg_price ?? null,
-        detailCount: Array.isArray(data.price_detail)
-          ? data.price_detail.length
-          : 0,
-      });
-    } catch {}
+    logger.debug('bricklink.price_guide_raw', {
+      no,
+      colorId: typeof colorId === 'number' ? colorId : null,
+      itemType,
+      guideType,
+      currency_code: data.currency_code ?? null,
+      topLevelAvg: data.avg_price ?? null,
+      detailCount: Array.isArray(data.price_detail) ? data.price_detail.length : 0,
+    });
   }
 
   let unitPriceUsed = parsePriceValue(
@@ -703,7 +676,7 @@ export async function blGetPartPriceGuide(
   if (!primary.__miss) return primary;
   const fallback = await fetchPriceGuide(no, colorId, itemType, 'sold', prefs);
   if (fallback.unitPriceUsed == null && process.env.NODE_ENV !== 'production') {
-    console.warn('BL price guide missing even after fallback', {
+    logger.warn('bricklink.price_guide_missing_after_fallback', {
       no,
       colorId,
       itemType,

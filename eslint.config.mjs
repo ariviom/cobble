@@ -1,7 +1,7 @@
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { FlatCompat } from '@eslint/eslintrc';
 import tanstackQuery from '@tanstack/eslint-plugin-query';
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -28,6 +28,24 @@ const eslintConfig = [
     rules: {
       '@tanstack/query/exhaustive-deps': 'error',
       '@tanstack/query/no-rest-destructuring': 'warn',
+    },
+  },
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    rules: {
+      'no-console': ['error', { allow: ['warn', 'error'] }],
+    },
+  },
+  {
+    files: ['lib/metrics.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
+    files: ['**/*.test.*', '**/*.spec.*'],
+    rules: {
+      'no-console': 'off',
     },
   },
 ];

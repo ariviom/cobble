@@ -1,3 +1,4 @@
+import { logger } from '@/lib/metrics';
 // Color mapping cache - populated from API endpoint
 // Keys are Rebrickable color IDs; values are BrickLink color IDs from external_ids
 let colorMappingCache: Record<number, number> | null = null;
@@ -35,7 +36,7 @@ async function fetchColorMapping(): Promise<Record<number, number>> {
     const data = (await res.json()) as { mapping: Record<number, number> };
     colorMappingCache = data.mapping;
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[mapToBrickLink] loaded color mapping', {
+      logger.debug('map_to_bricklink.loaded_color_mapping', {
         count: Object.keys(data.mapping ?? {}).length,
       });
     }
@@ -109,7 +110,7 @@ export async function mapToBrickLink(
   const blColor = mapping[colorId];
   if (blColor == null) {
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[mapToBrickLink] no mapping for color', {
+      logger.debug('map_to_bricklink.no_color_mapping', {
         partId,
         colorId,
       });

@@ -69,3 +69,4 @@ export function getImageSizeConfig(variant: ImageVariant): ImageSizeConfig {
   return IMAGE_SIZES[variant];
 }
 
+

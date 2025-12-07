@@ -1,11 +1,12 @@
 import { LRUCache } from '@/app/lib/cache/lru';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import type {
-    PartAvailableColor,
-    PartInSet,
-    RebrickableCategory,
-    RebrickablePart,
+  PartAvailableColor,
+  PartInSet,
+  RebrickableCategory,
+  RebrickablePart,
 } from '@/app/lib/rebrickable/types';
+import { logger } from '@/lib/metrics';
 
 export async function getPart(partNum: string): Promise<RebrickablePart> {
   return rbFetch<RebrickablePart>(
@@ -169,13 +170,11 @@ export async function getPartColorsForPart(
     first = false;
   }
   if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.log('rebrickable part colors', {
-        partNum,
-        count: results.length,
-        sample: results[0],
-      });
-    } catch {}
+    logger.debug('rebrickable.part_colors', {
+      partNum,
+      count: results.length,
+      sample: results[0],
+    });
   }
   return results.map(r => {
     if ('color' in r) {
@@ -231,22 +230,21 @@ export async function getSetsForPart(
   const hit = posCache.get(cacheKey);
   if (hit && now - hit.at < SETS_TTL_MS) {
     if (process.env.NODE_ENV !== 'production') {
-      try {
-        console.log('rb sets cache hit', {
-          partNum,
-          colorId,
-          count: hit.items.length,
-        });
-      } catch {}
+      logger.debug('rebrickable.parts.sets_cache_hit', {
+        partNum,
+        colorId,
+        count: hit.items.length,
+      });
     }
     return hit.items;
   }
   const negHit = negCache.get(cacheKey);
   if (negHit && now - negHit.at < NEGATIVE_TTL_MS) {
     if (process.env.NODE_ENV !== 'production') {
-      try {
-        console.log('rb sets NEGATIVE cache hit', { partNum, colorId });
-      } catch {}
+      logger.debug('rebrickable.parts.sets_negative_cache_hit', {
+        partNum,
+        colorId,
+      });
     }
     return [];
   }
@@ -282,39 +280,27 @@ export async function getSetsForPart(
         : `/lego/parts/${encodeURIComponent(pn)}/sets/`;
     const first = await rbFetch<Page>(path, params);
     if (process.env.NODE_ENV !== 'production') {
-      try {
-        console.log('rebrickable sets first page', {
-          pn,
-          color,
-          path,
-          count: Array.isArray(first?.results)
-            ? first.results.length
-            : undefined,
-          next: first?.next ?? null,
-          sample: Array.isArray(first?.results) ? first.results[0] : undefined,
-        });
-      } catch {
-        // ignore logging errors
-      }
+      logger.debug('rebrickable.parts.sets_first_page', {
+        pn,
+        color,
+        path,
+        count: Array.isArray(first?.results) ? first.results.length : undefined,
+        next: first?.next ?? null,
+        sample: Array.isArray(first?.results) ? first.results[0] : undefined,
+      });
     }
     const all: Page['results'] = [...first.results];
     let nextUrl: string | null = first.next;
     while (nextUrl) {
       const page = await rbFetchAbsolute<Page>(nextUrl);
       if (process.env.NODE_ENV !== 'production') {
-        try {
-          console.log('rebrickable sets next page', {
-            pn,
-            color,
-            nextUrl,
-            count: Array.isArray(page?.results)
-              ? page.results.length
-              : undefined,
-            next: page?.next ?? null,
-          });
-        } catch {
-          // ignore logging errors
-        }
+        logger.debug('rebrickable.parts.sets_next_page', {
+          pn,
+          color,
+          nextUrl,
+          count: Array.isArray(page?.results) ? page.results.length : undefined,
+          next: page?.next ?? null,
+        });
       }
       all.push(...page.results);
       nextUrl = page.next;
@@ -357,18 +343,15 @@ export async function getSetsForPart(
 
   // Try exact part with color (if provided), then without color
   if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.log('getSetsForPart attempt', { partNum, colorId });
-    } catch {
-      // ignore
-    }
+    logger.debug('rebrickable.parts.get_sets_attempt', { partNum, colorId });
   }
   let sets = await fetchAll(partNum, colorId);
   if (!sets.length && typeof colorId === 'number') {
     if (process.env.NODE_ENV !== 'production') {
-      try {
-        console.log('getSetsForPart retry without color', { partNum, colorId });
-      } catch {}
+      logger.debug('rebrickable.parts.get_sets_retry_no_color', {
+        partNum,
+        colorId,
+      });
     }
     sets = await fetchAll(partNum, undefined);
   }
@@ -380,12 +363,10 @@ export async function getSetsForPart(
         const only = colors[0]!;
         if (only.id !== (colorId ?? -1)) {
           if (process.env.NODE_ENV !== 'production') {
-            try {
-              console.log('getSetsForPart retry with sole available color', {
-                partNum,
-                colorTried: only.id,
-              });
-            } catch {}
+            logger.debug('rebrickable.parts.get_sets_retry_sole_color', {
+              partNum,
+              colorTried: only.id,
+            });
           }
           const viaOnly = await fetchAll(partNum, only.id);
           if (viaOnly.length) return viaOnly;
@@ -403,23 +384,19 @@ export async function getSetsForPart(
     const base = meta.print_of?.trim();
     if (base && base !== partNum) {
       if (process.env.NODE_ENV !== 'production') {
-        try {
-          console.log('getSetsForPart trying base via print_of', {
-            partNum,
-            base,
-            colorId,
-          });
-        } catch {}
+        logger.debug('rebrickable.parts.get_sets_try_base_print_of', {
+          partNum,
+          base,
+          colorId,
+        });
       }
       let baseSets = await fetchAll(base, colorId);
       if (!baseSets.length && typeof colorId === 'number') {
         if (process.env.NODE_ENV !== 'production') {
-          try {
-            console.log('getSetsForPart base retry without color', {
-              base,
-              colorId,
-            });
-          } catch {}
+          logger.debug('rebrickable.parts.get_sets_base_retry_no_color', {
+            base,
+            colorId,
+          });
         }
         baseSets = await fetchAll(base, undefined);
       }
@@ -429,12 +406,10 @@ export async function getSetsForPart(
           if (colors.length === 1) {
             const only = colors[0]!;
             if (process.env.NODE_ENV !== 'production') {
-              try {
-                console.log(
-                  'getSetsForPart base retry with sole available color',
-                  { base, colorTried: only.id }
-                );
-              } catch {}
+              logger.debug('rebrickable.parts.get_sets_base_retry_sole_color', {
+                base,
+                colorTried: only.id,
+              });
             }
             const viaOnly = await fetchAll(base, only.id);
             if (viaOnly.length) return viaOnly;

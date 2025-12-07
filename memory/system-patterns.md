@@ -187,6 +187,13 @@
   - The search bar uses an above-field label and inline clear button with a large hit target.
   - The set top bar composes set metadata, owned/missing summary, user status chips, and pricing actions into a single, reusable component.
 
+## Logging & Telemetry
+
+- Use the shared logger from `@/lib/metrics` (`logger.debug|info|warn|error`) for all diagnostics.
+- `no-console` lint rule blocks `console.log/info/debug` (warn/error allowed); prefer `logger`.
+- In dev-only verbose paths, gate with `if (process.env.NODE_ENV !== 'production') logger.debug(...)`.
+- Production builds emit JSON logs via `logger`; Next.js `removeConsole` strips raw console calls as a safety net.
+
 ## Performance Notes
 
 - Inventory tables are virtualized to keep large sets responsive.

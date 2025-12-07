@@ -22,6 +22,7 @@ import {
   type PartInSet,
 } from '@/app/lib/rebrickable';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
+import { logEvent } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
@@ -98,16 +99,12 @@ export async function GET(req: NextRequest) {
       }
 
       if (process.env.NODE_ENV !== 'production') {
-        try {
-          console.log('identify/sets (minifig)', {
-            inputPart: part,
-            figNum: figNum ?? null,
-            bricklinkFigId,
-            setsCount: sets.length,
-          });
-        } catch {
-          // ignore logging failures
-        }
+        logEvent('identify.sets.minifig.debug', {
+          inputPart: part,
+          figNum: figNum ?? null,
+          bricklinkFigId,
+          setsCount: sets.length,
+        });
       }
 
       // Enrich sets with catalog summary (local first, then RB)
@@ -148,7 +145,7 @@ export async function GET(req: NextRequest) {
       }
 
       if (process.env.NODE_ENV !== 'production') {
-        console.log('identify/sets (minifig)', {
+        logEvent('identify.sets.minifig.enriched', {
           inputPart: part,
           figNum: figNum ?? null,
           bricklinkFigId,
@@ -180,14 +177,10 @@ export async function GET(req: NextRequest) {
       });
     } catch (err) {
       if (process.env.NODE_ENV !== 'production') {
-        try {
-          console.log('identify/sets minifig failed', {
-            part,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        } catch {
-          // ignore logging failures
-        }
+        logEvent('identify.sets.minifig.failed', {
+          part,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
       return NextResponse.json({
         error: 'identify_sets_failed',
@@ -403,16 +396,12 @@ export async function GET(req: NextRequest) {
     }
 
     if (process.env.NODE_ENV !== 'production') {
-      try {
-        console.log('identify/sets', {
-          inputPart: part,
-          resolvedPart: rbPart,
-          selectedColorId,
-          setsCount: sets.length,
-        });
-      } catch {
-        // ignore logging failures
-      }
+      logEvent('identify.sets', {
+        inputPart: part,
+        resolvedPart: rbPart,
+        selectedColorId,
+        setsCount: sets.length,
+      });
     }
 
     // Sort: most parts descending, then year descending
@@ -445,7 +434,7 @@ export async function GET(req: NextRequest) {
             return { setNumber: set.setNumber.toLowerCase(), summary };
           } catch (err) {
             if (process.env.NODE_ENV !== 'production') {
-              console.log('identify/sets enrichment failed', {
+              logEvent('identify.sets.enrichment_failed', {
                 set: set.setNumber,
                 error: err instanceof Error ? err.message : String(err),
               });
@@ -490,14 +479,10 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') {
-      try {
-        console.log('identify/sets failed', {
-          part,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      } catch {
-        // ignore logging failures
-      }
+      logEvent('identify.sets.failed', {
+        part,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
     // Always-200: return empty sets with minimal part info
     return NextResponse.json({

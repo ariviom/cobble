@@ -1,5 +1,6 @@
 'use client';
 
+import { logEvent } from '@/lib/metrics';
 import { IdentifySetListItem } from './IdentifySetListItem';
 import type { IdentifySet } from './types';
 
@@ -10,7 +11,7 @@ type Props = {
 
 export function IdentifySetList({ items, onRemoveItem }: Props) {
   if (process.env.NODE_ENV !== 'production') {
-    console.log('IdentifySetList sample', items.slice(0, 3));
+    logEvent('identify.set_list.sample', { items: items.slice(0, 3) });
   }
   if (!items.length) {
     return (

@@ -1,6 +1,7 @@
 'use client';
 
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { logEvent } from '@/lib/metrics';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useCallback, useEffect, useRef } from 'react';
 
@@ -84,7 +85,7 @@ export function useGroupSessionChannel({
         if (process.env.NODE_ENV !== 'production') {
           // This is intentionally verbose only in development to help debug
           // Realtime connectivity issues.
-          console.log('[GroupSessionChannel] status', {
+          logEvent('group_session.channel_status', {
             sessionId,
             status,
           });

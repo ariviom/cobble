@@ -1,6 +1,7 @@
 'use client';
 
 import type { InventoryRow } from '@/app/components/set/types';
+import { logger } from '@/lib/metrics';
 import { useCallback, useEffect, useState } from 'react';
 
 type PriceStatus = 'idle' | 'loading' | 'loaded' | 'error';
@@ -143,7 +144,7 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
       }
 
       if (process.env.NODE_ENV !== 'production') {
-        console.log('[InventoryPrices] loading BrickLink prices', {
+        logger.debug('inventory_prices.loading', {
           setNumber,
           itemCount: items.length,
         });
@@ -160,7 +161,7 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
         });
 
         if (process.env.NODE_ENV !== 'production') {
-          console.log('[InventoryPrices] response meta', {
+          logger.debug('inventory_prices.response_meta', {
             ok: res.ok,
             status: res.status,
           });
@@ -177,7 +178,7 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
         const count = data.prices ? Object.keys(data.prices).length : 0;
 
         if (process.env.NODE_ENV !== 'production') {
-          console.log('[InventoryPrices] parsed', {
+          logger.debug('inventory_prices.parsed', {
             setNumber,
             pricedCount: count,
           });

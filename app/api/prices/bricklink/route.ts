@@ -1,12 +1,12 @@
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
 import { mapToBrickLink } from '@/app/lib/mappings/rebrickableToBricklink';
 import {
-    DEFAULT_PRICING_PREFERENCES,
-    formatPricingScopeLabel,
+  DEFAULT_PRICING_PREFERENCES,
+  formatPricingScopeLabel,
 } from '@/app/lib/pricing';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
-import { incrementCounter, logEvent } from '@/lib/metrics';
+import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -74,11 +74,9 @@ export async function POST(req: NextRequest) {
   const clientIp = (await getClientIp(req)) ?? 'unknown';
 
   if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.log('prices/bricklink POST', {
-        itemCount: items.length,
-      });
-    } catch {}
+    logEvent('prices.bricklink.request', {
+      itemCount: items.length,
+    });
   }
 
   const prices: Record<string, PriceResponseEntry> = {};
@@ -159,13 +157,11 @@ export async function POST(req: NextRequest) {
           const mapped = await mapToBrickLink(item.partId, item.colorId);
           if (!mapped) {
             if (process.env.NODE_ENV !== 'production') {
-              try {
-                console.log('prices/bricklink: unmapped item', {
-                  key: item.key,
-                  partId: item.partId,
-                  colorId: item.colorId,
-                });
-              } catch {}
+              logEvent('prices.bricklink.unmapped_item', {
+                key: item.key,
+                partId: item.partId,
+                colorId: item.colorId,
+              });
             }
             return;
           }
@@ -195,14 +191,12 @@ export async function POST(req: NextRequest) {
             error: err instanceof Error ? err.message : String(err),
           });
           if (process.env.NODE_ENV !== 'production') {
-            try {
-              console.error('prices/bricklink: price fetch failed', {
-                key: item.key,
-                partId: item.partId,
-                colorId: item.colorId,
-                error: err instanceof Error ? err.message : String(err),
-              });
-            } catch {}
+            logger.error('prices.bricklink.price_fetch_failed', {
+              key: item.key,
+              partId: item.partId,
+              colorId: item.colorId,
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
           // Swallow per-item errors; missing prices just won't be present in the map
         }
@@ -211,11 +205,9 @@ export async function POST(req: NextRequest) {
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    try {
-      console.log('prices/bricklink response', {
-        pricedCount: Object.keys(prices).length,
-      });
-    } catch {}
+    logEvent('prices.bricklink.response', {
+      pricedCount: Object.keys(prices).length,
+    });
   }
 
   logEvent('prices_bricklink_response', {

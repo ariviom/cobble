@@ -12,6 +12,7 @@
 import 'server-only';
 
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
+import { logger } from '@/lib/metrics';
 import { processSetForMinifigMapping } from '@/scripts/minifig-mapping-core';
 
 // =============================================================================
@@ -197,7 +198,7 @@ export async function triggerMinifigSync(
 
   // Check if sync is already in progress
   if (inFlightSyncs.has(setNumber)) {
-    console.log('[minifigSync] Joining existing sync for', setNumber);
+    logger.debug('minifig_sync.join_existing', { setNumber });
     const success = await inFlightSyncs.get(setNumber)!;
     return {
       triggered: false,
@@ -251,7 +252,7 @@ export async function triggerMinifigSync(
 async function executeSync(setNumber: string): Promise<boolean> {
   const supabase = getCatalogWriteClient();
   
-  console.log('[minifigSync] Starting sync for', setNumber);
+  logger.debug('minifig_sync.start', { setNumber });
   const startTime = Date.now();
 
   try {
@@ -262,7 +263,7 @@ async function executeSync(setNumber: string): Promise<boolean> {
     );
 
     const duration = Date.now() - startTime;
-    console.log('[minifigSync] Sync completed for', setNumber, { duration });
+    logger.debug('minifig_sync.completed', { setNumber, duration });
     
     // Track completion time
     recentSyncCompletions.set(setNumber, Date.now());
@@ -270,7 +271,8 @@ async function executeSync(setNumber: string): Promise<boolean> {
     return true;
   } catch (err) {
     const duration = Date.now() - startTime;
-    console.error('[minifigSync] Sync failed for', setNumber, {
+    logger.error('minifig_sync.failed', {
+      setNumber,
       duration,
       error: err instanceof Error ? err.message : String(err),
     });

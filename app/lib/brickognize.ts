@@ -1,3 +1,4 @@
+import { logger } from '@/lib/metrics';
 import 'server-only';
 
 export type BrickognizeCandidate = {
@@ -74,7 +75,7 @@ export async function identifyWithBrickognize(
         }
         if (process.env.NODE_ENV !== 'production') {
           const preview = (lastBody ?? '').slice(0, 1000);
-          console.log('Brickognize NON-200', {
+          logger.debug('brickognize.non_200', {
             endpoint,
             status: res.status,
             body: preview,
@@ -87,7 +88,7 @@ export async function identifyWithBrickognize(
       }
       const text = await res.text();
       if (process.env.NODE_ENV !== 'production') {
-        console.log('Brickognize 200 OK', {
+        logger.debug('brickognize.ok', {
           endpoint,
           bytes: text.length,
           preview: text.slice(0, 1000),

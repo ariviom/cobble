@@ -22,3 +22,4 @@
 - Persistence: local-first (IndexedDB) with optional Supabase sync for signed-in users.
 - Out of scope for now: auth-heavy features beyond basics, advanced analytics, BrickOwl/Pick-a-Brick, full image hosting; Identify and minifig mapping are complementary but not core to the CSV MVP.
 
+

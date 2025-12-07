@@ -15,6 +15,7 @@ import {
   getAuthRedirectUrl,
   getSupabaseBrowserClient,
 } from '@/app/lib/supabaseClient';
+import { logger } from '@/lib/metrics';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -41,7 +42,7 @@ export default function LoginPage() {
 
       // Log for debugging (remove in production if needed)
       if (process.env.NODE_ENV === 'development') {
-        console.log('OAuth redirect URL:', redirectUrl);
+        logger.debug('auth.login.oauth_redirect_url', { redirectUrl });
       }
 
       const supabase = getSupabaseBrowserClient();
