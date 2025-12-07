@@ -14,6 +14,18 @@ type RateLimitOptions = {
   maxHits?: number;
 };
 
+type ConsumeRateLimitRow = {
+  allowed: boolean;
+  retry_after_seconds: number;
+};
+
+type SupabaseRpcClient = {
+  rpc: <T>(
+    fn: string,
+    params: Record<string, unknown>
+  ) => Promise<{ data: T | null; error: unknown }>;
+};
+
 type Bucket = {
   timestamps: number[];
 };
@@ -88,7 +100,9 @@ export async function consumeRateLimit(
 
   try {
     const supabase = getCatalogReadClient();
-    const { data, error } = await supabase.rpc('consume_rate_limit', {
+    const { data, error } = await (supabase as unknown as SupabaseRpcClient).rpc<
+      ConsumeRateLimitRow[]
+    >('consume_rate_limit', {
       p_key: key,
       p_max_hits: maxHits,
       p_window_ms: windowMs,
