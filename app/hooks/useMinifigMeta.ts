@@ -1,5 +1,10 @@
 'use client';
 
+import {
+    getCachedMinifig,
+    getCachedMinifigByBlId,
+    setCachedMinifig,
+} from '@/app/lib/localDb';
 import { useEffect, useState } from 'react';
 
 type MinifigMeta = {
@@ -38,6 +43,28 @@ export function useMinifigMeta(figNum: string): UseMinifigMetaResult {
       setIsLoading(true);
       setError(null);
       try {
+        // Local-first: try IndexedDB cache by RB fig_num or BL ID
+        const cached =
+          (trimmed.toLowerCase().startsWith('fig-')
+            ? await getCachedMinifig(trimmed)
+            : await getCachedMinifigByBlId(trimmed)) ??
+          (await getCachedMinifig(trimmed));
+
+        if (cached) {
+          if (cancelled) return;
+          setMeta({
+            figNum: cached.figNum,
+            blId: cached.blId,
+            imageUrl: cached.imageUrl,
+            name: cached.name,
+            numParts: cached.numParts,
+            year: cached.year,
+            themeName: cached.themeName,
+          });
+          setIsLoading(false);
+          return;
+        }
+
         const res = await fetch(
           `/api/minifigs/${encodeURIComponent(trimmed)}?includeSubparts=false&includePricing=false`,
           { cache: 'force-cache' }
@@ -52,6 +79,17 @@ export function useMinifigMeta(figNum: string): UseMinifigMetaResult {
         const data = (await res.json()) as MinifigMeta;
         if (cancelled) return;
         setMeta(data);
+
+        // Cache the response for future lookups
+        void setCachedMinifig({
+          figNum: data.figNum,
+          blId: data.blId ?? null,
+          name: data.name,
+          imageUrl: data.imageUrl,
+          numParts: data.numParts ?? null,
+          year: data.year ?? null,
+          themeName: data.themeName ?? null,
+        });
       } catch (err) {
         if (cancelled) return;
         console.error('useMinifigMeta failed', err);

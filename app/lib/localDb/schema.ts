@@ -85,6 +85,21 @@ export type CatalogSetMeta = {
   setNumber: string; // Primary key
   inventoryCachedAt: number;
   partCount: number;
+  inventoryVersion?: string | null;
+};
+
+/**
+ * Cached minifigure metadata and BrickLink mapping for cross-set reuse.
+ */
+export type CatalogMinifig = {
+  figNum: string; // Primary key (Rebrickable fig_num)
+  blId: string | null; // BrickLink minifig ID when mapped
+  name: string;
+  imageUrl: string | null;
+  numParts: number | null;
+  year: number | null;
+  themeName: string | null;
+  cachedAt: number; // Timestamp for cache invalidation
 };
 
 // ============================================================================
@@ -199,6 +214,7 @@ export class BrickPartyDB extends Dexie {
   catalogColors!: EntityTable<CatalogColor, 'id'>;
   catalogSetParts!: EntityTable<CatalogSetPart, 'id'>;
   catalogSetMeta!: EntityTable<CatalogSetMeta, 'setNumber'>;
+  catalogMinifigs!: EntityTable<CatalogMinifig, 'figNum'>;
 
   // User data tables (local-first with sync)
   localOwned!: EntityTable<LocalOwned, 'id'>;
@@ -216,7 +232,7 @@ export class BrickPartyDB extends Dexie {
   constructor() {
     super('BrickPartyDB');
 
-    this.version(1).stores({
+    this.version(3).stores({
       // Catalog tables
       // Format: 'primaryKey, index1, index2, ...'
       catalogSets: 'setNumber, themeId, year, cachedAt',
@@ -224,7 +240,8 @@ export class BrickPartyDB extends Dexie {
       catalogColors: 'id, cachedAt',
       catalogSetParts:
         '++id, setNumber, partNum, colorId, inventoryKey, [setNumber+inventoryKey]',
-      catalogSetMeta: 'setNumber, inventoryCachedAt',
+      catalogSetMeta: 'setNumber, inventoryCachedAt, inventoryVersion',
+      catalogMinifigs: 'figNum, blId, cachedAt',
 
       // User data tables
       localOwned: '++id, setNumber, inventoryKey, [setNumber+inventoryKey], updatedAt',

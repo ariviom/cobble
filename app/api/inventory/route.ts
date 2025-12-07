@@ -1,4 +1,5 @@
 import { getSetInventoryRowsWithMeta } from '@/app/lib/services/inventory';
+import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { incrementCounter, logEvent } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -12,6 +13,25 @@ const querySchema = z.object({
   includeMeta: z.enum(['true', 'false']).optional(),
 });
 
+async function getInventoryVersion(): Promise<string | null> {
+  try {
+    const supabase = getCatalogReadClient();
+    const { data, error } = await supabase
+      .from('rb_download_versions')
+      .select('version')
+      .eq('source', 'inventory_parts')
+      .maybeSingle();
+    if (error) {
+      console.warn('[inventory] failed to read inventory version', { error: error.message });
+      return null;
+    }
+    return (data?.version as string | null | undefined) ?? null;
+  } catch (err) {
+    console.warn('[inventory] error reading inventory version', err);
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const parsed = querySchema.safeParse(Object.fromEntries(searchParams.entries()));
@@ -23,6 +43,7 @@ export async function GET(req: NextRequest) {
   const includeMeta = parsed.data.includeMeta === 'true';
   
   try {
+    const inventoryVersion = await getInventoryVersion();
     const result = await getSetInventoryRowsWithMeta(set);
     incrementCounter('inventory_fetched', { setNumber: set });
     logEvent('inventory_response', { 
@@ -36,7 +57,8 @@ export async function GET(req: NextRequest) {
     const response: {
       rows: typeof result.rows;
       meta?: typeof result.minifigMappingMeta;
-    } = { rows: result.rows };
+      inventoryVersion: string | null;
+    } = { rows: result.rows, inventoryVersion };
     
     if (includeMeta && result.minifigMappingMeta) {
       response.meta = result.minifigMappingMeta;

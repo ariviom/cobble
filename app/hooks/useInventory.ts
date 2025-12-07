@@ -42,10 +42,29 @@ async function fetchInventory(
   setNumber: string,
   signal?: AbortSignal
 ): Promise<InventoryRow[]> {
+  // Try to fetch catalog inventory version so we can validate local cache
+  let inventoryVersion: string | null = null;
+  if (isIndexedDBAvailable()) {
+    try {
+      const versionRes = await fetch(
+        `/api/catalog/versions?sources=inventory_parts`,
+        { cache: 'no-store', signal: signal ?? null }
+      );
+      if (versionRes.ok) {
+        const payload = (await versionRes.json()) as {
+          versions?: Record<string, string | null>;
+        };
+        inventoryVersion = payload.versions?.inventory_parts ?? null;
+      }
+    } catch (err) {
+      console.warn('Failed to fetch inventory version (will fall back to TTL):', err);
+    }
+  }
+
   // Try local cache first (if IndexedDB is available)
   if (isIndexedDBAvailable()) {
     try {
-      const cached = await getCachedInventory(setNumber);
+      const cached = await getCachedInventory(setNumber, inventoryVersion);
       if (cached && cached.length > 0) {
         return cached;
       }
@@ -62,11 +81,15 @@ async function fetchInventory(
   if (!res.ok) {
     await throwAppErrorFromResponse(res, 'inventory_failed');
   }
-  const data = (await res.json()) as { rows: InventoryRow[] };
+  const data = (await res.json()) as {
+    rows: InventoryRow[];
+    inventoryVersion?: string | null;
+  };
   const rows = data.rows;
+  const responseVersion = data.inventoryVersion ?? inventoryVersion ?? null;
 
   if (isIndexedDBAvailable() && rows.length > 0) {
-    setCachedInventory(setNumber, rows).catch(error => {
+    setCachedInventory(setNumber, rows, { inventoryVersion: responseVersion }).catch(error => {
       console.warn('Failed to cache inventory:', error);
     });
   }

@@ -16,6 +16,7 @@ export {
   type CatalogColor,
   type CatalogSetPart,
   type CatalogSetMeta,
+  type CatalogMinifig,
   type LocalOwned,
   type LocalCollection,
   type LocalCollectionItem,
@@ -33,6 +34,13 @@ export {
   getCachedSetSummary,
   setCachedSetSummary,
 } from './catalogCache';
+
+export {
+  getCachedMinifig,
+  getCachedMinifigByBlId,
+  setCachedMinifig,
+  bulkSetCachedMinifigs,
+} from './minifigCache';
 
 export {
   getOwnedForSet,

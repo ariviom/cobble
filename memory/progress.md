@@ -113,6 +113,14 @@
   - **Inventory service improvements** (`app/lib/services/inventory.ts`):
     - `getSetInventoryRowsWithMeta()` returns optional `minifigMappingMeta` with sync status.
     - `/api/inventory` now accepts `includeMeta=true` query param to return mapping metadata.
+  - **Local minifig cache (IndexedDB)**:
+    - Added `catalogMinifigs` table to Dexie schema with 24h TTL.
+    - `setCachedInventory` now upserts minifig entries for cross-set reuse.
+    - `useMinifigMeta` checks and populates the local cache before/after API calls.
+  - **Version-aware inventory cache**:
+    - Added `/api/catalog/versions` to read `rb_download_versions` (uses `inventory_parts` source).
+    - `useInventory` fetches the version first, then validates IndexedDB cache (30d TTL) before network.
+    - `/api/inventory` now returns `inventoryVersion`; cached inventories store version in Dexie meta.
 
 ## Planned / In Progress
 

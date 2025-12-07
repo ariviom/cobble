@@ -66,9 +66,13 @@
     - Deletion of localStorage keys after successful migration
     - Sync worker that batches pending operations and sends to `/api/sync`
 - **Inventory caching**
-  - `useInventory` hook checks IndexedDB cache first via `getCachedInventory()`
-  - Cache miss triggers network fetch to `/api/inventory`, then caches result
-  - 24-hour TTL on cached inventories; invalidation via catalog version checks
+  - `useInventory` fetches lightweight versions from `/api/catalog/versions` (inventory_parts) before reading cache.
+  - Cache hit uses version + TTL (30d); cache miss fetches `/api/inventory` and stores rows with the version.
+  - `/api/inventory` returns `inventoryVersion` sourced from `rb_download_versions`.
+- **Minifig metadata caching**
+  - Dexie schema includes `catalogMinifigs` (figNum, blId, name, imageUrl, numParts, year, themeName, cachedAt) with 24h TTL.
+  - `setCachedInventory` upserts minifig entries whenever inventories are cached so mappings and metadata are reusable across sets.
+  - `useMinifigMeta` reads from and populates the minifig cache before/after hitting `/api/minifigs/[figNum]`.
 - **Sync queue for Supabase writes**
   - Owned quantity changes are enqueued to `syncQueue` table instead of direct Supabase writes
   - `/api/sync` endpoint accepts batched operations and applies them transactionally

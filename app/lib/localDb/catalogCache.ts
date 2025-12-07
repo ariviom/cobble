@@ -14,11 +14,12 @@ import {
   type CatalogSetPart,
   type CatalogPart,
   type CatalogColor,
+  type CatalogMinifig,
 } from './schema';
 
-// Cache TTL: 24 hours for catalog data (it changes infrequently)
-const INVENTORY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const SET_SUMMARY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+// Cache TTL: long-lived; version mismatches will force invalidation
+const INVENTORY_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const SET_SUMMARY_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 // ============================================================================
 // Inventory Cache
@@ -29,7 +30,8 @@ const SET_SUMMARY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
  * Returns null if not cached or cache is stale.
  */
 export async function getCachedInventory(
-  setNumber: string
+  setNumber: string,
+  expectedVersion?: string | null
 ): Promise<InventoryRow[] | null> {
   if (!isIndexedDBAvailable()) return null;
 
@@ -39,6 +41,16 @@ export async function getCachedInventory(
     // Check if we have cached metadata for this set
     const meta = await db.catalogSetMeta.get(setNumber);
     if (!meta) return null;
+
+    // Reject cache when version mismatch
+    if (
+      typeof expectedVersion === 'string' &&
+      expectedVersion.length > 0 &&
+      meta.inventoryVersion &&
+      meta.inventoryVersion !== expectedVersion
+    ) {
+      return null;
+    }
 
     // Check if cache is still valid
     const now = Date.now();
@@ -108,7 +120,8 @@ export async function getCachedInventory(
  */
 export async function setCachedInventory(
   setNumber: string,
-  rows: InventoryRow[]
+  rows: InventoryRow[],
+  opts?: { inventoryVersion?: string | null }
 ): Promise<void> {
   if (!isIndexedDBAvailable()) return;
   if (rows.length === 0) return;
@@ -121,6 +134,7 @@ export async function setCachedInventory(
     const partsMap = new Map<string, CatalogPart>();
     const colorsMap = new Map<number, CatalogColor>();
     const setParts: Omit<CatalogSetPart, 'id'>[] = [];
+    const minifigsMap = new Map<string, CatalogMinifig>();
 
     for (const row of rows) {
       // Collect part data
@@ -160,18 +174,56 @@ export async function setCachedInventory(
       if (row.parentRelations) setPart.parentRelations = row.parentRelations;
       if (row.componentRelations) setPart.componentRelations = row.componentRelations;
       setParts.push(setPart);
+
+      // Collect minifig metadata for cross-set reuse
+      if (
+        row.parentCategory === 'Minifigure' &&
+        typeof row.partId === 'string' &&
+        row.partId.startsWith('fig:')
+      ) {
+        const figNum = row.partId.replace(/^fig:/, '').trim();
+        if (figNum && !minifigsMap.has(figNum)) {
+          minifigsMap.set(figNum, {
+            figNum,
+            blId: row.bricklinkFigId ?? null,
+            name: row.partName,
+            imageUrl: row.imageUrl ?? null,
+            numParts: null, // numParts not available in inventory rows
+            year: null,
+            themeName: null,
+            cachedAt: now,
+          });
+        } else if (figNum) {
+          // Merge in BrickLink ID when it becomes available
+          const existing = minifigsMap.get(figNum);
+          if (existing && !existing.blId && row.bricklinkFigId) {
+            minifigsMap.set(figNum, { ...existing, blId: row.bricklinkFigId });
+          }
+        }
+      }
     }
 
     // Use a transaction to ensure consistency
     await db.transaction(
       'rw',
-      [db.catalogParts, db.catalogColors, db.catalogSetParts, db.catalogSetMeta],
+      [
+        db.catalogParts,
+        db.catalogColors,
+        db.catalogSetParts,
+        db.catalogSetMeta,
+        db.catalogMinifigs,
+      ],
       async () => {
         // Upsert parts (bulkPut handles duplicates)
         await db.catalogParts.bulkPut(Array.from(partsMap.values()));
 
         // Upsert colors
         await db.catalogColors.bulkPut(Array.from(colorsMap.values()));
+
+        // Upsert minifigs for reuse across sets
+        if (minifigsMap.size > 0) {
+          await db.catalogMinifigs.bulkPut(Array.from(minifigsMap.values()));
+        }
 
         // Delete existing set parts for this set, then insert new ones
         await db.catalogSetParts.where('setNumber').equals(setNumber).delete();
@@ -182,6 +234,7 @@ export async function setCachedInventory(
           setNumber,
           inventoryCachedAt: now,
           partCount: rows.length,
+          inventoryVersion: opts?.inventoryVersion ?? null,
         });
       }
     );

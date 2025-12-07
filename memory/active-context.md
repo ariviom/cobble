@@ -36,6 +36,7 @@
   - `bl_minifig_parts` caches BrickLink minifig component parts.
   - Bulk mapping scripts now have a Phase 2 that maps RB minifig parts → BL minifig parts (controlled by `MINIFIG_COMPONENT_API_BUDGET`, default 500).
   - Mappings are stored in `part_id_mappings` with `source='minifig-component'`.
+- Add client-side minifig caching (Dexie `catalogMinifigs` table) so minifig lookups and RB→BL mappings can be reused offline and across sets.
 
 ## Notes
 
