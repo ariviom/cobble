@@ -1,6 +1,7 @@
+import { errorResponse } from '@/app/lib/api/responses';
 import { searchSetsPage } from '@/app/lib/services/search';
 import type { FilterType } from '@/app/types/search';
-import { incrementCounter, logEvent } from '@/lib/metrics';
+import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -39,7 +40,9 @@ export async function GET(req: NextRequest) {
   const parsed = querySchema.safeParse(Object.fromEntries(searchParams.entries()));
   if (!parsed.success) {
     incrementCounter('search_validation_failed', { issues: parsed.error.flatten() });
-    return NextResponse.json({ error: 'validation_failed' }, { status: 400 });
+    return errorResponse('validation_failed', {
+      details: { issues: parsed.error.flatten() },
+    });
   }
 
   const { q, sort, page, pageSize, filter, exact } = parsed.data;
@@ -53,7 +56,7 @@ export async function GET(req: NextRequest) {
       exactMatch: exact,
     });
     if (process.env.NODE_ENV !== 'production' && _debugSearch) {
-      console.log('search route source', {
+      logger.debug('search.route.source', {
         query: q,
         usedLocal: _debugSearch.usedLocal,
         usedFallback: _debugSearch.usedFallback,
@@ -71,13 +74,12 @@ export async function GET(req: NextRequest) {
       query: q,
       error: err instanceof Error ? err.message : String(err),
     });
-    console.error('Search failed:', {
+    logger.error('search.route.failed', {
       query: q,
       sort,
       page,
       error: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
     });
-    return NextResponse.json({ error: 'search_failed' }, { status: 500 });
+    return errorResponse('search_failed');
   }
 }

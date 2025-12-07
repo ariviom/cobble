@@ -1,5 +1,7 @@
-import { NextResponse } from 'next/server';
+import { errorResponse } from '@/app/lib/api/responses';
 import { getColors } from '@/app/lib/rebrickable';
+import { logger } from '@/lib/metrics';
+import { NextResponse } from 'next/server';
 
 export async function GET() {
 	try {
@@ -8,11 +10,10 @@ export async function GET() {
 			colors: colors.map(c => ({ id: c.id, name: c.name })),
 		});
 	} catch (err) {
-		console.error('Colors fetch failed:', {
+		logger.error('colors.route.failed', {
 			error: err instanceof Error ? err.message : String(err),
-			stack: err instanceof Error ? err.stack : undefined,
 		});
-		return NextResponse.json({ error: 'colors_failed' }, { status: 500 });
+		return errorResponse('external_service_error', { message: 'Failed to fetch colors' });
 	}
 }
 

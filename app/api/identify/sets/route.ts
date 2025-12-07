@@ -1,22 +1,25 @@
 import {
-    blGetPartSupersets,
-    type BLSupersetItem,
+  blGetPartSupersets,
+  type BLSupersetItem,
 } from '@/app/lib/bricklink';
-import { getSetsForPartLocal, getSetSummaryLocal } from '@/app/lib/catalog';
 import {
-    mapBrickLinkFigToRebrickable,
-    mapRebrickableFigToBrickLinkOnDemand,
+  getSetsForPartLocal,
+  getSetSummaryLocal
+} from '@/app/lib/catalog';
+import {
+  mapBrickLinkFigToRebrickable,
+  mapRebrickableFigToBrickLinkOnDemand,
 } from '@/app/lib/minifigMapping';
 import {
-    getPart,
-    getPartColorsForPart,
-    getSetsForMinifig,
-    getSetsForPart,
-    getSetSummary,
-    mapBrickLinkColorIdToRebrickableColorId,
-    resolvePartIdToRebrickable,
-    type PartAvailableColor,
-    type PartInSet,
+  getPart,
+  getPartColorsForPart,
+  getSetsForMinifig,
+  getSetsForPart,
+  getSetSummary,
+  mapBrickLinkColorIdToRebrickableColorId,
+  resolvePartIdToRebrickable,
+  type PartAvailableColor,
+  type PartInSet,
 } from '@/app/lib/rebrickable';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import { NextRequest, NextResponse } from 'next/server';

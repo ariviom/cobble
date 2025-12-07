@@ -1,11 +1,12 @@
+import type { InventoryRow } from '@/app/components/set/types';
 import { getSetInventoryLocal } from '@/app/lib/catalog';
 import {
-  getMinifigMappingsForSetBatched,
-  getGlobalMinifigMappingsBatch,
-  normalizeRebrickableFigId,
+    getGlobalMinifigMappingsBatch,
+    getMinifigMappingsForSetBatched,
+    normalizeRebrickableFigId,
 } from '@/app/lib/minifigMappingBatched';
 import { getSetInventory } from '@/app/lib/rebrickable';
-import type { InventoryRow } from '@/app/components/set/types';
+import { logger } from '@/lib/metrics';
 
 export type InventoryResult = {
   rows: InventoryRow[];
@@ -56,13 +57,10 @@ export async function getSetInventoryRowsWithMeta(
       rows = localRows;
     }
   } catch (err) {
-    console.error(
-      'Supabase getSetInventoryLocal failed, falling back to Rebrickable',
-      {
-        setNumber,
-        error: err instanceof Error ? err.message : String(err),
-      }
-    );
+    logger.warn('inventory.local_failed_fallback_to_rebrickable', {
+      setNumber,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   // Fallback to live Rebrickable inventory when Supabase has no rows or errors.

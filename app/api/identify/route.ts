@@ -1,22 +1,27 @@
+import { errorResponse } from '@/app/lib/api/responses';
 import {
-    blGetPart,
-    blGetPartColors,
-    blGetPartSubsets,
-    blGetPartSupersets,
-    type BLColorEntry,
-    type BLSupersetItem,
+	blGetPart,
+	blGetPartColors,
+	blGetPartSubsets,
+	blGetPartSupersets,
+	type BLColorEntry,
+	type BLSupersetItem,
 } from '@/app/lib/bricklink';
 import { extractCandidatePartNumbers, identifyWithBrickognize } from '@/app/lib/brickognize';
-import { getSetsForPartLocal, getSetSummaryLocal } from '@/app/lib/catalog';
 import {
-    getColors,
-    getPartColorsForPart,
-    getSetsForPart,
-    getSetSummary,
-    resolvePartIdToRebrickable,
-    type PartAvailableColor,
-    type PartInSet,
+	getSetsForPartLocal,
+	getSetSummaryLocal
+} from '@/app/lib/catalog';
+import {
+	getColors,
+	getPartColorsForPart,
+	getSetsForPart,
+	getSetSummary,
+	resolvePartIdToRebrickable,
+	type PartAvailableColor,
+	type PartInSet,
 } from '@/app/lib/rebrickable';
+import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -164,21 +169,31 @@ export async function POST(req: NextRequest) {
 					'Retry-After': String(rateLimitResult.retryAfter),
 				};
 			}
-			return NextResponse.json({ error: 'identify_rate_limited' }, init);
+			const headersRecord =
+				init.headers != null
+					? Object.fromEntries(new Headers(init.headers))
+					: undefined;
+			if (headersRecord) {
+				return errorResponse('rate_limited', {
+					status: init.status ?? 429,
+					details: { headers: headersRecord },
+				});
+			}
+			return errorResponse('rate_limited', { status: init.status ?? 429 });
 		}
 
 		const externalBudget = new ExternalCallBudget(EXTERNAL_CALL_BUDGET);
 		const form = await req.formData();
 		const file = form.get('image');
 		if (!(file instanceof File)) {
-			return NextResponse.json({ error: 'missing_image' });
+			return errorResponse('validation_failed', { message: 'missing_image' });
 		}
 		const imageValidation = validateImageFile(file);
 		if (imageValidation) {
-			return NextResponse.json(
-				{ error: imageValidation.error },
-				{ status: imageValidation.status ?? 400 }
-			);
+			return errorResponse('validation_failed', {
+				message: imageValidation.error,
+				status: imageValidation.status ?? 400,
+			});
 		}
 		const colorHintRaw = form.get('colorHint');
 		const colorHint =
@@ -194,7 +209,7 @@ export async function POST(req: NextRequest) {
 					listing_id?: unknown;
 					items?: unknown[];
 				};
-				console.log('identify: brickognize payload', {
+				logger.debug('identify.brickognize_payload', {
 					listing_id: payloadDiag.listing_id,
 					items_len: Array.isArray(payloadDiag.items)
 						? payloadDiag.items.length
@@ -209,11 +224,11 @@ export async function POST(req: NextRequest) {
 			.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
 
 		if (candidates.length === 0) {
-			return NextResponse.json({ error: 'no_match' });
+			return errorResponse('no_match');
 		}
 		if (process.env.NODE_ENV !== 'production') {
 			try {
-				console.log('identify: candidates', candidates.slice(0, 5));
+				logger.debug('identify.candidates', { candidates: candidates.slice(0, 5) });
 			} catch (err) {
 				if (isBudgetError(err)) throw err;
 			}
@@ -815,21 +830,18 @@ export async function POST(req: NextRequest) {
 		});
 	} catch (err) {
 		if (err instanceof Error && err.message === 'external_budget_exhausted') {
-			return NextResponse.json(
-				{ error: 'identify_budget_exceeded' },
-				{ status: 429 }
-			);
+			return errorResponse('budget_exceeded', { status: 429 });
 		}
 		if (process.env.NODE_ENV !== 'production') {
 			try {
-				console.log('identify failed', {
+				logger.error('identify.failed', {
 					error: err instanceof Error ? err.message : String(err),
 				});
 			} catch (logErr) {
 				if (isBudgetError(logErr)) throw logErr;
 			}
 		}
-		return NextResponse.json({ error: 'identify_failed' });
+		return errorResponse('identify_failed');
 	}
 }
 

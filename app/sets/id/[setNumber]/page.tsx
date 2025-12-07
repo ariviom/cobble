@@ -37,7 +37,3 @@ export default async function SetPage({ params }: SetPageProps) {
     </LocalDataProviderBoundary>
   );
 }
-
-
-
-

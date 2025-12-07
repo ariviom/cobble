@@ -1,9 +1,10 @@
 import { searchSetsLocal } from '@/app/lib/catalog';
 import {
-  getAggregatedSearchResults,
-  type SimpleSet,
+    getAggregatedSearchResults,
+    type SimpleSet,
 } from '@/app/lib/rebrickable';
 import type { FilterType } from '@/app/types/search';
+import { logger } from '@/lib/metrics';
 
 function applyFilter(results: SimpleSet[], filterType: FilterType): SimpleSet[] {
   if (filterType === 'all') {
@@ -55,7 +56,7 @@ export async function searchSetsPage(args: {
       usedLocal = true;
     }
   } catch (err) {
-    console.error('Supabase searchSetsLocal failed, falling back to Rebrickable', {
+    logger.warn('search.local_failed_fallback_to_rebrickable', {
       query,
       sort,
       error: err instanceof Error ? err.message : String(err),

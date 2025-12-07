@@ -1,6 +1,8 @@
+import { errorResponse } from '@/app/lib/api/responses';
 import { searchMinifigsLocal } from '@/app/lib/catalog';
 import { mapRebrickableFigToBrickLink } from '@/app/lib/minifigMapping';
 import type { MinifigSearchPage, MinifigSortOption } from '@/app/types/search';
+import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -44,7 +46,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const parsed = querySchema.safeParse(Object.fromEntries(searchParams.entries()));
   if (!parsed.success) {
-    return NextResponse.json({ error: 'validation_failed' }, { status: 400 });
+    return errorResponse('validation_failed', {
+      details: { issues: parsed.error.flatten() },
+    });
   }
 
   const { q, page, pageSize, sort } = parsed.data;
@@ -71,13 +75,13 @@ export async function GET(req: NextRequest) {
       headers: { 'Cache-Control': CACHE_CONTROL },
     });
   } catch (err) {
-    console.error('Minifig search failed:', {
+    logger.error('minifigs.search.failed', {
       query: q,
       page,
       pageSize,
       error: err instanceof Error ? err.message : String(err),
     });
-    return NextResponse.json({ error: 'search_failed' }, { status: 500 });
+    return errorResponse('search_failed', { message: 'Minifig search failed' });
   }
 }
 

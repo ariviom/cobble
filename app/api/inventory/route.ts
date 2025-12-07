@@ -1,6 +1,7 @@
-import { getSetInventoryRowsWithMeta } from '@/app/lib/services/inventory';
+import { errorResponse } from '@/app/lib/api/responses';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
-import { incrementCounter, logEvent } from '@/lib/metrics';
+import { getSetInventoryRowsWithMeta } from '@/app/lib/services/inventory';
+import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -22,12 +23,12 @@ async function getInventoryVersion(): Promise<string | null> {
       .eq('source', 'inventory_parts')
       .maybeSingle();
     if (error) {
-      console.warn('[inventory] failed to read inventory version', { error: error.message });
+      logger.warn('inventory.version.read_failed', { error: error.message });
       return null;
     }
     return (data?.version as string | null | undefined) ?? null;
   } catch (err) {
-    console.warn('[inventory] error reading inventory version', err);
+    logger.warn('inventory.version.error', { error: err instanceof Error ? err.message : String(err) });
     return null;
   }
 }
@@ -37,7 +38,9 @@ export async function GET(req: NextRequest) {
   const parsed = querySchema.safeParse(Object.fromEntries(searchParams.entries()));
   if (!parsed.success) {
     incrementCounter('inventory_validation_failed', { issues: parsed.error.flatten() });
-    return NextResponse.json({ error: 'validation_failed' }, { status: 400 });
+    return errorResponse('validation_failed', {
+      details: { issues: parsed.error.flatten() },
+    });
   }
   const set = parsed.data.set;
   const includeMeta = parsed.data.includeMeta === 'true';
@@ -64,19 +67,18 @@ export async function GET(req: NextRequest) {
       response.meta = result.minifigMappingMeta;
     }
     
-    return NextResponse.json(response, { 
-      headers: { 'Cache-Control': CACHE_CONTROL } 
+    return NextResponse.json(response, {
+      headers: { 'Cache-Control': CACHE_CONTROL }
     });
   } catch (err) {
     incrementCounter('inventory_failed', {
       setNumber: set,
       error: err instanceof Error ? err.message : String(err),
     });
-    console.error('Inventory fetch failed:', {
+    logger.error('inventory.route.failed', {
       setNumber: set,
       error: err instanceof Error ? err.message : String(err),
-      stack: err instanceof Error ? err.stack : undefined,
     });
-    return NextResponse.json({ error: 'inventory_failed' }, { status: 500 });
+    return errorResponse('inventory_failed');
   }
 }

@@ -1,9 +1,6 @@
 import Image, { type ImageProps } from 'next/image';
 
-import {
-  getImageSizeConfig,
-  type ImageVariant,
-} from '@/app/config/imageSizes';
+import { getImageSizeConfig, type ImageVariant } from '@/app/config/imageSizes';
 
 type OptimizedImageProps = {
   src: string | null | undefined;
@@ -13,7 +10,10 @@ type OptimizedImageProps = {
   priority?: boolean;
   sizesOverride?: string;
   qualityOverride?: number;
-} & Omit<ImageProps, 'src' | 'alt' | 'width' | 'height' | 'sizes' | 'quality'>;
+} & Omit<
+  ImageProps,
+  'src' | 'alt' | 'width' | 'height' | 'sizes' | 'quality' | 'priority'
+>;
 
 /**
  * Thin wrapper around next/image that applies consistent sizing, quality, and
@@ -38,6 +38,7 @@ export function OptimizedImage({
   }
 
   const { width, height, sizes, quality } = getImageSizeConfig(variant);
+  const finalQuality = qualityOverride ?? quality;
 
   return (
     <Image
@@ -46,11 +47,10 @@ export function OptimizedImage({
       width={width}
       height={height}
       sizes={sizesOverride ?? sizes}
-      quality={qualityOverride ?? quality}
+      {...(finalQuality !== undefined ? { quality: finalQuality } : {})}
       className={className}
-      priority={priority}
+      priority={priority === true}
       {...rest}
     />
   );
 }
-

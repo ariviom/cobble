@@ -1,6 +1,27 @@
 export type AppErrorCode =
+  // Validation
+  | 'validation_failed'
+  | 'missing_required_field'
+  | 'invalid_format'
+  // Auth
+  | 'unauthorized'
+  | 'forbidden'
+  // Rate limiting / budgets
+  | 'rate_limited'
+  | 'budget_exceeded'
+  // Resource
+  | 'not_found'
+  | 'no_match'
+  | 'no_valid_candidate'
+  // External service errors
+  | 'external_service_error'
+  | 'brickognize_failed'
+  | 'rebrickable_failed'
+  | 'bricklink_circuit_open'
+  // Internal errors
   | 'search_failed'
   | 'inventory_failed'
+  | 'identify_failed'
   | 'unknown_error'
   // Allow future string codes without breaking the type.
   | (string & {});
@@ -23,6 +44,25 @@ type ErrorPayload = {
   error?: string;
   message?: string;
 };
+
+export type ApiErrorResponse = {
+  error: AppErrorCode;
+  message: string;
+  details?: Record<string, unknown>;
+  requestId?: string;
+};
+
+export function toApiError(
+  code: AppErrorCode,
+  message?: string,
+  details?: Record<string, unknown>
+): ApiErrorResponse {
+  return {
+    error: code,
+    message: message ?? code.replace(/_/g, ' '),
+    ...(details ? { details } : {}),
+  };
+}
 
 export async function throwAppErrorFromResponse(
   res: Response,

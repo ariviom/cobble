@@ -1,4 +1,6 @@
+import { errorResponse } from '@/app/lib/api/responses';
 import { fetchThemes } from '@/app/lib/services/themes';
+import { logger } from '@/lib/metrics';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
@@ -6,9 +8,9 @@ export async function GET() {
     const themes = await fetchThemes();
     return NextResponse.json({ themes });
   } catch (err) {
-    console.error('Themes fetch failed:', {
+    logger.error('themes.route.failed', {
       error: err instanceof Error ? err.message : String(err),
     });
-    return NextResponse.json({ error: 'themes_failed' }, { status: 500 });
+    return errorResponse('external_service_error', { message: 'Failed to fetch themes' });
   }
 }

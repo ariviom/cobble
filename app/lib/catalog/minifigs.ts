@@ -124,8 +124,10 @@ export async function searchMinifigsLocal(
       numParts,
       themeName: themeMeta?.themeName ?? existing?.themeName ?? null,
       themePath: themeMeta?.themePath ?? existing?.themePath ?? null,
-      matchSource: preferredSource,
     };
+    if (preferredSource) {
+      next.matchSource = preferredSource;
+    }
     seen.set(row.fig_num, next);
     candidateFigNums.add(row.fig_num);
   }
@@ -187,7 +189,7 @@ export async function searchMinifigsLocal(
     // ignore mapping errors
   }
 
-  let figThemeIds = new Map<string, Set<number>>();
+  const figThemeIds = new Map<string, Set<number>>();
 
   if (themeIds.size > 0) {
     const { data: setsForThemes, error: themeSetsError } = await supabase

@@ -1,6 +1,7 @@
+import { errorResponse } from '@/app/lib/api/responses';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { getPart } from '@/app/lib/rebrickable';
-import { incrementCounter, logEvent } from '@/lib/metrics';
+import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -21,7 +22,7 @@ async function checkMappingTable(partId: string): Promise<string | null> {
       .maybeSingle();
 
     if (error) {
-      console.error('[parts/bricklink] mapping table lookup failed', {
+      logger.error('parts.bricklink.mapping_lookup_failed', {
         partId,
         error: error.message,
       });
@@ -30,7 +31,7 @@ async function checkMappingTable(partId: string): Promise<string | null> {
 
     return data?.bl_part_id ?? null;
   } catch (err) {
-    console.error('[parts/bricklink] mapping table error', {
+    logger.error('parts.bricklink.mapping_error', {
       partId,
       error: err instanceof Error ? err.message : String(err),
     });
@@ -57,20 +58,20 @@ async function persistMapping(
     );
 
     if (error) {
-      console.error('[parts/bricklink] failed to persist mapping', {
+      logger.error('parts.bricklink.persist_failed', {
         rbPartId,
         blPartId,
         error: error.message,
       });
-    } else if (process.env.NODE_ENV !== 'production') {
-      console.log('[parts/bricklink] persisted mapping', {
+    } else {
+      logger.debug('parts.bricklink.persisted_mapping', {
         rbPartId,
         blPartId,
         source,
       });
     }
   } catch (err) {
-    console.error('[parts/bricklink] persist error', {
+    logger.error('parts.bricklink.persist_error', {
       rbPartId,
       blPartId,
       error: err instanceof Error ? err.message : String(err),
@@ -159,7 +160,7 @@ export async function GET(req: NextRequest) {
   const part = searchParams.get('part');
   if (!part || !part.trim()) {
     incrementCounter('parts_bricklink_validation_failed');
-    return NextResponse.json({ error: 'missing_part' }, { status: 400 });
+    return errorResponse('missing_required_field', { message: 'Part ID is required' });
   }
   const clientIp = (await getClientIp(req)) ?? 'unknown';
   const ipLimit = await consumeRateLimit(`ip:${clientIp}`, {
@@ -168,17 +169,10 @@ export async function GET(req: NextRequest) {
   });
   if (!ipLimit.allowed) {
     incrementCounter('parts_bricklink_rate_limited', { scope: 'ip' });
-    return NextResponse.json(
-      {
-        error: 'rate_limited',
-        scope: 'ip',
-        retryAfterSeconds: ipLimit.retryAfterSeconds,
-      },
-      {
-        status: 429,
-        headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
-      }
-    );
+    return errorResponse('rate_limited', {
+      status: 429,
+      details: { scope: 'ip', retryAfterSeconds: ipLimit.retryAfterSeconds },
+    });
   }
   try {
     const itemNo = await resolveBrickLinkId(part.trim());
@@ -191,12 +185,10 @@ export async function GET(req: NextRequest) {
       part: part.trim(),
       error: err instanceof Error ? err.message : String(err),
     });
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('parts/bricklink lookup failed', {
-        part,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-    return NextResponse.json({ error: 'part_lookup_failed' }, { status: 500 });
+    logger.error('parts.bricklink.lookup_failed', {
+      part,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return errorResponse('external_service_error', { message: 'Part lookup failed' });
   }
 }

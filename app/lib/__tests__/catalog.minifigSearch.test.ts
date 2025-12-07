@@ -1,13 +1,13 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-import type { MinifigCatalogResult } from '@/app/lib/catalog/minifigs';
+import type { MinifigCatalogResult } from '@/app/lib/catalog';
 
 vi.mock('server-only', () => ({}));
 
-let sortMinifigResults: typeof import('@/app/lib/catalog/minifigs')['sortMinifigResults'];
+let sortMinifigResults: typeof import('@/app/lib/catalog')['sortMinifigResults'];
 
 beforeAll(async () => {
-  ({ sortMinifigResults } = await import('@/app/lib/catalog/minifigs'));
+	({ sortMinifigResults } = await import('@/app/lib/catalog'));
 });
 
 function makeResult(

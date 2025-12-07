@@ -2,9 +2,10 @@ import 'server-only';
 
 export {
     getSetMinifigsLocal,
-    searchMinifigsLocal
+    searchMinifigsLocal,
+    sortMinifigResults
 } from './minifigs';
-export type { LocalSetMinifig } from './minifigs';
+export type { LocalSetMinifig, MinifigCatalogResult } from './minifigs';
 export {
     getSetInventoryLocal,
     getSetSummaryLocal,
