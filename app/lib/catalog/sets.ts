@@ -4,19 +4,19 @@ import type { InventoryRow } from '@/app/components/set/types';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import type { PartInSet, SimpleSet } from '@/app/lib/rebrickable';
 import {
-  mapCategoryNameToParent,
-  normalizeText,
-  sortAggregatedResults,
+    mapCategoryNameToParent,
+    normalizeText,
+    sortAggregatedResults,
 } from '@/app/lib/rebrickable';
 import { filterExactMatches } from '@/app/lib/searchExactMatch';
 import type { MatchType } from '@/app/types/search';
 import type { Json } from '@/supabase/types';
 
 import {
-  buildThemeMetaHelpers,
-  deriveRootThemeName,
-  getThemesLocal,
-  type LocalTheme,
+    buildThemeMetaHelpers,
+    deriveRootThemeName,
+    getThemesLocal,
+    type LocalTheme,
 } from './themes';
 
 export async function searchSetsLocal(
@@ -282,19 +282,73 @@ export async function getSetInventoryLocal(
   // rb_set_parts, rb_parts, rb_colors, rb_part_categories are publicly readable
   const supabase = getCatalogReadClient();
 
-  const { data: setParts, error: setPartsError } = await supabase
-    .from('rb_set_parts')
-    .select('part_num, color_id, quantity, is_spare')
+  type InventoryPartRow = {
+    part_num: string;
+    color_id: number;
+    quantity: number;
+    is_spare: boolean;
+    element_id?: string | null;
+    img_url?: string | null;
+  };
+
+  // Prefer inventory_parts (with color-specific img_url) using the latest inventory version.
+  let setParts: InventoryPartRow[] = [];
+
+  const { data: inventories, error: inventoriesError } = await supabase
+    .from('rb_inventories')
+    .select('id, version')
     .eq('set_num', trimmedSet);
 
-  if (setPartsError) {
+  if (inventoriesError) {
     throw new Error(
-      `Supabase getSetInventoryLocal rb_set_parts failed: ${setPartsError.message}`
+      `Supabase getSetInventoryLocal rb_inventories failed: ${inventoriesError.message}`
     );
   }
 
-  const mainParts =
-    setParts?.filter(row => row && row.is_spare === false) ?? [];
+  const inventoryCandidates =
+    inventories?.filter(
+      row => typeof row?.id === 'number' && Number.isFinite(row.id)
+    ) ?? [];
+
+  if (inventoryCandidates.length > 0) {
+    inventoryCandidates.sort(
+      (a, b) => (b.version ?? -1) - (a.version ?? -1)
+    );
+    const selectedInventoryId = inventoryCandidates[0]!.id;
+    const { data: inventoryParts, error: inventoryPartsError } = await supabase
+      .from('rb_inventory_parts')
+      .select('part_num, color_id, quantity, is_spare, element_id, img_url')
+      .eq('inventory_id', selectedInventoryId)
+      .eq('is_spare', false);
+
+    if (inventoryPartsError) {
+      throw new Error(
+        `Supabase getSetInventoryLocal rb_inventory_parts failed: ${inventoryPartsError.message}`
+      );
+    }
+
+    if (inventoryParts?.length) {
+      setParts = inventoryParts as InventoryPartRow[];
+    }
+  }
+
+  // Fallback to legacy rb_set_parts when no inventory records were found.
+  if (setParts.length === 0) {
+    const { data: setPartsFallback, error: setPartsError } = await supabase
+      .from('rb_set_parts')
+      .select('part_num, color_id, quantity, is_spare')
+      .eq('set_num', trimmedSet);
+
+    if (setPartsError) {
+      throw new Error(
+        `Supabase getSetInventoryLocal rb_set_parts failed: ${setPartsError.message}`
+      );
+    }
+
+    setParts = setPartsFallback ?? [];
+  }
+
+  const mainParts = setParts.filter(row => row && row.is_spare === false);
   if (mainParts.length === 0) return [];
 
   const partNums = Array.from(
@@ -426,6 +480,14 @@ export async function getSetInventoryLocal(
     const parentCategory =
       catName != null ? mapCategoryNameToParent(catName) : undefined;
     const bricklinkPartId = extractBricklinkPartId(part?.external_ids);
+    const elementId =
+      typeof row.element_id === 'string' && row.element_id.trim().length > 0
+        ? row.element_id.trim()
+        : null;
+    const imageUrl =
+      (typeof row.img_url === 'string' && row.img_url.trim().length > 0
+        ? row.img_url.trim()
+        : null) ?? part?.image_url ?? null;
 
     return {
       setNumber: trimmedSet,
@@ -434,8 +496,8 @@ export async function getSetInventoryLocal(
       colorId: row.color_id,
       colorName: color?.name ?? `Color ${row.color_id}`,
       quantityRequired: row.quantity,
-      imageUrl: part?.image_url ?? null,
-      elementId: null,
+      imageUrl,
+      elementId,
       ...(typeof catId === 'number' && { partCategoryId: catId }),
       ...(catName && { partCategoryName: catName }),
       ...(parentCategory && { parentCategory }),
@@ -561,3 +623,4 @@ export async function getSetsForPartLocal(
 
   return Array.from(bySet.values());
 }
+

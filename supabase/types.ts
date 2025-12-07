@@ -386,6 +386,7 @@ export type Database = {
         Row: {
           color_id: number
           element_id: string
+          img_url: string | null
           inventory_id: number
           is_spare: boolean
           part_num: string
@@ -394,6 +395,7 @@ export type Database = {
         Insert: {
           color_id: number
           element_id: string
+          img_url?: string | null
           inventory_id: number
           is_spare?: boolean
           part_num: string
@@ -402,6 +404,7 @@ export type Database = {
         Update: {
           color_id?: number
           element_id?: string
+          img_url?: string | null
           inventory_id?: number
           is_spare?: boolean
           part_num?: string
