@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 			themeId: null,
 			themeName: null,
 		}));
-		// Enrich with RB set images (and year) when possible
+		// Enrich with RB set images (and year/name/numParts/theme) when possible
 		try {
 			const top = sets.slice(0, 20);
 			const enriched = await Promise.all(
@@ -61,6 +61,7 @@ export async function GET(req: NextRequest) {
 						const summary = await getSetSummary(set.setNumber);
 						return {
 							...set,
+							name: summary.name ?? set.name,
 							year: summary.year ?? set.year,
 							imageUrl: summary.imageUrl ?? set.imageUrl,
 							numParts: summary.numParts ?? set.numParts ?? null,
@@ -74,6 +75,11 @@ export async function GET(req: NextRequest) {
 			);
 			sets = [...enriched, ...sets.slice(top.length)];
 		} catch {}
+		// Final safety: ensure name is present (fallback to setNumber).
+		sets = sets.map(s => ({
+			...s,
+			name: s.name && s.name.trim() ? s.name : s.setNumber,
+		}));
 		incrementCounter('identify_supersets_fetched', { count: sets.length });
 		logEvent('identify_supersets_response', { part: blPart, count: sets.length });
 		if (process.env.NODE_ENV !== 'production') {

@@ -2,17 +2,17 @@ import {
     blGetPartSupersets,
     type BLSupersetItem,
 } from '@/app/lib/bricklink';
+import { getSetsForPartLocal, getSetSummaryLocal } from '@/app/lib/catalog';
 import {
     mapBrickLinkFigToRebrickable,
     mapRebrickableFigToBrickLinkOnDemand,
 } from '@/app/lib/minifigMapping';
-import { getSetsForPartLocal, getSetSummaryLocal } from '@/app/lib/catalog';
 import {
     getPart,
     getPartColorsForPart,
-    getSetSummary,
     getSetsForMinifig,
     getSetsForPart,
+    getSetSummary,
     mapBrickLinkColorIdToRebrickableColorId,
     resolvePartIdToRebrickable,
     type PartAvailableColor,
@@ -134,6 +134,7 @@ export async function GET(req: NextRequest) {
           const summary = summaryBySet.get(s.setNumber.toLowerCase());
           return {
             ...s,
+            name: summary?.name ?? s.name ?? s.setNumber,
             year: summary?.year ?? s.year,
             imageUrl: summary?.imageUrl ?? s.imageUrl,
             numParts: summary?.numParts ?? s.numParts ?? null,
@@ -169,7 +170,10 @@ export async function GET(req: NextRequest) {
         },
         availableColors: [] as PartAvailableColor[],
         selectedColorId: null,
-        sets,
+        sets: sets.map(s => ({
+          ...s,
+          name: s.name && s.name.trim() ? s.name : s.setNumber,
+        })),
       });
     } catch (err) {
       if (process.env.NODE_ENV !== 'production') {
@@ -455,6 +459,7 @@ export async function GET(req: NextRequest) {
         const summary = summaryBySet.get(s.setNumber.toLowerCase());
         return {
           ...s,
+          name: summary?.name ?? s.name ?? s.setNumber,
           year: summary?.year ?? s.year,
           imageUrl: summary?.imageUrl ?? s.imageUrl,
           numParts: summary?.numParts ?? s.numParts ?? null,
@@ -464,14 +469,11 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('identify/sets source', {
-        part: rbPart,
-        colorId: selectedColorId ?? null,
-        usedLocal: sets.some(s => s.numParts != null || s.themeName != null),
-        count: sets.length,
-      });
-    }
+    // Final safety: ensure name is always present (fallback to setNumber).
+    finalSets = finalSets.map(s => ({
+      ...s,
+      name: s.name && s.name.trim() ? s.name : s.setNumber,
+    }));
 
     return NextResponse.json({
       part: {

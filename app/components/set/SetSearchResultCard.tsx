@@ -11,10 +11,11 @@ import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
  */
 export function SetSearchResultCard(props: SetDisplayCardProps) {
   const { setNumber, name, imageUrl, year, numParts, themeId } = props;
+  const safeName = name && name.trim() ? name : setNumber;
 
   const ownership = useSetOwnershipState({
     setNumber,
-    name,
+    name: safeName,
     imageUrl,
     ...(typeof year === 'number' ? { year } : {}),
     ...(typeof numParts === 'number' ? { numParts } : {}),

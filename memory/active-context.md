@@ -47,6 +47,7 @@
   - 40597 — Scary Pirate Island
   - 21322 — Pirates of Barracuda Bay
 - BrickLink pricing requests currently use USD + `country_code=US` by default; exposing currency/country as a user preference is future work.
+- Identify refactor note: current flows are performant, but logic is duplicated across `/api/identify` (image), `/api/identify/sets` (part/minifig), and `/api/identify/bl-supersets`. Consider extracting a shared “part/minifig → sets with normalized metadata” helper that does enrichment (set summary, theme, numParts), consistent name fallback, and is reused by all three routes to avoid divergence.
 
 ## Active Decisions
 

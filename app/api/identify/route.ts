@@ -1,23 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { identifyWithBrickognize, extractCandidatePartNumbers } from '@/app/lib/brickognize';
+import {
+    blGetPart,
+    blGetPartColors,
+    blGetPartSubsets,
+    blGetPartSupersets,
+    type BLColorEntry,
+    type BLSupersetItem,
+} from '@/app/lib/bricklink';
+import { extractCandidatePartNumbers, identifyWithBrickognize } from '@/app/lib/brickognize';
 import { getSetsForPartLocal, getSetSummaryLocal } from '@/app/lib/catalog';
 import {
-	getSetsForPart,
-	resolvePartIdToRebrickable,
-	type PartInSet,
-	getPartColorsForPart,
-	type PartAvailableColor,
-	getSetSummary,
-	getColors,
+    getColors,
+    getPartColorsForPart,
+    getSetsForPart,
+    getSetSummary,
+    resolvePartIdToRebrickable,
+    type PartAvailableColor,
+    type PartInSet,
 } from '@/app/lib/rebrickable';
-import {
-	blGetPart,
-	blGetPartSupersets,
-	blGetPartColors,
-	blGetPartSubsets,
-	type BLSupersetItem,
-	type BLColorEntry,
-} from '@/app/lib/bricklink';
+import { NextRequest, NextResponse } from 'next/server';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set([
@@ -783,6 +783,7 @@ export async function POST(req: NextRequest) {
 				const summary = summaryBySet.get(s.setNumber.toLowerCase());
 				return {
 					...s,
+					name: summary?.name ?? s.name ?? s.setNumber,
 					year: summary?.year ?? s.year,
 					imageUrl: summary?.imageUrl ?? s.imageUrl,
 					numParts: summary?.numParts ?? s.numParts ?? null,
@@ -792,14 +793,11 @@ export async function POST(req: NextRequest) {
 			});
 		}
 
-		if (process.env.NODE_ENV !== 'production') {
-			console.log('identify route source', {
-				part: chosen.partNum,
-				usedLocal: !needsEnrichment, // local provided complete metadata
-				fellBack: needsEnrichment,
-				count: finalSets.length,
-			});
-		}
+		// Final safety: ensure name is always present (fallback to setNumber).
+		finalSets = finalSets.map(s => ({
+			...s,
+			name: s.name && s.name.trim() ? s.name : s.setNumber,
+		}));
 
 		return NextResponse.json({
 			part: {

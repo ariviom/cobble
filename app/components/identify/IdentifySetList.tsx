@@ -9,6 +9,9 @@ type Props = {
 };
 
 export function IdentifySetList({ items, onRemoveItem }: Props) {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('IdentifySetList sample', items.slice(0, 3));
+  }
   if (!items.length) {
     return (
       <div className="mt-4 text-sm text-foreground-muted">
@@ -26,9 +29,7 @@ export function IdentifySetList({ items, onRemoveItem }: Props) {
           <IdentifySetListItem
             key={`${it.setNumber}-${it.quantity}`}
             item={it}
-            {...(onRemoveItem
-              ? { onRemove: onRemoveItem }
-              : {})}
+            {...(onRemoveItem ? { onRemove: onRemoveItem } : {})}
           />
         ))}
       </div>

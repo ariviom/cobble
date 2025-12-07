@@ -29,10 +29,12 @@ export function IdentifySetListItem({ item, onRemove }: Props) {
       )}
       <SetSearchResultCard
         setNumber={item.setNumber}
-        name={item.name}
+        name={item.name && item.name.trim() ? item.name : item.setNumber}
         year={item.year}
         imageUrl={item.imageUrl}
-        {...(typeof item.numParts === 'number' ? { numParts: item.numParts } : {})}
+        {...(typeof item.numParts === 'number'
+          ? { numParts: item.numParts }
+          : {})}
         themeId={item.themeId ?? null}
         themeLabel={item.themeName ?? null}
       />

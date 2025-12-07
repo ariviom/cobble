@@ -1,8 +1,8 @@
 'use client';
 
-import type { ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 export type SetDisplayCardProps = {
   setNumber: string;
@@ -38,8 +38,10 @@ export function SetDisplayCard({
   className,
   children,
 }: SetDisplayCardProps) {
+  const displayName = name && name.trim() ? name : setNumber;
+  const displaySetNumber = setNumber ?? '';
   // Infer metadata display: prefer numParts, fallback to quantity.
-  const metadataParts: string[] = [setNumber, String(year)];
+  const metadataParts: string[] = [displaySetNumber, String(year)];
   if (typeof numParts === 'number' && Number.isFinite(numParts)) {
     metadataParts.push(`${numParts} parts`);
   } else if (typeof quantity === 'number' && Number.isFinite(quantity)) {
@@ -78,7 +80,7 @@ export function SetDisplayCard({
                 </div>
               )}
               <div className="line-clamp-1 w-full overflow-hidden font-medium">
-                {name}
+                {displayName}
               </div>
               <div className="mt-1 w-full text-xs text-foreground-muted">
                 {metadataParts.join(' | ')}
@@ -91,4 +93,3 @@ export function SetDisplayCard({
     </div>
   );
 }
-
