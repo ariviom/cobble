@@ -170,10 +170,7 @@ export function SetTopBar({
 
     // Only persist when the user is authenticated and the set is tracked
     // (Owned or Wishlist). For anonymous users this stays local only.
-    if (
-      !user ||
-      (!ownership.status.owned && !ownership.status.wantToBuild)
-    ) {
+    if (!user || (!ownership.status.owned && !ownership.status.wantToBuild)) {
       return;
     }
 
@@ -232,9 +229,7 @@ export function SetTopBar({
               </MoreDropdown>
             </div>
             <div className="mt-0.5 text-xs text-foreground-muted lg:text-sm">
-              {isLoading
-                ? 'Computing…'
-                : `${ownedTotal} / ${totalMissing} parts`}
+              {isLoading ? 'Computing…' : `${ownedTotal} / ${numParts} parts`}
             </div>
             <div className="mt-2 flex w-full flex-wrap items-center gap-2">
               <SetOwnershipAndCollectionsRow

@@ -434,7 +434,7 @@ export function InventoryTable({
                 sections.sort((a, b) => a.key.localeCompare(b.key));
                 return sections.map(sec => (
                   <div key={sec.key} className="flex flex-col gap-2">
-                    <div className="sticky top-sticky-label z-10 bg-background/90 px-1 py-2 text-sm font-semibold text-foreground lg:top-0">
+                    <div className="sticky top-sticky-label z-10 bg-background px-1 py-2 text-sm font-semibold text-foreground lg:top-0">
                       {sec.key === 'Minifig' ? 'Minifigures' : sec.key}
                     </div>
                     <div
