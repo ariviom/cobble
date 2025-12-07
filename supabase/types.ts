@@ -1004,7 +1004,40 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      rb_inventory_parts_public: {
+        Row: {
+          color_id: number
+          element_id: string | null
+          img_url: string | null
+          inventory_id: number
+          is_spare: boolean
+          part_num: string
+          quantity: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rb_inventory_parts_public_color_id_fkey"
+            columns: ["color_id"]
+            isOneToOne: false
+            referencedRelation: "rb_colors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rb_inventory_parts_public_inventory_id_fkey"
+            columns: ["inventory_id"]
+            isOneToOne: false
+            referencedRelation: "rb_inventories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rb_inventory_parts_public_part_num_fkey"
+            columns: ["part_num"]
+            isOneToOne: false
+            referencedRelation: "rb_parts"
+            referencedColumns: ["part_num"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never

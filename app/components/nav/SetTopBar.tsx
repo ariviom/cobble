@@ -60,7 +60,7 @@ export function SetTopBar({
 }: SetTopBarProps) {
   const [searchPartyModalOpen, setSearchTogetherModalOpen] = useState(false);
   const [setQuantity, setSetQuantity] = useState<number>(1);
-  const { isLoading, totalMissing, ownedTotal } = useInventory(setNumber);
+  const { isLoading, ownedTotal } = useInventory(setNumber);
   const ownership = useSetOwnershipState({
     setNumber,
     name: setName,
