@@ -4,19 +4,19 @@ import type { InventoryRow } from '@/app/components/set/types';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import type { PartInSet, SimpleSet } from '@/app/lib/rebrickable';
 import {
-    mapCategoryNameToParent,
-    normalizeText,
-    sortAggregatedResults,
+  mapCategoryNameToParent,
+  normalizeText,
+  sortAggregatedResults,
 } from '@/app/lib/rebrickable';
 import { filterExactMatches } from '@/app/lib/searchExactMatch';
 import type { MatchType } from '@/app/types/search';
 import type { Json } from '@/supabase/types';
 
 import {
-    buildThemeMetaHelpers,
-    deriveRootThemeName,
-    getThemesLocal,
-    type LocalTheme,
+  buildThemeMetaHelpers,
+  deriveRootThemeName,
+  getThemesLocal,
+  type LocalTheme,
 } from './themes';
 
 export async function searchSetsLocal(

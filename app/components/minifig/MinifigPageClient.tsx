@@ -10,6 +10,7 @@ import { useUserMinifigs } from '@/app/hooks/useUserMinifigs';
 import { formatMinifigId, pickMinifigRouteId } from '@/app/lib/minifigIds';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { MinifigSearchPage } from '@/app/types/search';
+import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { ChevronDown, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -306,10 +307,10 @@ export function MinifigPageClient({ figNum }: MinifigPageClientProps) {
                     >
                       <div className="h-12 w-12 overflow-hidden rounded border border-subtle bg-card-muted">
                         {item.imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <OptimizedImage
                             src={item.imageUrl}
                             alt={item.name}
+                            variant="identifyCandidate"
                             className="h-full w-full object-cover"
                           />
                         ) : (

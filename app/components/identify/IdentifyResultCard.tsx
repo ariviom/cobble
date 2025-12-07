@@ -3,6 +3,7 @@
 import { useMinifigMeta } from '@/app/hooks/useMinifigMeta';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import type { IdentifyCandidate, IdentifyPart } from './types';
+import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 
 export function IdentifyResultCard({
   part,
@@ -46,10 +47,10 @@ export function IdentifyResultCard({
       <div className="flex items-start gap-4">
         <div className="relative h-24 w-24 shrink-0 rounded bg-card-muted p-2">
           {displayImageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <OptimizedImage
               src={displayImageUrl}
-              alt=""
+              alt={displayName}
+              variant="identifyResult"
               className="h-full w-full object-cover"
             />
           ) : (

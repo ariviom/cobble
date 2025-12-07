@@ -1,21 +1,60 @@
+import { searchMinifigsLocal } from '@/app/lib/catalog';
 import { mapRebrickableFigToBrickLink } from '@/app/lib/minifigMapping';
-import { searchMinifigs } from '@/app/lib/rebrickable';
-import type { MinifigSearchPage } from '@/app/types/search';
+import type { MinifigSearchPage, MinifigSortOption } from '@/app/types/search';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
-const CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
+const CACHE_CONTROL =
+  process.env.NODE_ENV === 'production'
+    ? 'public, max-age=60, stale-while-revalidate=300'
+    : 'no-store';
+const allowedSizes = new Set([20, 40, 60, 80, 100]);
+const allowedSorts: MinifigSortOption[] = [
+  'relevance',
+  'theme-asc',
+  'theme-desc',
+  'name-asc',
+  'name-desc',
+  'parts-asc',
+  'parts-desc',
+];
+
+const querySchema = z.object({
+  q: z.string().default(''),
+  page: z
+    .string()
+    .optional()
+    .transform(v => Math.max(1, Number(v ?? '1') || 1)),
+  pageSize: z
+    .string()
+    .optional()
+    .transform(v => Number(v ?? '20') || 20)
+    .transform(size => (allowedSizes.has(size) ? size : 20)),
+  sort: z
+    .string()
+    .optional()
+    .transform(v =>
+      allowedSorts.includes((v as MinifigSortOption) ?? 'relevance')
+        ? (v as MinifigSortOption)
+        : 'relevance'
+    ),
+});
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const q = searchParams.get('q') ?? '';
-  const pageParam = searchParams.get('page');
-  const page = Math.max(1, Number(pageParam ?? '1') || 1);
-  const requestedSize = Number(searchParams.get('pageSize') ?? '20') || 20;
-  const allowedSizes = new Set([20, 40, 60, 80, 100]);
-  const pageSize = allowedSizes.has(requestedSize) ? requestedSize : 20;
+  const parsed = querySchema.safeParse(Object.fromEntries(searchParams.entries()));
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'validation_failed' }, { status: 400 });
+  }
+
+  const { q, page, pageSize, sort } = parsed.data;
 
   try {
-    const { results, nextPage } = await searchMinifigs(q, page, pageSize);
+    const { results, nextPage } = await searchMinifigsLocal(q, {
+      page,
+      pageSize,
+      sort,
+    });
     const withIds = await Promise.all(
       (results ?? []).map(async result => {
         let blId: string | null = null;

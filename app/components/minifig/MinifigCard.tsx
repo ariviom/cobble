@@ -1,6 +1,7 @@
 'use client';
 
 import { getMinifigDisplayIds } from '@/app/lib/minifigIds';
+import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import Link from 'next/link';
 
 type MinifigCardProps = {
@@ -38,10 +39,10 @@ export function MinifigCard({
           <div className="relative w-full bg-card-muted">
             <div className="relative mx-auto w-full max-w-full bg-card p-2">
               {imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <OptimizedImage
                   src={imageUrl}
                   alt={displayName}
+                  variant="minifigCard"
                   className="aspect-square h-full w-full overflow-hidden rounded-lg object-cover"
                 />
               ) : (

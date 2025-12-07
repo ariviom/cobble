@@ -271,7 +271,9 @@ export async function getAggregatedSearchResults(
   const cacheKey = `${sort}::${normalizedQuery.toLowerCase()}::${
     exactMatch ? 'exact' : 'loose'
   }`;
-  const cached = aggregatedSearchCache.get(cacheKey);
+  // Cache disabled by default to avoid stale prod responses; allow opt-in via env.
+  const useCache = process.env.SEARCH_CACHE_ENABLED === 'true';
+  const cached = useCache ? aggregatedSearchCache.get(cacheKey) : null;
   if (cached) {
     return cached;
   }
@@ -368,7 +370,9 @@ export async function getAggregatedSearchResults(
       if (exactMatch) {
         filtered = filterExactMatches(filtered, normalizedQuery);
       }
-      aggregatedSearchCache.set(cacheKey, filtered);
+      if (useCache) {
+        aggregatedSearchCache.set(cacheKey, filtered);
+      }
       return filtered;
     }
     throw err;
@@ -571,11 +575,15 @@ export async function getAggregatedSearchResults(
     mapped = filterExactMatches(mapped, normalizedQuery);
   }
   if (mapped.length === 0) {
-    aggregatedSearchCache.set(cacheKey, []);
+    if (useCache) {
+      aggregatedSearchCache.set(cacheKey, []);
+    }
     return [];
   }
   const sorted = sortAggregatedResults(mapped, sort, normalizedQuery);
-  aggregatedSearchCache.set(cacheKey, sorted);
+  if (useCache) {
+    aggregatedSearchCache.set(cacheKey, sorted);
+  }
   return sorted;
 }
 

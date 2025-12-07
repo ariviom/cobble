@@ -1,6 +1,7 @@
 'use client';
 
 import { MinifigOwnershipAndCollectionsRow } from '@/app/components/minifig/MinifigOwnershipAndCollectionsRow';
+import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { useMinifigOwnershipState } from '@/app/hooks/useMinifigOwnershipState';
 import { getMinifigDisplayIds } from '@/app/lib/minifigIds';
 import Link from 'next/link';
@@ -11,6 +12,8 @@ type MinifigSearchResultItemProps = {
   name: string;
   imageUrl: string | null;
   numParts: number | null;
+  themeName?: string | null;
+  themePath?: string | null;
 };
 
 export function MinifigSearchResultItem({
@@ -19,6 +22,8 @@ export function MinifigSearchResultItem({
   name,
   imageUrl,
   numParts,
+  themeName,
+  themePath,
 }: MinifigSearchResultItemProps) {
   const ownership = useMinifigOwnershipState({ figNum });
   const { displayLabel, routeId } = getMinifigDisplayIds({
@@ -36,10 +41,10 @@ export function MinifigSearchResultItem({
           <div className="relative w-full bg-card-muted">
             <div className="relative mx-auto w-full max-w-full bg-card p-2">
               {imageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <OptimizedImage
                   src={imageUrl}
                   alt={name}
+                  variant="minifigSearch"
                   className="aspect-square h-full w-full overflow-hidden rounded-lg object-cover"
                 />
               ) : (
@@ -58,6 +63,11 @@ export function MinifigSearchResultItem({
                 <span>{displayLabel}</span>
                 {typeof numParts === 'number' && numParts > 0 && (
                   <span className="ml-1">• {numParts} parts</span>
+                )}
+                {(themeName || themePath) && (
+                  <div className="mt-1 truncate text-[11px]">
+                    {themePath ?? themeName}
+                  </div>
                 )}
               </div>
             </div>

@@ -4,8 +4,8 @@ import { incrementCounter, logEvent } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-// Search results can be cached briefly since set data rarely changes
-const CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
+// Keep fully dynamic to avoid stale responses (CDN/browser).
+const CACHE_CONTROL = 'no-store';
 
 const allowedFilters: FilterType[] = ['all', 'set', 'theme', 'subtheme'];
 const allowedSizes = new Set([20, 40, 60, 80, 100]);

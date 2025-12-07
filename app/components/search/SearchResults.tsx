@@ -9,6 +9,7 @@ import type {
   FilterType,
   MinifigSearchPage,
   MinifigSearchResult,
+  MinifigSortOption,
   SearchPage,
   SearchResult,
   SearchType,
@@ -44,12 +45,13 @@ async function fetchSearchPage(
 async function fetchMinifigSearchPage(
   q: string,
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  sort: MinifigSortOption = 'relevance'
 ): Promise<MinifigSearchPage> {
   if (!q) return { results: [], nextPage: null };
   const url = `/api/search/minifigs?q=${encodeURIComponent(
     q
-  )}&page=${page}&pageSize=${pageSize}`;
+  )}&page=${page}&pageSize=${pageSize}&sort=${encodeURIComponent(sort)}`;
   const res = await fetch(url);
   if (!res.ok) {
     await throwAppErrorFromResponse(res, 'search_failed');
@@ -76,6 +78,22 @@ function parseExactParam(value: string | null): boolean {
   return normalized === '1' || normalized === 'true' || normalized === 'yes';
 }
 
+const allowedMinifigSorts: MinifigSortOption[] = [
+  'relevance',
+  'theme-asc',
+  'theme-desc',
+  'name-asc',
+  'name-desc',
+  'parts-asc',
+  'parts-desc',
+];
+function parseMinifigSort(value: string | null): MinifigSortOption {
+  if (value && allowedMinifigSorts.includes(value as MinifigSortOption)) {
+    return value as MinifigSortOption;
+  }
+  return 'relevance';
+}
+
 function parseTypeParam(value: string | null): SearchType {
   if (value === 'minifig') return 'minifig';
   return 'set';
@@ -94,6 +112,10 @@ export function SearchResults() {
   const [filter, setFilter] = useState<FilterType>(filterFromParams);
   const exactFromParams = parseExactParam(params.get('exact'));
   const [exact, setExact] = useState<boolean>(exactFromParams);
+  const minifigSortFromParams = parseMinifigSort(params.get('mfSort'));
+  const [minifigSort, setMinifigSort] = useState<MinifigSortOption>(
+    minifigSortFromParams
+  );
 
   useEffect(() => {
     setFilter(filterFromParams);
@@ -103,6 +125,10 @@ export function SearchResults() {
     setExact(exactFromParams);
   }, [exactFromParams]);
 
+  useEffect(() => {
+    setMinifigSort(minifigSortFromParams);
+  }, [minifigSortFromParams]);
+
   const handleFilterChange = (nextFilter: FilterType) => {
     if (nextFilter === filter) {
       return;
@@ -110,6 +136,19 @@ export function SearchResults() {
     setFilter(nextFilter);
     const sp = new URLSearchParams(Array.from(params.entries()));
     sp.set('filter', nextFilter);
+    const nextSearch = sp.toString();
+    router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname);
+  };
+
+  const handleMinifigSortChange = (nextSort: MinifigSortOption) => {
+    if (nextSort === minifigSort) return;
+    setMinifigSort(nextSort);
+    const sp = new URLSearchParams(Array.from(params.entries()));
+    if (nextSort === 'relevance') {
+      sp.delete('mfSort');
+    } else {
+      sp.set('mfSort', nextSort);
+    }
     const nextSearch = sp.toString();
     router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname);
   };
@@ -164,12 +203,19 @@ export function SearchResults() {
     MinifigSearchPage,
     AppError,
     InfiniteData<MinifigSearchPage, number>,
-    [string, { q: string; pageSize: number }],
+    [
+      string,
+      {
+        q: string;
+        pageSize: number;
+        sort: MinifigSortOption;
+      },
+    ],
     number
   >({
-    queryKey: ['search-minifigs', { q, pageSize }],
+    queryKey: ['search-minifigs', { q, pageSize, sort: minifigSort }],
     queryFn: ({ pageParam = 1 }) =>
-      fetchMinifigSearchPage(q, pageParam as number, pageSize),
+      fetchMinifigSearchPage(q, pageParam as number, pageSize, minifigSort),
     getNextPageParam: (lastPage: MinifigSearchPage) => lastPage.nextPage,
     initialPageParam: 1,
     enabled: hasQuery && searchType === 'minifig',
@@ -191,10 +237,28 @@ export function SearchResults() {
     const results = pages.flatMap((p: MinifigSearchPage) => p.results) ?? [];
     return (
       <div className="w-full">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <label className="text-xs font-medium">Sort</label>
+          <select
+            className="rounded-md border border-subtle bg-card px-2 py-1 text-xs"
+            value={minifigSort}
+            onChange={e =>
+              handleMinifigSortChange(e.target.value as MinifigSortOption)
+            }
+          >
+            <option value="relevance">Relevance</option>
+            <option value="theme-asc">Theme (A–Z)</option>
+            <option value="theme-desc">Theme (Z–A)</option>
+            <option value="name-asc">Name (A–Z)</option>
+            <option value="name-desc">Name (Z–A)</option>
+            <option value="parts-desc">Parts (desc)</option>
+            <option value="parts-asc">Parts (asc)</option>
+          </select>
+        </div>
         <p className="mb-3 text-[11px] text-foreground-muted">
           Minifigure search looks up Rebrickable minifigs by ID or name. You can
-          add results to your Owned / Wishlist minifig collection and to shared
-          lists.
+          search by theme names too. Add results to your Owned / Wishlist
+          minifig collection and to shared lists.
         </p>
         {isMinifigLoading && (
           <Spinner className="mt-2" label="Loading minifigure results…" />
@@ -216,6 +280,8 @@ export function SearchResults() {
                   name={r.name}
                   imageUrl={r.imageUrl}
                   numParts={r.numParts}
+                  themeName={r.themeName ?? null}
+                  themePath={r.themePath ?? null}
                 />
               ))}
             </div>

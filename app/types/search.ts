@@ -43,12 +43,34 @@ export type SearchPage = {
   nextPage: number | null;
 };
 
+export type MinifigSortOption =
+  | 'relevance'
+  | 'theme-asc'
+  | 'theme-desc'
+  | 'name-asc'
+  | 'name-desc'
+  | 'parts-asc'
+  | 'parts-desc';
+
+export type MinifigMatchSource =
+  | 'bricklink-id'
+  | 'rebrickable-id'
+  | 'name'
+  | 'theme';
+
 export type MinifigSearchResult = {
   figNum: string;
   blId?: string | null;
   name: string;
   imageUrl: string | null;
   numParts: number | null;
+  themeName?: string | null;
+  themePath?: string | null;
+  /**
+   * Optional hint about how this result matched the query. Used for ranking
+   * and optional UI affordances.
+   */
+  matchSource?: MinifigMatchSource;
 };
 
 export type MinifigSearchPage = {

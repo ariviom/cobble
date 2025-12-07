@@ -5,6 +5,7 @@ import {
   MoreDropdown,
   MoreDropdownButton,
 } from '@/app/components/ui/MoreDropdown';
+import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import { ExternalLink, Info, Pin, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -186,10 +187,10 @@ export function InventoryItem({
           }}
         >
           {row.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <OptimizedImage
               src={row.imageUrl}
-              alt=""
+              alt={row.partName}
+              variant="inventoryThumb"
               className={`mx-auto h-full w-full rounded-lg object-contain grid:item-sm:max-w-24 ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : 'ring-1 ring-foreground-accent'}`}
               data-knockout="true"
             />
@@ -296,10 +297,10 @@ export function InventoryItem({
         <div className="flex flex-col gap-4 text-xs">
           <div className="flex gap-3">
             {row.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <OptimizedImage
                 src={row.imageUrl}
                 alt={row.partName}
+                variant="inventoryModal"
                 className="h-24 w-24 rounded border border-subtle object-contain"
               />
             ) : (
