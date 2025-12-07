@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import 'dotenv/config';
 
+import { extractBricklinkPartId } from '@/app/lib/rebrickable/utils';
 import type { Database } from '@/supabase/types';
 
 type RebrickableMinifigPart = {
@@ -71,29 +72,6 @@ async function rbFetchAbsoluteScript<T>(absoluteUrl: string): Promise<T> {
     throw err;
   }
   return (await res.json()) as T;
-}
-
-function extractBricklinkPartId(
-  externalIds: Record<string, unknown> | null | undefined
-): string | null {
-  if (!externalIds) return null;
-  const blIds = (externalIds as { BrickLink?: unknown }).BrickLink;
-  if (Array.isArray(blIds) && blIds.length > 0) {
-    const first = blIds[0];
-    return typeof first === 'string' || typeof first === 'number'
-      ? String(first)
-      : null;
-  }
-  if (blIds && typeof blIds === 'object' && 'ext_ids' in (blIds as object)) {
-    const extIds = (blIds as { ext_ids?: unknown }).ext_ids;
-    if (Array.isArray(extIds) && extIds.length > 0) {
-      const first = extIds[0];
-      return typeof first === 'string' || typeof first === 'number'
-        ? String(first)
-        : null;
-    }
-  }
-  return null;
 }
 
 async function fetchSubparts(figNum: string): Promise<

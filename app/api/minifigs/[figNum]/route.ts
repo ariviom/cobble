@@ -9,6 +9,7 @@ import {
     getSetsForMinifig,
 } from '@/app/lib/rebrickable';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
+import { extractBricklinkPartId } from '@/app/lib/rebrickable/utils';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -76,29 +77,6 @@ type RebrickableMinifigPart = {
   };
   quantity: number;
 };
-
-function extractBricklinkPartId(
-  externalIds: Record<string, unknown> | null | undefined
-): string | null {
-  if (!externalIds) return null;
-  const blIds = externalIds.BrickLink;
-  if (Array.isArray(blIds) && blIds.length > 0) {
-    const first = blIds[0];
-    return typeof first === 'string' || typeof first === 'number'
-      ? String(first)
-      : null;
-  }
-  if (blIds && typeof blIds === 'object' && 'ext_ids' in blIds) {
-    const extIds = (blIds as { ext_ids?: unknown }).ext_ids;
-    if (Array.isArray(extIds) && extIds.length > 0) {
-      const first = extIds[0];
-      return typeof first === 'string' || typeof first === 'number'
-        ? String(first)
-        : null;
-    }
-  }
-  return null;
-}
 
 type Subpart = {
   partId: string;

@@ -75,6 +75,29 @@ export type ParentCategory =
   | 'Wheels'
   | 'Misc';
 
+/** Aggregated set result used by search */
+export type SimpleSet = {
+  setNumber: string;
+  name: string;
+  year: number;
+  numParts: number;
+  imageUrl: string | null;
+  themeId?: number | null;
+  /**
+   * Human-readable theme for this set, when available. Derived from theme_id.
+   */
+  themeName?: string | null;
+  /**
+   * Full theme path including parents, e.g. "Star Wars / Episode IV-VI".
+   * Used for matching theme + subtheme keywords in search.
+   */
+  themePath?: string | null;
+  /**
+   * Whether the result matched directly on set metadata or via a theme match.
+   */
+  matchType?: import('@/app/types/search').MatchType;
+};
+
 /** Domain model for a row in a set inventory */
 export type InventoryRow = {
   setNumber: string;
