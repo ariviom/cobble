@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 import { clampOwned } from '@/app/components/set/inventory-utils';
 import { cn } from '@/app/components/ui/utils';
 
@@ -47,6 +49,49 @@ export function OwnedQuantityControl({
   onChange,
   className,
 }: Props) {
+  const [inputValue, setInputValue] = useState<string>(() => String(owned));
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setInputValue(String(owned));
+    }
+  }, [owned, isFocused]);
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = event.target.value;
+
+    if (raw === '') {
+      setInputValue('');
+      return;
+    }
+
+    if (!/^\d+$/.test(raw)) {
+      return;
+    }
+
+    setInputValue(raw);
+
+    const parsed = Number.parseInt(raw, 10);
+    const clamped = clampOwned(parsed, required);
+    onChange(clamped);
+  };
+
+  const handleBlur = () => {
+    const parsed =
+      inputValue === '' || !/^\d+$/.test(inputValue)
+        ? 0
+        : Number.parseInt(inputValue, 10);
+    const clamped = clampOwned(parsed, required);
+
+    if (clamped !== owned) {
+      onChange(clamped);
+    }
+
+    setInputValue(String(clamped));
+    setIsFocused(false);
+  };
+
   return (
     <div
       className={`flex h-12 w-full min-w-min shrink justify-between rounded-lg border border-subtle list:sm:max-w-min grid:w-full ${className ?? ''}`}
@@ -62,18 +107,19 @@ export function OwnedQuantityControl({
         className={`relative items-center text-sm ${required > 99 ? 'min-w-20' : 'min-w-14'}`}
       >
         <input
-          type="number"
+          type="text"
           name="piece-count"
-          // className={`hide-arrows h-full w-full pr-[calc(50%+5px)] text-right ${owned === required ? 'border-x border-white font-bold' : ''}`}
+          inputMode="numeric"
+          pattern="[0-9]*"
           className={`hide-arrows flex h-full w-full text-center font-medium ${owned === required ? 'border-x border-white font-bold' : ''}`}
-          value={owned}
-          onChange={e => {
-            const next = Number(e.target.value);
-            onChange(clampOwned(Number.isFinite(next) ? next : 0, required));
+          value={inputValue}
+          onFocus={event => {
+            setIsFocused(true);
+            event.target.select();
           }}
-          min={0}
-          max={required}
-          step={1}
+          onChange={handleInputChange}
+          onBlur={handleBlur}
+          aria-label="Owned quantity"
         />
       </div>
       <Button
