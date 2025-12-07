@@ -68,6 +68,7 @@
   - Updated `getSetInventory` (rebrickable.ts) to include `inc_part_details=1` for external_ids.
   - Updated `getMinifigPartsCached` to include `inc_part_details=1` for minifig components.
   - Updated `InventoryItem.tsx` to use `bricklinkPartId` for constructing BrickLink URLs.
+- Distributed rate limiting backed by Supabase: `rate_limits` table, `consume_rate_limit` RPC, library wrapper with Supabase first + in-memory fallback, and tests for both paths.
 - **Local-first IndexedDB architecture (SyncedDB migration)**:
   - Added Dexie for IndexedDB abstraction (`app/lib/localDb/`).
   - Normalized schema with tables:
