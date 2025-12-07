@@ -1,9 +1,11 @@
 import crypto from 'crypto';
 import 'server-only';
 
+import { LRUCache } from '@/app/lib/cache/lru';
+import { CACHE } from '@/app/lib/constants';
 import {
-  DEFAULT_PRICING_PREFERENCES,
-  type PricingPreferences,
+    DEFAULT_PRICING_PREFERENCES,
+    type PricingPreferences,
 } from '@/app/lib/pricing';
 
 const BL_STORE_BASE = 'https://api.bricklink.com/api/store/v1';
@@ -253,50 +255,17 @@ export type BLPriceGuide = {
   __miss?: boolean;
 };
 
-type CacheEntry<T> = { at: number; value: T; ttlMs: number };
-const ONE_HOUR_MS = 60 * 60 * 1000;
-const PRICE_GUIDE_TTL_MS = 30 * 60 * 1000;
-const MAX_CACHE_ENTRIES = 500;
-
-const subsetsCache = new Map<string, CacheEntry<BLSubsetItem[]>>();
-const supersetsCache = new Map<string, CacheEntry<BLSupersetItem[]>>();
-const colorsCache = new Map<string, CacheEntry<BLColorEntry[]>>();
-const priceGuideCache = new Map<string, CacheEntry<BLPriceGuide>>();
+// LRU caches with TTL for BrickLink API responses
+const subsetsCache = new LRUCache<string, BLSubsetItem[]>(CACHE.MAX_ENTRIES, CACHE.TTL_MS.DEFAULT);
+const supersetsCache = new LRUCache<string, BLSupersetItem[]>(CACHE.MAX_ENTRIES, CACHE.TTL_MS.DEFAULT);
+const colorsCache = new LRUCache<string, BLColorEntry[]>(CACHE.MAX_ENTRIES, CACHE.TTL_MS.DEFAULT);
+const priceGuideCache = new LRUCache<string, BLPriceGuide>(CACHE.MAX_ENTRIES, CACHE.TTL_MS.PRICE_GUIDE);
 const priceGuideInFlight = new Map<string, Promise<BLPriceGuide>>();
 
 function makeKey(no: string, colorId?: number): string {
   return `${no.trim().toLowerCase()}::${
     typeof colorId === 'number' ? colorId : ''
   }`;
-}
-
-function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string): T | null {
-  const now = Date.now();
-  const entry = map.get(key);
-  if (entry && now - entry.at < entry.ttlMs) return entry.value;
-  return null;
-}
-
-function cacheSet<T>(
-  map: Map<string, CacheEntry<T>>,
-  key: string,
-  value: T,
-  ttlMs: number = ONE_HOUR_MS
-): void {
-  const now = Date.now();
-  map.set(key, { at: now, value, ttlMs });
-  // naive cap eviction: delete oldest when over cap
-  if (map.size > MAX_CACHE_ENTRIES) {
-    let oldestKey: string | null = null;
-    let oldestAt = Number.MAX_SAFE_INTEGER;
-    for (const [k, v] of map.entries()) {
-      if (v.at < oldestAt) {
-        oldestAt = v.at;
-        oldestKey = k;
-      }
-    }
-    if (oldestKey) map.delete(oldestKey);
-  }
 }
 
 export async function blGetPart(no: string): Promise<BLPart> {
@@ -354,7 +323,7 @@ export async function blGetPartSubsets(
   colorId?: number
 ): Promise<BLSubsetItem[]> {
   const key = makeKey(no, colorId);
-  const cached = cacheGet(subsetsCache, key);
+  const cached = subsetsCache.get(key);
   if (cached) return cached;
   const list = await fetchSubsets(no, colorId);
   if (process.env.NODE_ENV !== 'production') {
@@ -366,7 +335,7 @@ export async function blGetPartSubsets(
       });
     } catch {}
   }
-  cacheSet(subsetsCache, key, list);
+  subsetsCache.set(key, list);
   return list;
 }
 
@@ -439,7 +408,7 @@ export async function blGetPartSupersets(
   colorId?: number
 ): Promise<BLSupersetItem[]> {
   const key = makeKey(no, colorId);
-  const cached = cacheGet(supersetsCache, key);
+  const cached = supersetsCache.get(key);
   if (cached) return cached;
   const list = await fetchSupersets(no, colorId);
   if (process.env.NODE_ENV !== 'production') {
@@ -451,7 +420,7 @@ export async function blGetPartSupersets(
       });
     } catch {}
   }
-  cacheSet(supersetsCache, key, list);
+  supersetsCache.set(key, list);
   return list;
 }
 
@@ -460,7 +429,7 @@ export async function blGetSetSubsets(
 ): Promise<BLSubsetItem[]> {
   // Reuse the same shape/logic as blGetPartSubsets, but for SET items with no color.
   const key = makeKey(setNum, undefined);
-  const cached = cacheGet(subsetsCache, key);
+  const cached = subsetsCache.get(key);
   if (cached) return cached;
   const data = await blGet<unknown[] | { entries: unknown[] }>(
     `/items/${STORE_ITEM_TYPE_SET}/${encodeURIComponent(setNum)}/subsets`,
@@ -491,13 +460,13 @@ export async function blGetSetSubsets(
       });
     } catch {}
   }
-  cacheSet(subsetsCache, key, list);
+  subsetsCache.set(key, list);
   return list;
 }
 
 export async function blGetPartColors(no: string): Promise<BLColorEntry[]> {
   const key = makeKey(no, undefined);
-  const cached = cacheGet(colorsCache, key);
+  const cached = colorsCache.get(key);
   if (cached) return cached;
   // This endpoint lists the colors a part appears in; shape mirrors other catalog lists
   const data = await blGet<BLColorEntry[] | { entries: BLColorEntry[] }>(
@@ -517,7 +486,7 @@ export async function blGetPartColors(no: string): Promise<BLColorEntry[]> {
       });
     } catch {}
   }
-  cacheSet(colorsCache, key, list);
+  colorsCache.set(key, list);
   return list;
 }
 
@@ -614,7 +583,7 @@ async function fetchPriceGuide(
     `${itemType}::${no}::price-${guideType}-used-${currencyKey}-${countryKey}`,
     typeof colorId === 'number' ? colorId : undefined
   );
-  const cached = cacheGet(priceGuideCache, key);
+  const cached = priceGuideCache.get(key);
   if (cached) return cached;
 
   const inFlight = priceGuideInFlight.get(key);
@@ -712,7 +681,7 @@ async function fetchPriceGuide(
     pg.__miss = true;
   }
 
-  cacheSet(priceGuideCache, key, pg, PRICE_GUIDE_TTL_MS);
+  priceGuideCache.set(key, pg);
   return pg;
   })();
 

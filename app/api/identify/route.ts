@@ -12,6 +12,7 @@ import {
 	getSetsForPartLocal,
 	getSetSummaryLocal
 } from '@/app/lib/catalog';
+import { EXTERNAL, IMAGE, RATE_LIMIT } from '@/app/lib/constants';
 import {
 	getColors,
 	getPartColorsForPart,
@@ -24,20 +25,7 @@ import {
 import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES = new Set([
-	'image/jpeg',
-	'image/jpg',
-	'image/png',
-	'image/webp',
-	'image/heic',
-	'image/heif',
-]);
-const IDENTIFY_RATE_LIMIT_WINDOW_MS = 60_000;
-const IDENTIFY_RATE_LIMIT_MAX = 12;
-const BL_COLOR_VARIANT_LIMIT = 5;
-const BL_SUPERSET_TOTAL_LIMIT = 40;
-const EXTERNAL_CALL_BUDGET = 40;
+const ALLOWED_IMAGE_TYPES = new Set<string>(IMAGE.ALLOWED_TYPES);
 
 type RateLimitEntry = { count: number; resetAt: number };
 const identifyRateLimitStore = new Map<string, RateLimitEntry>();
@@ -88,12 +76,12 @@ function applyIdentifyRateLimit(identifier: string) {
 	if (!entry || entry.resetAt < now) {
 		identifyRateLimitStore.set(identifier, {
 			count: 1,
-			resetAt: now + IDENTIFY_RATE_LIMIT_WINDOW_MS,
+			resetAt: now + RATE_LIMIT.WINDOW_MS,
 		});
 		return { limited: false };
 	}
 
-	if (entry.count >= IDENTIFY_RATE_LIMIT_MAX) {
+	if (entry.count >= RATE_LIMIT.IDENTIFY_MAX) {
 		return {
 			limited: true,
 			retryAfter: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
@@ -108,7 +96,7 @@ function validateImageFile(file: File): { error: string; status?: number } | nul
 	if (file.size <= 0) {
 		return { error: 'empty_image', status: 400 };
 	}
-	if (file.size > MAX_IMAGE_BYTES) {
+	if (file.size > IMAGE.MAX_SIZE_BYTES) {
 		return { error: 'image_too_large', status: 413 };
 	}
 	const mime = file.type?.toLowerCase();
@@ -182,7 +170,7 @@ export async function POST(req: NextRequest) {
 			return errorResponse('rate_limited', { status: init.status ?? 429 });
 		}
 
-		const externalBudget = new ExternalCallBudget(EXTERNAL_CALL_BUDGET);
+		const externalBudget = new ExternalCallBudget(EXTERNAL.EXTERNAL_CALL_BUDGET);
 		const form = await req.formData();
 		const file = form.get('image');
 		if (!(file instanceof File)) {
@@ -309,7 +297,7 @@ export async function POST(req: NextRequest) {
 							const colors = await withBudget(externalBudget, () =>
 								blGetPartColors(blId)
 							);
-							for (const c of (colors ?? []).slice(0, BL_COLOR_VARIANT_LIMIT)) {
+							for (const c of (colors ?? []).slice(0, EXTERNAL.BL_COLOR_VARIANT_LIMIT)) {
 								if (typeof c?.color_id !== 'number') continue;
 								const supByColor = await withBudget(externalBudget, () =>
 									blGetPartSupersets(blId, c.color_id)
@@ -326,7 +314,7 @@ export async function POST(req: NextRequest) {
 										themeName: null,
 									});
 								}
-								if (setsFromBL.length >= BL_SUPERSET_TOTAL_LIMIT) break;
+								if (setsFromBL.length >= EXTERNAL.BL_SUPERSET_TOTAL_LIMIT) break;
 							}
 							// If still empty, infer color ids from subsets entries
 							if (setsFromBL.length === 0) {
@@ -366,7 +354,7 @@ export async function POST(req: NextRequest) {
 												themeName: null,
 											});
 										}
-										if (setsFromBL.length >= BL_SUPERSET_TOTAL_LIMIT) break;
+										if (setsFromBL.length >= EXTERNAL.BL_SUPERSET_TOTAL_LIMIT) break;
 									}
 								} catch (err) {
 									if (isBudgetError(err)) throw err;
@@ -596,7 +584,7 @@ export async function POST(req: NextRequest) {
 							const colors = await withBudget(externalBudget, () =>
 								blGetPartColors(blId)
 							);
-							for (const c of (colors ?? []).slice(0, BL_COLOR_VARIANT_LIMIT)) {
+							for (const c of (colors ?? []).slice(0, EXTERNAL.BL_COLOR_VARIANT_LIMIT)) {
 								if (typeof c?.color_id !== 'number') continue;
 								if (process.env.NODE_ENV !== 'production') {
 									try {
@@ -624,7 +612,7 @@ export async function POST(req: NextRequest) {
 										themeName: null,
 									});
 								}
-								if (setsFromBL.length >= BL_SUPERSET_TOTAL_LIMIT) break;
+								if (setsFromBL.length >= EXTERNAL.BL_SUPERSET_TOTAL_LIMIT) break;
 							}
 							if (setsFromBL.length === 0) {
 								try {
@@ -663,7 +651,7 @@ export async function POST(req: NextRequest) {
 												themeName: null,
 											});
 										}
-										if (setsFromBL.length >= BL_SUPERSET_TOTAL_LIMIT) break;
+										if (setsFromBL.length >= EXTERNAL.BL_SUPERSET_TOTAL_LIMIT) break;
 									}
 								} catch (err) {
 									if (isBudgetError(err)) throw err;
