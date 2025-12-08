@@ -1,17 +1,25 @@
 import { LRUCache } from '@/app/lib/cache/lru';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import type {
-  PartAvailableColor,
-  PartInSet,
-  RebrickableCategory,
-  RebrickablePart,
+    PartAvailableColor,
+    PartInSet,
+    RebrickableCategory,
+    RebrickablePart,
 } from '@/app/lib/rebrickable/types';
+import { dedup } from '@/app/lib/utils/dedup';
 import { logger } from '@/lib/metrics';
 
 export async function getPart(partNum: string): Promise<RebrickablePart> {
-  return rbFetch<RebrickablePart>(
-    `/lego/parts/${encodeURIComponent(partNum)}/`,
-    { inc_part_details: 1 }
+  const trimmed = partNum.trim();
+  if (!trimmed) {
+    throw new Error('part number is required');
+  }
+  const key = `getPart:${trimmed.toLowerCase()}`;
+  return dedup(key, () =>
+    rbFetch<RebrickablePart>(
+      `/lego/parts/${encodeURIComponent(trimmed)}/`,
+      { inc_part_details: 1 }
+    )
   );
 }
 

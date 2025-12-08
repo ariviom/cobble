@@ -12,6 +12,7 @@ import { filterExactMatches } from '@/app/lib/searchExactMatch';
 import type { MatchType } from '@/app/types/search';
 import type { Json } from '@/supabase/types';
 
+import { dedup } from '@/app/lib/utils/dedup';
 import {
     buildThemeMetaHelpers,
     deriveRootThemeName,
@@ -213,19 +214,25 @@ export async function getSetSummaryLocal(setNumber: string): Promise<{
   const trimmed = setNumber.trim();
   if (!trimmed) return null;
 
-  // rb_sets is publicly readable (anon SELECT policy)
-  const supabase = getCatalogReadClient();
-  const { data, error } = await supabase
-    .from('rb_sets')
-    .select('set_num, name, year, num_parts, image_url, theme_id')
-    .eq('set_num', trimmed)
-    .maybeSingle();
+  const data = await dedup(
+    `getSetSummaryLocal:${trimmed.toLowerCase()}`,
+    async () => {
+      // rb_sets is publicly readable (anon SELECT policy)
+      const supabase = getCatalogReadClient();
+      const { data, error } = await supabase
+        .from('rb_sets')
+        .select('set_num, name, year, num_parts, image_url, theme_id')
+        .eq('set_num', trimmed)
+        .maybeSingle();
 
-  if (error) {
-    throw new Error(
-      `Supabase getSetSummaryLocal rb_sets failed: ${error.message}`
-    );
-  }
+      if (error) {
+        throw new Error(
+          `Supabase getSetSummaryLocal rb_sets failed: ${error.message}`
+        );
+      }
+      return data ?? null;
+    }
+  );
 
   if (!data) return null;
 
