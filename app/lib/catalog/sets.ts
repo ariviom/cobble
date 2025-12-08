@@ -6,13 +6,13 @@ import type { PartInSet, SimpleSet } from '@/app/lib/rebrickable';
 import {
     mapCategoryNameToParent,
     normalizeText,
-    sortAggregatedResults
+    sortAggregatedResults,
 } from '@/app/lib/rebrickable';
 import { filterExactMatches } from '@/app/lib/searchExactMatch';
+import { dedup } from '@/app/lib/utils/dedup';
 import type { MatchType } from '@/app/types/search';
 import type { Json } from '@/supabase/types';
 
-import { dedup } from '@/app/lib/utils/dedup';
 import {
     buildThemeMetaHelpers,
     deriveRootThemeName,
@@ -32,20 +32,34 @@ export async function searchSetsLocal(
   // rb_sets is publicly readable (anon SELECT policy)
   const supabase = getCatalogReadClient();
 
+  const keyBase = trimmed.toLowerCase();
+
   // We fetch by set number prefix and by name contains, and merge with theme-
   // based matches, then sort in-memory for relevance and other sort modes.
   const [bySetNum, byName, themesRaw] = await Promise.all([
-    supabase
-      .from('rb_sets')
-      .select('set_num, name, year, num_parts, image_url, theme_id')
-      .ilike('set_num', `${trimmed}%`)
-      .limit(250),
-    supabase
-      .from('rb_sets')
-      .select('set_num, name, year, num_parts, image_url, theme_id')
-      .ilike('name', `%${trimmed}%`)
-      .limit(250),
-    getThemesLocal(),
+    dedup(
+      `searchSetsLocal:setnum:${keyBase}:${sort}:${exactMatch}`,
+      async () => {
+        const { data, error } = await supabase
+          .from('rb_sets')
+          .select('set_num, name, year, num_parts, image_url, theme_id')
+          .ilike('set_num', `${trimmed}%`)
+          .limit(250);
+        return { data, error };
+      }
+    ),
+    dedup(
+      `searchSetsLocal:name:${keyBase}:${sort}:${exactMatch}`,
+      async () => {
+        const { data, error } = await supabase
+          .from('rb_sets')
+          .select('set_num, name, year, num_parts, image_url, theme_id')
+          .ilike('name', `%${trimmed}%`)
+          .limit(250);
+        return { data, error };
+      }
+    ),
+    dedup(`searchSetsLocal:themes`, () => getThemesLocal()),
   ]);
 
   if (bySetNum.error && !bySetNum.data && byName.error && !byName.data) {
@@ -825,37 +839,44 @@ export async function getSetsForPartLocal(
   if (!trimmed) return [];
 
   const supabase = getCatalogReadClient();
-  const query = supabase
-    .from('rb_set_parts')
-    .select(
-      `
-        set_num,
-        quantity,
-        color_id,
-        rb_sets!inner (
-          set_num,
-          name,
-          year,
-          num_parts,
-          image_url,
-          theme_id
+  const data = await dedup(
+    `getSetsForPartLocal:${trimmed.toLowerCase()}:${colorId ?? ''}`,
+    async () => {
+      const query = supabase
+        .from('rb_set_parts')
+        .select(
+          `
+            set_num,
+            quantity,
+            color_id,
+            rb_sets!inner (
+              set_num,
+              name,
+              year,
+              num_parts,
+              image_url,
+              theme_id
+            )
+          `
         )
-      `
-    )
-    .eq('part_num', trimmed)
-    .eq('is_spare', false)
-    .limit(1000);
+        .eq('part_num', trimmed)
+        .eq('is_spare', false)
+        .limit(1000);
 
-  if (typeof colorId === 'number') {
-    query.eq('color_id', colorId);
-  }
+      if (typeof colorId === 'number') {
+        query.eq('color_id', colorId);
+      }
 
-  const { data, error } = await query;
-  if (error) {
-    throw new Error(
-      `Supabase getSetsForPartLocal failed: ${error.message}`
-    );
-  }
+      const { data, error } = await query;
+      if (error) {
+        throw new Error(
+          `Supabase getSetsForPartLocal failed: ${error.message}`
+        );
+      }
+
+      return data ?? [];
+    }
+  );
 
   if (!data || data.length === 0) return [];
 

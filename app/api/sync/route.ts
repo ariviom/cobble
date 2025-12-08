@@ -1,3 +1,6 @@
+import { errorResponse } from '@/app/lib/api/responses';
+import type { ApiErrorResponse } from '@/app/lib/domain/errors';
+import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { incrementCounter, logEvent } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
@@ -42,7 +45,10 @@ const syncRequestSchema = z.object({
     .max(MAX_OPERATIONS_PER_REQUEST),
 });
 
-export async function POST(req: NextRequest): Promise<NextResponse<SyncResponse>> {
+export const POST = withCsrfProtection(
+  async (
+    req: NextRequest
+  ): Promise<NextResponse<SyncResponse | ApiErrorResponse>> => {
   try {
     // Authenticate the user
     const supabase = await getSupabaseAuthServerClient();
@@ -53,19 +59,13 @@ export async function POST(req: NextRequest): Promise<NextResponse<SyncResponse>
 
     if (authError || !user) {
       incrementCounter('sync_unauthorized');
-      return NextResponse.json(
-        { success: false, processed: 0, failed: [{ id: -1, error: 'unauthorized' }] },
-        { status: 401 }
-      );
+      return errorResponse('unauthorized');
     }
 
     const parsed = syncRequestSchema.safeParse(await req.json());
     if (!parsed.success) {
       incrementCounter('sync_validation_failed', { issues: parsed.error.flatten() });
-      return NextResponse.json(
-        { success: false, processed: 0, failed: [{ id: -1, error: 'validation_failed' }] },
-        { status: 400 }
-      );
+      return errorResponse('validation_failed', { details: parsed.error.flatten() });
     }
 
     const { operations } = parsed.data;
@@ -181,17 +181,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<SyncResponse>
     incrementCounter('sync_failed', {
       error: error instanceof Error ? error.message : String(error),
     });
-    console.error('Sync endpoint error:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        processed: 0,
-        failed: [{ id: -1, error: 'internal_error' }],
-      },
-      { status: 500 }
-    );
+    return errorResponse('unknown_error');
   }
-}
+});
 
 /**
  * Ping endpoint for sendBeacon on page unload.

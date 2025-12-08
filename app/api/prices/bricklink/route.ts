@@ -1,6 +1,7 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
 import { mapToBrickLink } from '@/app/lib/mappings/rebrickableToBricklink';
+import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import {
     DEFAULT_PRICING_PREFERENCES,
     formatPricingScopeLabel,
@@ -60,7 +61,7 @@ const schema = z.object({
     .max(MAX_ITEMS),
 });
 
-export async function POST(req: NextRequest) {
+export const POST = withCsrfProtection(async (req: NextRequest) => {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) {
     const issues = parsed.error.flatten();
@@ -214,4 +215,4 @@ export async function POST(req: NextRequest) {
     { prices },
     { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=3600' } }
   );
-}
+});

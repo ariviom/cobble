@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { errorResponse } from '@/app/lib/api/responses';
+import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { logger } from '@/lib/metrics';
 import type { Tables } from '@/supabase/types';
@@ -17,7 +18,7 @@ function extractSlugFromRequest(req: NextRequest): string | null {
   }
 }
 
-export async function POST(req: NextRequest) {
+export const POST = withCsrfProtection(async (req: NextRequest) => {
   const slug = extractSlugFromRequest(req);
   if (!slug) {
     return errorResponse('missing_required_field', {
@@ -94,6 +95,6 @@ export async function POST(req: NextRequest) {
     });
     return errorResponse('unknown_error');
   }
-}
+});
 
 

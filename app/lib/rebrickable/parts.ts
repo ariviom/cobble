@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { LRUCache } from '@/app/lib/cache/lru';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import type {
@@ -34,12 +36,14 @@ export async function searchParts(
   pageSize: number = 25
 ): Promise<RebrickablePartListItem[]> {
   if (!query.trim()) return [];
-  const data = await rbFetch<{ results: RebrickablePartListItem[] }>(
-    `/lego/parts/`,
-    {
-      search: query,
-      page_size: Math.max(1, Math.min(100, pageSize)),
-    }
+  const normalized = query.trim();
+  const size = Math.max(1, Math.min(100, pageSize));
+  const key = `searchParts:${normalized.toLowerCase()}:${size}`;
+  const data = await dedup(key, () =>
+    rbFetch<{ results: RebrickablePartListItem[] }>(`/lego/parts/`, {
+      search: normalized,
+      page_size: size,
+    })
   );
   return data.results ?? [];
 }
@@ -143,6 +147,8 @@ export async function resolvePartIdToRebrickable(
 export async function getPartColorsForPart(
   partNum: string
 ): Promise<PartAvailableColor[]> {
+  const trimmed = partNum.trim();
+  if (!trimmed) return [];
   type Page = {
     results: Array<
       | {
@@ -166,13 +172,20 @@ export async function getPartColorsForPart(
   let nextUrl: string | null = null;
   while (first || nextUrl) {
     const page: Page = first
-      ? await rbFetch<Page>(
-          `/lego/parts/${encodeURIComponent(partNum)}/colors/`,
-          {
-            page_size: 1000,
-          }
+      ? await dedup(
+          `partColors:first:${trimmed.toLowerCase()}`,
+          () =>
+            rbFetch<Page>(
+              `/lego/parts/${encodeURIComponent(trimmed)}/colors/`,
+              {
+                page_size: 1000,
+              }
+            )
         )
-      : await rbFetchAbsolute<Page>(nextUrl!);
+      : await dedup(
+          `partColors:next:${nextUrl}`,
+          () => rbFetchAbsolute<Page>(nextUrl!)
+        );
     results.push(...page.results);
     nextUrl = page.next;
     first = false;
@@ -219,6 +232,8 @@ export async function getSetsForPart(
   partNum: string,
   colorId?: number
 ): Promise<PartInSet[]> {
+  const trimmedPart = partNum.trim();
+  if (!trimmedPart) return [];
   // 1h TTL cache with brief negative TTL to reduce thrash on empty results
   const SETS_TTL_MS = 60 * 60 * 1000;
   const NEGATIVE_TTL_MS = 10 * 60 * 1000;
@@ -233,7 +248,7 @@ export async function getSetsForPart(
     globalAny.__RB_SETS_NEG_CACHE__ = new Map();
   const posCache = globalAny.__RB_SETS_CACHE__!;
   const negCache = globalAny.__RB_SETS_NEG_CACHE__!;
-  const cacheKey = `${partNum.trim().toLowerCase()}::${typeof colorId === 'number' ? colorId : ''}`;
+  const cacheKey = `${trimmedPart.toLowerCase()}::${typeof colorId === 'number' ? colorId : ''}`;
   const now = Date.now();
   const hit = posCache.get(cacheKey);
   if (hit && now - hit.at < SETS_TTL_MS) {
@@ -286,7 +301,10 @@ export async function getSetsForPart(
       typeof color === 'number'
         ? `/lego/parts/${encodeURIComponent(pn)}/colors/${color}/sets/`
         : `/lego/parts/${encodeURIComponent(pn)}/sets/`;
-    const first = await rbFetch<Page>(path, params);
+    const first = await dedup(
+      `getSetsForPart:first:${path}`,
+      () => rbFetch<Page>(path, params)
+    );
     if (process.env.NODE_ENV !== 'production') {
       logger.debug('rebrickable.parts.sets_first_page', {
         pn,
@@ -300,7 +318,10 @@ export async function getSetsForPart(
     const all: Page['results'] = [...first.results];
     let nextUrl: string | null = first.next;
     while (nextUrl) {
-      const page = await rbFetchAbsolute<Page>(nextUrl);
+      const page = await dedup(
+        `getSetsForPart:next:${nextUrl}`,
+        () => rbFetchAbsolute<Page>(nextUrl!)
+      );
       if (process.env.NODE_ENV !== 'production') {
         logger.debug('rebrickable.parts.sets_next_page', {
           pn,
@@ -353,7 +374,7 @@ export async function getSetsForPart(
   if (process.env.NODE_ENV !== 'production') {
     logger.debug('rebrickable.parts.get_sets_attempt', { partNum, colorId });
   }
-  let sets = await fetchAll(partNum, colorId);
+  let sets = await fetchAll(trimmedPart, colorId);
   if (!sets.length && typeof colorId === 'number') {
     if (process.env.NODE_ENV !== 'production') {
       logger.debug('rebrickable.parts.get_sets_retry_no_color', {
@@ -361,12 +382,12 @@ export async function getSetsForPart(
         colorId,
       });
     }
-    sets = await fetchAll(partNum, undefined);
+    sets = await fetchAll(trimmedPart, undefined);
   }
   // If still empty, and the part has exactly one valid color in RB, try that color explicitly
   if (!sets.length) {
     try {
-      const colors = await getPartColorsForPart(partNum);
+      const colors = await getPartColorsForPart(trimmedPart);
       if (colors.length === 1) {
         const only = colors[0]!;
         if (only.id !== (colorId ?? -1)) {

@@ -7,6 +7,7 @@ import { getSetsForPartLocal, getSetSummaryLocal } from '@/app/lib/catalog';
 import { EXTERNAL, IMAGE, RATE_LIMIT } from '@/app/lib/constants';
 import { fetchBLSupersetsFallback } from '@/app/lib/identify/blFallback';
 import { ExternalCallBudget, isBudgetError } from '@/app/lib/identify/types';
+import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import {
     getPartColorsForPart,
     getSetsForPart,
@@ -207,7 +208,7 @@ function needsEnrichment(sets: PartInSet[]): boolean {
 	);
 }
 
-export async function POST(req: NextRequest) {
+export const POST = withCsrfProtection(async (req: NextRequest) => {
 	try {
 		const clientIdentifier = getClientIdentifier(req);
 		const rateLimitResult = applyIdentifyRateLimit(clientIdentifier);
@@ -383,6 +384,6 @@ export async function POST(req: NextRequest) {
 		});
 		return errorResponse('identify_failed');
 	}
-}
+});
 
 

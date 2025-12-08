@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { errorResponse } from '@/app/lib/api/responses';
 import { getSetMinifigsLocal } from '@/app/lib/catalog';
 import type { ApiErrorResponse } from '@/app/lib/domain/errors';
+import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserMinifigSyncPreferences } from '@/app/lib/userMinifigSyncPreferences';
 import { logger } from '@/lib/metrics';
@@ -14,7 +15,7 @@ type SyncResponse = {
   updated: number;
 };
 
-export async function POST(
+export const POST = withCsrfProtection(async function POST(
   req: NextRequest
 ): Promise<NextResponse<SyncResponse | ApiErrorResponse>> {
   const searchSchema = z.object({
@@ -211,6 +212,6 @@ export async function POST(
     });
     return errorResponse('unknown_error');
   }
-}
+});
 
 

@@ -1,5 +1,6 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { blGetSetPriceGuide } from '@/app/lib/bricklink';
+import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { DEFAULT_PRICING_PREFERENCES } from '@/app/lib/pricing';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
@@ -19,7 +20,7 @@ const schema = z.object({
   setNumber: z.string().min(1).max(200),
 });
 
-export async function POST(req: NextRequest) {
+export const POST = withCsrfProtection(async (req: NextRequest) => {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) {
     const issues = parsed.error.flatten();
@@ -118,6 +119,6 @@ export async function POST(req: NextRequest) {
     });
     return errorResponse('external_service_error', { status: 502 });
   }
-}
+});
 
 

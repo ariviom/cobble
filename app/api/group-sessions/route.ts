@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 
 import { errorResponse } from '@/app/lib/api/responses';
+import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { logger } from '@/lib/metrics';
 import type { Tables } from '@/supabase/types';
@@ -24,7 +25,7 @@ function generateSlug(): string {
   return crypto.randomBytes(6).toString('base64url').slice(0, 10).toLowerCase();
 }
 
-export async function POST(req: NextRequest) {
+export const POST = withCsrfProtection(async (req: NextRequest) => {
   let body: CreateSessionBody;
   try {
     body = (await req.json()) as CreateSessionBody;
@@ -143,7 +144,7 @@ export async function POST(req: NextRequest) {
     });
     return errorResponse('unknown_error');
   }
-}
+});
 
 
 
