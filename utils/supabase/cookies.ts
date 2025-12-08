@@ -79,6 +79,10 @@ export function createMiddlewareCookieMethods(
 
 /**
  * Create CookieMethodsServer for Server Component context (next/headers).
+ *
+ * Server Components cannot mutate cookies (and Netlify Edge will throw).
+ * We intentionally no-op setAll to avoid runtime errors; middleware/route
+ * handlers are responsible for refresh token writes.
  */
 export function createServerComponentCookieMethods(cookieStore: {
   getAll: () => Array<{ name: string; value: string }>;
@@ -93,15 +97,8 @@ export function createServerComponentCookieMethods(cookieStore: {
         value: cookie.value,
       }));
     },
-    setAll: async cookiesToSet => {
-      for (const cookie of cookiesToSet) {
-        const options: CookieOptions = cookie.options ?? {};
-        cookieStore.set({
-          name: cookie.name,
-          value: cookie.value,
-          ...options,
-        });
-      }
+    setAll: async () => {
+      // No-op: cookie mutation must happen in middleware or route handlers.
     },
   };
 }
