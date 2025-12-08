@@ -266,7 +266,7 @@ export function TopBarControls({
         )}
       </div>
 
-      <div>
+      <div className="lg:relative">
         <DropdownTrigger
           id="pinned-trigger"
           panelId="pinned-panel"
