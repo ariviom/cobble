@@ -6,6 +6,16 @@ import {
 import type { FilterType } from '@/app/types/search';
 import { logger } from '@/lib/metrics';
 
+const MAX_QUERY_LENGTH = 200;
+const SPECIAL_CHARS = /[%_\\]/g;
+
+function sanitizeSearchQuery(query: string): string {
+	return query
+		.slice(0, MAX_QUERY_LENGTH)
+		.replace(SPECIAL_CHARS, char => `\\${char}`)
+		.trim();
+}
+
 function applyFilter(results: SimpleSet[], filterType: FilterType): SimpleSet[] {
   if (filterType === 'all') {
     return results;
@@ -35,13 +45,13 @@ export async function searchSetsPage(args: {
   };
 }> {
   const {
-    query,
     sort,
     page,
     pageSize,
     filterType = 'all',
     exactMatch = false,
   } = args;
+  const sanitizedQuery = sanitizeSearchQuery(args.query);
 
   type ResultArray = Awaited<ReturnType<typeof getAggregatedSearchResults>>;
   let all: ResultArray = [];
@@ -50,14 +60,14 @@ export async function searchSetsPage(args: {
 
   // Prefer Supabase-backed catalog search when available.
   try {
-    const local = await searchSetsLocal(query, sort, { exactMatch });
+    const local = await searchSetsLocal(sanitizedQuery, sort, { exactMatch });
     if (local.length > 0) {
       all = local as ResultArray;
       usedLocal = true;
     }
   } catch (err) {
     logger.warn('search.local_failed_fallback_to_rebrickable', {
-      query,
+      query: sanitizedQuery,
       sort,
       error: err instanceof Error ? err.message : String(err),
     });
@@ -65,7 +75,7 @@ export async function searchSetsPage(args: {
 
   // Fallback to live Rebrickable search when Supabase has no results or errors.
   if (all.length === 0) {
-    all = await getAggregatedSearchResults(query, sort, { exactMatch });
+    all = await getAggregatedSearchResults(sanitizedQuery, sort, { exactMatch });
     usedFallback = true;
   }
 

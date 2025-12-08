@@ -34,6 +34,33 @@ const eslintConfig = [
     files: ['**/*.ts', '**/*.tsx'],
     rules: {
       'no-console': ['error', { allow: ['warn', 'error'] }],
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@supabase/supabase-js',
+              importNames: ['createClient'],
+              message:
+                'Use Supabase accessors (e.g., getCatalogReadClient) instead of direct createClient imports.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['app/lib/supabaseServiceRoleClient.ts'],
+    rules: {
+      // Service role client is the intentional single point that wraps createClient.
+      'no-restricted-imports': 'off',
+    },
+  },
+  {
+    files: ['app/lib/supabaseServerClient.ts'],
+    rules: {
+      // Server anon client wrapper is an approved createClient usage.
+      'no-restricted-imports': 'off',
     },
   },
   {
