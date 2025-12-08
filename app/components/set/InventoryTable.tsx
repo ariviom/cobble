@@ -16,7 +16,13 @@ import { useMemo, useState } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
 import { InventoryControls } from './InventoryControls';
 import { InventoryItem } from './items/InventoryItem';
-import type { InventoryFilter, ItemSize, SortKey, ViewType } from './types';
+import type {
+  InventoryFilter,
+  ItemSize,
+  MinifigSubpartStatus,
+  SortKey,
+  ViewType,
+} from './types';
 
 type PriceSummary = {
   total: number;
@@ -159,6 +165,92 @@ export function InventoryTable({
     }
     return map;
   }, [rows, keys]);
+
+  const minifigStatusByKey = useMemo(() => {
+    const result = new Map<string, MinifigSubpartStatus>();
+
+    for (let i = 0; i < rows.length; i += 1) {
+      const row = rows[i]!;
+      const key = keys[i]!;
+      const isFigId =
+        typeof row.partId === 'string' && row.partId.startsWith('fig:');
+      const isMinifigParent = row.parentCategory === 'Minifigure' && isFigId;
+
+      if (!isMinifigParent) continue;
+
+      const relations = Array.isArray(row.componentRelations)
+        ? row.componentRelations
+        : [];
+
+      if (relations.length === 0) {
+        result.set(key, {
+          state: 'unknown',
+          missingCount: 0,
+          sharedShortageCount: 0,
+        });
+        continue;
+      }
+
+      let missingCount = 0;
+      let sharedShortageCount = 0;
+
+      for (const rel of relations) {
+        const childKey = rel.key;
+        const requiredForFig = rel.quantity;
+        const childRow = rowByKey.get(childKey);
+        const ownedChild = ownedByKey[childKey] ?? 0;
+
+        if (!childRow) {
+          missingCount += requiredForFig;
+          continue;
+        }
+
+        const totalParentDemand =
+          childRow.parentRelations?.reduce(
+            (sum, parentRel) => sum + parentRel.quantity,
+            0
+          ) ?? requiredForFig;
+
+        if (ownedChild < requiredForFig) {
+          missingCount += requiredForFig - ownedChild;
+        }
+
+        const isShared =
+          (childRow.parentRelations?.length ?? 0) > 1 ||
+          totalParentDemand > requiredForFig;
+
+        if (isShared && ownedChild < totalParentDemand) {
+          sharedShortageCount += 1;
+        }
+      }
+
+      if (missingCount > 0) {
+        result.set(key, {
+          state: 'missing',
+          missingCount,
+          sharedShortageCount,
+        });
+        continue;
+      }
+
+      if (sharedShortageCount > 0) {
+        result.set(key, {
+          state: 'shared_shortfall',
+          missingCount: 0,
+          sharedShortageCount,
+        });
+        continue;
+      }
+
+      result.set(key, {
+        state: 'complete',
+        missingCount: 0,
+        sharedShortageCount: 0,
+      });
+    }
+
+    return result;
+  }, [rows, keys, ownedByKey, rowByKey]);
 
   const effectiveSortedIndices = useMemo(() => {
     if (sortKey !== 'price') return sortedIndices;
@@ -320,14 +412,22 @@ export function InventoryTable({
                 const r = rows[originalIndex]!;
                 const key = keys[originalIndex]!;
                 const owned = ownedByKey[key] ?? 0;
-                const missing = computeMissing(r.quantityRequired, owned);
+                const derivedStatus = minifigStatusByKey.get(key);
+                const displayOwned =
+                  derivedStatus?.state === 'complete'
+                    ? r.quantityRequired
+                    : owned;
+                const missing = computeMissing(
+                  r.quantityRequired,
+                  displayOwned
+                );
                 const priceInfo = pricesByKey[key];
                 return (
                   <InventoryItem
                     key={key}
                     setNumber={setNumber}
                     row={r}
-                    owned={owned}
+                    owned={displayOwned}
                     missing={missing}
                     unitPrice={priceInfo?.unitPrice ?? null}
                     minPrice={priceInfo?.minPrice ?? null}
@@ -454,9 +554,14 @@ export function InventoryTable({
                         const r = rows[originalIndex]!;
                         const key = keys[originalIndex]!;
                         const owned = ownedByKey[key] ?? 0;
+                        const derivedStatus = minifigStatusByKey.get(key);
+                        const displayOwned =
+                          derivedStatus?.state === 'complete'
+                            ? r.quantityRequired
+                            : owned;
                         const missing = computeMissing(
                           r.quantityRequired,
-                          owned
+                          displayOwned
                         );
                         const priceInfo = pricesByKey[key];
                         return (
@@ -464,7 +569,7 @@ export function InventoryTable({
                             key={key}
                             setNumber={setNumber}
                             row={r}
-                            owned={owned}
+                            owned={displayOwned}
                             missing={missing}
                             unitPrice={priceInfo?.unitPrice ?? null}
                             minPrice={priceInfo?.minPrice ?? null}

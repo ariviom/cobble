@@ -8,6 +8,28 @@ export type ComponentRelation = {
   quantity: number;
 };
 
+export type MinifigSubpartStatus =
+  | {
+      state: 'complete';
+      missingCount: 0;
+      sharedShortageCount: 0;
+    }
+  | {
+      state: 'missing';
+      missingCount: number;
+      sharedShortageCount: number;
+    }
+  | {
+      state: 'shared_shortfall';
+      missingCount: 0;
+      sharedShortageCount: number;
+    }
+  | {
+      state: 'unknown';
+      missingCount: 0;
+      sharedShortageCount: 0;
+    };
+
 export type InventoryRow = {
   setNumber: string;
   partId: string;
