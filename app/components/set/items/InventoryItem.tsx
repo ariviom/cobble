@@ -32,6 +32,8 @@ type Props = {
   isPinned?: boolean;
   onTogglePinned?: () => void;
   onRequestPrice?: () => void;
+  /** Whether minifig enrichment is currently running (for loading states) */
+  isEnriching?: boolean;
 };
 
 export function InventoryItem({
@@ -48,6 +50,7 @@ export function InventoryItem({
   onTogglePinned,
   canRequestPrice,
   onRequestPrice,
+  isEnriching = false,
 }: Props) {
   const isFigId =
     typeof row.partId === 'string' && row.partId.startsWith('fig:');
@@ -104,6 +107,7 @@ export function InventoryItem({
   };
   const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [hasRequestedPrice, setHasRequestedPrice] = useState(false);
+  const showImageLoader = isEnriching && isMinifig && !row.imageUrl;
 
   const handleOpenMoreInfo = () => {
     setShowMoreInfo(true);
@@ -194,6 +198,8 @@ export function InventoryItem({
               className={`mx-auto h-full w-full rounded-lg object-contain grid:item-sm:max-w-24 ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : 'ring-1 ring-foreground-accent'}`}
               data-knockout="true"
             />
+          ) : showImageLoader ? (
+            <div className="h-full w-full animate-pulse rounded-lg bg-card-muted" />
           ) : (
             <div className="text-xs text-foreground-muted">No Image</div>
           )}

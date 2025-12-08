@@ -1,3 +1,4 @@
+import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { logger } from '@/lib/metrics';
 import 'server-only';
 
@@ -65,6 +66,22 @@ type RebrickableMinifigComponent = {
     name: string;
   };
   quantity: number;
+};
+
+type RawMinifig = {
+  figNum: string;
+  quantity: number;
+  name: string;
+  imageUrl: string | null;
+  components: Array<{
+    partNum: string;
+    colorId: number;
+    quantity: number;
+    imageUrl: string | null;
+    partCatId: number | null | undefined;
+    partName: string | null | undefined;
+    externalIds: Record<string, unknown> | null | undefined;
+  }>;
 };
 
 export type InventoryRow = {
@@ -636,6 +653,15 @@ export async function getSetInventory(
 
   const partRows = allItems
     .filter(i => !i.is_spare)
+    // Exclude assembled minifig rows from the parts payload; we add our own
+    // minifig parents + components later for UX without double counting.
+    .filter(
+      i =>
+        !(
+          typeof i.part?.part_num === 'string' &&
+          i.part.part_num.toLowerCase().startsWith('fig-')
+        )
+    )
     .map(i => {
       const catId = i.part.part_cat_id;
       const catName = catId != null ? idToName.get(catId) : undefined;
@@ -690,6 +716,7 @@ export async function getSetInventory(
   const minifigParents: InventoryRow[] = [];
   const orphanComponents: InventoryRow[] = [];
   const addedComponentKeys = new Set<string>();
+  const rawMinifigs: RawMinifig[] = [];
 
   for (let idx = 0; idx < allMinifigs.length; idx++) {
     const entry = allMinifigs[idx]!;
@@ -703,7 +730,12 @@ export async function getSetInventory(
     const parentKey = `fig:${figNum}`;
     const figName =
       entry.name ?? entry.set_name ?? entry.minifig?.name ?? 'Minifigure';
-    const imgUrl = entry.set_img_url ?? entry.minifig?.set_img_url ?? null;
+    let imageUrl = entry.set_img_url ?? entry.minifig?.set_img_url ?? null;
+    if (!imageUrl) {
+      // Prefer to let the client pull from CDN; we just record the URL.
+      imageUrl = `https://cdn.rebrickable.com/media/sets/${encodeURIComponent(figNum)}.jpg`;
+    }
+    void persistMinifigImage(figNum, imageUrl);
     const parentQuantity = entry.quantity ?? 1;
     const parentRow: InventoryRow = {
       setNumber,
@@ -712,12 +744,14 @@ export async function getSetInventory(
       colorId: 0,
       colorName: '—',
       quantityRequired: parentQuantity,
-      imageUrl: imgUrl,
+      imageUrl: imageUrl ?? null,
       partCategoryName: 'Minifig',
       parentCategory: 'Minifigure',
       inventoryKey: parentKey,
       componentRelations: [],
     };
+
+    const collectedComponents: RawMinifig['components'] = [];
 
     if (figNum && !figNum.startsWith('unknown')) {
       try {
@@ -791,6 +825,16 @@ export async function getSetInventory(
               orphanComponents.push(childRow);
               addedComponentKeys.add(inventoryKey);
             }
+
+            collectedComponents.push({
+              partNum: component.part.part_num,
+              colorId,
+              quantity: perParentQty,
+              imageUrl: component.part.part_img_url ?? null,
+              partCatId: component.part.part_cat_id,
+              partName: component.part.name ?? null,
+              externalIds: component.part.external_ids ?? null,
+            });
           }
         }
       } catch (err) {
@@ -801,10 +845,126 @@ export async function getSetInventory(
       }
     }
 
+    rawMinifigs.push({
+      figNum,
+      quantity: parentQuantity,
+      name: figName,
+      imageUrl,
+      components: collectedComponents,
+    });
+
     minifigParents.push(parentRow);
   }
 
+  // Persist minifig parents/components/images so future requests use catalog
+  if (rawMinifigs.length > 0) {
+    void upsertMinifigsForSet(setNumber, rawMinifigs);
+  }
+
   return [...partRows, ...orphanComponents, ...minifigParents];
+}
+
+/**
+ * Persist a minifig image into rb_minifig_images for future reads.
+ * No-op if imageUrl is falsy.
+ */
+export async function persistMinifigImage(
+  figNum: string,
+  imageUrl: string | null
+): Promise<void> {
+  if (!imageUrl) return;
+  try {
+    const supabase = getCatalogWriteClient();
+    await supabase
+      .from('rb_minifig_images')
+      .upsert({
+        fig_num: figNum,
+        image_url: imageUrl,
+        last_fetched_at: new Date().toISOString(),
+      })
+      .select('fig_num')
+      .single();
+  } catch (err) {
+    logger.warn('rebrickable.minifig.image_persist_failed', {
+      figNum,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+/**
+ * Upsert minifig parent/component rows and images so catalog reads return data without live API.
+ */
+export async function upsertMinifigsForSet(
+  setNumber: string,
+  figs: RawMinifig[]
+): Promise<void> {
+  if (!figs.length) return;
+  try {
+    const supabase = getCatalogWriteClient();
+
+    const { data: inventories, error: invErr } = await supabase
+      .from('rb_inventories')
+      .select('id, version')
+      .eq('set_num', setNumber);
+    if (invErr || !inventories?.length) return;
+    const sorted = [...inventories].sort(
+      (a, b) => (b.version ?? -1) - (a.version ?? -1)
+    );
+    const inventoryId = sorted[0]!.id;
+
+    const invMinifigsPayload = figs.map(f => ({
+      inventory_id: inventoryId,
+      fig_num: f.figNum,
+      quantity: f.quantity,
+    }));
+
+    const figImagesPayload = figs
+      .filter(f => f.imageUrl)
+      .map(f => ({
+        fig_num: f.figNum,
+        image_url: f.imageUrl,
+        last_fetched_at: new Date().toISOString(),
+      }));
+
+    const figPartsPayload: Array<{
+      fig_num: string;
+      part_num: string;
+      color_id: number;
+      quantity: number;
+    }> = [];
+    for (const f of figs) {
+      for (const c of f.components) {
+        figPartsPayload.push({
+          fig_num: f.figNum,
+          part_num: c.partNum,
+          color_id: c.colorId,
+          quantity: c.quantity,
+        });
+      }
+    }
+
+    if (invMinifigsPayload.length) {
+      await supabase
+        .from('rb_inventory_minifigs')
+        .upsert(invMinifigsPayload, { ignoreDuplicates: true });
+    }
+    if (figPartsPayload.length) {
+      await supabase
+        .from('rb_minifig_parts')
+        .upsert(figPartsPayload, { ignoreDuplicates: true });
+    }
+    if (figImagesPayload.length) {
+      await supabase
+        .from('rb_minifig_images')
+        .upsert(figImagesPayload, { ignoreDuplicates: true });
+    }
+  } catch (err) {
+    logger.warn('rebrickable.minifig.upsert_failed', {
+      setNumber,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 const ONE_HOUR_MS = 60 * 60 * 1000;

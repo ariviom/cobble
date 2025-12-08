@@ -37,6 +37,12 @@
   - Bulk mapping scripts now have a Phase 2 that maps RB minifig parts → BL minifig parts (controlled by `MINIFIG_COMPONENT_API_BUDGET`, default 500).
   - Mappings are stored in `part_id_mappings` with `source='minifig-component'`.
 - Add client-side minifig caching (Dexie `catalogMinifigs` table) so minifig lookups and RB→BL mappings can be reused offline and across sets.
+- **Minifig data enrichment** to fix inconsistencies between set page and minifig detail page:
+  - Create shared `minifigEnrichment.ts` service for on-demand fetching of images, subparts, and BL mappings.
+  - Add `/api/minifigs/enrich` batch endpoint for client-side lazy loading.
+  - Create `useMinifigEnrichment` hook for lazy enrichment on set pages.
+  - Fix broken image fallback URL in `catalog/sets.ts`.
+  - Ensure minifig subparts are always visible for piece counting toward totals.
 
 ## Notes
 

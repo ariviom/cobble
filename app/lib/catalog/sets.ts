@@ -6,7 +6,7 @@ import type { PartInSet, SimpleSet } from '@/app/lib/rebrickable';
 import {
     mapCategoryNameToParent,
     normalizeText,
-    sortAggregatedResults,
+    sortAggregatedResults
 } from '@/app/lib/rebrickable';
 import { filterExactMatches } from '@/app/lib/searchExactMatch';
 import type { MatchType } from '@/app/types/search';
@@ -509,8 +509,305 @@ export async function getSetInventoryLocal(
       }),
     };
   });
+  const partRowMap = new Map<string, InventoryRow>();
+  for (const r of rows) {
+    partRowMap.set(r.inventoryKey, r);
+  }
+  const regularInventoryKeys = new Set(rows.map(r => r.inventoryKey));
 
-  return rows;
+  // ---- Minifigs (parents + components) from catalog ----
+  const parentRows: InventoryRow[] = [];
+  const orphanComponents: InventoryRow[] = [];
+  const addedComponentKeys = new Set<string>();
+
+  if (inventoryCandidates.length > 0) {
+    // Use the same selected inventory ID as parts
+    const selectedInventoryId = inventoryCandidates[0]!.id;
+    const { data: inventoryMinifigs, error: invFigsError } = await supabase
+      .from('rb_inventory_minifigs')
+      .select('fig_num, quantity')
+      .eq('inventory_id', selectedInventoryId);
+
+    if (invFigsError) {
+      throw new Error(
+        `Supabase getSetInventoryLocal rb_inventory_minifigs failed: ${invFigsError.message}`
+      );
+    }
+
+    const figNums = Array.from(
+      new Set(
+        (inventoryMinifigs ?? [])
+          .map(f => (typeof f?.fig_num === 'string' ? f.fig_num.trim() : ''))
+          .filter(Boolean)
+      )
+    );
+
+    if (figNums.length > 0) {
+      const [figMetaRes, figImagesRes, figPartsRes] = await Promise.all([
+        supabase
+          .from('rb_minifigs')
+          .select('fig_num, name, num_parts')
+          .in('fig_num', figNums),
+        supabase
+          .from('rb_minifig_images')
+          .select('fig_num, image_url')
+          .in('fig_num', figNums),
+        supabase
+          .from('rb_minifig_parts')
+          .select('fig_num, part_num, color_id, quantity')
+          .in('fig_num', figNums),
+      ]);
+
+      if (figMetaRes.error) {
+        throw new Error(
+          `Supabase getSetInventoryLocal rb_minifigs failed: ${figMetaRes.error.message}`
+        );
+      }
+      if (figImagesRes.error) {
+        throw new Error(
+          `Supabase getSetInventoryLocal rb_minifig_images failed: ${figImagesRes.error.message}`
+        );
+      }
+      if (figPartsRes.error) {
+        throw new Error(
+          `Supabase getSetInventoryLocal rb_minifig_parts failed: ${figPartsRes.error.message}`
+        );
+      }
+
+      const figMetaById = new Map<
+        string,
+        { name?: string | null; num_parts?: number | null }
+      >();
+      for (const m of figMetaRes.data ?? []) {
+        figMetaById.set(m.fig_num, {
+          name: m.name ?? null,
+          num_parts: m.num_parts ?? null,
+        });
+      }
+
+      const figImgById = new Map<string, string | null>();
+      for (const img of figImagesRes.data ?? []) {
+        figImgById.set(
+          img.fig_num,
+          typeof img.image_url === 'string' && img.image_url.trim().length > 0
+            ? img.image_url.trim()
+            : null
+        );
+      }
+
+      const figPartsByFig = new Map<
+        string,
+        Array<{ part_num: string; color_id: number; quantity: number }>
+      >();
+      const figPartNums = new Set<string>();
+      const figColorIds = new Set<number>();
+      for (const p of figPartsRes.data ?? []) {
+        const fn =
+          typeof p.fig_num === 'string' && p.fig_num.trim().length > 0
+            ? p.fig_num.trim()
+            : null;
+        if (!fn) continue;
+        const partNum =
+          typeof p.part_num === 'string' && p.part_num.trim().length > 0
+            ? p.part_num.trim()
+            : null;
+        if (!partNum) continue;
+        const colorId =
+          typeof p.color_id === 'number' && Number.isFinite(p.color_id)
+            ? p.color_id
+            : 0;
+        const quantity =
+          typeof p.quantity === 'number' && Number.isFinite(p.quantity)
+            ? p.quantity
+            : 1;
+        figPartNums.add(partNum);
+        figColorIds.add(colorId);
+        if (!figPartsByFig.has(fn)) figPartsByFig.set(fn, []);
+        figPartsByFig.get(fn)!.push({ part_num: partNum, color_id: colorId, quantity });
+      }
+
+      // Fetch missing part metadata for minifig components not already loaded
+      const missingPartNums = Array.from(figPartNums).filter(
+        pn => !partMap.has(pn)
+      );
+      if (missingPartNums.length > 0) {
+        const { data: extraParts, error: extraPartsError } = await supabase
+          .from('rb_parts')
+          .select('part_num, name, part_cat_id, image_url, external_ids')
+          .in('part_num', missingPartNums);
+        if (extraPartsError) {
+          throw new Error(
+            `Supabase getSetInventoryLocal rb_parts (minifig components) failed: ${extraPartsError.message}`
+          );
+        }
+        for (const p of extraParts ?? []) {
+          partMap.set(p.part_num, {
+            part_num: p.part_num,
+            name: p.name,
+            part_cat_id:
+              typeof p.part_cat_id === 'number' ? p.part_cat_id : null,
+            image_url:
+              typeof p.image_url === 'string' && p.image_url.trim().length > 0
+                ? p.image_url.trim()
+                : null,
+            external_ids: p.external_ids as Json,
+          });
+        }
+      }
+
+      // Fetch missing categories introduced by the extra parts
+      const missingCatIds = Array.from(
+        new Set(
+          Array.from(partMap.values())
+            .map(p => p.part_cat_id)
+            .filter(
+              (cid): cid is number =>
+                typeof cid === 'number' && !categoryMap.has(cid)
+            )
+        )
+      );
+      if (missingCatIds.length > 0) {
+        const { data: extraCats, error: extraCatsError } = await supabase
+          .from('rb_part_categories')
+          .select('id, name')
+          .in('id', missingCatIds);
+        if (extraCatsError) {
+          throw new Error(
+            `Supabase getSetInventoryLocal rb_part_categories (minifig components) failed: ${extraCatsError.message}`
+          );
+        }
+        for (const c of extraCats ?? []) {
+          categoryMap.set(c.id, { id: c.id, name: c.name });
+        }
+      }
+
+      // Fetch missing colors introduced by minifig components
+      const missingColorIds = Array.from(figColorIds).filter(
+        cid => !colorMap.has(cid)
+      );
+      if (missingColorIds.length > 0) {
+        const { data: extraColors, error: extraColorsError } = await supabase
+          .from('rb_colors')
+          .select('id, name')
+          .in('id', missingColorIds);
+        if (extraColorsError) {
+          throw new Error(
+            `Supabase getSetInventoryLocal rb_colors (minifig components) failed: ${extraColorsError.message}`
+          );
+        }
+        for (const c of extraColors ?? []) {
+          colorMap.set(c.id, { id: c.id, name: c.name });
+        }
+      }
+
+      for (const invFig of inventoryMinifigs ?? []) {
+        const figNum =
+          typeof invFig?.fig_num === 'string' && invFig.fig_num.trim().length > 0
+            ? invFig.fig_num.trim()
+            : null;
+        if (!figNum) continue;
+        const parentQuantity =
+          typeof invFig.quantity === 'number' && Number.isFinite(invFig.quantity)
+            ? invFig.quantity
+            : 1;
+        const parentKey = `fig:${figNum}`;
+        const meta = figMetaById.get(figNum);
+        const parentRow: InventoryRow = {
+          setNumber: trimmedSet,
+          partId: parentKey,
+          partName: meta?.name ?? figNum,
+          colorId: 0,
+          colorName: '—',
+          quantityRequired: parentQuantity,
+          imageUrl: figImgById.get(figNum) ?? null,
+          partCategoryName: 'Minifig',
+          parentCategory: 'Minifigure',
+          inventoryKey: parentKey,
+          componentRelations: [],
+        };
+
+        if (!parentRow.imageUrl) {
+          // Leave image null so the client enrichment pipeline can fetch an accurate URL.
+          parentRow.imageUrl = null;
+        }
+
+        const figParts = figPartsByFig.get(figNum) ?? [];
+        for (const component of figParts) {
+          const perParentQty = Math.max(
+            1,
+            Math.floor(component.quantity ?? 1)
+          );
+          const inventoryKey = `${component.part_num}:${component.color_id}`;
+          const existingRow = partRowMap.get(inventoryKey);
+
+          if (existingRow) {
+            const isRegular = regularInventoryKeys.has(inventoryKey);
+            if (!isRegular) {
+              existingRow.quantityRequired += perParentQty;
+            }
+            if (!existingRow.parentRelations) {
+              existingRow.parentRelations = [];
+            }
+            existingRow.parentRelations.push({
+              parentKey,
+              quantity: perParentQty,
+            });
+            parentRow.componentRelations!.push({
+              key: inventoryKey,
+              quantity: perParentQty,
+            });
+          } else {
+            const partMeta = partMap.get(component.part_num);
+            const catId =
+              typeof partMeta?.part_cat_id === 'number'
+                ? partMeta.part_cat_id
+                : undefined;
+            const catName =
+              typeof catId === 'number' ? categoryMap.get(catId)?.name : undefined;
+            const parentCategory =
+              catName != null ? mapCategoryNameToParent(catName) : 'Minifigure';
+            const bricklinkPartId = extractBricklinkPartId(
+              partMeta?.external_ids
+            );
+            const color =
+              typeof component.color_id === 'number'
+                ? colorMap.get(component.color_id)
+                : null;
+            const childRow: InventoryRow = {
+              setNumber: trimmedSet,
+              partId: component.part_num,
+              partName: partMeta?.name ?? component.part_num,
+              colorId: component.color_id,
+              colorName: color?.name ?? `Color ${component.color_id}`,
+              quantityRequired: perParentQty,
+              imageUrl: partMeta?.image_url ?? null,
+              ...(typeof catId === 'number' && { partCategoryId: catId }),
+              ...(catName && { partCategoryName: catName }),
+              ...(parentCategory && { parentCategory }),
+              inventoryKey,
+              parentRelations: [{ parentKey, quantity: perParentQty }],
+              ...(bricklinkPartId &&
+                bricklinkPartId !== component.part_num && { bricklinkPartId }),
+            };
+            parentRow.componentRelations!.push({
+              key: inventoryKey,
+              quantity: perParentQty,
+            });
+            partRowMap.set(inventoryKey, childRow);
+            if (!addedComponentKeys.has(inventoryKey)) {
+              orphanComponents.push(childRow);
+              addedComponentKeys.add(inventoryKey);
+            }
+          }
+        }
+
+        parentRows.push(parentRow);
+      }
+    }
+  }
+
+  const mergedRows = Array.from(partRowMap.values());
+  return [...mergedRows, ...parentRows];
 }
 
 export async function getSetsForPartLocal(

@@ -30,6 +30,10 @@ export type InventoryViewModel = {
   isOwnedHydrated: boolean;
   /** Whether IndexedDB is available (false = in-memory only, data will be lost) */
   isStorageAvailable: boolean;
+  /** Whether minifig enrichment is running */
+  isMinifigEnriching: boolean;
+  /** Last enrichment error, if any */
+  minifigEnrichmentError: string | null;
 
   // UI controls
   sortKey: SortKey;
@@ -68,6 +72,8 @@ export function useInventoryViewModel(setNumber: string): InventoryViewModel {
     ownedByKey,
     isOwnedHydrated,
     isStorageAvailable,
+    isMinifigEnriching,
+    minifigEnrichmentError,
   } = useInventory(setNumber);
 
   const {
@@ -283,6 +289,8 @@ export function useInventoryViewModel(setNumber: string): InventoryViewModel {
     error,
     isOwnedHydrated,
     isStorageAvailable,
+    isMinifigEnriching,
+    minifigEnrichmentError,
     sortKey,
     sortDir,
     filter,

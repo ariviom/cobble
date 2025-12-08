@@ -125,6 +125,12 @@
 
 ## Planned / In Progress
 
+- **Minifig data enrichment**:
+  - Fix inconsistencies in minifig images, subparts, and BrickLink links between set page and minifig detail page.
+  - Create shared `minifigEnrichment.ts` service for on-demand fetching.
+  - Add `/api/minifigs/enrich` batch endpoint with throttling.
+  - Create `useMinifigEnrichment` client hook for lazy loading.
+  - Ensure subparts always visible for piece counting.
 - Catalog version checking to invalidate stale IndexedDB cache
 - Pull-on-login for multi-device sync (fetch user data from Supabase on new device)
 - Hardening of error states and retries for search and inventory requests; surface normalized `AppError` codes in the UI instead of generic messages.
@@ -150,6 +156,7 @@ Implementation is in progress: core data flow via server proxies and virtualized
 
 ## Known Issues / Risks
 
+- **Minifig data inconsistency**: Set page relies on pre-populated catalog data while minifig detail page fetches on-demand. Results in missing images, broken BrickLink links, and incomplete subparts on set pages. Fix planned in `MINIFIG_ENRICHMENT.md`.
 - Rebrickable rate limits or incomplete inventories for very old sets.
 - ID/color mapping mismatches between Rebrickable and BrickLink affecting CSV exports.
   - Mitigated by `part_id_mappings` table with auto-suffix fallback (e.g., `3957a` → `3957`).

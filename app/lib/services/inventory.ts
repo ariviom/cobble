@@ -23,6 +23,12 @@ export type InventoryResult = {
     /** Fig IDs that remain unmapped */
     unmappedFigIds: string[];
   };
+  /** Hints for client-side minifig enrichment */
+  minifigEnrichmentNeeded?: {
+    figNums: string[];
+    missingImages: string[];
+    missingSubparts: string[];
+  };
 };
 
 /**
@@ -68,13 +74,34 @@ export async function getSetInventoryRowsWithMeta(
     rows = await getSetInventory(setNumber);
   }
 
-  // Identify minifigure parent rows
-  const figRows = rows.filter(
+  // Identify minifigure parent rows; if missing, try live fetch (with upsert in rebrickable.ts)
+  let figRows = rows.filter(
     row =>
       row.parentCategory === 'Minifigure' &&
       typeof row.partId === 'string' &&
       row.partId.startsWith('fig:')
   );
+
+  if (!figRows.length) {
+    try {
+      const liveRows = await getSetInventory(setNumber);
+      const liveFigRows = liveRows.filter(
+        row =>
+          row.parentCategory === 'Minifigure' &&
+          typeof row.partId === 'string' &&
+          row.partId.startsWith('fig:')
+      );
+      if (liveFigRows.length) {
+        rows = liveRows;
+        figRows = liveFigRows;
+      }
+    } catch (err) {
+      logger.warn('inventory.live_minifig_fetch_failed', {
+        setNumber,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   if (!figRows.length) {
     return { rows };
@@ -150,6 +177,19 @@ export async function getSetInventoryRowsWithMeta(
     return row;
   });
 
+  const missingImages = figRows
+    .filter(
+      r =>
+        !r.imageUrl ||
+        (typeof r.imageUrl === 'string' &&
+          r.imageUrl.includes('cdn.rebrickable.com/media/sets/'))
+    )
+    .map(r => r.partId.replace(/^fig:/, '').trim());
+
+  const missingSubparts = figRows
+    .filter(r => !r.componentRelations || r.componentRelations.length === 0)
+    .map(r => r.partId.replace(/^fig:/, '').trim());
+
   return {
     rows: enrichedRows,
     minifigMappingMeta: {
@@ -158,6 +198,11 @@ export async function getSetInventoryRowsWithMeta(
       syncStatus: batchedResult.syncStatus,
       syncTriggered: batchedResult.syncTriggered,
       unmappedFigIds: finalUnmapped,
+    },
+    minifigEnrichmentNeeded: {
+      figNums: uniqueFigIds,
+      missingImages: Array.from(new Set(missingImages)),
+      missingSubparts: Array.from(new Set(missingSubparts)),
     },
   };
 }

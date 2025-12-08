@@ -61,10 +61,14 @@ export async function GET(req: NextRequest) {
       rows: typeof result.rows;
       meta?: typeof result.minifigMappingMeta;
       inventoryVersion: string | null;
+      minifigEnrichmentNeeded?: typeof result.minifigEnrichmentNeeded;
     } = { rows: result.rows, inventoryVersion };
     
     if (includeMeta && result.minifigMappingMeta) {
       response.meta = result.minifigMappingMeta;
+    }
+    if (result.minifigEnrichmentNeeded) {
+      response.minifigEnrichmentNeeded = result.minifigEnrichmentNeeded;
     }
     
     return NextResponse.json(response, {

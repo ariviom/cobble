@@ -72,6 +72,8 @@ export function InventoryTable({
     ownedByKey,
     isOwnedHydrated,
     isStorageAvailable,
+    isMinifigEnriching,
+    minifigEnrichmentError,
     sortKey,
     sortDir,
     filter,
@@ -205,6 +207,11 @@ export function InventoryTable({
           progress will be lost when you close this tab.
         </div>
       )}
+      {minifigEnrichmentError && (
+        <div className="mx-4 mb-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+          Minifig enrichment issue: {minifigEnrichmentError}
+        </div>
+      )}
       {migration?.open && (
         <Modal
           open={migration.open}
@@ -335,6 +342,7 @@ export function InventoryTable({
                     bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
                     isPricePending={pendingKeys.has(key)}
                     canRequestPrice={!pendingKeys.has(key) && !pricesByKey[key]}
+                    isEnriching={isMinifigEnriching}
                     onRequestPrice={() => {
                       void requestPricesForKeys([key]);
                     }}

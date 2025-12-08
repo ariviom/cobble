@@ -5,12 +5,13 @@ import { useOwnedSnapshot } from '@/app/hooks/useOwnedSnapshot';
 import { throwAppErrorFromResponse } from '@/app/lib/domain/errors';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
 import {
-  getCachedInventory,
-  isIndexedDBAvailable,
-  setCachedInventory,
+    getCachedInventory,
+    isIndexedDBAvailable,
+    setCachedInventory,
 } from '@/app/lib/localDb';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { useMinifigEnrichment } from './useMinifigEnrichment';
 
 export type UseInventoryResult = {
   rows: InventoryRow[];
@@ -27,6 +28,10 @@ export type UseInventoryResult = {
   isOwnedHydrated: boolean;
   /** Whether IndexedDB is available (false = in-memory only, data will be lost) */
   isStorageAvailable: boolean;
+  /** Whether minifig enrichment is in progress */
+  isMinifigEnriching: boolean;
+  /** Last minifig enrichment error, if any */
+  minifigEnrichmentError: string | null;
 };
 
 /**
@@ -84,6 +89,11 @@ async function fetchInventory(
   const data = (await res.json()) as {
     rows: InventoryRow[];
     inventoryVersion?: string | null;
+    minifigEnrichmentNeeded?: {
+      figNums: string[];
+      missingImages: string[];
+      missingSubparts: string[];
+    };
   };
   const rows = data.rows;
   const responseVersion = data.inventoryVersion ?? inventoryVersion ?? null;
@@ -105,7 +115,156 @@ export function useInventory(setNumber: string): UseInventoryResult {
     gcTime: 60 * 60 * 1000,
   });
 
-  const rows = useMemo(() => data ?? [], [data]);
+  const baseRows = useMemo(() => data ?? [], [data]);
+
+  const minifigData = useMemo(() => {
+    const figNums: string[] = [];
+    const existingData = new Map<
+      string,
+      {
+        imageUrl: string | null;
+        hasSubparts: boolean;
+        hasSubpartImages: boolean;
+      }
+    >();
+
+    const rowByKey = new Map<string, InventoryRow>();
+    for (const row of baseRows) {
+      const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
+      if (key) rowByKey.set(key, row);
+    }
+
+    for (const row of baseRows) {
+      const isFig =
+        row.parentCategory === 'Minifigure' &&
+        typeof row.partId === 'string' &&
+        row.partId.startsWith('fig:');
+      if (!isFig) continue;
+      const figNum = row.partId.replace(/^fig:/, '');
+      figNums.push(figNum);
+
+      const relations = row.componentRelations ?? [];
+      const hasSubparts = relations.length > 0;
+      const hasSubpartImages =
+        hasSubparts &&
+        relations.every(rel => {
+          const child = rowByKey.get(rel.key);
+          return Boolean(child?.imageUrl);
+        });
+
+      existingData.set(figNum, {
+        imageUrl: row.imageUrl,
+        hasSubparts,
+        hasSubpartImages,
+      });
+    }
+    return { figNums, existingData };
+  }, [baseRows]);
+
+  const { enrichedData, isEnriching, error: enrichmentError } =
+    useMinifigEnrichment({
+      figNums: minifigData.figNums,
+      existingData: minifigData.existingData,
+      enabled: !isLoading && baseRows.length > 0,
+    });
+
+  const rows = useMemo(() => {
+    if (enrichedData.size === 0) return baseRows;
+
+    const working = baseRows.map(row => {
+      const inventoryKey = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
+      return { ...row, inventoryKey };
+    });
+    const indexByKey = new Map<string, number>();
+    working.forEach((row, idx) => {
+      if (row.inventoryKey) indexByKey.set(row.inventoryKey, idx);
+    });
+
+    for (let i = 0; i < working.length; i += 1) {
+      const row = working[i]!;
+      const isFig =
+        row.parentCategory === 'Minifigure' &&
+        typeof row.partId === 'string' &&
+        row.partId.startsWith('fig:');
+      if (!isFig) continue;
+
+      const figNum = row.partId.replace(/^fig:/, '');
+      const enrichment = enrichedData.get(figNum);
+      if (!enrichment) continue;
+
+      const parentKey = row.inventoryKey ?? `fig:${figNum}`;
+      // Update parent image / BL id
+      row.imageUrl = enrichment.imageUrl ?? row.imageUrl;
+      row.bricklinkFigId = enrichment.blId ?? row.bricklinkFigId ?? null;
+
+      // Attach component relations when missing
+      if (
+        (!row.componentRelations || row.componentRelations.length === 0) &&
+        enrichment.subparts
+      ) {
+        row.componentRelations = enrichment.subparts.map(sp => ({
+          key: `${sp.partId}:${sp.colorId}`,
+          quantity: sp.quantity,
+        }));
+      }
+
+      if (enrichment.subparts) {
+        for (const sp of enrichment.subparts) {
+          const childKey = `${sp.partId}:${sp.colorId}`;
+          const existingIdx = indexByKey.get(childKey);
+          if (existingIdx != null) {
+            const child = working[existingIdx]!;
+            if (sp.imageUrl) {
+              child.imageUrl = sp.imageUrl;
+            }
+            if (
+              sp.bricklinkPartId &&
+              sp.bricklinkPartId !== child.partId
+            ) {
+              child.bricklinkPartId = sp.bricklinkPartId;
+            }
+            child.parentCategory = child.parentCategory ?? 'Minifigure';
+            child.partCategoryName =
+              child.partCategoryName ?? 'Minifigure Component';
+            if (!child.parentRelations) {
+              child.parentRelations = [];
+            }
+            const alreadyLinked = child.parentRelations.some(
+              rel => rel.parentKey === parentKey
+            );
+            if (!alreadyLinked) {
+              child.parentRelations.push({
+                parentKey,
+                quantity: sp.quantity,
+              });
+            }
+          } else {
+            // Create a minimal child row so subparts are visible
+            const newRow: InventoryRow = {
+              setNumber: row.setNumber,
+              partId: sp.partId,
+              partName: sp.name ?? sp.partId,
+              colorId: sp.colorId,
+              colorName: sp.colorName ?? `Color ${sp.colorId}`,
+              quantityRequired: sp.quantity,
+              imageUrl: sp.imageUrl ?? null,
+              parentCategory: 'Minifigure',
+              partCategoryName: 'Minifigure Component',
+              inventoryKey: childKey,
+              parentRelations: [{ parentKey, quantity: sp.quantity }],
+            };
+            if (sp.bricklinkPartId && sp.bricklinkPartId !== sp.partId) {
+              newRow.bricklinkPartId = sp.bricklinkPartId;
+            }
+            working.push(newRow);
+            indexByKey.set(childKey, working.length - 1);
+          }
+        }
+      }
+    }
+
+    return working;
+  }, [baseRows, enrichedData]);
 
   const keys = useMemo(
     () => rows.map(r => r.inventoryKey ?? `${r.partId}:${r.colorId}`),
@@ -125,6 +284,13 @@ export function useInventory(setNumber: string): UseInventoryResult {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
       const k = keys[i]!;
+      const isMinifigParent =
+        r.parentCategory === 'Minifigure' &&
+        typeof r.partId === 'string' &&
+        r.partId.startsWith('fig:');
+      if (isMinifigParent) {
+        continue; // fig parent rows are UX-only; exclude from totals
+      }
       totalRequired += r.quantityRequired;
       const owned = ownedByKey[k] ?? 0;
       totalMissing += Math.max(0, r.quantityRequired - owned);
@@ -141,6 +307,11 @@ export function useInventory(setNumber: string): UseInventoryResult {
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
       const k = keys[i]!;
+      const isMinifigParent =
+        r.parentCategory === 'Minifigure' &&
+        typeof r.partId === 'string' &&
+        r.partId.startsWith('fig:');
+      if (isMinifigParent) continue;
       const own = ownedByKey[k] ?? 0;
       const missing = Math.max(0, r.quantityRequired - own);
       if (missing > 0) {
@@ -169,5 +340,7 @@ export function useInventory(setNumber: string): UseInventoryResult {
     computeMissingRows,
     isOwnedHydrated,
     isStorageAvailable,
+    isMinifigEnriching: isEnriching,
+    minifigEnrichmentError: enrichmentError,
   };
 }
