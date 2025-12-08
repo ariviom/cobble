@@ -5,6 +5,7 @@ import { InventoryTable } from '@/app/components/set/InventoryTable';
 import { cn } from '@/app/components/ui/utils';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { addRecentSet } from '@/app/store/recent-sets';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -49,6 +50,7 @@ export function SetPageClient({
 
   const { user } = useSupabaseUser();
   const clientId = useGroupClientId();
+  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
   useEffect(() => {
     addRecentSet({
@@ -244,6 +246,60 @@ export function SetPageClient({
         : prev
     );
   };
+
+  useEffect(() => {
+    if (!groupSession?.id) return;
+    let cancelled = false;
+
+    const loadParticipants = async () => {
+      const { data, error } = await supabase
+        .from('group_session_participants')
+        .select('id, display_name, pieces_found')
+        .eq('session_id', groupSession.id);
+
+      if (cancelled || error || !Array.isArray(data)) return;
+      setParticipants(
+        data.map(row => ({
+          id: row.id,
+          displayName: row.display_name,
+          piecesFound: row.pieces_found ?? 0,
+        }))
+      );
+    };
+
+    void loadParticipants();
+
+    const channel = supabase
+      .channel(`group_session_participants:${groupSession.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'group_session_participants',
+          filter: `session_id=eq.${groupSession.id}`,
+        },
+        () => {
+          void loadParticipants();
+        }
+      );
+
+    try {
+      channel.subscribe();
+    } catch {
+      /* best-effort */
+    }
+
+    const interval = window.setInterval(() => {
+      void loadParticipants();
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      void channel.unsubscribe();
+    };
+  }, [groupSession?.id, supabase]);
 
   return (
     <div

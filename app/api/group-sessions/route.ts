@@ -18,11 +18,19 @@ const createSessionSchema = z.object({
   setNumber: z.string().trim().min(1, 'set_number_required'),
 });
 
+const SLUG_ALPHABET = '23456789abcdefghijkmnopqrstuvwxyz';
+const SLUG_LENGTH = 6;
+
 function generateSlug(): string {
-  // Short, URL-safe slug for sharing sessions. Collision probability is
-  // negligible given the small expected volume; the UNIQUE constraint on slug
-  // will guard at the database level.
-  return crypto.randomBytes(6).toString('base64url').slice(0, 10).toLowerCase();
+  // Generates a 6-character, URL-safe slug using an unambiguous alphabet
+  // (no 0/O/I/l). The UNIQUE constraint on slug will protect against collisions.
+  const bytes = crypto.randomBytes(SLUG_LENGTH);
+  let slug = '';
+  for (let i = 0; i < SLUG_LENGTH; i += 1) {
+    const index = bytes[i] % SLUG_ALPHABET.length;
+    slug += SLUG_ALPHABET[index];
+  }
+  return slug;
 }
 
 export const POST = withCsrfProtection(async (req: NextRequest) => {

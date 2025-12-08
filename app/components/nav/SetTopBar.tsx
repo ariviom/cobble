@@ -21,9 +21,10 @@ import { useInventory } from '@/app/hooks/useInventory';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import { Copy, ExternalLink, QrCode, Trophy, Users } from 'lucide-react';
+import { Copy, ExternalLink, Trophy, Users } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
+import QRCode from 'react-qr-code';
 
 type SetTopBarProps = {
   setNumber: string;
@@ -277,7 +278,9 @@ export function SetTopBar({
       </div>
       <Modal
         open={searchPartyModalOpen && Boolean(searchParty)}
-        onClose={() => setSearchTogetherModalOpen(false)}
+        onClose={() => {
+          setSearchTogetherModalOpen(false);
+        }}
         title="Search Party"
       >
         {searchParty ? (
@@ -321,7 +324,20 @@ export function SetTopBar({
                       you.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-4">
+                    {searchParty?.joinUrl ? (
+                      <div className="flex justify-center">
+                        <div className="rounded-md bg-white p-4 shadow-sm">
+                          <QRCode
+                            value={searchParty.joinUrl}
+                            size={200}
+                            className="h-auto w-[200px]"
+                            fgColor="#0a0a0a"
+                            bgColor="#ffffff"
+                          />
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                       <div className="flex-1 rounded-md border border-subtle bg-background px-3 py-2 text-center font-mono text-lg tracking-[0.35em]">
                         {sessionCode ?? '———'}
@@ -337,17 +353,6 @@ export function SetTopBar({
                           aria-label="Copy session link"
                         >
                           <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="md"
-                          className="p-3.5"
-                          onClick={handleCopyShareLink}
-                          disabled={!searchParty.joinUrl}
-                          aria-label="Copy session link (QR)"
-                        >
-                          <QrCode className="h-4 w-4" />
                         </Button>
                       </div>
                     </div>

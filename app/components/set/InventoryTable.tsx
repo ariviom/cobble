@@ -11,8 +11,9 @@ import { useInventory } from '@/app/hooks/useInventory';
 import { useInventoryPrices } from '@/app/hooks/useInventoryPrices';
 import { useInventoryViewModel } from '@/app/hooks/useInventoryViewModel';
 import { useSupabaseOwned } from '@/app/hooks/useSupabaseOwned';
+import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
 import { InventoryControls } from './InventoryControls';
 import { InventoryItem } from './items/InventoryItem';
@@ -102,6 +103,7 @@ export function InventoryTable({
   } = useInventoryViewModel(setNumber);
   const [exportOpen, setExportOpen] = useState(false);
   const { computeMissingRows } = useInventory(setNumber);
+  const clearAllOwned = useOwnedStore(state => state.clearAll);
 
   type PriceInfo = {
     unitPrice: number | null;
@@ -141,20 +143,72 @@ export function InventoryTable({
     enableCloudSync,
   });
 
-  const { broadcastPieceDelta } = useGroupSessionChannel({
-    enabled:
-      Boolean(groupSessionId) &&
-      Boolean(groupParticipantId) &&
-      Boolean(groupClientId),
-    sessionId: groupSessionId ?? null,
+  const { broadcastPieceDelta, broadcastOwnedSnapshot } =
+    useGroupSessionChannel({
+      enabled:
+        Boolean(groupSessionId) &&
+        Boolean(groupParticipantId) &&
+        Boolean(groupClientId),
+      sessionId: groupSessionId ?? null,
+      setNumber,
+      participantId: groupParticipantId ?? null,
+      clientId: groupClientId ?? '',
+      onRemoteDelta: payload => {
+        handleOwnedChange(payload.key, payload.newOwned);
+      },
+      onRemoteSnapshot: snapshot => {
+        if (!snapshot || typeof snapshot !== 'object') return;
+        Object.entries(snapshot).forEach(([key, value]) => {
+          if (typeof value !== 'number' || !Number.isFinite(value)) return;
+          handleOwnedChange(key, value);
+        });
+      },
+      ...(onParticipantPiecesDelta ? { onParticipantPiecesDelta } : {}),
+    });
+  const hasBroadcastSnapshotRef = useRef(false);
+  const hasClearedLocalForJoinerRef = useRef(false);
+
+  // For joiners (participants with cloud sync disabled), clear any stale local
+  // owned data once so the host snapshot can be authoritative.
+  useEffect(() => {
+    if (enableCloudSync) return;
+    if (!groupSessionId || !groupParticipantId || !groupClientId) return;
+    if (hasClearedLocalForJoinerRef.current) return;
+    clearAllOwned(setNumber);
+    hasClearedLocalForJoinerRef.current = true;
+  }, [
+    enableCloudSync,
+    groupSessionId,
+    groupParticipantId,
+    groupClientId,
+    clearAllOwned,
     setNumber,
-    participantId: groupParticipantId ?? null,
-    clientId: groupClientId ?? '',
-    onRemoteDelta: payload => {
-      handleOwnedChange(payload.key, payload.newOwned);
-    },
-    ...(onParticipantPiecesDelta ? { onParticipantPiecesDelta } : {}),
-  });
+  ]);
+
+  // Send initial owned snapshot for hosts (enableCloudSync) after hydration.
+  useEffect(() => {
+    if (
+      !enableCloudSync ||
+      !groupSessionId ||
+      !groupParticipantId ||
+      !groupClientId
+    ) {
+      return;
+    }
+    if (!isOwnedHydrated) return;
+    if (hasBroadcastSnapshotRef.current) return;
+
+    broadcastOwnedSnapshot(ownedByKey);
+    hasBroadcastSnapshotRef.current = true;
+  }, [
+    enableCloudSync,
+    groupSessionId,
+    groupParticipantId,
+    groupClientId,
+    isOwnedHydrated,
+    ownedByKey,
+    broadcastOwnedSnapshot,
+  ]);
 
   const rowByKey = useMemo(() => {
     const map = new Map<string, (typeof rows)[number]>();

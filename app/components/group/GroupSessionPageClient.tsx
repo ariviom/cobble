@@ -42,6 +42,7 @@ export function GroupSessionPageClient({
   const [origin, setOrigin] = useState('');
 
   const clientId = useGroupClientId();
+  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -177,6 +178,60 @@ export function GroupSessionPageClient({
   };
 
   const hasJoined = !!currentParticipant && !!clientId;
+
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+
+    const loadParticipants = async () => {
+      const { data, error } = await supabase
+        .from('group_session_participants')
+        .select('id, display_name, pieces_found')
+        .eq('session_id', sessionId);
+
+      if (cancelled || error || !Array.isArray(data)) return;
+      setParticipants(
+        data.map(row => ({
+          id: row.id,
+          displayName: row.display_name,
+          piecesFound: row.pieces_found ?? 0,
+        }))
+      );
+    };
+
+    void loadParticipants();
+
+    const channel = supabase
+      .channel(`group_session_participants:${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'group_session_participants',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        () => {
+          void loadParticipants();
+        }
+      );
+
+    try {
+      channel.subscribe();
+    } catch {
+      /* best-effort */
+    }
+
+    const interval = window.setInterval(() => {
+      void loadParticipants();
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      void channel.unsubscribe();
+    };
+  }, [sessionId, supabase]);
 
   return (
     <div

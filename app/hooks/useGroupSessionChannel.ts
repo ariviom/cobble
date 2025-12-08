@@ -25,6 +25,10 @@ type UseGroupSessionChannelArgs = {
    */
   onRemoteDelta: (payload: PieceDeltaPayload) => void;
   /**
+   * Called when a remote client broadcasts an owned snapshot for the set.
+   */
+  onRemoteSnapshot?: (ownedByKey: Record<string, number>) => void;
+  /**
    * Optional callback to update per-participant stats when a delta occurs.
    * Called both for local broadcasts and for remote events.
    */
@@ -37,6 +41,7 @@ type UseGroupSessionChannelResult = {
     delta: number;
     newOwned: number;
   }) => void;
+  broadcastOwnedSnapshot: (ownedByKey: Record<string, number>) => void;
 };
 
 export function useGroupSessionChannel({
@@ -46,6 +51,7 @@ export function useGroupSessionChannel({
   participantId,
   clientId,
   onRemoteDelta,
+  onRemoteSnapshot,
   onParticipantPiecesDelta,
 }: UseGroupSessionChannelArgs): UseGroupSessionChannelResult {
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -78,6 +84,21 @@ export function useGroupSessionChannel({
       if (onParticipantPiecesDelta) {
         onParticipantPiecesDelta(data.participantId ?? null, data.delta);
       }
+    });
+
+    channel.on('broadcast', { event: 'owned_snapshot' }, ({ payload }) => {
+      const data = payload as
+        | {
+            ownedByKey: Record<string, number>;
+            setNumber: string;
+            clientId: string;
+          }
+        | null;
+      if (!data) return;
+      if (data.setNumber !== setNumber) return;
+      if (data.clientId === clientId) return;
+      if (!data.ownedByKey || typeof data.ownedByKey !== 'object') return;
+      onRemoteSnapshot?.(data.ownedByKey);
     });
 
     try {
@@ -154,7 +175,38 @@ export function useGroupSessionChannel({
     ]
   );
 
-  return { broadcastPieceDelta };
+  const broadcastOwnedSnapshot = useCallback(
+    (ownedByKey: Record<string, number>) => {
+      if (!enabled || !sessionId) return;
+      if (!ownedByKey || typeof ownedByKey !== 'object') return;
+      const channel = channelRef.current;
+      if (!channel) return;
+
+      const payload = {
+        ownedByKey,
+        setNumber,
+        clientId,
+      };
+
+      channel
+        .send({
+          type: 'broadcast',
+          event: 'owned_snapshot',
+          payload,
+        })
+        .catch(err => {
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('[GroupSessionChannel] snapshot broadcast failed', {
+              sessionId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        });
+    },
+    [enabled, sessionId, setNumber, clientId]
+  );
+
+  return { broadcastPieceDelta, broadcastOwnedSnapshot };
 }
 
 
