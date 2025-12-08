@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
       meta?: typeof result.minifigMappingMeta;
       inventoryVersion: string | null;
       minifigEnrichmentNeeded?: typeof result.minifigEnrichmentNeeded;
+      spares?: typeof result.spares;
     } = { rows: result.rows, inventoryVersion };
     
     if (includeMeta && result.minifigMappingMeta) {
@@ -69,6 +70,9 @@ export async function GET(req: NextRequest) {
     }
     if (result.minifigEnrichmentNeeded) {
       response.minifigEnrichmentNeeded = result.minifigEnrichmentNeeded;
+    }
+    if (result.spares) {
+      response.spares = result.spares;
     }
     
     return NextResponse.json(response, {
