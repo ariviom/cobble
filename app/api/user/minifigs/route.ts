@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 
+import { errorResponse } from '@/app/lib/api/responses';
+import type { ApiErrorResponse } from '@/app/lib/domain/errors';
+import { getUserMinifigs } from '@/app/lib/server/getUserMinifigs';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
-import { getUserMinifigs } from '@/app/lib/server/getUserMinifigs';
+import { logger } from '@/lib/metrics';
 
 export async function GET(): Promise<
   NextResponse<
@@ -17,7 +20,7 @@ export async function GET(): Promise<
           blId: string | null;
         }>;
       }
-    | { error: string }
+    | ApiErrorResponse
   >
 > {
   try {
@@ -26,7 +29,7 @@ export async function GET(): Promise<
     const user = auth.user;
 
     if (!user) {
-      return NextResponse.json({ minifigs: [] }, { status: 401 });
+      return errorResponse('unauthorized');
     }
 
     const supabase = getSupabaseServiceRoleClient();
@@ -38,8 +41,10 @@ export async function GET(): Promise<
 
     return NextResponse.json({ minifigs });
   } catch (err) {
-    console.error('[user-minifigs] unexpected error', err);
-    return NextResponse.json({ error: 'unexpected_error' }, { status: 500 });
+    logger.error('user_minifigs.unexpected_error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return errorResponse('unknown_error');
   }
 }
 

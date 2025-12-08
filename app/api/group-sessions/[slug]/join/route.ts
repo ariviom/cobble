@@ -1,46 +1,51 @@
-import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
-import type { Tables } from '@/supabase/types';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
-type JoinBody = {
-  displayName: string;
-  clientToken: string;
-};
+import { errorResponse } from '@/app/lib/api/responses';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { logger } from '@/lib/metrics';
+import type { Tables } from '@/supabase/types';
 
 type GroupSessionParticipantRow = Tables<'group_session_participants'>;
 
-export async function POST(
-  req: NextRequest,
-) {
+const joinBodySchema = z.object({
+  displayName: z.string().trim().min(1, 'display_name_required'),
+  clientToken: z.string().trim().min(1, 'client_token_required'),
+});
+
+function extractSlug(req: NextRequest): string | null {
   const match = req.nextUrl.pathname.match(/\/api\/group-sessions\/([^/]+)\/join$/);
-  const slug = match && match[1] ? decodeURIComponent(match[1]).trim() : '';
-  if (!slug) {
-    return NextResponse.json({ error: 'missing_slug' }, { status: 400 });
-  }
-
-  let body: JoinBody;
+  if (!match || !match[1]) return null;
   try {
-    body = (await req.json()) as JoinBody;
+    const decoded = decodeURIComponent(match[1]).trim();
+    return decoded.length ? decoded : null;
   } catch {
-    return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
+    return match[1].trim() || null;
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const slug = extractSlug(req);
+  if (!slug) {
+    return errorResponse('missing_required_field', {
+      message: 'slug is required',
+      details: { field: 'slug' },
+    });
   }
 
-  const displayName = body.displayName?.trim();
-  const clientToken = body.clientToken?.trim();
-
-  if (!displayName) {
-    return NextResponse.json(
-      { error: 'missing_display_name' },
-      { status: 400 }
-    );
+  let rawBody: unknown;
+  try {
+    rawBody = await req.json();
+  } catch {
+    return errorResponse('validation_failed', { message: 'invalid_json' });
   }
 
-  if (!clientToken) {
-    return NextResponse.json(
-      { error: 'missing_client_token' },
-      { status: 400 }
-    );
+  const parsed = joinBodySchema.safeParse(rawBody);
+  if (!parsed.success) {
+    return errorResponse('validation_failed', { details: parsed.error.flatten() });
   }
+
+  const { displayName, clientToken } = parsed.data;
 
   try {
     const supabase = await getSupabaseAuthServerClient();
@@ -51,18 +56,17 @@ export async function POST(
       .maybeSingle();
 
     if (sessionError) {
-      console.error('GroupSessionsJoin: failed to load session by slug', {
+      logger.error('group_sessions.join.session_lookup_failed', {
         slug,
         error: sessionError.message,
       });
-      return NextResponse.json({ error: 'session_lookup_failed' }, { status: 500 });
+      return errorResponse('unknown_error');
     }
 
     if (!session || !session.is_active) {
-      return NextResponse.json(
-        { error: 'session_not_found_or_inactive' },
-        { status: 404 }
-      );
+      return errorResponse('not_found', {
+        message: 'session_not_found_or_inactive',
+      });
     }
 
     // Determine whether the caller is authenticated; participants can be
@@ -82,7 +86,7 @@ export async function POST(
       .maybeSingle();
 
     if (participantError) {
-      console.error('GroupSessionsJoin: failed to load participant', {
+      logger.error('group_sessions.join.participant_lookup_failed', {
         slug,
         sessionId: session.id,
         error: participantError.message,
@@ -102,16 +106,13 @@ export async function POST(
         .maybeSingle();
 
       if (updateError || !updated) {
-        console.error('GroupSessionsJoin: failed to update participant', {
+        logger.error('group_sessions.join.participant_update_failed', {
           slug,
           sessionId: session.id,
           participantId: existing.id,
           error: updateError?.message,
         });
-        return NextResponse.json(
-          { error: 'participant_update_failed' },
-          { status: 500 }
-        );
+        return errorResponse('unknown_error');
       }
 
       return NextResponse.json({
@@ -139,15 +140,12 @@ export async function POST(
       .maybeSingle();
 
     if (insertError || !inserted) {
-      console.error('GroupSessionsJoin: failed to insert participant', {
+      logger.error('group_sessions.join.participant_insert_failed', {
         slug,
         sessionId: session.id,
         error: insertError?.message,
       });
-      return NextResponse.json(
-        { error: 'participant_insert_failed' },
-        { status: 500 }
-      );
+      return errorResponse('unknown_error');
     }
 
     return NextResponse.json({
@@ -162,11 +160,11 @@ export async function POST(
       },
     });
   } catch (err) {
-    console.error('GroupSessionsJoin: unexpected failure', {
+    logger.error('group_sessions.join.unexpected', {
       slug,
       error: err instanceof Error ? err.message : String(err),
     });
-    return NextResponse.json({ error: 'internal_error' }, { status: 500 });
+    return errorResponse('unknown_error');
   }
 }
 

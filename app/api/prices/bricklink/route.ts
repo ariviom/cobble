@@ -1,8 +1,9 @@
+import { errorResponse } from '@/app/lib/api/responses';
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
 import { mapToBrickLink } from '@/app/lib/mappings/rebrickableToBricklink';
 import {
-  DEFAULT_PRICING_PREFERENCES,
-  formatPricingScopeLabel,
+    DEFAULT_PRICING_PREFERENCES,
+    formatPricingScopeLabel,
 } from '@/app/lib/pricing';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
@@ -64,10 +65,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     const issues = parsed.error.flatten();
     incrementCounter('prices_bricklink_validation_failed', { issues });
-    return NextResponse.json(
-      { error: 'validation_failed', details: issues },
-      { status: 400 }
-    );
+    return errorResponse('validation_failed', { details: issues });
   }
 
   const items: PriceRequestItem[] = parsed.data.items;
@@ -97,13 +95,9 @@ export async function POST(req: NextRequest) {
       pricingPrefs = await loadUserPricingPreferences(supabase, user.id);
     }
   } catch (err) {
-    if (process.env.NODE_ENV !== 'production') {
-      try {
-        console.warn('prices/bricklink: failed to load pricing preferences', {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      } catch {}
-    }
+    logger.warn('prices.bricklink.load_prefs_failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   const scopeLabel = formatPricingScopeLabel(pricingPrefs);

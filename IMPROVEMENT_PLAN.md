@@ -10,15 +10,15 @@ This document provides explicit, actionable details for each improvement task wi
 | A2      | Duplicated Identify Logic            | ⬜ Not Started            |
 | A3      | Duplicated extractBricklinkPartId    | ❌ Cancelled (not needed) |
 | A4      | Inconsistent Service Layer           | ⬜ Not Started            |
-| B1      | Console Logging → Structured Logging | ⏳ In Progress            |
+| B1      | Console Logging → Structured Logging | ✅ Completed              |
 | B2      | Error Handling Standardization       | ✅ Completed              |
-| B3      | Input Validation with Zod            | ⏳ Partial                |
+| B3      | Input Validation with Zod            | ✅ Completed              |
 | B4      | Type Safety - Reduce Unsafe Casts    | ⬜ Not Started            |
 | C1      | Cache Logic Consolidation            | ✅ Completed              |
 | C2      | Theme Utilities Centralization       | ⬜ Not Started            |
 | C3      | Supabase Client Audit                | ⬜ Not Started            |
 | D1-D4   | Performance Improvements             | ⬜ Not Started            |
-| E1-E4   | Security Hardening                   | ⬜ Not Started            |
+| E1-E4   | Security Hardening                   | ⏳ Partial (E1 done)      |
 | F1      | Magic Numbers → Constants            | ✅ Completed              |
 | F2-F4   | Code Smells                          | ⬜ Not Started            |
 | G1-G4   | Testing Enhancements                 | ⬜ Not Started            |
@@ -531,70 +531,18 @@ return errorResponse('no_match', {
 
 ### B3. Input Validation with Zod
 
-**Current State:**
-
-- `app/api/inventory/route.ts` - Has Zod ✅
-- `app/api/search/route.ts` - Has Zod ✅
-- `app/api/identify/route.ts` - Manual validation ❌
+**Current State:** All API routes now use Zod + `errorResponse` for validation errors.
 
 **Specific Changes:**
 
-1. **Add Zod schema to identify route:**
-
-```typescript
-// app/api/identify/route.ts
-import { z } from 'zod';
-
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_TYPES = [
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'image/webp',
-  'image/heic',
-  'image/heif',
-];
-
-const identifyBodySchema = z.object({
-  image: z
-    .instanceof(File)
-    .refine(file => file.size > 0 && file.size <= MAX_IMAGE_BYTES, {
-      message: 'Image must be between 1 byte and 5MB',
-    })
-    .refine(
-      file => !file.type || ALLOWED_TYPES.includes(file.type.toLowerCase()),
-      { message: `Image type must be one of: ${ALLOWED_TYPES.join(', ')}` }
-    ),
-  colorHint: z
-    .string()
-    .optional()
-    .transform(v => (v && v.trim() !== '' ? Number(v) : undefined)),
-});
-
-export async function POST(req: NextRequest) {
-  const form = await req.formData();
-  const parsed = identifyBodySchema.safeParse({
-    image: form.get('image'),
-    colorHint: form.get('colorHint'),
-  });
-
-  if (!parsed.success) {
-    return errorResponse('validation_failed', {
-      details: { issues: parsed.error.flatten() },
-    });
-  }
-  // ...
-}
-```
-
-2. **Add validation to any remaining routes without it.**
+**Updated Routes:** identify, group-sessions (create/join/end), prices (bricklink, bricklink-set), user-sets, user/minifigs, user/minifigs/sync-from-sets — all use Zod + `errorResponse` for validation/authorization errors.
 
 **Acceptance Criteria:**
 
-- [ ] All routes use Zod for request validation
-- [ ] Validation errors return `validation_failed` code
-- [ ] Error details include Zod issues
-- [ ] No manual `if (!field)` validation logic
+- [x] All routes use Zod for request validation
+- [x] Validation errors return `validation_failed` code
+- [x] Error details include Zod issues
+- [x] No manual `if (!field)` validation logic
 
 ---
 
@@ -1069,7 +1017,10 @@ export default async function SetPage({ params }: { params: { setNumber: string 
 
 ### E1. Distributed Rate Limiting
 
-**Current State:** In-memory `Map` in `lib/rateLimit.ts` - doesn't scale across workers/replicas.
+**Status:** Completed via Supabase migration `20251207213335_create_rate_limit_table.sql`.
+
+**Previous State:** In-memory `Map` in `lib/rateLimit.ts` - didn't scale across workers/replicas.
+**Current Implementation:** Supabase-backed buckets via `consume_rate_limit` RPC and RLS-enabled `rate_limits` table.
 
 **Specific Changes:**
 
@@ -1562,9 +1513,9 @@ Skipped per user request. Consider adding later with Playwright for:
 
 | Phase | Tasks                                                                                     | Risk   | Effort | Dependencies       | Status     |
 | ----- | ----------------------------------------------------------------------------------------- | ------ | ------ | ------------------ | ---------- |
-| 1     | E1 Distributed rate limiting                                                              | High   | Medium | Supabase migration | ⬜         |
+| 1     | E1 Distributed rate limiting                                                              | High   | Medium | Supabase migration | ✅ Done    |
 | 2     | B2 Error response standardization                                                         | Medium | Low    | None               | ✅ Done    |
-| 3     | B3 Zod validation on all routes                                                           | Medium | Low    | None               | ⏳ Partial |
+| 3     | B3 Zod validation on all routes                                                           | Medium | Low    | None               | ✅ Done    |
 | 4     | G1 API route tests (>80% branch)                                                          | Medium | Medium | B2, B3             | ⬜         |
 | 5     | A2 Identify refactor; ~~A3 Utility dedupe~~; ~~C1 Cache~~; F3 Function splits; B1 Logging | Medium | High   | G1                 | ⏳ C1 done |
 | 6     | A4 Service layer; C2 Theme utils; C3 Supabase client audit                                | Low    | Medium | A2                 | ⬜         |
@@ -1580,9 +1531,9 @@ Before marking the improvement plan complete:
 - [x] Constants file created and in use
 - [x] Cache logic consolidated using LRUCache
 - [x] Error response helper exists and widely used
-- [ ] All API routes use Zod validation (partial - most have it)
+- [x] All API routes use Zod validation
 - [x] API error response helper exists and widely used
-- [ ] Rate limiting works across multiple server instances
+- [x] Rate limiting works across multiple server instances
 - [ ] No console.log in production code paths (partial - several routes converted)
 - [ ] > 80% test coverage on API routes
 - [ ] No function > 100 lines

@@ -1,6 +1,9 @@
-import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
-import type { Tables } from '@/supabase/types';
 import { NextResponse } from 'next/server';
+
+import { errorResponse } from '@/app/lib/api/responses';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { logger } from '@/lib/metrics';
+import type { Tables } from '@/supabase/types';
 
 // User sets are private and user-specific. Cache briefly client-side to avoid
 // redundant fetches, but use private to prevent CDN caching of user data.
@@ -48,10 +51,8 @@ export async function GET() {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return NextResponse.json(
-        { error: 'not_authenticated' },
-        { status: 401 }
-      );
+      logger.warn('user_sets.unauthorized', { error: userError?.message });
+      return errorResponse('unauthorized');
     }
 
     // Fetch user sets with joined metadata from rb_sets
@@ -75,11 +76,11 @@ export async function GET() {
       .eq('user_id', user.id as UserSetRow['user_id']);
 
     if (setsError) {
-      console.error('UserSets: query failed', {
+      logger.error('user_sets.query_failed', {
         userId: user.id,
         error: setsError.message,
       });
-      return NextResponse.json({ error: 'query_failed' }, { status: 500 });
+      return errorResponse('unknown_error');
     }
 
     const typedRows = (userSets ?? []) as UserSetRowWithMeta[];
@@ -104,10 +105,10 @@ export async function GET() {
       { headers: { 'Cache-Control': CACHE_CONTROL } }
     );
   } catch (err) {
-    console.error('UserSets: unexpected failure', {
+    logger.error('user_sets.unexpected_failure', {
       error: err instanceof Error ? err.message : String(err),
     });
-    return NextResponse.json({ error: 'internal_error' }, { status: 500 });
+    return errorResponse('unknown_error');
   }
 }
 

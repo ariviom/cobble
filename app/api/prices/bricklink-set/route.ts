@@ -1,8 +1,9 @@
+import { errorResponse } from '@/app/lib/api/responses';
 import { blGetSetPriceGuide } from '@/app/lib/bricklink';
 import { DEFAULT_PRICING_PREFERENCES } from '@/app/lib/pricing';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
-import { incrementCounter, logEvent } from '@/lib/metrics';
+import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -23,10 +24,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     const issues = parsed.error.flatten();
     incrementCounter('prices_bricklink_set_validation_failed', { issues });
-    return NextResponse.json(
-      { error: 'validation_failed', details: issues },
-      { status: 400 }
-    );
+    return errorResponse('validation_failed', { details: issues });
   }
 
   const setNumber = parsed.data.setNumber.trim();
@@ -49,14 +47,10 @@ export async function POST(req: NextRequest) {
       pricingPrefs = await loadUserPricingPreferences(supabase, user.id);
     }
   } catch (err) {
-    if (process.env.NODE_ENV !== 'production') {
-      try {
-        console.warn('bricklink-set: failed to load pricing preferences', {
-          setNumber,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      } catch {}
-    }
+    logger.warn('prices.bricklink_set.load_prefs_failed', {
+      setNumber,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   const ipLimit = await consumeRateLimit(`ip:${clientIp}`, {
@@ -118,13 +112,11 @@ export async function POST(req: NextRequest) {
       setNumber,
       error: err instanceof Error ? err.message : String(err),
     });
-    if (process.env.NODE_ENV !== 'production') {
-      console.error('bricklink-set price failed', {
-        setNumber,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-    return NextResponse.json({ error: 'price_failed' }, { status: 502 });
+    logger.error('prices.bricklink_set.price_failed', {
+      setNumber,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return errorResponse('external_service_error', { status: 502 });
   }
 }
 

@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 
 import { logger } from '@/lib/metrics';
 
-import { toApiError, type AppErrorCode } from '../domain/errors';
+import {
+    toApiError,
+    type ApiErrorResponse,
+    type AppErrorCode,
+} from '../domain/errors';
 
 const STATUS_MAP: Partial<Record<AppErrorCode, number>> = {
   validation_failed: 400,
@@ -22,7 +26,7 @@ const STATUS_MAP: Partial<Record<AppErrorCode, number>> = {
 export function errorResponse(
   code: AppErrorCode,
   options?: { message?: string; status?: number; details?: Record<string, unknown> }
-): NextResponse {
+): NextResponse<ApiErrorResponse> {
   const status = options?.status ?? STATUS_MAP[code] ?? 500;
   logger.warn('api.error', { code, status, details: options?.details });
   return NextResponse.json(toApiError(code, options?.message, options?.details), {

@@ -1,8 +1,13 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+
+import { errorResponse } from '@/app/lib/api/responses';
 import { getSetMinifigsLocal } from '@/app/lib/catalog';
+import type { ApiErrorResponse } from '@/app/lib/domain/errors';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserMinifigSyncPreferences } from '@/app/lib/userMinifigSyncPreferences';
+import { logger } from '@/lib/metrics';
 import type { Enums, Tables } from '@/supabase/types';
-import { NextRequest, NextResponse } from 'next/server';
 
 type SyncResponse = {
   ok: boolean;
@@ -11,7 +16,18 @@ type SyncResponse = {
 
 export async function POST(
   req: NextRequest
-): Promise<NextResponse<SyncResponse>> {
+): Promise<NextResponse<SyncResponse | ApiErrorResponse>> {
+  const searchSchema = z.object({
+    force: z
+      .string()
+      .optional()
+      .transform(value => {
+        if (!value) return false;
+        const normalized = value.toLowerCase();
+        return normalized === '1' || normalized === 'true' || normalized === 'yes';
+      }),
+  });
+
   try {
     const supabase = await getSupabaseAuthServerClient();
     const {
@@ -20,17 +36,21 @@ export async function POST(
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { ok: false, updated: 0 },
-        { status: 401 }
-      );
+      logger.warn('user_minifigs.sync_from_sets.unauthorized', {
+        error: authError?.message,
+      });
+      return errorResponse('unauthorized');
     }
 
-    const forceParam = req.nextUrl.searchParams.get('force');
-    const force =
-      forceParam === '1' ||
-      forceParam === 'true' ||
-      (forceParam ?? '').toLowerCase() === 'yes';
+    const parsedQuery = searchSchema.safeParse({
+      force: req.nextUrl.searchParams.get('force') ?? undefined,
+    });
+    if (!parsedQuery.success) {
+      return errorResponse('validation_failed', {
+        details: parsedQuery.error.flatten(),
+      });
+    }
+    const force = parsedQuery.data.force;
 
     if (!force) {
       const prefs = await loadUserMinifigSyncPreferences(supabase, user.id);
@@ -45,14 +65,11 @@ export async function POST(
       .eq('user_id', user.id);
 
     if (setsError) {
-      console.error('sync-from-sets: failed to load user_sets', {
+      logger.error('user_minifigs.sync_from_sets.user_sets_failed', {
         userId: user.id,
         error: setsError.message,
       });
-      return NextResponse.json(
-        { ok: false, updated: 0 },
-        { status: 500 }
-      );
+      return errorResponse('unknown_error');
     }
 
     const sets = (userSets ?? []) as Array<
@@ -75,7 +92,7 @@ export async function POST(
       try {
         minifigs = await getSetMinifigsLocal(row.set_num);
       } catch (err) {
-        console.error('sync-from-sets: getSetMinifigsLocal failed', {
+        logger.error('user_minifigs.sync_from_sets.get_minifigs_failed', {
           setNum: row.set_num,
           error: err instanceof Error ? err.message : String(err),
         });
@@ -102,14 +119,11 @@ export async function POST(
       .eq('user_id', user.id);
 
     if (existingError) {
-      console.error('sync-from-sets: failed to load user_minifigs', {
+      logger.error('user_minifigs.sync_from_sets.load_user_minifigs_failed', {
         userId: user.id,
         error: existingError.message,
       });
-      return NextResponse.json(
-        { ok: false, updated: 0 },
-        { status: 500 }
-      );
+      return errorResponse('unknown_error');
     }
 
     const existingMap = new Map<
@@ -183,25 +197,19 @@ export async function POST(
       .upsert(upserts, { onConflict: 'user_id,fig_num' });
 
     if (upsertError) {
-      console.error('sync-from-sets: upsert user_minifigs failed', {
+      logger.error('user_minifigs.sync_from_sets.upsert_failed', {
         userId: user.id,
         error: upsertError.message,
       });
-      return NextResponse.json(
-        { ok: false, updated: 0 },
-        { status: 500 }
-      );
+      return errorResponse('unknown_error');
     }
 
     return NextResponse.json({ ok: true, updated: upserts.length });
   } catch (err) {
-    console.error('sync-from-sets: unexpected error', {
+    logger.error('user_minifigs.sync_from_sets.unexpected_error', {
       error: err instanceof Error ? err.message : String(err),
     });
-    return NextResponse.json(
-      { ok: false, updated: 0 },
-      { status: 500 }
-    );
+    return errorResponse('unknown_error');
   }
 }
 

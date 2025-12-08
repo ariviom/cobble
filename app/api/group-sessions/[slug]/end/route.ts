@@ -1,6 +1,9 @@
-import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
-import type { Tables } from '@/supabase/types';
 import { NextRequest, NextResponse } from 'next/server';
+
+import { errorResponse } from '@/app/lib/api/responses';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { logger } from '@/lib/metrics';
+import type { Tables } from '@/supabase/types';
 
 type GroupSessionRow = Tables<'group_sessions'>;
 
@@ -17,7 +20,10 @@ function extractSlugFromRequest(req: NextRequest): string | null {
 export async function POST(req: NextRequest) {
   const slug = extractSlugFromRequest(req);
   if (!slug) {
-    return NextResponse.json({ error: 'missing_slug' }, { status: 400 });
+    return errorResponse('missing_required_field', {
+      message: 'slug is required',
+      details: { field: 'slug' },
+    });
   }
 
   try {
@@ -28,10 +34,11 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return NextResponse.json(
-        { error: 'not_authenticated' },
-        { status: 401 }
-      );
+      logger.warn('group_sessions.end.unauthorized', {
+        slug,
+        error: userError?.message,
+      });
+      return errorResponse('unauthorized');
     }
 
     const {
@@ -44,24 +51,21 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (sessionError) {
-      console.error('GroupSessionsEnd: failed to load session by slug', {
+      logger.error('group_sessions.end.session_lookup_failed', {
         slug,
         error: sessionError.message,
       });
-      return NextResponse.json({ error: 'session_lookup_failed' }, { status: 500 });
+      return errorResponse('unknown_error');
     }
 
     if (!session) {
-      return NextResponse.json({ error: 'session_not_found' }, { status: 404 });
+      return errorResponse('not_found', { message: 'session_not_found' });
     }
 
     // The RLS policy ensures only the host can update their session. We still
     // double-check at the application layer.
     if (session.host_user_id !== user.id) {
-      return NextResponse.json(
-        { error: 'forbidden_not_host' },
-        { status: 403 }
-      );
+      return errorResponse('forbidden', { message: 'forbidden_not_host' });
     }
 
     const { error: updateError } = await supabase
@@ -74,24 +78,21 @@ export async function POST(req: NextRequest) {
       .eq('id', session.id as GroupSessionRow['id']);
 
     if (updateError) {
-      console.error('GroupSessionsEnd: failed to update session', {
+      logger.error('group_sessions.end.update_failed', {
         slug,
         sessionId: session.id,
         error: updateError.message,
       });
-      return NextResponse.json(
-        { error: 'session_update_failed' },
-        { status: 500 }
-      );
+      return errorResponse('unknown_error');
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('GroupSessionsEnd: unexpected failure', {
+    logger.error('group_sessions.end.unexpected', {
       slug,
       error: err instanceof Error ? err.message : String(err),
     });
-    return NextResponse.json({ error: 'internal_error' }, { status: 500 });
+    return errorResponse('unknown_error');
   }
 }
 
