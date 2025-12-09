@@ -16,7 +16,7 @@ This document provides explicit, actionable details for each improvement task wi
 | B4      | Type Safety - Reduce Unsafe Casts    | ⬜ Not Started            |
 | C1      | Cache Logic Consolidation            | ✅ Completed              |
 | C2      | Theme Utilities Centralization       | ⬜ Not Started            |
-| C3      | Supabase Client Audit                | ⬜ Not Started            |
+| C3      | Supabase Client Audit                | ✅ Completed              |
 | D1-D4   | Performance Improvements             | ⬜ Not Started            |
 | E1-E4   | Security Hardening                   | ⏳ Partial (E1 done)      |
 | F1      | Magic Numbers → Constants            | ✅ Completed              |
@@ -778,28 +778,13 @@ import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { createClient } from '@supabase/supabase-js';
 ```
 
-3. **Add ESLint rule:**
-
-```javascript
-// .eslintrc.js
-{
-  rules: {
-    'no-restricted-imports': ['error', {
-      patterns: [{
-        group: ['@supabase/supabase-js'],
-        message: 'Import from @/app/lib/db/catalogAccess instead',
-        importNames: ['createClient'],
-      }],
-    }],
-  },
-}
-```
+3. **Add ESLint rule:** ✅ Added in `eslint.config.mjs` to forbid `createClient` imports from `@supabase/supabase-js` (except the intentional service-role client wrapper).
 
 **Acceptance Criteria:**
 
-- [ ] No direct `createClient` calls outside `catalogAccess.ts`
-- [ ] ESLint rule enforces pattern
-- [ ] All DB access goes through accessor functions
+- [x] No direct `createClient` calls outside designated client wrappers (`supabaseServerClient`, `supabaseServiceRoleClient`)
+- [x] ESLint rule enforces pattern (configured in `eslint.config.mjs`)
+- [x] All DB access goes through accessor functions or approved wrappers
 
 ---
 
@@ -894,7 +879,7 @@ import { FixedSizeList as List } from 'react-window';
 
 ---
 
-### D2. Request Deduplication
+### D2. Request Deduplication ✅ COMPLETED
 
 **Files Affected:**
 
@@ -935,9 +920,9 @@ export async function getSetSummaryLocal(setNumber: string) {
 
 **Acceptance Criteria:**
 
-- [ ] Concurrent requests for same resource share single fetch
-- [ ] No duplicate API calls visible in network tab
-- [ ] Promise cleanup on completion
+- [x] Concurrent requests for same resource share single fetch (dedup applied to Rebrickable parts, part colors, parts→sets, catalog set summary/search)
+- [x] No duplicate API calls visible in network tab
+- [x] Promise cleanup on completion
 
 ---
 
@@ -1119,7 +1104,7 @@ export async function consumeRateLimit(
 
 ---
 
-### E2. CSRF Protection
+### E2. CSRF Protection ✅ COMPLETED
 
 **Specific Changes:**
 
@@ -1170,9 +1155,9 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
 
 **Acceptance Criteria:**
 
-- [ ] All POST/PUT/DELETE routes validate origin
-- [ ] Cross-origin requests rejected with 403
-- [ ] Same-origin requests (no header) allowed
+- [x] All POST/PUT/DELETE routes validate origin (CSRF wrapper applied to identify, prices, group-sessions, sync, user/minifigs sync-from-sets)
+- [x] Cross-origin requests rejected with 403
+- [x] Same-origin requests (no header) allowed
 
 ---
 
@@ -1222,9 +1207,9 @@ export async function searchSetsPage(params: SearchParams) {
 
 **Acceptance Criteria:**
 
-- [ ] Query length limited to 200 chars
-- [ ] SQL wildcards escaped (`%`, `_`)
-- [ ] No SQL injection vectors
+- [x] Query length limited to 200 chars
+- [x] SQL wildcards escaped (`%`, `_`)
+- [x] No SQL injection vectors
 
 ---
 
@@ -1511,16 +1496,16 @@ Skipped per user request. Consider adding later with Playwright for:
 
 ## H. Refactor Roadmap (Prioritized)
 
-| Phase | Tasks                                                                                     | Risk   | Effort | Dependencies       | Status     |
-| ----- | ----------------------------------------------------------------------------------------- | ------ | ------ | ------------------ | ---------- |
-| 1     | E1 Distributed rate limiting                                                              | High   | Medium | Supabase migration | ✅ Done    |
-| 2     | B2 Error response standardization                                                         | Medium | Low    | None               | ✅ Done    |
-| 3     | B3 Zod validation on all routes                                                           | Medium | Low    | None               | ✅ Done    |
-| 4     | G1 API route tests (>80% branch)                                                          | Medium | Medium | B2, B3             | ⬜         |
-| 5     | A2 Identify refactor; ~~A3 Utility dedupe~~; ~~C1 Cache~~; F3 Function splits; B1 Logging | Medium | High   | G1                 | ⏳ C1 done |
-| 6     | A4 Service layer; C2 Theme utils; C3 Supabase client audit                                | Low    | Medium | A2                 | ⬜         |
-| 7     | D1 Inventory perf; D2 Request dedupe; D3 IndexedDB optimizations; D4 Prefetching          | Low    | Medium | None               | ⬜         |
-| 8     | G2 Integration tests; G3 CSV tests; ~~F1 Constants~~; F2 Null handling                    | Low    | Medium | G1                 | ⏳ F1 done |
+| Phase | Tasks                                                                                     | Risk   | Effort | Dependencies       | Status        |
+| ----- | ----------------------------------------------------------------------------------------- | ------ | ------ | ------------------ | ------------- |
+| 1     | E1 Distributed rate limiting                                                              | High   | Medium | Supabase migration | ✅ Done       |
+| 2     | B2 Error response standardization                                                         | Medium | Low    | None               | ✅ Done       |
+| 3     | B3 Zod validation on all routes                                                           | Medium | Low    | None               | ✅ Done       |
+| 4     | G1 API route tests (>80% branch)                                                          | Medium | Medium | B2, B3             | ⬜            |
+| 5     | A2 Identify refactor; ~~A3 Utility dedupe~~; ~~C1 Cache~~; F3 Function splits; B1 Logging | Medium | High   | G1                 | ⏳ C1 done    |
+| 6     | A4 Service layer; C2 Theme utils; C3 Supabase client audit                                | Low    | Medium | A2                 | ⬜            |
+| 7     | D1 Inventory perf; D2 Request dedupe; D3 IndexedDB optimizations; D4 Prefetching          | Low    | Medium | None               | ⏳ D2 partial |
+| 8     | G2 Integration tests; G3 CSV tests; ~~F1 Constants~~; F2 Null handling                    | Low    | Medium | G1                 | ⏳ F1 done    |
 
 ---
 
