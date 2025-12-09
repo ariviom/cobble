@@ -87,13 +87,20 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
 		const clientIdentifier = getClientIdentifier(req);
 		const rateLimitResult = applyIdentifyRateLimit(clientIdentifier);
 		if (rateLimitResult.limited) {
-			const details = rateLimitResult.retryAfter
-				? { headers: { 'Retry-After': String(rateLimitResult.retryAfter) } }
-				: undefined;
-			return errorResponse(
-				'rate_limited',
-				details ? { status: 429, details } : { status: 429 }
-			);
+			const retryAfterSeconds =
+				rateLimitResult.retryAfter !== undefined
+					? Math.max(0, Number(rateLimitResult.retryAfter))
+					: undefined;
+
+			return errorResponse('rate_limited', {
+				status: 429,
+				...(retryAfterSeconds !== undefined
+					? { headers: { 'Retry-After': String(retryAfterSeconds) } }
+					: {}),
+				...(retryAfterSeconds !== undefined
+					? { details: { retryAfterSeconds } }
+					: {}),
+			});
 		}
 
 		const form = await req.formData();

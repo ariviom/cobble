@@ -27,12 +27,18 @@ const STATUS_MAP: Partial<Record<AppErrorCode, number>> = {
 
 export function errorResponse(
   code: AppErrorCode,
-  options?: { message?: string; status?: number; details?: Record<string, unknown> }
+  options?: {
+    message?: string;
+    status?: number;
+    details?: Record<string, unknown>;
+    headers?: HeadersInit;
+  }
 ): NextResponse<ApiErrorResponse> {
   const status = options?.status ?? STATUS_MAP[code] ?? 500;
   logger.warn('api.error', { code, status, details: options?.details });
   return NextResponse.json(toApiError(code, options?.message, options?.details), {
     status,
+    ...(options?.headers ? { headers: options.headers } : {}),
   });
 }
 

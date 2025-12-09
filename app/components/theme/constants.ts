@@ -1,7 +1,5 @@
 export const USER_THEME_KEY = 'userTheme';
-export const DEVICE_THEME_KEY = 'deviceTheme';
 export const USER_THEME_COLOR_KEY = 'userThemeColor';
-export const DEVICE_THEME_COLOR_KEY = 'deviceThemeColor';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';

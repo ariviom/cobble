@@ -252,6 +252,7 @@ export type IdentifyResolved =
         availableColors: PartAvailableColor[];
         selectedColorId: number | null;
         sets: BLFallbackResult['sets'];
+        source: BLFallbackResult['source'];
       };
     }
   | { status: 'no_match' }

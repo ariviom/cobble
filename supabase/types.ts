@@ -41,6 +41,59 @@ export type Database = {
         }
         Relationships: []
       }
+      bl_part_sets: {
+        Row: {
+          bl_part_id: string
+          set_num: string
+          quantity: number | null
+          source: string
+          last_fetched_at: string
+        }
+        Insert: {
+          bl_part_id: string
+          set_num: string
+          quantity?: number | null
+          source: string
+          last_fetched_at?: string
+        }
+        Update: {
+          bl_part_id?: string
+          set_num?: string
+          quantity?: number | null
+          source?: string
+          last_fetched_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bl_part_sets_bl_part_id_fkey"
+            columns: ["bl_part_id"]
+            isOneToOne: false
+            referencedRelation: "bl_parts"
+            referencedColumns: ["bl_part_id"]
+          },
+        ]
+      }
+      bl_parts: {
+        Row: {
+          bl_part_id: string
+          name: string | null
+          image_url: string | null
+          last_fetched_at: string
+        }
+        Insert: {
+          bl_part_id: string
+          name?: string | null
+          image_url?: string | null
+          last_fetched_at?: string
+        }
+        Update: {
+          bl_part_id?: string
+          name?: string | null
+          image_url?: string | null
+          last_fetched_at?: string
+        }
+        Relationships: []
+      }
       bl_set_minifigs: {
         Row: {
           image_url: string | null

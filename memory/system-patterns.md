@@ -97,7 +97,7 @@
   - A shared middleware (`utils/supabase/middleware.ts` + root `middleware.ts`) keeps Supabase auth cookies refreshed on each matched request so SSR code can trust `supabase.auth.getUser()` / `getClaims()` without manual Bearer headers.
 - **Where SSR is used**
   - **Layout & theming**
-    - `app/layout.tsx` is an async Server Component that uses `getSupabaseAuthServerClient` to read `user_preferences.theme` and passes an `initialTheme` into `ThemeProvider` (via next-themes) so the first paint uses the account theme without flicker.
+    - `app/layout.tsx` is an async Server Component that uses `getSupabaseAuthServerClient` to read `user_preferences.theme` **and `theme_color`**, then passes `initialTheme` and `initialThemeColor` into `ThemeProvider` (via next-themes) so the first paint uses the account preference without flicker. The client `ThemeProvider` persists via `userTheme` / `userThemeColor` localStorage and updates Supabase when the user changes theme or theme color. No theme cookie is used.
   - **Account & user preferences**
     - `app/account/page.tsx` is an async Server Component that:
       - Reads the current user via Supabase SSR.

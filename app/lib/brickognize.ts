@@ -233,10 +233,10 @@ export function extractCandidatePartNumbers(
       const base = {
         partNum,
         confidence,
-        colorId,
-        colorName,
-        imageUrl,
-        name: candidateName,
+        ...(colorId !== undefined ? { colorId } : {}),
+        ...(colorName !== undefined ? { colorName } : {}),
+        ...(imageUrl !== undefined ? { imageUrl } : {}),
+        ...(candidateName !== undefined ? { name: candidateName } : {}),
       };
       if (bricklinkId && bricklinkId.length > 0) {
         out.push({ ...base, bricklinkId });

@@ -2,6 +2,7 @@ import 'server-only';
 
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { normalizeText } from '@/app/lib/rebrickable';
+import { buildThemeHelpersFromMap } from '@/app/lib/themes';
 
 export type LocalTheme = {
   id: number;
@@ -48,42 +49,7 @@ export type ThemeMeta = { themeName: string | null; themePath: string | null };
 
 export function buildThemeMetaHelpers(themes: LocalTheme[]) {
   const themeById = new Map<number, LocalTheme>(themes.map(t => [t.id, t]));
-  const themePathCache = new Map<number, string>();
-
-  function getThemeMeta(
-    themeId: number | null | undefined
-  ): ThemeMeta {
-    if (themeId == null || !Number.isFinite(themeId)) {
-      return { themeName: null, themePath: null };
-    }
-    const id = themeId as number;
-    const theme = themeById.get(id);
-    const themeName = theme?.name ?? null;
-
-    let path: string | null = null;
-    if (themePathCache.has(id)) {
-      path = themePathCache.get(id) ?? null;
-    } else if (theme) {
-      const names: string[] = [];
-      const visited = new Set<number>();
-      let current: LocalTheme | null | undefined = theme;
-      while (current && !visited.has(current.id)) {
-        names.unshift(current.name);
-        visited.add(current.id);
-        if (current.parent_id != null) {
-          current = themeById.get(current.parent_id) ?? null;
-        } else {
-          current = null;
-        }
-      }
-      path = names.length > 0 ? names.join(' / ') : null;
-      if (path != null) {
-        themePathCache.set(id, path);
-      }
-    }
-
-    return { themeName, themePath: path };
-  }
+  const { getThemeMeta } = buildThemeHelpersFromMap(themeById);
 
   function matchesTheme(
     queryNorm: string,

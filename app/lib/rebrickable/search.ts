@@ -1,9 +1,9 @@
 import { LRUCache } from '@/app/lib/cache/lru';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import { getThemes } from '@/app/lib/rebrickable/themes';
+import { buildThemeHelpers } from '@/app/lib/themes';
 import type {
     RebrickableSetSearchResult,
-    RebrickableTheme,
     SimpleSet,
 } from '@/app/lib/rebrickable/types';
 import { normalizeText } from '@/app/lib/rebrickable/utils';
@@ -263,10 +263,7 @@ export async function getAggregatedSearchResults(
   // Load themes to (a) support theme-based keyword matching and (b) exclude
   // non-set categories like Books and Gear.
   const themes = await getThemes();
-  const themeById = new Map<number, RebrickableTheme>(
-    themes.map(t => [t.id, t])
-  );
-  const themePathCache = new Map<number, string>();
+  const { getThemeMeta, themeById } = buildThemeHelpers(themes);
   const EXCLUDED_THEME_KEYWORDS = [
     'book',
     'books',
@@ -287,41 +284,6 @@ export async function getAggregatedSearchResults(
     'game',
     'games',
   ];
-
-  function getThemeMeta(
-    themeId: number | null | undefined
-  ): { themeName: string | null; themePath: string | null } {
-    if (themeId == null || !Number.isFinite(themeId)) {
-      return { themeName: null, themePath: null };
-    }
-    const id = themeId as number;
-    const theme = themeById.get(id);
-    const themeName = theme?.name ?? null;
-
-    let path: string | null = null;
-    if (themePathCache.has(id)) {
-      path = themePathCache.get(id) ?? null;
-    } else if (theme) {
-      const names: string[] = [];
-      const visited = new Set<number>();
-      let current: RebrickableTheme | null | undefined = theme;
-      while (current && !visited.has(current.id)) {
-        names.unshift(current.name);
-        visited.add(current.id);
-        if (current.parent_id != null) {
-          current = themeById.get(current.parent_id) ?? null;
-        } else {
-          current = null;
-        }
-      }
-      path = names.length > 0 ? names.join(' / ') : null;
-      if (path != null) {
-        themePathCache.set(id, path);
-      }
-    }
-
-    return { themeName, themePath: path };
-  }
 
   function getMatchTypeForThemeId(
     themeId: number | null | undefined

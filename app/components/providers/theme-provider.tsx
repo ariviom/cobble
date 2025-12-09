@@ -36,94 +36,99 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 function isThemeColor(value: unknown): value is ThemeColor {
-  return (
-    value === 'blue' ||
-    value === 'yellow' ||
-    value === 'purple' ||
-    value === 'red' ||
-    value === 'green'
-  );
+	return (
+		value === 'blue' ||
+		value === 'yellow' ||
+		value === 'purple' ||
+		value === 'red' ||
+		value === 'green'
+	);
 }
 
 function readStoredThemeColor(key: string): ThemeColor | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const value = window.localStorage.getItem(key);
-    return isThemeColor(value) ? value : null;
-  } catch {
-    return null;
-  }
+	if (typeof window === 'undefined') return null;
+	try {
+		const value = window.localStorage.getItem(key);
+		return isThemeColor(value) ? value : null;
+	} catch {
+		return null;
+	}
 }
 
 function persistThemeColor(color: ThemeColor) {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(USER_THEME_COLOR_KEY, color);
-  } catch {
-    // ignore storage errors
-  }
+	if (typeof window === 'undefined') return;
+	try {
+		window.localStorage.setItem(USER_THEME_COLOR_KEY, color);
+	} catch {
+		// ignore storage errors
+	}
 }
 
 function applyThemeColor(nextColor: ThemeColor) {
-  const cssValue =
-    THEME_COLOR_TO_VALUE[nextColor] ??
-    THEME_COLOR_TO_VALUE[DEFAULT_THEME_COLOR];
-  if (typeof document !== 'undefined') {
-    const root = document.documentElement;
-    root?.style.setProperty('--color-theme-primary', cssValue);
-  }
-  persistThemeColor(nextColor);
+	const cssValue =
+		THEME_COLOR_TO_VALUE[nextColor] ??
+		THEME_COLOR_TO_VALUE[DEFAULT_THEME_COLOR];
+	if (typeof document !== 'undefined') {
+		const root = document.documentElement;
+		root?.style.setProperty('--color-theme-primary', cssValue);
+	}
+	persistThemeColor(nextColor);
 }
 
 async function saveUserPreferences(
-  userId: string,
-  preferences: {
-    theme?: ThemePreference;
-    themeColor?: ThemeColor;
-  }
+	userId: string,
+	preferences: {
+		theme?: ThemePreference;
+		themeColor?: ThemeColor;
+	}
 ): Promise<void> {
-  const supabase = getSupabaseBrowserClient();
-  const payload: {
-    user_id: string;
-    updated_at: string;
-    theme?: ThemePreference;
-    theme_color?: ThemeColor;
-  } = {
-    user_id: userId,
-    updated_at: new Date().toISOString(),
-  };
+	const supabase = getSupabaseBrowserClient();
+	const payload: {
+		user_id: string;
+		updated_at: string;
+		theme?: ThemePreference;
+		theme_color?: ThemeColor;
+	} = {
+		user_id: userId,
+		updated_at: new Date().toISOString(),
+	};
 
-  if (preferences.theme !== undefined) {
-    payload.theme = preferences.theme;
-  }
+	if (preferences.theme !== undefined) {
+		payload.theme = preferences.theme;
+	}
 
-  if (preferences.themeColor !== undefined) {
-    payload.theme_color = preferences.themeColor;
-  }
+	if (preferences.themeColor !== undefined) {
+		payload.theme_color = preferences.themeColor;
+	}
 
-  await supabase
-    .from('user_preferences')
-    .upsert(payload, { onConflict: 'user_id' });
+	await supabase
+		.from('user_preferences')
+		.upsert(payload, { onConflict: 'user_id' });
 }
 
 type ThemeProviderProps = PropsWithChildren<{
-  initialTheme?: ThemePreference | undefined;
+	initialTheme?: ThemePreference | undefined;
+	initialThemeColor?: ThemeColor | undefined;
 }>;
 
-function AppThemeInner({ children }: PropsWithChildren) {
+function AppThemeInner({
+	children,
+	initialThemeColor,
+}: PropsWithChildren<{ initialThemeColor?: ThemeColor }>) {
   const { user } = useSupabaseUser();
   const { theme, resolvedTheme, setTheme: setNextTheme } = useNextTheme();
-  const [themeColor, setThemeColorState] =
-    useState<ThemeColor>(DEFAULT_THEME_COLOR);
+	const [themeColor, setThemeColorState] = useState<ThemeColor>(DEFAULT_THEME_COLOR);
   const [isMounted, setIsMounted] = useState(false);
+	const [isLoadingColor, setIsLoadingColor] = useState(true);
 
   useEffect(() => {
     setIsMounted(true);
-    const storedColor = readStoredThemeColor(USER_THEME_COLOR_KEY);
-    const nextColor = storedColor ?? DEFAULT_THEME_COLOR;
-    setThemeColorState(nextColor);
-    applyThemeColor(nextColor);
-  }, []);
+		const storedColor = readStoredThemeColor(USER_THEME_COLOR_KEY);
+		const nextColor = initialThemeColor ?? storedColor ?? DEFAULT_THEME_COLOR;
+		setThemeColorState(nextColor);
+		applyThemeColor(nextColor);
+    setIsLoadingColor(false);
+	}, [initialThemeColor]);
 
   const setTheme = useCallback(
     (nextTheme: ThemePreference) => {
@@ -140,28 +145,28 @@ function AppThemeInner({ children }: PropsWithChildren) {
     [setNextTheme, themeColor, user]
   );
 
-  const setThemeColor = useCallback(
-    (nextColor: ThemeColor) => {
-      setThemeColorState(nextColor);
-      applyThemeColor(nextColor);
-      if (user) {
-        const normalizedTheme =
-          theme === 'light' || theme === 'dark' || theme === 'system'
-            ? (theme as ThemePreference)
-            : undefined;
-        const payload: { themeColor: ThemeColor; theme?: ThemePreference } = {
-          themeColor: nextColor,
-        };
-        if (normalizedTheme) {
-          payload.theme = normalizedTheme;
-        }
-        void saveUserPreferences(user.id, payload).catch(() => {
-          // non-fatal
-        });
-      }
-    },
-    [theme, user]
-  );
+	const setThemeColor = useCallback(
+		(nextColor: ThemeColor) => {
+			setThemeColorState(nextColor);
+			applyThemeColor(nextColor);
+			if (user) {
+				const normalizedTheme =
+					theme === 'light' || theme === 'dark' || theme === 'system'
+						? (theme as ThemePreference)
+						: undefined;
+				const payload: { themeColor: ThemeColor; theme?: ThemePreference } = {
+					themeColor: nextColor,
+				};
+				if (normalizedTheme) {
+					payload.theme = normalizedTheme;
+				}
+				void saveUserPreferences(user.id, payload).catch(() => {
+					// non-fatal
+				});
+			}
+		},
+		[theme, user]
+	);
 
   const contextValue = useMemo<ThemeContextValue>(() => {
     const safeTheme =
@@ -177,11 +182,19 @@ function AppThemeInner({ children }: PropsWithChildren) {
       theme: safeTheme,
       resolvedTheme: safeResolved,
       themeColor,
-      isLoading: !isMounted,
+      isLoading: !isMounted || isLoadingColor,
       setTheme,
       setThemeColor,
     };
-  }, [isMounted, resolvedTheme, setTheme, setThemeColor, theme, themeColor]);
+  }, [
+    isMounted,
+    isLoadingColor,
+    resolvedTheme,
+    setTheme,
+    setThemeColor,
+    theme,
+    themeColor,
+  ]);
 
   return (
     <ThemeContext.Provider value={contextValue}>
@@ -190,19 +203,28 @@ function AppThemeInner({ children }: PropsWithChildren) {
   );
 }
 
-export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
-  return (
-    <NextThemesProvider
-      attribute="class"
-      defaultTheme={initialTheme ?? 'light'}
-      enableSystem={false}
-      storageKey={USER_THEME_KEY}
-      enableColorScheme
-    >
-      <AppThemeInner>{children}</AppThemeInner>
-    </NextThemesProvider>
-  );
+export function ThemeProvider({
+	children,
+	initialTheme,
+	initialThemeColor,
+}: ThemeProviderProps) {
+	return (
+		<NextThemesProvider
+			attribute="class"
+			defaultTheme={initialTheme ?? 'light'}
+			enableSystem={false}
+			storageKey={USER_THEME_KEY}
+			enableColorScheme
+		>
+			<AppThemeInner
+				{...(initialThemeColor !== undefined ? { initialThemeColor } : {})}
+			>
+				{children}
+			</AppThemeInner>
+		</NextThemesProvider>
+	);
 }
+
 
 export function useThemeContext(): ThemeContextValue {
   const context = useContext(ThemeContext);

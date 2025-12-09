@@ -303,9 +303,9 @@ export async function fetchBLSupersetsFallback(
 					year: s.year,
 					imageUrl: normalizeBLImageUrl(s.imageUrl),
 					quantity: s.quantity,
-					numParts: s.numParts,
-					themeId: s.themeId,
-					themeName: s.themeName,
+					numParts: s.numParts ?? null,
+					themeId: s.themeId ?? null,
+					themeName: s.themeName ?? null,
 				}));
 				if (mapped.length) perComponentSets.push(mapped);
 			} catch (err) {
@@ -398,9 +398,9 @@ export async function fetchBLSupersetsFallback(
 						year: s.year,
 						imageUrl: normalizeBLImageUrl(s.imageUrl),
 						quantity: s.quantity,
-						numParts: s.numParts,
-						themeId: s.themeId,
-						themeName: s.themeName,
+						numParts: s.numParts ?? null,
+						themeId: s.themeId ?? null,
+						themeName: s.themeName ?? null,
 					};
 					if (existing) {
 						existing.hits += 1;

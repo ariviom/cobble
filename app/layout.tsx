@@ -7,9 +7,9 @@ import { resolveThemePreference } from '@/app/lib/theme/resolve';
 import { buildUserHandle } from '@/app/lib/users';
 import type { User } from '@supabase/supabase-js';
 import type { Metadata, Viewport } from 'next';
-import { cookies } from 'next/headers';
 import type {
   ResolvedTheme,
+  ThemeColor,
   ThemePreference,
 } from './components/theme/constants';
 import './styles/globals.css';
@@ -45,11 +45,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-
   let dbTheme: ThemePreference | null = null;
   let initialUser: User | null = null;
   let initialHandle: string | null = null;
+  let dbThemeColor: ThemeColor | null = null;
 
   try {
     const supabase = await getSupabaseAuthServerClient();
@@ -63,7 +62,7 @@ export default async function RootLayout({
       // Load theme preference
       const { data: preferences, error: themeError } = await supabase
         .from('user_preferences')
-        .select('theme')
+        .select('theme, theme_color')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -74,6 +73,17 @@ export default async function RootLayout({
           preferences.theme === 'system'
         ) {
           dbTheme = preferences.theme;
+        }
+      }
+      if (!themeError && preferences?.theme_color) {
+        if (
+          preferences.theme_color === 'blue' ||
+          preferences.theme_color === 'yellow' ||
+          preferences.theme_color === 'purple' ||
+          preferences.theme_color === 'red' ||
+          preferences.theme_color === 'green'
+        ) {
+          dbThemeColor = preferences.theme_color;
         }
       }
 
@@ -107,36 +117,18 @@ export default async function RootLayout({
     // Swallow errors and fall back to client-side theme handling.
   }
 
-  const cookieThemeRaw =
-    cookieStore.get('brickparty_theme_pref')?.value ?? null;
-  const cookieTheme: ThemePreference | null =
-    cookieThemeRaw === 'light' ||
-    cookieThemeRaw === 'dark' ||
-    cookieThemeRaw === 'system'
-      ? cookieThemeRaw
-      : null;
-
   // On the server we don't know the real system preference; use 'light'
   // as a conservative default and let the client refine 'system' if needed.
   const systemTheme: ResolvedTheme = 'light';
 
-  // For signed-in users, prefer DB; ignore cookie. If DB missing, fall back to light
-  // instead of "system" to avoid dark flashes for users who chose light.
-  let initialTheme: ThemePreference;
-  let resolved: ResolvedTheme;
-  if (initialUser) {
-    const pref: ThemePreference = dbTheme ?? 'light';
-    initialTheme = pref;
-    resolved = pref === 'system' ? systemTheme : pref;
-  } else {
-    const { preference, resolved: resolvedTheme } = resolveThemePreference({
-      dbTheme,
-      cookieTheme,
-      systemTheme,
-    });
-    initialTheme = preference;
-    resolved = resolvedTheme;
-  }
+  // For signed-in users, prefer DB; if missing, fall back to light instead of "system"
+  // to avoid dark flashes for users who chose light. For anon users, resolve using
+  // the standard precedence (db -> cookie -> system), but cookies are no longer used.
+  const { preference: initialTheme, resolved } = resolveThemePreference({
+    dbTheme,
+    cookieTheme: null,
+    systemTheme,
+  });
 
   return (
     <html
@@ -154,7 +146,10 @@ export default async function RootLayout({
       </head>
       <body className="bg-background text-foreground antialiased">
         <AuthProvider initialUser={initialUser} initialHandle={initialHandle}>
-          <ThemeProvider initialTheme={initialTheme}>
+          <ThemeProvider
+            initialTheme={initialTheme}
+            initialThemeColor={dbThemeColor ?? undefined}
+          >
             <ReactQueryProvider>
               <ErrorBoundary>{children}</ErrorBoundary>
             </ReactQueryProvider>

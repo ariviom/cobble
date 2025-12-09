@@ -1,11 +1,12 @@
 import { errorResponse } from '@/app/lib/api/responses';
+import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { enrichMinifigs } from '@/app/lib/services/minifigEnrichment';
 import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 
 const MAX_BATCH_SIZE = 50;
 
-export async function POST(req: NextRequest) {
+export const POST = withCsrfProtection(async (req: NextRequest) => {
   try {
     const body = (await req.json()) ?? {};
     const figNumsRaw = Array.isArray(body.figNums) ? body.figNums : [];
@@ -48,4 +49,5 @@ export async function POST(req: NextRequest) {
     });
     return errorResponse('enrichment_failed');
   }
-}
+});
+
