@@ -42,7 +42,7 @@
 - Supabase SSR & auth-aware surfaces:
   - `@supabase/ssr` wired for both browser (`getSupabaseBrowserClient`) and server (`getSupabaseAuthServerClient`) clients.
   - Root `middleware.ts` + `utils/supabase/middleware.ts` keep Supabase auth cookies synchronized for SSR.
-  - `app/layout.tsx` now uses Supabase SSR to load `user_preferences.theme` and passes an `initialTheme` into `ThemeScript` and `ThemeProvider` to avoid theme flicker between Supabase and local state.
+- `app/layout.tsx` now uses Supabase SSR to load `user_preferences.theme` and passes an `initialTheme` into `ThemeProvider` (via next-themes) to avoid theme flicker between Supabase and local state.
   - `/api/user-sets` uses the SSR server client and cookies instead of manual Bearer tokens; `useHydrateUserSets` calls it with `credentials: 'same-origin'` and no longer logs “no access token available”.
   - `/api/prices/bricklink` and `/api/prices/bricklink-set` use Supabase SSR to load per-user pricing preferences when authenticated; `useInventoryPrices` calls `/api/prices/bricklink` without embedding Supabase tokens.
   - `app/account/page.tsx` is now an async Server Component that preloads user + profile + pricing preferences and delegates interactive behavior to `AccountPageClient`.

@@ -16,4 +16,3 @@ export const THEME_COLOR_TO_VALUE: Record<ThemeColor, string> = {
   red: 'var(--color-brand-red)',
   green: 'var(--color-brand-green)',
 };
-

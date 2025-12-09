@@ -16,7 +16,7 @@
 - Validate CSV exports and Identify responses against Rebrickable/BrickLink import behavior on the target test sets.
 - Tighten pricing UX and performance on the set page and inventory table.
 - Introduce Supabase SSR auth for:
-  - Layout + theme bootstrap (`app/layout.tsx` + `ThemeScript` + `ThemeProvider`).
+  - Layout + theme bootstrap (SSR-resolved theme passed to `ThemeProvider` via next-themes).
   - Account page (`app/account/page.tsx` + `AccountPageClient`).
   - User sets hydration (`/api/user-sets` + `useHydrateUserSets`).
   - BrickLink pricing endpoints (`/api/prices/bricklink` and `/api/prices/bricklink-set`) and `useInventoryPrices`.

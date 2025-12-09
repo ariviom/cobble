@@ -19,13 +19,13 @@ import {
 } from '@/app/lib/pricing';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import {
-  loadUserPricingPreferences,
-  saveUserPricingPreferences,
-} from '@/app/lib/userPricingPreferences';
-import {
   saveUserMinifigSyncPreferences,
   type MinifigSyncPreferences,
 } from '@/app/lib/userMinifigSyncPreferences';
+import {
+  loadUserPricingPreferences,
+  saveUserPricingPreferences,
+} from '@/app/lib/userPricingPreferences';
 import { buildUserHandle, normalizeUsernameCandidate } from '@/app/lib/users';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import type { Tables } from '@/supabase/types';
@@ -33,6 +33,10 @@ import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
+import {
+  USER_THEME_COLOR_KEY,
+  USER_THEME_KEY,
+} from '../components/theme/constants';
 
 type UserProfileRow = Tables<'user_profiles'>;
 type UserId = UserProfileRow['user_id'];
@@ -159,9 +163,8 @@ export default function AccountPageClient({
   const [activeTab, setActiveTab] = useState<'account' | 'display' | 'sets'>(
     'account'
   );
-  const [syncOwnedMinifigsFromSets, setSyncOwnedMinifigsFromSets] = useState<
-    boolean
-  >(initialSyncOwnedMinifigsFromSets ?? true);
+  const [syncOwnedMinifigsFromSets, setSyncOwnedMinifigsFromSets] =
+    useState<boolean>(initialSyncOwnedMinifigsFromSets ?? true);
   const [isSavingMinifigSync, setIsSavingMinifigSync] = useState(false);
   const [isRunningMinifigSyncNow, setIsRunningMinifigSyncNow] = useState(false);
   const [minifigSyncError, setMinifigSyncError] = useState<string | null>(null);
@@ -326,14 +329,13 @@ export default function AccountPageClient({
         method: 'POST',
         credentials: 'same-origin',
       });
-      const data = (await res.json().catch(() => null)) as
-        | { ok?: boolean; updated?: number }
-        | null;
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        updated?: number;
+      } | null;
 
       if (!res.ok || !data?.ok) {
-        setMinifigSyncError(
-          'Sync failed. Please try again in a moment.'
-        );
+        setMinifigSyncError('Sync failed. Please try again in a moment.');
         return;
       }
 
@@ -395,6 +397,23 @@ export default function AccountPageClient({
       }
     } finally {
       setIsSavingPricing(false);
+    }
+  };
+
+  const clearThemePersistence = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem(USER_THEME_KEY);
+        window.localStorage.removeItem(USER_THEME_COLOR_KEY);
+      } catch {
+        // ignore storage errors
+      }
+      try {
+        document.cookie =
+          'brickparty_theme_pref=; Path=/; Max-Age=0; SameSite=Lax';
+      } catch {
+        // ignore cookie errors
+      }
     }
   };
 
@@ -561,6 +580,7 @@ export default function AccountPageClient({
         return;
       }
 
+      clearThemePersistence();
       setUser(null);
       setProfile(null);
       router.push('/login');
@@ -904,8 +924,8 @@ export default function AccountPageClient({
                 </h3>
                 <div className="flex flex-col gap-1">
                   <p className="text-xs text-foreground-muted">
-                    Control who can see your lists and how your public
-                    profile link works.
+                    Control who can see your lists and how your public profile
+                    link works.
                   </p>
                   <div className="mt-2 flex flex-col gap-3">
                     <div className="flex flex-col gap-1">
@@ -913,9 +933,9 @@ export default function AccountPageClient({
                         Public lists
                       </label>
                       <p className="text-xs text-foreground-muted">
-                        When enabled, your wishlist and custom lists can
-                        be viewed by anyone with your public link. Owned
-                        quantities are never shared.
+                        When enabled, your wishlist and custom lists can be
+                        viewed by anyone with your public link. Owned quantities
+                        are never shared.
                       </p>
                       <div className="mt-2 inline-flex items-center gap-2 text-xs">
                         <button
@@ -948,8 +968,7 @@ export default function AccountPageClient({
                       </label>
                       <p className="text-xs text-foreground-muted">
                         Share this link so others can see your wishlist and
-                        lists. It will only work when public lists
-                        are enabled.
+                        lists. It will only work when public lists are enabled.
                       </p>
                       <div className="mt-2 flex items-center gap-2">
                         <Input
@@ -1275,9 +1294,10 @@ export default function AccountPageClient({
                   Minifigure sync from owned sets
                 </h3>
                 <p className="mt-1 text-xs text-foreground-muted">
-                  When enabled, Brick Party keeps your <span className="font-medium">owned</span>{' '}
-                  minifigures in sync with the sets you&apos;ve marked as owned.
-                  Minifigure wishlists are never created or updated automatically.
+                  When enabled, Brick Party keeps your{' '}
+                  <span className="font-medium">owned</span> minifigures in sync
+                  with the sets you&apos;ve marked as owned. Minifigure
+                  wishlists are never created or updated automatically.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                   <label className="inline-flex items-center gap-2">
@@ -1286,7 +1306,9 @@ export default function AccountPageClient({
                       className="h-3 w-3 accent-theme-primary"
                       checked={syncOwnedMinifigsFromSets}
                       onChange={event =>
-                        void handleSaveMinifigSyncPreference(event.target.checked)
+                        void handleSaveMinifigSyncPreference(
+                          event.target.checked
+                        )
                       }
                       disabled={!isLoggedIn || isSavingMinifigSync}
                     />
@@ -1315,9 +1337,10 @@ export default function AccountPageClient({
                   One-time sync from owned sets
                 </p>
                 <p className="mt-1 text-[11px] text-foreground-muted">
-                  This will recompute your <span className="font-medium">owned</span> minifigures
-                  from the sets you&apos;ve marked as owned. Minifigure quantities will
-                  be adjusted to match quantities found in those sets.
+                  This will recompute your{' '}
+                  <span className="font-medium">owned</span> minifigures from
+                  the sets you&apos;ve marked as owned. Minifigure quantities
+                  will be adjusted to match quantities found in those sets.
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Button

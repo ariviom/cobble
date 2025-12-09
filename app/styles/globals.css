@@ -166,6 +166,19 @@ body {
   font-family: 'CeraPro', sans-serif;
 }
 
+/* Prevent OS-level prefers-color-scheme from painting dark before our theme runs.
+   This ensures that even if the OS prefers dark, we won't flash a dark theme
+   on first paint if the user's account preference is light. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: light;
+  }
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
 .dark img[data-knockout='true'] {
   filter: url('#knockout-white');
 }
