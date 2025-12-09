@@ -256,6 +256,28 @@ export class BrickPartyDB extends Dexie {
       uiState: 'key',
       recentSets: 'setNumber, visitedAt',
     });
+
+    // Version 4: add compound indexes for common query patterns (set + color).
+    this.version(4).stores({
+      catalogSets: 'setNumber, themeId, year, cachedAt',
+      catalogParts: 'partNum, categoryId, parentCategory, cachedAt',
+      catalogColors: 'id, cachedAt',
+      catalogSetParts:
+        '++id, setNumber, partNum, colorId, inventoryKey, [setNumber+inventoryKey], [setNumber+colorId]',
+      catalogSetMeta: 'setNumber, inventoryCachedAt, inventoryVersion',
+      catalogMinifigs: 'figNum, blId, cachedAt',
+
+      localOwned:
+        '++id, setNumber, inventoryKey, [setNumber+inventoryKey], [setNumber+colorId], updatedAt',
+      localCollections: 'id, userId, type, updatedAt',
+      localCollectionItems: '++id, collectionId, itemType, itemId, addedAt',
+
+      syncQueue: '++id, table, createdAt, retryCount',
+      meta: 'key',
+
+      uiState: 'key',
+      recentSets: 'setNumber, visitedAt',
+    });
   }
 }
 

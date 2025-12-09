@@ -1,43 +1,15 @@
 import { errorResponse } from '@/app/lib/api/responses';
-import { blGetPartPriceGuide } from '@/app/lib/bricklink';
-import { mapToBrickLink } from '@/app/lib/mappings/rebrickableToBricklink';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import {
     DEFAULT_PRICING_PREFERENCES,
-    formatPricingScopeLabel,
 } from '@/app/lib/pricing';
+import { fetchBricklinkPrices, type PriceRequestItem } from '@/app/lib/services/pricing';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
 import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-
-type PriceRequestItem = {
-  key: string;
-  partId: string;
-  colorId: number;
-};
-
-type PricingSource = 'real_time' | 'historical' | 'unavailable';
-
-type PriceResponseEntry = {
-  unitPrice: number | null;
-  minPrice: number | null;
-  maxPrice: number | null;
-  currency: string | null;
-  bricklinkColorId: number | null;
-  itemType: 'PART' | 'MINIFIG';
-   /**
-    * Human-readable reminder of the pricing context, e.g. "USD/Global" or
-    * "EUR/Germany".
-    */
-  scopeLabel: string | null;
-  pricingSource: PricingSource;
-  pricing_source: PricingSource;
-  lastUpdatedAt: string | null;
-  nextRefreshAt: string | null;
-};
 
 const MAX_ITEMS = 100;
 const BATCH_SIZE = 10;
@@ -101,8 +73,6 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     });
   }
 
-  const scopeLabel = formatPricingScopeLabel(pricingPrefs);
-
   const ipLimit = await consumeRateLimit(`ip:${clientIp}`, {
     windowMs: RATE_WINDOW_MS,
     maxHits: RATE_LIMIT_PER_MINUTE,
@@ -143,61 +113,10 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     }
   }
 
-  // Simple batched concurrency limiter to avoid hammering BrickLink
-  for (let i = 0; i < items.length; i += BATCH_SIZE) {
-    const batch = items.slice(i, i + BATCH_SIZE);
-    await Promise.all(
-      batch.map(async item => {
-        try {
-          const mapped = await mapToBrickLink(item.partId, item.colorId);
-          if (!mapped) {
-            if (process.env.NODE_ENV !== 'production') {
-              logEvent('prices.bricklink.unmapped_item', {
-                key: item.key,
-                partId: item.partId,
-                colorId: item.colorId,
-              });
-            }
-            return;
-          }
-          const pg = await blGetPartPriceGuide(
-            mapped.itemNo,
-            mapped.colorId ?? undefined,
-            mapped.itemType,
-            pricingPrefs
-          );
-          prices[item.key] = {
-            unitPrice: pg.unitPriceUsed,
-            minPrice: pg.minPriceUsed,
-            maxPrice: pg.maxPriceUsed,
-            currency: pg.currencyCode,
-            bricklinkColorId: mapped.colorId ?? null,
-            itemType: mapped.itemType,
-            scopeLabel,
-            pricingSource: 'real_time',
-            pricing_source: 'real_time',
-            lastUpdatedAt: null,
-            nextRefreshAt: null,
-          };
-          incrementCounter('prices_bricklink_fetched');
-        } catch (err) {
-          incrementCounter('prices_bricklink_item_failed', {
-            key: item.key,
-            error: err instanceof Error ? err.message : String(err),
-          });
-          if (process.env.NODE_ENV !== 'production') {
-            logger.error('prices.bricklink.price_fetch_failed', {
-              key: item.key,
-              partId: item.partId,
-              colorId: item.colorId,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-          // Swallow per-item errors; missing prices just won't be present in the map
-        }
-      })
-    );
-  }
+  const prices = await fetchBricklinkPrices(items, pricingPrefs, {
+    batchSize: BATCH_SIZE,
+    logPrefix: 'prices.bricklink',
+  });
 
   if (process.env.NODE_ENV !== 'production') {
     logEvent('prices.bricklink.response', {

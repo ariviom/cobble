@@ -47,6 +47,8 @@ const eslintConfig = [
           ],
         },
       ],
+      '@typescript-eslint/prefer-nullish-coalescing': 'error',
+      '@typescript-eslint/no-unnecessary-condition': 'warn',
     },
   },
   {
