@@ -3,40 +3,46 @@ import { z } from 'zod';
 
 import { errorResponse } from '@/app/lib/api/responses';
 import { extractCandidatePartNumbers, identifyWithBrickognize } from '@/app/lib/brickognize';
-import { getSetsForPartLocal, getSetSummaryLocal } from '@/app/lib/catalog';
 import { EXTERNAL, IMAGE, RATE_LIMIT } from '@/app/lib/constants';
-import { fetchBLSupersetsFallback } from '@/app/lib/identify/blFallback';
-import { ExternalCallBudget, isBudgetError } from '@/app/lib/identify/types';
+import { ExternalCallBudget } from '@/app/lib/identify/types';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import {
-    getPartColorsForPart,
-    getSetsForPart,
-    getSetSummary,
-    resolvePartIdToRebrickable,
-    type PartAvailableColor,
-    type PartInSet,
-} from '@/app/lib/rebrickable';
+	resolveCandidates,
+	resolveIdentifyResult,
+} from '@/app/lib/services/identify';
 import { logger } from '@/lib/metrics';
 
 const ALLOWED_IMAGE_TYPES = new Set<string>(IMAGE.ALLOWED_TYPES);
 
+function isFileLike(value: unknown): value is Blob {
+	if (!value || typeof value !== 'object') return false;
+	return value instanceof Blob || value instanceof File;
+}
+
 const identifyBodySchema = z.object({
 	image: z
-		.instanceof(File)
-		.refine(file => file.size > 0 && file.size <= IMAGE.MAX_SIZE_BYTES, {
+		.custom<Blob>(isFileLike, { message: 'image_file_required' })
+		.refine(file => typeof file.size === 'number' && file.size > 0 && file.size <= IMAGE.MAX_SIZE_BYTES, {
 			message: 'image_must_be_between_1b_and_5mb',
 		})
-		.refine(file => !file.type || ALLOWED_IMAGE_TYPES.has(file.type.toLowerCase()), {
+		.refine(file => {
+			const type = (file as { type?: string }).type;
+			return !type || ALLOWED_IMAGE_TYPES.has(type.toLowerCase());
+		}, {
 			message: `image_type_must_be_one_of_${IMAGE.ALLOWED_TYPES.join(',')}`,
 		}),
-	colorHint: z
-		.union([z.string(), z.number()])
-		.optional()
-		.transform(val => {
-			if (val === undefined) return undefined;
-			const num = typeof val === 'string' ? Number(val) : val;
-			return Number.isFinite(num) ? num : undefined;
-		}),
+	colorHint: z.preprocess(
+		val => {
+			if (val === null || val === undefined || val === '') return undefined;
+			if (typeof val === 'number') return val;
+			if (typeof val === 'string') {
+				const num = Number(val);
+				return Number.isFinite(num) ? num : undefined;
+			}
+			return undefined;
+		},
+		z.number().optional()
+	),
 });
 
 type RateLimitEntry = { count: number; resetAt: number };
@@ -74,138 +80,6 @@ function applyIdentifyRateLimit(identifier: string) {
 
 	entry.count += 1;
 	return { limited: false as const };
-}
-
-type ResolvedCandidate = {
-	partNum: string;
-	name: string;
-	imageUrl: string | null;
-	confidence: number;
-	colorId?: number;
-	colorName?: string;
-	bricklinkId?: string;
-};
-
-async function resolveCandidates(raw: ReturnType<typeof extractCandidatePartNumbers>) {
-	const resolved = await Promise.all(
-		raw.map(async candidate => {
-			const blId = typeof candidate.bricklinkId === 'string' ? candidate.bricklinkId : undefined;
-			const base = await resolvePartIdToRebrickable(
-				candidate.partNum,
-				blId ? { bricklinkId: blId } : undefined
-			);
-			const resolvedPart = base ?? (await resolvePartIdToRebrickable(candidate.partNum));
-			if (!resolvedPart) return null;
-			return {
-				partNum: resolvedPart.partNum,
-				name: resolvedPart.name,
-				imageUrl: resolvedPart.imageUrl,
-				confidence: candidate.confidence ?? 0,
-				colorId: candidate.colorId,
-				colorName: candidate.colorName,
-				bricklinkId: blId,
-			};
-		})
-	);
-	return resolved.filter(Boolean) as ResolvedCandidate[];
-}
-
-async function fetchCandidateSets(
-	partNum: string,
-	preferredColorId?: number
-): Promise<PartInSet[]> {
-	try {
-		const local = await getSetsForPartLocal(
-			partNum,
-			typeof preferredColorId === 'number' ? preferredColorId : null
-		);
-		if (local.length) return local;
-		if (typeof preferredColorId === 'number') {
-			const localAll = await getSetsForPartLocal(partNum, null);
-			if (localAll.length) return localAll;
-		}
-	} catch (err) {
-		logger.warn('identify.fetch_candidate_sets_local_failed', {
-			partNum,
-			preferredColorId,
-			error: err instanceof Error ? err.message : String(err),
-		});
-	}
-
-	if (typeof preferredColorId === 'number') {
-		try {
-			const remoteWithColor = await getSetsForPart(partNum, preferredColorId);
-			if (remoteWithColor.length) return remoteWithColor;
-		} catch (err) {
-			if (isBudgetError(err)) throw err;
-		}
-	}
-
-	try {
-		return await getSetsForPart(partNum, undefined);
-	} catch (err) {
-		if (isBudgetError(err)) throw err;
-		return [];
-	}
-}
-
-async function selectCandidateWithSets(
-	candidates: ResolvedCandidate[],
-	colorHint: number | undefined
-): Promise<{
-	chosen: ResolvedCandidate;
-	sets: PartInSet[];
-	selectedColorId: number | undefined;
-	availableColors: PartAvailableColor[];
-}> {
-	let chosen = candidates[0]!;
-
-	let availableColors: PartAvailableColor[] = [];
-	try {
-		availableColors = await getPartColorsForPart(chosen.partNum);
-	} catch (err) {
-		if (isBudgetError(err)) throw err;
-	}
-
-	let selectedColorId =
-		(availableColors.length === 1 ? availableColors[0]!.id : undefined) ??
-		colorHint ??
-		chosen.colorId;
-
-	let sets = await fetchCandidateSets(chosen.partNum, selectedColorId);
-	if (!sets.length && candidates.length > 1) {
-		for (let i = 1; i < Math.min(candidates.length, 5); i++) {
-			const candidate = candidates[i]!;
-			const nextColor = colorHint ?? candidate.colorId ?? undefined;
-			const candidateSets = await fetchCandidateSets(candidate.partNum, nextColor);
-			if (candidateSets.length) {
-				chosen = candidate;
-				selectedColorId = nextColor;
-				sets = candidateSets;
-				break;
-			}
-		}
-	}
-
-	if (sets.length) {
-		sets = [...sets].sort((a, b) => {
-			if (b.quantity !== a.quantity) return b.quantity - a.quantity;
-			return b.year - a.year;
-		});
-	}
-
-	return { chosen, sets, selectedColorId, availableColors };
-}
-
-function needsEnrichment(sets: PartInSet[]): boolean {
-	return sets.some(
-		s =>
-			!s.name ||
-			s.name.trim() === '' ||
-			s.year === 0 ||
-			s.numParts == null ||
-			s.themeName == null
-	);
 }
 
 export const POST = withCsrfProtection(async (req: NextRequest) => {
@@ -257,124 +131,34 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
 
 		const resolved = await resolveCandidates(candidates);
 		if (!resolved.length) {
-			const blCand = candidates.find(c => typeof c.bricklinkId === 'string');
-			if (blCand?.bricklinkId) {
-				const fallback = await fetchBLSupersetsFallback(blCand.bricklinkId, externalBudget, {
-					initialImage: typeof blCand.imageUrl === 'string' ? blCand.imageUrl : null,
-				});
-				if (fallback.sets.length) {
-					return NextResponse.json({
-						part: {
-							partNum: blCand.partNum,
-							name: fallback.partName,
-							imageUrl: fallback.partImage,
-							confidence: blCand.confidence ?? 0,
-							colorId: null,
-							colorName: null,
-						},
-						blPartId: blCand.bricklinkId,
-						blAvailableColors: fallback.blAvailableColors,
-						candidates: [],
-						availableColors: [],
-						selectedColorId: null,
-						sets: fallback.sets,
-					});
-				}
-			}
 			return errorResponse('no_valid_candidate');
 		}
 
-		const { chosen, sets, selectedColorId, availableColors } = await selectCandidateWithSets(
-			resolved,
-			colorHint
-		);
+		const result = await resolveIdentifyResult({
+			candidates: resolved,
+			...(colorHint !== undefined ? { colorHint } : {}),
+			budget: externalBudget,
+		});
 
-		if (!sets.length) {
-			const blCand = resolved.find(c => c.bricklinkId);
-			if (blCand?.bricklinkId) {
-				const fallback = await fetchBLSupersetsFallback(blCand.bricklinkId, externalBudget, {
-					initialImage: chosen.imageUrl,
-					initialName: chosen.name,
-				});
-				if (fallback.sets.length) {
-					return NextResponse.json({
-						part: {
-							partNum: chosen.partNum,
-							name: fallback.partName,
-							imageUrl: fallback.partImage,
-							confidence: chosen.confidence,
-							colorId: null,
-							colorName: null,
-						},
-						blPartId: blCand.bricklinkId,
-						blAvailableColors: fallback.blAvailableColors,
-						candidates: resolved.slice(0, 5),
-						availableColors: [],
-						selectedColorId: null,
-						sets: fallback.sets,
-					});
-				}
-			}
+		if (result.status === 'no_match') {
+			return errorResponse('no_match');
+		}
+		if (result.status === 'no_valid_candidate') {
 			return errorResponse('no_valid_candidate');
 		}
-
-		let finalSets = sets;
-		if (needsEnrichment(sets)) {
-			const summaries = await Promise.all(
-				sets.slice(0, EXTERNAL.ENRICH_LIMIT).map(async set => {
-					try {
-						const summary =
-							(await getSetSummaryLocal(set.setNumber)) ??
-							(await getSetSummary(set.setNumber));
-						return { setNumber: set.setNumber.toLowerCase(), summary };
-					} catch (err) {
-						logger.warn('identify.enrichment_failed', {
-							set: set.setNumber,
-							error: err instanceof Error ? err.message : String(err),
-						});
-						return null;
-					}
-				})
-			);
-
-			const summaryBySet = new Map<string, Awaited<ReturnType<typeof getSetSummary>>>();
-			for (const entry of summaries) {
-				if (entry?.summary) summaryBySet.set(entry.setNumber, entry.summary);
-			}
-
-			finalSets = sets.map(s => {
-				const summary = summaryBySet.get(s.setNumber.toLowerCase());
-				return {
-					...s,
-					name: summary?.name ?? s.name ?? s.setNumber,
-					year: summary?.year ?? s.year,
-					imageUrl: summary?.imageUrl ?? s.imageUrl,
-					numParts: summary?.numParts ?? s.numParts ?? null,
-					themeId: summary?.themeId ?? s.themeId ?? null,
-					themeName: summary?.themeName ?? s.themeName ?? null,
-				};
+		if (result.status === 'fallback') {
+			return NextResponse.json({
+				part: result.payload.part,
+				blPartId: result.payload.blPartId,
+				blAvailableColors: result.payload.blAvailableColors,
+				candidates: result.payload.candidates,
+				availableColors: result.payload.availableColors,
+				selectedColorId: result.payload.selectedColorId,
+				sets: result.payload.sets,
 			});
 		}
 
-		finalSets = finalSets.map(s => ({
-			...s,
-			name: s.name && s.name.trim() ? s.name : s.setNumber,
-		}));
-
-		return NextResponse.json({
-			part: {
-				partNum: chosen.partNum,
-				name: chosen.name,
-				imageUrl: chosen.imageUrl,
-				confidence: chosen.confidence,
-				colorId: selectedColorId ?? null,
-				colorName: chosen.colorName ?? null,
-			},
-			candidates: resolved.slice(0, 5),
-			availableColors,
-			selectedColorId: selectedColorId ?? null,
-			sets: finalSets,
-		});
+		return NextResponse.json(result.payload);
 	} catch (err) {
 		if (err instanceof Error && err.message === 'external_budget_exhausted') {
 			return errorResponse('budget_exceeded', { status: 429 });

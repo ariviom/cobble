@@ -15,6 +15,8 @@ const STATUS_MAP: Partial<Record<AppErrorCode, number>> = {
   unauthorized: 401,
   forbidden: 403,
   not_found: 404,
+  no_match: 404,
+  no_valid_candidate: 404,
   rate_limited: 429,
   budget_exceeded: 429,
   search_failed: 500,

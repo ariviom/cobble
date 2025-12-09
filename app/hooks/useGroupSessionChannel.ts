@@ -127,7 +127,15 @@ export function useGroupSessionChannel({
         channelRef.current = null;
       }
     };
-  }, [enabled, sessionId, setNumber, clientId, onRemoteDelta, onParticipantPiecesDelta]);
+  }, [
+    enabled,
+    sessionId,
+    setNumber,
+    clientId,
+    onRemoteDelta,
+    onParticipantPiecesDelta,
+    onRemoteSnapshot,
+  ]);
 
   const broadcastPieceDelta = useCallback(
     (args: { key: string; delta: number; newOwned: number }) => {
