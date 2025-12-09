@@ -223,6 +223,8 @@ export type BLPart = {
   // Additional fields ignored
 };
 
+// BrickLink subsets response shape is typically an array of groups with `{ entries: [...] }`.
+// Each entry describes a child component (part/minifig) with color and quantity.
 export type BLSubsetItem = {
   inv_item_id?: number;
   color_id?: number;
@@ -268,6 +270,12 @@ function makeKey(no: string, colorId?: number): string {
   }`;
 }
 
+function normalizeBLImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('//')) return `https:${url}`;
+  return url;
+}
+
 export async function blGetPart(no: string): Promise<BLPart> {
   return blGet<BLPart>(
     `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}`
@@ -302,16 +310,24 @@ async function fetchSubsets(
   no: string,
   colorId?: number
 ): Promise<BLSubsetItem[]> {
-  const data = await blGet<BLSubsetResponse[] | { entries?: BLSubsetResponse[] }>(
-    `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}/subsets`,
-    colorId ? { color_id: colorId } : {}
-  );
+  const path = `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}/subsets`;
+  const query = colorId ? { color_id: colorId } : {};
+  const data = await blGet<BLSubsetResponse[] | { entries?: BLSubsetResponse[] }>(path, query);
   const raw: BLSubsetResponse[] = Array.isArray(data)
     ? data
     : Array.isArray((data as { entries?: BLSubsetResponse[] }).entries)
       ? ((data as { entries?: BLSubsetResponse[] }).entries ?? [])
       : [];
   return normalizeSubsetEntries(raw);
+}
+
+export async function blGetPartSubsetsRaw(
+  no: string,
+  colorId?: number
+): Promise<unknown> {
+  const path = `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}/subsets`;
+  const query = colorId ? { color_id: colorId } : {};
+  return blGet<unknown>(path, query);
 }
 
 export async function blGetPartSubsets(
@@ -327,13 +343,29 @@ export async function blGetPartSubsets(
       no,
       colorId: typeof colorId === 'number' ? colorId : null,
       count: Array.isArray(list) ? list.length : 0,
+      sample: list.slice(0, 2),
     });
   }
   subsetsCache.set(key, list);
   return list;
 }
 
+// BrickLink supersets response is usually an array of color buckets:
+// [{ color_id, entries: [{ item: { no, name, image_url, type }, quantity, appears_as }, ...] }, ...]
+// Some responses may omit color_id or wrap entries differently; we normalize all variants here.
+export type BLSupersetEntryRaw = {
+  item?: { no?: string; name?: string; image_url?: string; type?: string; [k: string]: unknown };
+  quantity?: number;
+  appears_as?: string;
+};
+
+export type BLSupersetColorBucket = {
+  color_id?: number;
+  entries?: BLSupersetEntryRaw[];
+};
+
 type BLSupersetResponse =
+  | BLSupersetColorBucket
   | { entries?: BLSupersetItem[]; item?: { no?: string; name?: string; image_url?: string; quantity?: number }; quantity?: number }
   | BLSupersetItem
   | BLSupersetItem[];
@@ -341,6 +373,28 @@ type BLSupersetResponse =
 function normalizeSupersetEntries(raw: BLSupersetResponse[]): BLSupersetItem[] {
   const result: BLSupersetItem[] = [];
   for (const group of raw) {
+    // Color-bucketed shape: { color_id, entries: [...] }
+    if (isRecord(group) && hasProperty(group, 'entries') && Array.isArray(group.entries)) {
+      const entries = (group.entries ?? []) as BLSupersetEntryRaw[];
+      for (const entry of entries) {
+        const item = entry?.item;
+        const setNumber =
+          item && typeof item.no === 'string' ? item.no : '';
+        if (!setNumber) continue;
+        const name =
+          item && typeof item.name === 'string' ? item.name : '';
+        const imageUrl = normalizeBLImageUrl(
+          item && typeof item.image_url === 'string' ? item.image_url : null
+        );
+        const quantity =
+          typeof entry.quantity === 'number'
+            ? entry.quantity
+            : 1;
+        result.push({ setNumber, name, imageUrl, quantity });
+      }
+      continue;
+    }
+
     if (isRecord(group) && hasProperty(group, 'entries') && Array.isArray(group.entries)) {
       const entries = (group.entries ?? []) as BLSupersetItem[];
       for (const e of entries) {
@@ -358,10 +412,11 @@ function normalizeSupersetEntries(raw: BLSupersetResponse[]): BLSupersetItem[] {
       const setNumber = typeof (item as { no?: unknown }).no === 'string' ? (item as { no: string }).no : '';
       if (!setNumber) continue;
       const name = typeof (item as { name?: unknown }).name === 'string' ? (item as { name: string }).name : '';
-      const imageUrl =
+      const imageUrl = normalizeBLImageUrl(
         typeof (item as { image_url?: unknown }).image_url === 'string'
           ? (item as { image_url: string }).image_url
-          : null;
+          : null
+      );
       const quantity =
         typeof record.quantity === 'number'
           ? record.quantity
@@ -378,9 +433,11 @@ async function fetchSupersets(
   no: string,
   colorId?: number
 ): Promise<BLSupersetItem[]> {
+  const path = `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}/supersets`;
+  const query = colorId ? { color_id: colorId } : {};
   const data = await blGet<BLSupersetResponse[] | { entries?: BLSupersetResponse[] }>(
-    `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}/supersets`,
-    colorId ? { color_id: colorId } : {}
+    path,
+    query
   );
   const raw: BLSupersetResponse[] = Array.isArray(data)
     ? data
@@ -388,6 +445,15 @@ async function fetchSupersets(
       ? ((data as { entries?: BLSupersetResponse[] }).entries ?? [])
       : [];
   return normalizeSupersetEntries(raw);
+}
+
+export async function blGetPartSupersetsRaw(
+  no: string,
+  colorId?: number
+): Promise<unknown> {
+  const path = `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}/supersets`;
+  const query = colorId ? { color_id: colorId } : {};
+  return blGet<unknown>(path, query);
 }
 
 export async function blGetPartSupersets(
@@ -403,6 +469,7 @@ export async function blGetPartSupersets(
       no,
       colorId: typeof colorId === 'number' ? colorId : null,
       count: Array.isArray(list) ? list.length : 0,
+      rawSample: list.slice(0, 2),
     });
   }
   supersetsCache.set(key, list);

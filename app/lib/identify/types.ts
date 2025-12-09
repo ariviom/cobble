@@ -36,9 +36,12 @@ export type BLSet = {
 	themeName?: string | null;
 };
 
+export type BLSource = 'bl_supersets' | 'bl_components' | 'bl_subsets_intersection';
+
 export type BLFallbackResult = {
 	sets: BLSet[];
 	partName: string;
 	partImage: string | null;
 	blAvailableColors: BLAvailableColor[];
+	source: BLSource;
 };

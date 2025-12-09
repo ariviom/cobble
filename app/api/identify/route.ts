@@ -125,11 +125,24 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
 		const candidates = extractCandidatePartNumbers(brickognizePayload).sort(
 			(a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)
 		);
+		logger.debug('identify.candidates_extracted', {
+			count: candidates.length,
+			sample: candidates.slice(0, 3),
+		});
 		if (candidates.length === 0) {
 			return errorResponse('no_match');
 		}
 
 		const resolved = await resolveCandidates(candidates);
+		logger.debug('identify.candidates_resolved', {
+			count: resolved.length,
+			sample: resolved.slice(0, 3).map(c => ({
+				partNum: c.partNum,
+				bricklinkId: c.bricklinkId,
+				confidence: c.confidence,
+				colorId: c.colorId,
+			})),
+		});
 		if (!resolved.length) {
 			return errorResponse('no_valid_candidate');
 		}
@@ -151,6 +164,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
 				part: result.payload.part,
 				blPartId: result.payload.blPartId,
 				blAvailableColors: result.payload.blAvailableColors,
+				source: result.payload.source,
 				candidates: result.payload.candidates,
 				availableColors: result.payload.availableColors,
 				selectedColorId: result.payload.selectedColorId,

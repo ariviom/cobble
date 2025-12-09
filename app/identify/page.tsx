@@ -192,7 +192,16 @@ function IdentifyPageInner() {
         throw new Error(data?.error ?? 'identify_failed');
       }
       const data = (await res.json()) as IdentifyResponse;
-      setPart(data.part);
+      const fallbackImage =
+        data.part?.imageUrl ??
+        data.candidates?.[0]?.imageUrl ??
+        part?.imageUrl ??
+        imagePreview ??
+        null;
+      setPart({
+        ...data.part,
+        imageUrl: fallbackImage,
+      });
       setCandidates(data.candidates ?? []);
       setSets(data.sets ?? []);
       // Use availableColors from API; auto-select if only one
@@ -215,15 +224,32 @@ function IdentifyPageInner() {
       const dataWithBL = data as IdentifyResponse & {
         blAvailableColors?: Array<{ id: number; name: string }>;
         blPartId?: string;
+        source?: 'rb' | 'bl_supersets' | 'bl_components';
       };
       const blCols = dataWithBL.blAvailableColors;
       const blPid = dataWithBL.blPartId;
       if (Array.isArray(blCols) && blCols.length > 0 && blPid) {
         setBlPartId(blPid);
         setBlColors(blCols);
+        // In BL mode, clear RB color options to avoid stale dropdown entries.
+        setColors(
+          blCols.map(c => ({
+            id: c.id,
+            name: c.name,
+          }))
+        );
+        setSelectedColorId(
+          typeof data.selectedColorId !== 'undefined'
+            ? (data.selectedColorId ?? null)
+            : null
+        );
       } else {
         setBlPartId(null);
         setBlColors(null);
+        // If no RB colors returned, clear to avoid stale prior colors.
+        if (!availableColors.length) {
+          setColors([]);
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -231,7 +257,7 @@ function IdentifyPageInner() {
       setIsLoading(false);
       setHasSearched(true);
     }
-  }, [selectedFile]);
+  }, [selectedFile, part, imagePreview]);
 
   const onClear = useCallback(() => {
     setError(null);
@@ -260,6 +286,21 @@ function IdentifyPageInner() {
 
   const onSelectCandidate = useCallback(
     async (c: IdentifyCandidate) => {
+      if (blPartId) {
+        // In BL fallback mode, keep existing sets/colors and simply update the part display.
+        setPart(prev => ({
+          partNum: c.partNum,
+          name: c.name,
+          imageUrl: c.imageUrl ?? prev?.imageUrl ?? null,
+          confidence: c.confidence,
+          colorId: c.colorId ?? prev?.colorId ?? null,
+          colorName: c.colorName ?? prev?.colorName ?? null,
+          isMinifig: prev?.isMinifig ?? false,
+          rebrickableFigId: prev?.rebrickableFigId ?? null,
+          bricklinkFigId: prev?.bricklinkFigId ?? null,
+        }));
+        return;
+      }
       try {
         setError(null);
         setIsLoading(true);
@@ -309,10 +350,12 @@ function IdentifyPageInner() {
         };
         if (payloadAny.part) {
           setPart(prev => {
+            const fallbackImage =
+              payloadAny.part!.imageUrl ?? c.imageUrl ?? prev?.imageUrl ?? null;
             const base: IdentifyPart = {
               partNum: payloadAny.part!.partNum,
               name: payloadAny.part!.name,
-              imageUrl: payloadAny.part!.imageUrl,
+              imageUrl: fallbackImage,
               confidence: payloadAny.part!.confidence ?? 0,
               colorId: payloadAny.part!.colorId ?? null,
               colorName: payloadAny.part!.colorName ?? null,
@@ -344,7 +387,7 @@ function IdentifyPageInner() {
         setIsLoading(false);
       }
     },
-    [selectedColorId]
+    [selectedColorId, blPartId]
   );
 
   const onChangeColor = useCallback(
@@ -611,7 +654,16 @@ function IdentifyPageInner() {
               onChangeColor={onChangeColor}
               showConfidence={mode === 'camera'}
             />
-            <IdentifySetList items={sets} />
+            <IdentifySetList
+              items={sets}
+              source={
+                (blPartId
+                  ? blColors
+                    ? 'bl_supersets'
+                    : 'bl_components'
+                  : 'rb') as 'rb' | 'bl_supersets' | 'bl_components'
+              }
+            />
           </div>
         </section>
       )}

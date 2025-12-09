@@ -34,6 +34,10 @@ export type ResolvedCandidate = {
   colorId?: number;
   colorName?: string;
   bricklinkId?: string;
+  /**
+   * True when we could not resolve to Rebrickable but have a BrickLink ID; skip RB lookups.
+   */
+  isBricklinkOnly?: boolean;
 };
 
 export async function resolveCandidates(
@@ -47,16 +51,32 @@ export async function resolveCandidates(
         blId ? { bricklinkId: blId } : undefined
       );
       const resolvedPart = base ?? (await resolvePartIdToRebrickable(candidate.partNum));
-      if (!resolvedPart) return null;
-      return {
-        partNum: resolvedPart.partNum,
-        name: resolvedPart.name,
-        imageUrl: resolvedPart.imageUrl,
-        confidence: candidate.confidence ?? 0,
-        colorId: candidate.colorId,
-        colorName: candidate.colorName,
-        bricklinkId: blId,
-      };
+      if (resolvedPart) {
+        return {
+          partNum: resolvedPart.partNum,
+          name: resolvedPart.name,
+          imageUrl: resolvedPart.imageUrl,
+          confidence: candidate.confidence ?? 0,
+          colorId: candidate.colorId,
+          colorName: candidate.colorName,
+          bricklinkId: blId,
+          isBricklinkOnly: false,
+        };
+      }
+      // If we could not resolve to Rebrickable but have a BL ID, return a BL-only candidate for fallback.
+      if (blId) {
+        return {
+          partNum: candidate.partNum,
+          name: candidate.partNum, // fallback to part number; BL fallback will enrich name/image
+          imageUrl: candidate.imageUrl ?? null,
+          confidence: candidate.confidence ?? 0,
+          colorId: candidate.colorId,
+          colorName: candidate.colorName,
+          bricklinkId: blId,
+          isBricklinkOnly: true,
+        };
+      }
+      return null;
     })
   );
   return resolved.filter(Boolean) as ResolvedCandidate[];
@@ -248,52 +268,69 @@ export async function resolveIdentifyResult(opts: {
     return { status: 'no_valid_candidate' };
   }
 
+  const rbCandidates = candidates.filter(c => !c.isBricklinkOnly);
+
+  // If nothing resolved to Rebrickable but we have BL-only candidates, go straight to BL fallback.
+  if (!rbCandidates.length) {
+    const blCand = candidates.find(c => c.bricklinkId);
+    if (blCand?.bricklinkId) {
+      const fallback = await fetchBLSupersetsFallback(blCand.bricklinkId, budget, {
+        initialImage: blCand.imageUrl,
+        initialName: blCand.name,
+      });
+      return {
+        status: 'fallback',
+        payload: {
+          part: {
+            partNum: blCand.partNum,
+            name: fallback.partName,
+            imageUrl: fallback.partImage,
+            confidence: blCand.confidence,
+          },
+          blPartId: blCand.bricklinkId,
+          blAvailableColors: fallback.blAvailableColors,
+          candidates: candidates.slice(0, 5),
+          availableColors: [],
+          selectedColorId: null,
+          sets: fallback.sets,
+          source: fallback.source,
+        },
+      };
+    }
+    return { status: 'no_valid_candidate' };
+  }
+
   const { chosen, sets, selectedColorId, availableColors } = await selectCandidateWithSets(
-    candidates,
+    rbCandidates,
     colorHint
   );
 
   if (!sets.length) {
-    // BrickLink-only fallback when RB sets are missing
     const blCand = candidates.find(c => c.bricklinkId);
     if (blCand?.bricklinkId) {
-      try {
-        const fallback = await fetchBLSupersetsFallback(blCand.bricklinkId, budget, {
-          initialImage: chosen.imageUrl,
-          initialName: chosen.name,
-        });
-        if (fallback.sets.length) {
-          if (process.env.NODE_ENV !== 'production') {
-            logger.debug('identify.fallback.bl_supersets', {
-              bricklinkId: blCand.bricklinkId,
-              setCount: fallback.sets.length,
-            });
-          }
-          return {
-            status: 'fallback',
-            payload: {
-              part: {
-                partNum: chosen.partNum,
-                name: fallback.partName,
-                imageUrl: fallback.partImage,
-                confidence: chosen.confidence,
-              },
-              blPartId: blCand.bricklinkId,
-              blAvailableColors: fallback.blAvailableColors,
-              candidates: candidates.slice(0, 5),
-              availableColors: [],
-              selectedColorId: null,
-              sets: fallback.sets,
-            },
-          };
-        }
-      } catch (err) {
-        if (isBudgetError(err)) throw err;
-        logger.warn('identify.fallback.bl_supersets_failed', {
-          bricklinkId: blCand.bricklinkId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
+      const fallback = await fetchBLSupersetsFallback(blCand.bricklinkId, budget, {
+        initialImage: chosen.imageUrl,
+        initialName: chosen.name,
+      });
+			// Always return a fallback payload when we have a BL candidate, even if sets are empty.
+			return {
+				status: 'fallback',
+				payload: {
+					part: {
+						partNum: chosen.partNum,
+						name: fallback.partName,
+						imageUrl: fallback.partImage,
+						confidence: chosen.confidence,
+					},
+					blPartId: blCand.bricklinkId,
+					blAvailableColors: fallback.blAvailableColors,
+					candidates: candidates.slice(0, 5),
+					availableColors: [],
+					selectedColorId: null,
+					sets: fallback.sets,
+          source: fallback.source,
+				},
+			};
     }
     return { status: 'no_valid_candidate' };
   }

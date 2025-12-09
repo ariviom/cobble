@@ -7,16 +7,21 @@ import type { IdentifySet } from './types';
 type Props = {
   items: IdentifySet[];
   onRemoveItem?: (setNumber: string) => void;
+  source?: 'rb' | 'bl_supersets' | 'bl_components';
 };
 
-export function IdentifySetList({ items, onRemoveItem }: Props) {
+export function IdentifySetList({ items, onRemoveItem, source }: Props) {
   if (process.env.NODE_ENV !== 'production') {
     logEvent('identify.set_list.sample', { items: items.slice(0, 3) });
   }
   if (!items.length) {
     return (
       <div className="mt-4 text-sm text-foreground-muted">
-        No sets found for this part.
+        {source === 'bl_supersets'
+          ? 'No BrickLink supersets found for this part.'
+          : source === 'bl_components'
+            ? 'Sets could not be inferred from component parts.'
+            : 'No sets found for this part.'}
       </div>
     );
   }

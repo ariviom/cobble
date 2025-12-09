@@ -13,6 +13,7 @@ export type BrickognizeCandidate = {
   color_name?: string;
   imageUrl?: string;
   image_url?: string;
+  name?: string;
   // Allow arbitrary fields for forward compatibility
   [key: string]: unknown;
 };
@@ -122,6 +123,7 @@ export function extractCandidatePartNumbers(
   colorId?: number;
   colorName?: string;
   imageUrl?: string;
+  name?: string;
   bricklinkId?: string;
 }> {
   const out: Array<{
@@ -130,6 +132,7 @@ export function extractCandidatePartNumbers(
     colorId?: number;
     colorName?: string;
     imageUrl?: string;
+    name?: string;
     bricklinkId?: string;
   }> = [];
 
@@ -187,6 +190,8 @@ export function extractCandidatePartNumbers(
         (c.image_url as string) ??
         (c.img_url as string) ??
         undefined;
+      const candidateName =
+        (typeof c.name === 'string' && c.name) || undefined;
       // Try to extract BrickLink ID from explicit field or external_sites url param P=.
       // Prefer entries explicitly named "bricklink" (case/whitespace-insensitive), then fallback to URL host.
       let bricklinkId: string | undefined = undefined;
@@ -231,6 +236,7 @@ export function extractCandidatePartNumbers(
         colorId,
         colorName,
         imageUrl,
+        name: candidateName,
       };
       if (bricklinkId && bricklinkId.length > 0) {
         out.push({ ...base, bricklinkId });
@@ -267,6 +273,7 @@ export function extractCandidatePartNumbers(
       colorId?: number;
       colorName?: string;
       imageUrl?: string;
+      name?: string;
     }
   >();
   for (const cand of out) {

@@ -55,6 +55,18 @@
 - BrickLink pricing requests currently use USD + `country_code=US` by default; exposing currency/country as a user preference is future work.
 - Identify refactor note: current flows are performant, but logic is duplicated across `/api/identify` (image), `/api/identify/sets` (part/minifig), and `/api/identify/bl-supersets`. Consider extracting a shared “part/minifig → sets with normalized metadata” helper that does enrichment (set summary, theme, numParts), consistent name fallback, and is reused by all three routes to avoid divergence.
 
+### Identify — deterministic BL fallback (updated)
+- BL response shapes (typed in `app/lib/bricklink.ts`):
+  - Supersets come as color buckets: `[{ color_id, entries: [{ item: { no, name, image_url, type }, quantity, appears_as }, ...] }, ...]`, normalized to `BLSupersetItem`.
+  - Subsets come as grouped entries: `[{ entries: [...] }, ...]`, normalized to `BLSubsetItem` (component with color/quantity).
+- Pipeline order (deterministic):
+  1) RB-first: resolve candidates to Rebrickable IDs and fetch sets (with color hints/available colors).
+  2) If no RB sets, but a BL candidate exists, go to BL fallback (short-circuit BL-only candidates directly to fallback).
+  3) BL fallback order: cache hit (30d TTL) → supersets (uncolored, then per-color) → subset intersection against our RB catalog → supersets of subparts → heuristic component hits. Each stage sets `source` (`bl_supersets`, `bl_subsets_intersection`, `bl_components`).
+  4) Results are enriched with RB summaries when possible and upserted into `bl_parts` / `bl_part_sets` with the chosen source.
+- Logging: structured `logger.debug/warn` (dev-gated) for cache hit/miss, source chosen, subset availability, and budget errors; avoids raw payload spam in prod.
+- BL-only candidates: `resolveCandidates` preserves BL-only when RB resolution fails; `resolveIdentifyResult` short-circuits to BL fallback when only BL candidates remain and returns `source` in the response.
+
 ## Active Decisions
 
 - MVP remains fully usable without auth; Supabase accounts are additive and should not break local-only flows.
