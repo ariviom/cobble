@@ -107,12 +107,18 @@ async function fetchInventory(
   return rows;
 }
 
-export function useInventory(setNumber: string): UseInventoryResult {
+export function useInventory(
+  setNumber: string,
+  options?: { initialRows?: InventoryRow[] | null }
+): UseInventoryResult {
   const { data, isLoading, error } = useQuery({
     queryKey: ['inventory', setNumber],
     queryFn: ({ signal }) => fetchInventory(setNumber, signal),
     staleTime: 5 * 60 * 1000, // align with short-lived cache window
     gcTime: 60 * 60 * 1000,
+    ...(options?.initialRows
+      ? { initialData: options.initialRows, initialDataUpdatedAt: Date.now() }
+      : {}),
   });
 
   const baseRows = useMemo(() => data ?? [], [data]);

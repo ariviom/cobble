@@ -8,9 +8,10 @@ import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
 vi.mock('@/app/lib/mappings/rebrickableToBricklink', () => ({
   mapToBrickLink: vi.fn(async (partId: string, colorId: number) => {
     if (partId === 'UNMAPPED') return null;
+    if (partId === 'UNMAPPED2') return null;
     return {
       itemType: partId.startsWith('fig:') ? 'MINIFIG' : 'PART',
-      itemNo: partId,
+      itemNo: `BL-${partId}`,
       colorId,
     };
   }),
@@ -48,9 +49,9 @@ describe('generateBrickLinkCsv', () => {
       'Item Type,Item No,Color,Quantity,Condition,Description'
     );
     // First mapped part row
-    expect(lines[1]).toBe('P,3001,1,3,N,My Wanted List');
+    expect(lines[1]).toBe('P,BL-3001,1,3,N,My Wanted List');
     // Minifig row uses item type M
-    expect(lines[2]).toBe('M,fig:pirate,0,1,N,My Wanted List');
+    expect(lines[2]).toBe('M,BL-fig:pirate,0,1,N,My Wanted List');
   });
 
   it('defaults to Used condition when not specified', async () => {
@@ -63,7 +64,7 @@ describe('generateBrickLinkCsv', () => {
     const lines = csv.replace(/^\uFEFF/, '').trim().split('\n');
 
     // Should default to 'U' for used condition
-    expect(lines[1]).toBe('P,3001,1,2,U,Test List');
+    expect(lines[1]).toBe('P,BL-3001,1,2,U,Test List');
   });
 
   it('omits rows with zero missing quantity', async () => {
@@ -81,7 +82,7 @@ describe('generateBrickLinkCsv', () => {
 
     expect(unmapped).toHaveLength(0);
     expect(lines.length).toBe(2); // header + 1 data row
-    expect(lines[1]).toBe('P,3002,2,3,N,Test List');
+    expect(lines[1]).toBe('P,BL-3002,2,3,N,Test List');
   });
 
   it('returns only headers for empty input', async () => {
@@ -103,7 +104,7 @@ describe('generateBrickLinkCsv', () => {
   it('returns all unmapped when all rows fail to map', async () => {
     const rows: MissingRow[] = [
       { setNumber: '1234-1', partId: 'UNMAPPED', colorId: 1, quantityMissing: 2 },
-      { setNumber: '1234-1', partId: 'UNMAPPED', colorId: 5, quantityMissing: 3 },
+      { setNumber: '1234-1', partId: 'UNMAPPED2', colorId: 5, quantityMissing: 3 },
     ];
     const opts: BrickLinkOptions = {
       wantedListName: 'Test List',
@@ -141,7 +142,7 @@ describe('generateBrickLinkCsv', () => {
     const lines = csv.replace(/^\uFEFF/, '').trim().split('\n');
 
     // The wanted list name with comma should be quoted
-    expect(lines[1]).toBe('P,3001,1,1,N,"List with, comma"');
+    expect(lines[1]).toBe('P,BL-3001,1,1,N,"List with, comma"');
   });
 });
 

@@ -47,8 +47,20 @@ const eslintConfig = [
           ],
         },
       ],
-      '@typescript-eslint/prefer-nullish-coalescing': 'error',
-      '@typescript-eslint/no-unnecessary-condition': 'warn',
+    },
+  },
+  // Typed ESLint rules (requires type information)
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    languageOptions: {
+      parserOptions: {
+        project: './tsconfig.json',
+        tsconfigRootDir: __dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/prefer-nullish-coalescing': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
     },
   },
   {

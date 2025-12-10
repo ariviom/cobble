@@ -12,3 +12,16 @@ export function hasProperty<K extends string>(
 export function isStringArray(value: unknown): value is string[] {
 	return Array.isArray(value) && value.every(v => typeof v === 'string');
 }
+
+export function isFiniteNumber(value: unknown): value is number {
+	return typeof value === 'number' && Number.isFinite(value);
+}
+
+export function isNumberLike(value: unknown): value is number | string {
+	if (typeof value === 'number') return Number.isFinite(value);
+	if (typeof value === 'string') {
+		const n = Number(value);
+		return Number.isFinite(n);
+	}
+	return false;
+}

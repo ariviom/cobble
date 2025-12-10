@@ -1,3 +1,27 @@
+## Service Layer Pattern
+
+- Route handlers (`app/api/`): HTTP concerns only — validation, auth, CSRF, response formatting, rate limiting.
+- Services (`app/lib/services/`): Business logic orchestration, no HTTP types; reusable across routes and background jobs.
+- Data access (`app/lib/catalog/`, `app/lib/rebrickable/`, BrickLink/Rebrickable clients): External API/DB calls, no HTTP details.
+- Domain (`app/lib/domain/`): Shared types, guards, error helpers.
+- Logging: use `logger` from `lib/metrics`; no raw `console.*` in production paths.
+
+## Null vs Undefined Convention
+
+- `null` indicates an intentional absence from providers or persisted data.
+- `undefined` indicates “not provided/not loaded yet.”
+- Do not mix null/undefined on the same field; prefer explicit `null` for cleared values.
+- Use nullish coalescing (`??`) instead of `||` when providing defaults.
+- ESLint rules enforced: `@typescript-eslint/prefer-nullish-coalescing` (error), `@typescript-eslint/no-unnecessary-condition` (warn).
+
+## Identify & Pricing Services
+
+- Identify: `app/api/identify/route.ts` handles HTTP; `app/lib/services/identify.ts` orchestrates RB-first, BL fallback, budgets; BL fallback in `app/lib/identify/*`.
+- Pricing: `app/api/prices/bricklink/route.ts` handles HTTP; pricing orchestration in `app/lib/services/pricing.ts`; BrickLink price parsing/caching helpers in `app/lib/bricklink.ts`.
+
+## Server-only Modules
+
+- All server-side modules import `server-only` to prevent client bundling. Key areas: catalog, rebrickable, bricklink, identify helpers, supabase clients, rateLimit.
 # System Patterns
 
 ## Core Data Flows

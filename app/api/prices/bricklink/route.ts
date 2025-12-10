@@ -50,8 +50,6 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     });
   }
 
-  const prices: Record<string, PriceResponseEntry> = {};
-
   // Determine pricing preferences for this request (user-specific when
   // authenticated via Supabase cookies; otherwise fall back to global USD).
   let pricingPrefs = DEFAULT_PRICING_PREFERENCES;

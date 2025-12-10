@@ -16,6 +16,7 @@ import type {
 import { useInventory } from '@/app/hooks/useInventory';
 import { useInventoryControls } from '@/app/hooks/useInventoryControls';
 import { useMemo, type Dispatch, type SetStateAction } from 'react';
+import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
 
 export type InventoryViewModel = {
   // Raw data
@@ -61,9 +62,13 @@ export type InventoryViewModel = {
   colorOptions: string[];
   countsByParent: Record<string, number>;
   parentOptions: string[];
+  computeMissingRows: () => MissingRow[];
 };
 
-export function useInventoryViewModel(setNumber: string): InventoryViewModel {
+export function useInventoryViewModel(
+  setNumber: string,
+  options?: { initialRows?: InventoryRow[] | null }
+): InventoryViewModel {
   const {
     rows,
     isLoading,
@@ -74,7 +79,8 @@ export function useInventoryViewModel(setNumber: string): InventoryViewModel {
     isStorageAvailable,
     isMinifigEnriching,
     minifigEnrichmentError,
-  } = useInventory(setNumber);
+    computeMissingRows,
+  } = useInventory(setNumber, options);
 
   const {
     sortKey,
@@ -314,6 +320,7 @@ export function useInventoryViewModel(setNumber: string): InventoryViewModel {
     colorOptions,
     countsByParent,
     parentOptions,
+    computeMissingRows,
   };
 }
 

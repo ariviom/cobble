@@ -7,18 +7,19 @@ import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Modal } from '@/app/components/ui/Modal';
 import { Spinner } from '@/app/components/ui/Spinner';
 import { useGroupSessionChannel } from '@/app/hooks/useGroupSessionChannel';
-import { useInventory } from '@/app/hooks/useInventory';
 import { useInventoryPrices } from '@/app/hooks/useInventoryPrices';
 import { useInventoryViewModel } from '@/app/hooks/useInventoryViewModel';
 import { useSupabaseOwned } from '@/app/hooks/useSupabaseOwned';
 import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
 import { InventoryControls } from './InventoryControls';
 import { InventoryItem } from './items/InventoryItem';
 import type {
   InventoryFilter,
+  InventoryRow,
   ItemSize,
   MinifigSubpartStatus,
   SortKey,
@@ -36,6 +37,7 @@ type PriceSummary = {
 type InventoryTableProps = {
   setNumber: string;
   setName?: string;
+  initialInventory?: InventoryRow[] | null;
   /**
    * When false, Supabase-backed owned sync is disabled and changes remain
    * local. Used for Search Party participants so only the host persists
@@ -63,6 +65,7 @@ type InventoryTableProps = {
 export function InventoryTable({
   setNumber,
   setName,
+  initialInventory,
   enableCloudSync = true,
   groupSessionId,
   groupParticipantId,
@@ -100,9 +103,11 @@ export function InventoryTable({
     colorOptions,
     countsByParent,
     parentOptions,
-  } = useInventoryViewModel(setNumber);
+    computeMissingRows,
+  } = useInventoryViewModel(setNumber, {
+    initialRows: initialInventory ?? null,
+  });
   const [exportOpen, setExportOpen] = useState(false);
-  const { computeMissingRows } = useInventory(setNumber);
   const clearAllOwned = useOwnedStore(state => state.clearAll);
 
   type PriceInfo = {
@@ -343,6 +348,142 @@ export function InventoryTable({
   // Show loading state while owned data is hydrating from IndexedDB
   const isHydrating = !isOwnedHydrated && !isLoading;
 
+  const VIRTUALIZE_THRESHOLD = 500;
+  const listParentRef = useRef<HTMLDivElement | null>(null);
+  const shouldVirtualizeList =
+    view === 'list' &&
+    groupBy === 'none' &&
+    effectiveSortedIndices.length > VIRTUALIZE_THRESHOLD;
+  const estimateItemSize = useMemo(() => {
+    switch (itemSize) {
+      case 'sm':
+        return 140;
+      case 'md':
+        return 180;
+      case 'lg':
+      default:
+        return 230;
+    }
+  }, [itemSize]);
+
+  const virtualizer = useVirtualizer({
+    count: shouldVirtualizeList ? effectiveSortedIndices.length : 0,
+    getScrollElement: () => listParentRef.current,
+    estimateSize: () => estimateItemSize,
+    overscan: 12,
+  });
+
+  const renderInventoryItem = (originalIndex: number) => {
+    const r = rows[originalIndex]!;
+    const key = keys[originalIndex]!;
+    const owned = ownedByKey[key] ?? 0;
+    const derivedStatus = minifigStatusByKey.get(key);
+    const displayOwned =
+      derivedStatus?.state === 'complete' ? r.quantityRequired : owned;
+    const missing = computeMissing(r.quantityRequired, displayOwned);
+    const priceInfo = pricesByKey[key];
+
+    return (
+      <InventoryItem
+        key={key}
+        setNumber={setNumber}
+        row={r}
+        owned={displayOwned}
+        missing={missing}
+        unitPrice={priceInfo?.unitPrice ?? null}
+        minPrice={priceInfo?.minPrice ?? null}
+        maxPrice={priceInfo?.maxPrice ?? null}
+        currency={priceInfo?.currency ?? null}
+        pricingSource={priceInfo?.pricingSource ?? priceInfo?.pricing_source ?? null}
+        pricingScopeLabel={priceInfo?.scopeLabel ?? null}
+        bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
+        isPricePending={pendingKeys.has(key)}
+        canRequestPrice={!pendingKeys.has(key) && !pricesByKey[key]}
+        isEnriching={isMinifigEnriching}
+        onRequestPrice={() => {
+          void requestPricesForKeys([key]);
+        }}
+        onOwnedChange={next => {
+          const clamped = clampOwned(next, r.quantityRequired);
+          const prevOwned = ownedByKey[key] ?? 0;
+          const delta = clamped - prevOwned;
+
+          handleOwnedChange(key, clamped);
+
+          if (
+            delta !== 0 &&
+            groupSessionId &&
+            groupParticipantId &&
+            groupClientId
+          ) {
+            broadcastPieceDelta({
+              key,
+              delta,
+              newOwned: clamped,
+            });
+          }
+
+          // When a whole minifigure row changes, propagate the delta
+          // to its component rows (subparts).
+          const isFigId =
+            typeof r.partId === 'string' &&
+            r.partId.startsWith('fig:');
+          const isMinifigParent =
+            r.parentCategory === 'Minifigure' && isFigId;
+
+          if (
+            delta !== 0 &&
+            isMinifigParent &&
+            Array.isArray(r.componentRelations)
+          ) {
+            for (const rel of r.componentRelations) {
+              const childKey = rel.key;
+              const childRow = rowByKey.get(childKey);
+              if (!childRow) continue;
+              const childOwned = ownedByKey[childKey] ?? 0;
+              const nextChildOwned = clampOwned(
+                childOwned + delta * rel.quantity,
+                childRow.quantityRequired
+              );
+              const childDelta = nextChildOwned - childOwned;
+
+              handleOwnedChange(childKey, nextChildOwned);
+
+              if (
+                childDelta !== 0 &&
+                groupSessionId &&
+                groupParticipantId &&
+                groupClientId
+              ) {
+                broadcastPieceDelta({
+                  key: childKey,
+                  delta: childDelta,
+                  newOwned: nextChildOwned,
+                });
+              }
+            }
+          }
+
+          if (
+            pinnedStore.autoUnpin &&
+            pinnedStore.isPinned(setNumber, key) &&
+            computeMissing(r.quantityRequired, clamped) === 0
+          ) {
+            pinnedStore.setPinned(setNumber, key, false);
+          }
+        }}
+        isPinned={pinnedStore.isPinned(setNumber, key)}
+        onTogglePinned={() =>
+          pinnedStore.togglePinned({
+            setNumber,
+            key,
+            ...(setName ? { setName } : {}),
+          })
+        }
+      />
+    );
+  };
+
   // Do not early-return to preserve hooks order
   return (
     <div className="pb-2 lg:grid lg:h-full lg:grid-rows-[var(--spacing-controls-height)_minmax(0,1fr)]">
@@ -457,130 +598,57 @@ export function InventoryTable({
           ) : rows.length === 0 ? (
             <EmptyState message="No inventory found." />
           ) : groupBy === 'none' ? (
-            <div
-              data-view={view}
-              data-item-size={itemSize}
-              className={`gap-2 ${view === 'grid' ? `grid ${gridSizes}` : 'flex flex-wrap'}`}
-            >
-              {effectiveSortedIndices.map(originalIndex => {
-                const r = rows[originalIndex]!;
-                const key = keys[originalIndex]!;
-                const owned = ownedByKey[key] ?? 0;
-                const derivedStatus = minifigStatusByKey.get(key);
-                const displayOwned =
-                  derivedStatus?.state === 'complete'
-                    ? r.quantityRequired
-                    : owned;
-                const missing = computeMissing(
-                  r.quantityRequired,
-                  displayOwned
-                );
-                const priceInfo = pricesByKey[key];
-                return (
-                  <InventoryItem
-                    key={key}
-                    setNumber={setNumber}
-                    row={r}
-                    owned={displayOwned}
-                    missing={missing}
-                    unitPrice={priceInfo?.unitPrice ?? null}
-                    minPrice={priceInfo?.minPrice ?? null}
-                    maxPrice={priceInfo?.maxPrice ?? null}
-                    currency={priceInfo?.currency ?? null}
-                    pricingSource={
-                      priceInfo?.pricingSource ??
-                      priceInfo?.pricing_source ??
-                      null
-                    }
-                    pricingScopeLabel={priceInfo?.scopeLabel ?? null}
-                    bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
-                    isPricePending={pendingKeys.has(key)}
-                    canRequestPrice={!pendingKeys.has(key) && !pricesByKey[key]}
-                    isEnriching={isMinifigEnriching}
-                    onRequestPrice={() => {
-                      void requestPricesForKeys([key]);
-                    }}
-                    onOwnedChange={next => {
-                      const clamped = clampOwned(next, r.quantityRequired);
-                      const prevOwned = ownedByKey[key] ?? 0;
-                      const delta = clamped - prevOwned;
-
-                      handleOwnedChange(key, clamped);
-
-                      if (
-                        delta !== 0 &&
-                        groupSessionId &&
-                        groupParticipantId &&
-                        groupClientId
-                      ) {
-                        broadcastPieceDelta({
-                          key,
-                          delta,
-                          newOwned: clamped,
-                        });
-                      }
-
-                      // When a whole minifigure row changes, propagate the delta
-                      // to its component rows (subparts).
-                      const isFigId =
-                        typeof r.partId === 'string' &&
-                        r.partId.startsWith('fig:');
-                      const isMinifigParent =
-                        r.parentCategory === 'Minifigure' && isFigId;
-
-                      if (
-                        delta !== 0 &&
-                        isMinifigParent &&
-                        Array.isArray(r.componentRelations)
-                      ) {
-                        for (const rel of r.componentRelations) {
-                          const childKey = rel.key;
-                          const childRow = rowByKey.get(childKey);
-                          if (!childRow) continue;
-                          const childOwned = ownedByKey[childKey] ?? 0;
-                          const nextChildOwned = clampOwned(
-                            childOwned + delta * rel.quantity,
-                            childRow.quantityRequired
-                          );
-                          const childDelta = nextChildOwned - childOwned;
-
-                          handleOwnedChange(childKey, nextChildOwned);
-
-                          if (
-                            childDelta !== 0 &&
-                            groupSessionId &&
-                            groupParticipantId &&
-                            groupClientId
-                          ) {
-                            broadcastPieceDelta({
-                              key: childKey,
-                              delta: childDelta,
-                              newOwned: nextChildOwned,
-                            });
-                          }
-                        }
-                      }
-
-                      if (
-                        pinnedStore.autoUnpin &&
-                        pinnedStore.isPinned(setNumber, key) &&
-                        computeMissing(r.quantityRequired, clamped) === 0
-                      ) {
-                        pinnedStore.setPinned(setNumber, key, false);
-                      }
-                    }}
-                    isPinned={pinnedStore.isPinned(setNumber, key)}
-                    onTogglePinned={() =>
-                      pinnedStore.togglePinned({
-                        setNumber,
-                        key,
-                        ...(setName ? { setName } : {}),
-                      })
-                    }
-                  />
-                );
-              })}
-            </div>
+            view === 'grid' ? (
+              <div
+                data-view={view}
+                data-item-size={itemSize}
+                className={`grid gap-2 ${gridSizes}`}
+              >
+                {effectiveSortedIndices.map(originalIndex => (
+                  <div key={keys[originalIndex]!} className="w-full">
+                    {renderInventoryItem(originalIndex)}
+                  </div>
+                ))}
+              </div>
+            ) : shouldVirtualizeList ? (
+              <div
+                ref={listParentRef}
+                className="relative w-full overflow-auto"
+                style={{ minHeight: '400px', maxHeight: 'calc(100vh - 220px)' }}
+              >
+                <div
+                  style={{
+                    height: virtualizer.getTotalSize(),
+                    position: 'relative',
+                    width: '100%',
+                  }}
+                >
+                  {virtualizer.getVirtualItems().map(virtualRow => {
+                    const originalIndex = effectiveSortedIndices[virtualRow.index]!;
+                    const key = keys[originalIndex]!;
+                    return (
+                      <div
+                        key={key}
+                        className="absolute left-0 right-0 p-1"
+                        style={{
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        {renderInventoryItem(originalIndex)}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {effectiveSortedIndices.map(originalIndex => (
+                  <div key={keys[originalIndex]!} className="w-full">
+                    {renderInventoryItem(originalIndex)}
+                  </div>
+                ))}
+              </div>
+            )
           ) : (
             <div className="flex flex-col gap-4">
               {(() => {

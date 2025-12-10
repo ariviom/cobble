@@ -3,6 +3,7 @@
 import { SetTopBar } from '@/app/components/nav/SetTopBar';
 import { InventoryTable } from '@/app/components/set/InventoryTable';
 import { cn } from '@/app/components/ui/utils';
+import type { InventoryRow } from '@/app/components/set/types';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
@@ -17,6 +18,8 @@ type SetPageClientProps = {
   numParts: number;
   themeId?: number | null;
   themeName?: string | null;
+  /** Optional server-prefetched inventory rows for hydration (not yet consumed). */
+  initialInventory?: InventoryRow[] | null;
 };
 
 type GroupSessionState = {
@@ -40,6 +43,7 @@ export function SetPageClient({
   numParts,
   themeId,
   themeName,
+  initialInventory, // currently unused; placeholder for future hydration
 }: SetPageClientProps) {
   const [groupSession, setGroupSession] = useState<GroupSessionState>(null);
   const [currentParticipant, setCurrentParticipant] =
@@ -335,6 +339,7 @@ export function SetPageClient({
       <InventoryTable
         setNumber={setNumber}
         setName={setName}
+        initialInventory={initialInventory ?? null}
         enableCloudSync
         groupSessionId={groupSession?.id ?? null}
         groupParticipantId={currentParticipant?.id ?? null}

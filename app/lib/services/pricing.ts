@@ -55,7 +55,6 @@ export async function fetchBricklinkPrices(
 
 	for (let i = 0; i < items.length; i += batchSize) {
 		const batch = items.slice(i, i + batchSize);
-		// eslint-disable-next-line no-await-in-loop
 		await Promise.all(
 			batch.map(async item => {
 				try {

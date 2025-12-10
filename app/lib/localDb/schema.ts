@@ -257,7 +257,7 @@ export class BrickPartyDB extends Dexie {
       recentSets: 'setNumber, visitedAt',
     });
 
-    // Version 4: add compound indexes for common query patterns (set + color).
+    // Version 4: add compound indexes for common query patterns (set + color) where fields exist.
     this.version(4).stores({
       catalogSets: 'setNumber, themeId, year, cachedAt',
       catalogParts: 'partNum, categoryId, parentCategory, cachedAt',
@@ -267,8 +267,9 @@ export class BrickPartyDB extends Dexie {
       catalogSetMeta: 'setNumber, inventoryCachedAt, inventoryVersion',
       catalogMinifigs: 'figNum, blId, cachedAt',
 
+      // localOwned does not have colorId; keep existing compound key only.
       localOwned:
-        '++id, setNumber, inventoryKey, [setNumber+inventoryKey], [setNumber+colorId], updatedAt',
+        '++id, setNumber, inventoryKey, [setNumber+inventoryKey], updatedAt',
       localCollections: 'id, userId, type, updatedAt',
       localCollectionItems: '++id, collectionId, itemType, itemId, addedAt',
 
