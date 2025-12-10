@@ -32,6 +32,8 @@ export type UseInventoryResult = {
   isMinifigEnriching: boolean;
   /** Last minifig enrichment error, if any */
   minifigEnrichmentError: string | null;
+  /** Trigger a retry for minifig enrichment (best-effort) */
+  retryMinifigEnrichment: () => Promise<void>;
 };
 
 /**
@@ -167,12 +169,21 @@ export function useInventory(
     return { figNums, existingData };
   }, [baseRows]);
 
-  const { enrichedData, isEnriching, error: enrichmentError } =
-    useMinifigEnrichment({
-      figNums: minifigData.figNums,
-      existingData: minifigData.existingData,
-      enabled: !isLoading && baseRows.length > 0,
-    });
+  const {
+    enrichedData,
+    isEnriching,
+    error: enrichmentError,
+    enrichFigs,
+  } = useMinifigEnrichment({
+    figNums: minifigData.figNums,
+    existingData: minifigData.existingData,
+    enabled: !isLoading && baseRows.length > 0,
+  });
+
+  const retryMinifigEnrichment = useMemo(
+    () => () => enrichFigs(minifigData.figNums),
+    [enrichFigs, minifigData.figNums]
+  );
 
   const rows = useMemo(() => {
     if (enrichedData.size === 0) return baseRows;
@@ -348,5 +359,6 @@ export function useInventory(
     isStorageAvailable,
     isMinifigEnriching: isEnriching,
     minifigEnrichmentError: enrichmentError,
+    retryMinifigEnrichment,
   };
 }

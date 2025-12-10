@@ -6,6 +6,7 @@ import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Modal } from '@/app/components/ui/Modal';
 import { Spinner } from '@/app/components/ui/Spinner';
+import { Toast } from '@/app/components/ui/Toast';
 import { useGroupSessionChannel } from '@/app/hooks/useGroupSessionChannel';
 import { useInventoryPrices } from '@/app/hooks/useInventoryPrices';
 import { useInventoryViewModel } from '@/app/hooks/useInventoryViewModel';
@@ -13,7 +14,7 @@ import { useSupabaseOwned } from '@/app/hooks/useSupabaseOwned';
 import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
 import { InventoryControls } from './InventoryControls';
 import { InventoryItem } from './items/InventoryItem';
@@ -84,6 +85,7 @@ export function InventoryTable({
     isStorageAvailable,
     isMinifigEnriching,
     minifigEnrichmentError,
+    retryMinifigEnrichment,
     sortKey,
     sortDir,
     filter,
@@ -108,6 +110,7 @@ export function InventoryTable({
     initialRows: initialInventory ?? null,
   });
   const [exportOpen, setExportOpen] = useState(false);
+  const [showEnrichmentToast, setShowEnrichmentToast] = useState(false);
   const clearAllOwned = useOwnedStore(state => state.clearAll);
 
   type PriceInfo = {
@@ -311,6 +314,19 @@ export function InventoryTable({
     return result;
   }, [rows, keys, ownedByKey, rowByKey]);
 
+  useEffect(() => {
+    if (minifigEnrichmentError) {
+      setShowEnrichmentToast(true);
+    } else {
+      setShowEnrichmentToast(false);
+    }
+  }, [minifigEnrichmentError]);
+
+  const handleRetryEnrichment = useCallback(async () => {
+    setShowEnrichmentToast(false);
+    await retryMinifigEnrichment();
+  }, [retryMinifigEnrichment]);
+
   const effectiveSortedIndices = useMemo(() => {
     if (sortKey !== 'price') return sortedIndices;
 
@@ -394,7 +410,9 @@ export function InventoryTable({
         minPrice={priceInfo?.minPrice ?? null}
         maxPrice={priceInfo?.maxPrice ?? null}
         currency={priceInfo?.currency ?? null}
-        pricingSource={priceInfo?.pricingSource ?? priceInfo?.pricing_source ?? null}
+        pricingSource={
+          priceInfo?.pricingSource ?? priceInfo?.pricing_source ?? null
+        }
         pricingScopeLabel={priceInfo?.scopeLabel ?? null}
         bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
         isPricePending={pendingKeys.has(key)}
@@ -426,10 +444,8 @@ export function InventoryTable({
           // When a whole minifigure row changes, propagate the delta
           // to its component rows (subparts).
           const isFigId =
-            typeof r.partId === 'string' &&
-            r.partId.startsWith('fig:');
-          const isMinifigParent =
-            r.parentCategory === 'Minifigure' && isFigId;
+            typeof r.partId === 'string' && r.partId.startsWith('fig:');
+          const isMinifigParent = r.parentCategory === 'Minifigure' && isFigId;
 
           if (
             delta !== 0 &&
@@ -487,16 +503,22 @@ export function InventoryTable({
   // Do not early-return to preserve hooks order
   return (
     <div className="pb-2 lg:grid lg:h-full lg:grid-rows-[var(--spacing-controls-height)_minmax(0,1fr)]">
+      {showEnrichmentToast && minifigEnrichmentError ? (
+        <Toast
+          title="Minifig enrichment issue"
+          description={minifigEnrichmentError}
+          variant="warning"
+          actionLabel="Retry"
+          onAction={handleRetryEnrichment}
+          onClose={() => setShowEnrichmentToast(false)}
+          mobileBottomOffset="calc(var(--nav-height, 64px) + 16px)"
+        />
+      ) : null}
       {/* Storage unavailable warning */}
       {!isStorageAvailable && (
         <div className="mx-4 mb-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-700 dark:text-yellow-400">
           <span className="font-medium">Local storage unavailable.</span> Your
           progress will be lost when you close this tab.
-        </div>
-      )}
-      {minifigEnrichmentError && (
-        <div className="mx-4 mb-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-          Minifig enrichment issue: {minifigEnrichmentError}
         </div>
       )}
       {migration?.open && (
@@ -624,12 +646,13 @@ export function InventoryTable({
                   }}
                 >
                   {virtualizer.getVirtualItems().map(virtualRow => {
-                    const originalIndex = effectiveSortedIndices[virtualRow.index]!;
+                    const originalIndex =
+                      effectiveSortedIndices[virtualRow.index]!;
                     const key = keys[originalIndex]!;
                     return (
                       <div
                         key={key}
-                        className="absolute left-0 right-0 p-1"
+                        className="absolute right-0 left-0 p-1"
                         style={{
                           transform: `translateY(${virtualRow.start}px)`,
                         }}

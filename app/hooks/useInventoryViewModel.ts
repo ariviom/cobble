@@ -35,6 +35,8 @@ export type InventoryViewModel = {
   isMinifigEnriching: boolean;
   /** Last enrichment error, if any */
   minifigEnrichmentError: string | null;
+  /** Retry hook for minifig enrichment */
+  retryMinifigEnrichment: () => Promise<void>;
 
   // UI controls
   sortKey: SortKey;
@@ -79,6 +81,7 @@ export function useInventoryViewModel(
     isStorageAvailable,
     isMinifigEnriching,
     minifigEnrichmentError,
+    retryMinifigEnrichment,
     computeMissingRows,
   } = useInventory(setNumber, options);
 
@@ -297,6 +300,7 @@ export function useInventoryViewModel(
     isStorageAvailable,
     isMinifigEnriching,
     minifigEnrichmentError,
+    retryMinifigEnrichment,
     sortKey,
     sortDir,
     filter,
