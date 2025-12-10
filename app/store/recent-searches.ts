@@ -1,9 +1,9 @@
 'use client';
 
 import {
-    readStorage,
-    removeStorage,
-    writeStorage,
+  readStorage,
+  removeStorage,
+  writeStorage,
 } from '@/app/lib/persistence/storage';
 
 export type RecentSearchEntry = {
@@ -54,9 +54,7 @@ export function addRecentSearch(query: string): void {
   try {
     const existing = loadRecentSearchesUnsafe();
     const lower = trimmed.toLowerCase();
-    const filtered = existing.filter(
-      it => it.query.toLowerCase() !== lower
-    );
+    const filtered = existing.filter(it => it.query.toLowerCase() !== lower);
     const next: RecentSearchEntry[] = [
       {
         query: trimmed,
@@ -77,5 +75,3 @@ export function clearRecentSearches(): void {
     // ignore storage errors
   }
 }
-
-

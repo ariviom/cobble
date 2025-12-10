@@ -34,9 +34,10 @@ export function getAuthRedirectUrl(): string {
     return `${window.location.origin}/account`;
   }
   // Fallback for server-side (shouldn't be used for OAuth)
-  const origin = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+  const origin =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.VERCEL_URL ||
+    'http://localhost:3000';
   const protocol = origin.startsWith('http') ? '' : 'https://';
   return `${protocol}${origin}/account`;
 }
-
-

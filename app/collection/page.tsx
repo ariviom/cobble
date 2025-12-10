@@ -43,20 +43,23 @@ export default async function CollectionPage({
     } else {
       userId = user.id;
 
-      const {
-        data: profile,
-      } = await (supabase as unknown as {
-        from: (table: 'user_profiles') => {
-          select: (columns: 'user_id,username') => {
-            eq: (column: 'user_id', value: UserId) => {
-              maybeSingle: () => Promise<{
-                data: Pick<UserProfileRow, 'user_id' | 'username'> | null;
-                error: { message: string } | null;
-              }>;
+      const { data: profile } = await (
+        supabase as unknown as {
+          from: (table: 'user_profiles') => {
+            select: (columns: 'user_id,username') => {
+              eq: (
+                column: 'user_id',
+                value: UserId
+              ) => {
+                maybeSingle: () => Promise<{
+                  data: Pick<UserProfileRow, 'user_id' | 'username'> | null;
+                  error: { message: string } | null;
+                }>;
+              };
             };
           };
-        };
-      })
+        }
+      )
         .from('user_profiles')
         .select('user_id,username')
         .eq('user_id', user.id as UserId)
@@ -86,7 +89,7 @@ export default async function CollectionPage({
             <div className="mt-6">
               <a
                 href="/login"
-                className="inline-flex items-center rounded-md bg-theme-primary px-4 py-2 text-sm font-medium text-theme-primary-contrast shadow-sm transition-colors hover:bg-theme-primary/90"
+                className="text-theme-primary-contrast inline-flex items-center rounded-md bg-theme-primary px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-theme-primary/90"
               >
                 Sign in to manage your collection
               </a>
@@ -107,9 +110,3 @@ export default async function CollectionPage({
 
   redirect(target);
 }
-
-
-
-
-
-

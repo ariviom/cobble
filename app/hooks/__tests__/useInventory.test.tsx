@@ -37,17 +37,14 @@ global.fetch = vi.fn(async () => {
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const client = new QueryClient();
-  return (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  );
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
 describe('useInventory', () => {
   it('computes totals and missing rows based on owned store', async () => {
-    const { result, rerender } = renderHook(
-      () => useInventory('1234-1'),
-      { wrapper }
-    );
+    const { result, rerender } = renderHook(() => useInventory('1234-1'), {
+      wrapper,
+    });
 
     // initial: owned all zero
     await vi.waitFor(() => {
@@ -59,9 +56,7 @@ describe('useInventory', () => {
 
     // mark some owned
     act(() => {
-      useOwnedStore
-        .getState()
-        .setOwned('1234-1', '3001:1', 2);
+      useOwnedStore.getState().setOwned('1234-1', '3001:1', 2);
     });
     rerender();
 
@@ -71,5 +66,3 @@ describe('useInventory', () => {
     expect(missingRows).toHaveLength(2);
   });
 });
-
-

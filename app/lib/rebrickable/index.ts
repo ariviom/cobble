@@ -7,20 +7,20 @@
 
 // Types
 export type {
-    InventoryRow,
-    ParentCategory,
-    PartAvailableColor,
-    PartInSet,
-    RebrickableCategory,
-    RebrickableColor,
-    RebrickableMinifigComponent,
-    RebrickablePart,
-    RebrickableSetInventoryItem,
-    RebrickableSetMinifigItem,
-    RebrickableSetSearchResult,
-    RebrickableTheme,
-    ResolvedPart,
-    SimpleSet
+  InventoryRow,
+  ParentCategory,
+  PartAvailableColor,
+  PartInSet,
+  RebrickableCategory,
+  RebrickableColor,
+  RebrickableMinifigComponent,
+  RebrickablePart,
+  RebrickableSetInventoryItem,
+  RebrickableSetMinifigItem,
+  RebrickableSetSearchResult,
+  RebrickableTheme,
+  ResolvedPart,
+  SimpleSet,
 } from './types';
 
 // Client utilities
@@ -28,9 +28,9 @@ export { rbFetch, rbFetchAbsolute, sleep } from './client';
 
 // Search
 export {
-    getAggregatedSearchResults,
-    searchSets,
-    sortAggregatedResults
+  getAggregatedSearchResults,
+  searchSets,
+  sortAggregatedResults,
 } from './search';
 
 // Inventory
@@ -38,19 +38,19 @@ export { getSetInventory, getSetSummary } from './inventory';
 
 // Parts
 export {
-    getPart,
-    getPartCategories,
-    getPartColorsForPart,
-    getSetsForPart,
-    resolvePartIdToRebrickable,
-    searchParts
+  getPart,
+  getPartCategories,
+  getPartColorsForPart,
+  getSetsForPart,
+  resolvePartIdToRebrickable,
+  searchParts,
 } from './parts';
 
 // Minifigs
 export {
-    getMinifigPartsCached,
-    getSetsForMinifig,
-    searchMinifigs
+  getMinifigPartsCached,
+  getSetsForMinifig,
+  searchMinifigs,
 } from './minifigs';
 
 // Themes & colors

@@ -1,17 +1,17 @@
 'use client';
 
 import {
-    computeMissing,
-    deriveCategory,
-    parseStudAreaFromName,
+  computeMissing,
+  deriveCategory,
+  parseStudAreaFromName,
 } from '@/app/components/set/inventory-utils';
 import type {
-    GroupBy,
-    InventoryFilter,
-    InventoryRow,
-    ItemSize,
-    SortKey,
-    ViewType,
+  GroupBy,
+  InventoryFilter,
+  InventoryRow,
+  ItemSize,
+  SortKey,
+  ViewType,
 } from '@/app/components/set/types';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useInventoryControls } from '@/app/hooks/useInventoryControls';
@@ -327,5 +327,3 @@ export function useInventoryViewModel(
     computeMissingRows,
   };
 }
-
-

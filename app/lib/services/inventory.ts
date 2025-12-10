@@ -1,9 +1,9 @@
 import type { InventoryRow } from '@/app/components/set/types';
 import { getSetInventoryLocal } from '@/app/lib/catalog';
 import {
-    getGlobalMinifigMappingsBatch,
-    getMinifigMappingsForSetBatched,
-    normalizeRebrickableFigId,
+  getGlobalMinifigMappingsBatch,
+  getMinifigMappingsForSetBatched,
+  normalizeRebrickableFigId,
 } from '@/app/lib/minifigMappingBatched';
 import { getSetInventory } from '@/app/lib/rebrickable';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
@@ -56,7 +56,9 @@ type RebrickableSparePage = {
   next: string | null;
 };
 
-function buildSpareCacheEntry(results: RebrickableSparePage['results']): SpareCacheEntry {
+function buildSpareCacheEntry(
+  results: RebrickableSparePage['results']
+): SpareCacheEntry {
   const keys = new Set<string>();
   for (const row of results) {
     if (!row?.is_spare) continue;
@@ -69,7 +71,9 @@ function buildSpareCacheEntry(results: RebrickableSparePage['results']): SpareCa
   return { keys, fetchedAt: Date.now() };
 }
 
-async function fetchSparesFromRebrickable(setNumber: string): Promise<SpareCacheEntry> {
+async function fetchSparesFromRebrickable(
+  setNumber: string
+): Promise<SpareCacheEntry> {
   const first = await rbFetch<RebrickableSparePage>(
     `/lego/sets/${encodeURIComponent(setNumber)}/parts/`,
     { page_size: 1000, inc_part_details: 1 }
@@ -86,7 +90,9 @@ async function fetchSparesFromRebrickable(setNumber: string): Promise<SpareCache
   return buildSpareCacheEntry(all);
 }
 
-async function getSpareCacheEntry(setNumber: string): Promise<SpareCacheEntry | null> {
+async function getSpareCacheEntry(
+  setNumber: string
+): Promise<SpareCacheEntry | null> {
   const cached = spareCache.get(setNumber);
   if (cached && Date.now() - cached.fetchedAt < SPARE_CACHE_TTL_MS) {
     return cached;
@@ -120,7 +126,7 @@ async function getSpareCacheEntry(setNumber: string): Promise<SpareCacheEntry | 
 
 /**
  * Get inventory rows for a set with minifig BrickLink ID enrichment.
- * 
+ *
  * This function:
  * 1. Loads inventory from Supabase catalog (falls back to Rebrickable API)
  * 2. Identifies minifig rows and extracts their Rebrickable fig IDs
@@ -210,7 +216,7 @@ export async function getSetInventoryRowsWithMeta(
       );
 
       const byFigId = new Map<string, string | null>();
-      
+
       // Copy per-set mappings
       for (const [normalized, blId] of batchedResult.mappings.entries()) {
         // Find original figId that matches this normalized key
@@ -224,9 +230,10 @@ export async function getSetInventoryRowsWithMeta(
 
       // Get global fallback mappings for any still-unmapped figs
       const stillMissing = uniqueFigIds.filter(id => !byFigId.has(id));
-      
+
       if (stillMissing.length > 0) {
-        const globalMappings = await getGlobalMinifigMappingsBatch(stillMissing);
+        const globalMappings =
+          await getGlobalMinifigMappingsBatch(stillMissing);
         for (const figId of stillMissing) {
           const normalized = normalizeRebrickableFigId(figId);
           const blId = globalMappings.get(normalized) ?? null;
@@ -254,7 +261,7 @@ export async function getSetInventoryRowsWithMeta(
           row.partId.startsWith('fig:')
         ) {
           const cleanId = row.partId.replace(/^fig:/, '').trim();
-          const blId = cleanId ? byFigId.get(cleanId) ?? null : null;
+          const blId = cleanId ? (byFigId.get(cleanId) ?? null) : null;
           return { ...row, bricklinkFigId: blId };
         }
         return row;

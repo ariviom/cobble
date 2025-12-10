@@ -68,10 +68,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
 
     // Reuse an existing active session for this host + set when possible so
     // multiple clicks on "Search Party" do not create duplicate sessions.
-    const {
-      data: existing,
-      error: existingError,
-    } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('group_sessions')
       .select('*')
       .eq('host_user_id', user.id as GroupSessionRow['host_user_id'])
@@ -104,10 +101,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const slug = generateSlug();
 
-      const {
-        data: created,
-        error: insertError,
-      } = await supabase
+      const { data: created, error: insertError } = await supabase
         .from('group_sessions')
         .insert({
           host_user_id: user.id as GroupSessionRow['host_user_id'],
@@ -153,8 +147,3 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     return errorResponse('unknown_error');
   }
 });
-
-
-
-
-

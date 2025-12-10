@@ -43,4 +43,3 @@ describe('csrf validateOrigin', () => {
     expect(validateOrigin(req)).toBe(false);
   });
 });
-

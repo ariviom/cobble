@@ -1,13 +1,10 @@
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
 import {
-    mapBrickLinkFigToRebrickable,
-    mapRebrickableFigToBrickLink,
-    mapRebrickableFigToBrickLinkOnDemand,
+  mapBrickLinkFigToRebrickable,
+  mapRebrickableFigToBrickLink,
+  mapRebrickableFigToBrickLinkOnDemand,
 } from '@/app/lib/minifigMapping';
-import {
-    getSetSummary,
-    getSetsForMinifig,
-} from '@/app/lib/rebrickable';
+import { getSetSummary, getSetsForMinifig } from '@/app/lib/rebrickable';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import { extractBricklinkPartId } from '@/app/lib/rebrickable/utils';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
@@ -132,8 +129,11 @@ async function loadSubpartsFromDb(
         (row.rb_parts as { part_img_url?: string | null } | null)
           ?.part_img_url ?? null;
       const externalIds =
-        (row.rb_parts as { external_ids?: Record<string, unknown> | null } | null)
-          ?.external_ids ?? null;
+        (
+          row.rb_parts as {
+            external_ids?: Record<string, unknown> | null;
+          } | null
+        )?.external_ids ?? null;
       const bricklinkPartId = extractBricklinkPartId(externalIds);
       const colorName =
         (row.rb_colors as { name?: string | null } | null)?.name ?? '—';
@@ -146,7 +146,9 @@ async function loadSubpartsFromDb(
         quantity: Math.max(1, Math.floor(row.quantity ?? 1)),
         imageUrl: img,
         bricklinkPartId:
-          bricklinkPartId && bricklinkPartId !== partId ? bricklinkPartId : null,
+          bricklinkPartId && bricklinkPartId !== partId
+            ? bricklinkPartId
+            : null,
       };
     });
   } catch (err) {
@@ -204,7 +206,9 @@ async function fetchAndPersistSubparts(
         quantity: Math.max(1, Math.floor(item.quantity ?? 1)),
         imageUrl: item.part.part_img_url ?? null,
         bricklinkPartId:
-          bricklinkPartId && bricklinkPartId !== partId ? bricklinkPartId : null,
+          bricklinkPartId && bricklinkPartId !== partId
+            ? bricklinkPartId
+            : null,
       };
     });
 
@@ -274,10 +278,7 @@ export async function GET(
   const raw = resolvedParams?.figNum ?? '';
   const inputId = raw.trim();
   if (!inputId) {
-    return NextResponse.json(
-      { error: 'missing_fig_num' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'missing_fig_num' }, { status: 400 });
   }
 
   // Accept BrickLink IDs in the path; map to RB fig_num for lookups.
@@ -414,24 +415,19 @@ export async function GET(
         if (candidate) {
           imageUrl = candidate;
           try {
-            await supabase
-              .from('rb_minifig_images')
-              .upsert(
-                {
-                  fig_num: figNum,
-                  image_url: candidate,
-                  last_fetched_at: new Date().toISOString(),
-                },
-                { onConflict: 'fig_num' }
-              );
-          } catch (err) {
-            console.error(
-              '[minifig-meta] failed to cache rb_minifig_images',
+            await supabase.from('rb_minifig_images').upsert(
               {
-                figNum,
-                error: err instanceof Error ? err.message : String(err),
-              }
+                fig_num: figNum,
+                image_url: candidate,
+                last_fetched_at: new Date().toISOString(),
+              },
+              { onConflict: 'fig_num' }
             );
+          } catch (err) {
+            console.error('[minifig-meta] failed to cache rb_minifig_images', {
+              figNum,
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
         }
       } catch (err) {
@@ -534,11 +530,6 @@ export async function GET(
       figNum,
       error: err instanceof Error ? err.message : String(err),
     });
-    return NextResponse.json(
-      { error: 'minifig_meta_failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'minifig_meta_failed' }, { status: 500 });
   }
 }
-
-

@@ -1,14 +1,14 @@
 /**
  * Centralized Supabase client selection for catalog and data access.
- * 
+ *
  * This module provides a single source of truth for which Supabase client
  * should be used for each table, based on RLS policies and access patterns.
- * 
+ *
  * Design principles:
  * 1. Tables with anon SELECT policies → use anon client (getSupabaseServerClient)
  * 2. Internal catalog tables (RLS enabled, no anon policies) → use service role
  * 3. User-owned tables → use auth server client (SSR with cookies)
- * 
+ *
  * Benefits:
  * - Single place to document and enforce access patterns
  * - Compile-time type safety via TypeScript
@@ -53,7 +53,7 @@ const SERVICE_ROLE_TABLES = new Set([
   'rb_minifigs',
   'rb_minifig_parts',
   'rb_minifig_images',
-  
+
   // BrickLink mapping and cache tables
   'bl_sets',
   'bl_set_minifigs',
@@ -62,7 +62,7 @@ const SERVICE_ROLE_TABLES = new Set([
   'bricklink_minifig_mappings',
   'bl_parts',
   'bl_part_sets',
-  
+
   // Part ID mappings (RB → BL)
   'part_id_mappings',
 ]);
@@ -111,13 +111,13 @@ export function getTableAccessLevel(table: string): TableAccessLevel {
 
 /**
  * Get the appropriate Supabase client for a table based on its access level.
- * 
+ *
  * Note: For user tables, this returns the service role client which bypasses RLS.
  * For proper user-scoped access, use getSupabaseAuthServerClient() directly.
  */
 export function getClientForTable(table: string): SupabaseClient<Database> {
   const level = getTableAccessLevel(table);
-  
+
   switch (level) {
     case 'anon':
       return getSupabaseServerClient();
@@ -197,4 +197,3 @@ export function getPubliclyReadableTables(): string[] {
 export function getUserScopedTables(): string[] {
   return Array.from(USER_TABLES);
 }
-

@@ -43,30 +43,29 @@ describe('useInventoryPrices', () => {
   it('does not fetch prices until explicitly requested and only for requested keys', async () => {
     let lastRequestBody: unknown = null;
 
-    global.fetch = vi
-      .fn(async (_input, init?: RequestInit) => {
-        const body = init?.body
-          ? (JSON.parse(init.body as string) as { items: Array<{ key: string }> })
-          : null;
-        lastRequestBody = body;
+    global.fetch = vi.fn(async (_input, init?: RequestInit) => {
+      const body = init?.body
+        ? (JSON.parse(init.body as string) as { items: Array<{ key: string }> })
+        : null;
+      lastRequestBody = body;
 
-        const prices: Record<string, BasePriceInfo> = {};
-        if (body) {
-          for (const item of body.items) {
-            prices[item.key] = {
-              unitPrice: 0.5,
-              minPrice: 0.4,
-              maxPrice: 0.6,
-              currency: 'USD',
-            };
-          }
+      const prices: Record<string, BasePriceInfo> = {};
+      if (body) {
+        for (const item of body.items) {
+          prices[item.key] = {
+            unitPrice: 0.5,
+            minPrice: 0.4,
+            maxPrice: 0.6,
+            currency: 'USD',
+          };
         }
+      }
 
-        return {
-          ok: true,
-          json: async () => ({ prices }),
-        } as Response;
-      }) as unknown as typeof fetch;
+      return {
+        ok: true,
+        json: async () => ({ prices }),
+      } as Response;
+    }) as unknown as typeof fetch;
 
     const keys = mockRows.map(row => row.inventoryKey);
 
@@ -100,29 +99,28 @@ describe('useInventoryPrices', () => {
   });
 
   it('does not re-fetch prices for keys that already have data', async () => {
-    global.fetch = vi
-      .fn(async (_input, init?: RequestInit) => {
-        const body = init?.body
-          ? (JSON.parse(init.body as string) as { items: Array<{ key: string }> })
-          : null;
+    global.fetch = vi.fn(async (_input, init?: RequestInit) => {
+      const body = init?.body
+        ? (JSON.parse(init.body as string) as { items: Array<{ key: string }> })
+        : null;
 
-        const prices: Record<string, BasePriceInfo> = {};
-        if (body) {
-          for (const item of body.items) {
-            prices[item.key] = {
-              unitPrice: 1.0,
-              minPrice: 0.9,
-              maxPrice: 1.1,
-              currency: 'USD',
-            };
-          }
+      const prices: Record<string, BasePriceInfo> = {};
+      if (body) {
+        for (const item of body.items) {
+          prices[item.key] = {
+            unitPrice: 1.0,
+            minPrice: 0.9,
+            maxPrice: 1.1,
+            currency: 'USD',
+          };
         }
+      }
 
-        return {
-          ok: true,
-          json: async () => ({ prices }),
-        } as Response;
-      }) as unknown as typeof fetch;
+      return {
+        ok: true,
+        json: async () => ({ prices }),
+      } as Response;
+    }) as unknown as typeof fetch;
 
     const keys = mockRows.map(row => row.inventoryKey);
 
@@ -151,4 +149,3 @@ describe('useInventoryPrices', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });
-

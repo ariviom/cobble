@@ -3,10 +3,7 @@
 import type { InventoryRow } from '@/app/components/set/types';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import {
-  enqueueOwnedChange,
-  isIndexedDBAvailable,
-} from '@/app/lib/localDb';
+import { enqueueOwnedChange, isIndexedDBAvailable } from '@/app/lib/localDb';
 import { useOwnedStore, type OwnedState } from '@/app/store/owned';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -80,7 +77,9 @@ export function useSupabaseOwned({
   const getOwned = useOwnedStore((state: OwnedState) => state.getOwned);
   const setOwned = useOwnedStore((state: OwnedState) => state.setOwned);
   const clearAll = useOwnedStore((state: OwnedState) => state.clearAll);
-  const markAllAsOwned = useOwnedStore((state: OwnedState) => state.markAllAsOwned);
+  const markAllAsOwned = useOwnedStore(
+    (state: OwnedState) => state.markAllAsOwned
+  );
 
   // Initialize client ID on mount
   useEffect(() => {
@@ -323,7 +322,15 @@ export function useSupabaseOwned({
     } finally {
       setIsMigrating(false);
     }
-  }, [enableCloudSync, keys, migrationDecisionKey, getOwned, setNumber, userId, enqueueChange]);
+  }, [
+    enableCloudSync,
+    keys,
+    migrationDecisionKey,
+    getOwned,
+    setNumber,
+    userId,
+    enqueueChange,
+  ]);
 
   const keepCloudData = useCallback(async () => {
     if (!enableCloudSync || !userId || !migrationDecisionKey) {
@@ -394,5 +401,3 @@ export function useSupabaseOwned({
     keepCloudData,
   };
 }
-
-

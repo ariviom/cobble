@@ -1,0 +1,13 @@
+* text=auto eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+
+# Keep SVG as text but normalize EOL
+*.svg text eol=lf
+

@@ -56,13 +56,13 @@ function checkStorageAvailable(): boolean {
 async function flushWriteToIndexedDB(setNumber: string): Promise<void> {
   const data = pendingWrites.get(setNumber);
   if (!data) return;
-  
+
   if (!checkStorageAvailable()) {
     // In-memory only mode - just clear the pending write
     pendingWrites.delete(setNumber);
     return;
   }
-  
+
   try {
     await setOwnedForSet(setNumber, data);
     pendingWrites.delete(setNumber);
@@ -154,20 +154,20 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
   _version: 0,
   _hydratedSets: new Set<string>(),
   _storageAvailable: true, // Assume true until checked
-  
+
   isHydrated: (setNumber: string) => {
     return get()._hydratedSets.has(setNumber);
   },
-  
+
   isStorageAvailable: () => {
     return checkStorageAvailable();
   },
-  
+
   getOwned: (setNumber, key) => {
     const state = read(setNumber);
     return state[key] ?? 0;
   },
-  
+
   setOwned: (setNumber, key, qty) => {
     const state = read(setNumber);
     const nextQty = Math.max(0, Math.floor(qty || 0));
@@ -183,12 +183,12 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
     // Increment version to trigger re-renders for components subscribed to _version
     set(state => ({ ...state, _version: (state._version ?? 0) + 1 }));
   },
-  
+
   clearAll: setNumber => {
     write(setNumber, {});
     set(state => ({ ...state, _version: (state._version ?? 0) + 1 }));
   },
-  
+
   markAllAsOwned: (setNumber, keys, quantities) => {
     const data: Record<string, number> = {};
     for (let i = 0; i < keys.length; i++) {
@@ -198,7 +198,7 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
     write(setNumber, data);
     set(state => ({ ...state, _version: (state._version ?? 0) + 1 }));
   },
-  
+
   hydrateFromIndexedDB: async (setNumber: string) => {
     // Check if already hydrated
     const currentState = useOwnedStore.getState();
@@ -228,7 +228,7 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
 
       try {
         const indexedDBData = await getOwnedForSet(setNumber);
-        
+
         // Update in-memory cache with IndexedDB data
         cache.set(setNumber, indexedDBData);
 

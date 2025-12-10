@@ -35,10 +35,7 @@ export function useSetStatus({
   themeId,
 }: UseSetStatusArgs): UseSetStatusResult {
   const { user } = useSupabaseUser();
-  const normKey = useMemo(
-    () => setNumber.trim().toLowerCase(),
-    [setNumber]
-  );
+  const normKey = useMemo(() => setNumber.trim().toLowerCase(), [setNumber]);
 
   const rawStatus = useUserSetsStore(state => {
     const entry = state.sets[normKey];
@@ -89,16 +86,14 @@ export function useSetStatus({
           .eq('set_num', setNumber);
       } else {
         const dbStatus = localKeyToDbStatus(key);
-        await supabase
-          .from('user_sets')
-          .upsert(
-            {
-              user_id: user.id,
-              set_num: setNumber,
-              status: dbStatus,
-            },
-            { onConflict: 'user_id,set_num' }
-          );
+        await supabase.from('user_sets').upsert(
+          {
+            user_id: user.id,
+            set_num: setNumber,
+            status: dbStatus,
+          },
+          { onConflict: 'user_id,set_num' }
+        );
       }
 
       // After user_sets is updated, kick off a best-effort sync of minifigs
@@ -116,5 +111,3 @@ export function useSetStatus({
 
   return { status, toggleStatus };
 }
-
-

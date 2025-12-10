@@ -95,7 +95,9 @@ export async function getUserMinifigs({
     }
 
     // On-demand mapping for a bounded number of remaining figs
-    const stillMissing = figNums.filter(id => !blMap.has(id)).slice(0, onDemandLimit);
+    const stillMissing = figNums
+      .filter(id => !blMap.has(id))
+      .slice(0, onDemandLimit);
     for (const id of stillMissing) {
       const mapped = await mapRebrickableFigToBrickLinkOnDemand(id);
       if (mapped) {
@@ -132,7 +134,3 @@ export async function getUserMinifigs({
     })) ?? []
   );
 }
-
-
-
-

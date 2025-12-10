@@ -13,7 +13,9 @@ import {
 
 const MINIFIG_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h, aligned with catalog TTLs
 
-function isFresh(entry: CatalogMinifig | undefined | null): entry is CatalogMinifig {
+function isFresh(
+  entry: CatalogMinifig | undefined | null
+): entry is CatalogMinifig {
   if (!entry) return false;
   const now = Date.now();
   return now - entry.cachedAt <= MINIFIG_CACHE_TTL_MS;
@@ -22,7 +24,9 @@ function isFresh(entry: CatalogMinifig | undefined | null): entry is CatalogMini
 /**
  * Get a cached minifig by Rebrickable fig_num.
  */
-export async function getCachedMinifig(figNum: string): Promise<CatalogMinifig | null> {
+export async function getCachedMinifig(
+  figNum: string
+): Promise<CatalogMinifig | null> {
   if (!isIndexedDBAvailable()) return null;
   const trimmed = figNum.trim();
   if (!trimmed) return null;
@@ -41,7 +45,9 @@ export async function getCachedMinifig(figNum: string): Promise<CatalogMinifig |
 /**
  * Get a cached minifig by BrickLink ID (secondary index).
  */
-export async function getCachedMinifigByBlId(blId: string): Promise<CatalogMinifig | null> {
+export async function getCachedMinifigByBlId(
+  blId: string
+): Promise<CatalogMinifig | null> {
   if (!isIndexedDBAvailable()) return null;
   const trimmed = blId.trim();
   if (!trimmed) return null;
@@ -60,7 +66,9 @@ export async function getCachedMinifigByBlId(blId: string): Promise<CatalogMinif
 /**
  * Cache a single minifig entry.
  */
-export async function setCachedMinifig(minifig: Omit<CatalogMinifig, 'cachedAt'>): Promise<void> {
+export async function setCachedMinifig(
+  minifig: Omit<CatalogMinifig, 'cachedAt'>
+): Promise<void> {
   if (!isIndexedDBAvailable()) return;
   try {
     const db = getLocalDb();
@@ -92,5 +100,3 @@ export async function bulkSetCachedMinifigs(
     console.warn('Failed to bulk cache minifigs:', error);
   }
 }
-
-

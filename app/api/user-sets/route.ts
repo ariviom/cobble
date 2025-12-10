@@ -56,12 +56,10 @@ export async function GET() {
     }
 
     // Fetch user sets with joined metadata from rb_sets
-    const {
-      data: userSets,
-      error: setsError,
-    } = await supabase
+    const { data: userSets, error: setsError } = await supabase
       .from('user_sets')
-      .select(`
+      .select(
+        `
         set_num,
         status,
         updated_at,
@@ -72,7 +70,8 @@ export async function GET() {
           image_url,
           theme_id
         )
-      `)
+      `
+      )
       .eq('user_id', user.id as UserSetRow['user_id']);
 
     if (setsError) {
@@ -100,10 +99,9 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json(
-      { sets } satisfies UserSetsResponse,
-      { headers: { 'Cache-Control': CACHE_CONTROL } }
-    );
+    return NextResponse.json({ sets } satisfies UserSetsResponse, {
+      headers: { 'Cache-Control': CACHE_CONTROL },
+    });
   } catch (err) {
     logger.error('user_sets.unexpected_failure', {
       error: err instanceof Error ? err.message : String(err),
@@ -111,4 +109,3 @@ export async function GET() {
     return errorResponse('unknown_error');
   }
 }
-

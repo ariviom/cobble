@@ -28,34 +28,40 @@ async function getInventoryVersion(): Promise<string | null> {
     }
     return (data?.version as string | null | undefined) ?? null;
   } catch (err) {
-    logger.warn('inventory.version.error', { error: err instanceof Error ? err.message : String(err) });
+    logger.warn('inventory.version.error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const parsed = querySchema.safeParse(Object.fromEntries(searchParams.entries()));
+  const parsed = querySchema.safeParse(
+    Object.fromEntries(searchParams.entries())
+  );
   if (!parsed.success) {
-    incrementCounter('inventory_validation_failed', { issues: parsed.error.flatten() });
+    incrementCounter('inventory_validation_failed', {
+      issues: parsed.error.flatten(),
+    });
     return errorResponse('validation_failed', {
       details: { issues: parsed.error.flatten() },
     });
   }
   const set = parsed.data.set;
   const includeMeta = parsed.data.includeMeta === 'true';
-  
+
   try {
     const inventoryVersion = await getInventoryVersion();
     const result = await getSetInventoryRowsWithMeta(set);
     incrementCounter('inventory_fetched', { setNumber: set });
-    logEvent('inventory_response', { 
-      setNumber: set, 
+    logEvent('inventory_response', {
+      setNumber: set,
       count: result.rows.length,
       minifigsMapped: result.minifigMappingMeta?.mappedCount,
       syncTriggered: result.minifigMappingMeta?.syncTriggered,
     });
-    
+
     // Return rows and optionally include metadata
     const response: {
       rows: typeof result.rows;
@@ -64,7 +70,7 @@ export async function GET(req: NextRequest) {
       minifigEnrichmentNeeded?: typeof result.minifigEnrichmentNeeded;
       spares?: typeof result.spares;
     } = { rows: result.rows, inventoryVersion };
-    
+
     if (includeMeta && result.minifigMappingMeta) {
       response.meta = result.minifigMappingMeta;
     }
@@ -74,9 +80,9 @@ export async function GET(req: NextRequest) {
     if (result.spares) {
       response.spares = result.spares;
     }
-    
+
     return NextResponse.json(response, {
-      headers: { 'Cache-Control': CACHE_CONTROL }
+      headers: { 'Cache-Control': CACHE_CONTROL },
     });
   } catch (err) {
     incrementCounter('inventory_failed', {

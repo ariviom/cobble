@@ -42,17 +42,3 @@ export function removeStorage(key: string): void {
     // ignore storage errors
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

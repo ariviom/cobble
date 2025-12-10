@@ -160,7 +160,7 @@ function PinnedSetSection({
 
   if (error) {
     return (
-        <ErrorBanner
+      <ErrorBanner
         className="p-3 text-sm"
         message={`Failed to load pinned pieces for ${title}.`}
       />
@@ -249,5 +249,3 @@ function PinnedSetSection({
     </section>
   );
 }
-
-

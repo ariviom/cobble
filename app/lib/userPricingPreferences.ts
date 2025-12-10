@@ -112,5 +112,3 @@ export async function saveUserPricingPreferences(
     { onConflict: 'user_id' }
   );
 }
-
-

@@ -36,5 +36,3 @@ describe('buildUserHandle', () => {
     expect(handle).toBe(id);
   });
 });
-
-

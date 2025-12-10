@@ -5,9 +5,9 @@ import { useOwnedSnapshot } from '@/app/hooks/useOwnedSnapshot';
 import { throwAppErrorFromResponse } from '@/app/lib/domain/errors';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
 import {
-    getCachedInventory,
-    isIndexedDBAvailable,
-    setCachedInventory,
+  getCachedInventory,
+  isIndexedDBAvailable,
+  setCachedInventory,
 } from '@/app/lib/localDb';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -64,7 +64,10 @@ async function fetchInventory(
         inventoryVersion = payload.versions?.inventory_parts ?? null;
       }
     } catch (err) {
-      console.warn('Failed to fetch inventory version (will fall back to TTL):', err);
+      console.warn(
+        'Failed to fetch inventory version (will fall back to TTL):',
+        err
+      );
     }
   }
 
@@ -101,7 +104,9 @@ async function fetchInventory(
   const responseVersion = data.inventoryVersion ?? inventoryVersion ?? null;
 
   if (isIndexedDBAvailable() && rows.length > 0) {
-    setCachedInventory(setNumber, rows, { inventoryVersion: responseVersion }).catch(error => {
+    setCachedInventory(setNumber, rows, {
+      inventoryVersion: responseVersion,
+    }).catch(error => {
       console.warn('Failed to cache inventory:', error);
     });
   }
@@ -234,10 +239,7 @@ export function useInventory(
             if (sp.imageUrl) {
               child.imageUrl = sp.imageUrl;
             }
-            if (
-              sp.bricklinkPartId &&
-              sp.bricklinkPartId !== child.partId
-            ) {
+            if (sp.bricklinkPartId && sp.bricklinkPartId !== child.partId) {
               child.bricklinkPartId = sp.bricklinkPartId;
             }
             child.parentCategory = child.parentCategory ?? 'Minifigure';

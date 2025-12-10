@@ -1,11 +1,5 @@
-import {
-  blGetPartSupersets,
-  type BLSupersetItem,
-} from '@/app/lib/bricklink';
-import {
-  getSetsForPartLocal,
-  getSetSummaryLocal
-} from '@/app/lib/catalog';
+import { blGetPartSupersets, type BLSupersetItem } from '@/app/lib/bricklink';
+import { getSetsForPartLocal, getSetSummaryLocal } from '@/app/lib/catalog';
 import {
   mapBrickLinkFigToRebrickable,
   mapRebrickableFigToBrickLinkOnDemand,
@@ -224,11 +218,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Map BL color if provided and no RB color yet
-    if (
-      selectedColorId == null &&
-      blColorIdRaw &&
-      blColorIdRaw.trim() !== ''
-    ) {
+    if (selectedColorId == null && blColorIdRaw && blColorIdRaw.trim() !== '') {
       try {
         const mapped = await mapBrickLinkColorIdToRebrickableColorId(
           Number(blColorIdRaw)
@@ -322,9 +312,13 @@ export async function GET(req: NextRequest) {
       partMetaName = partMeta.name;
       partMetaImage = partMeta.part_img_url;
 
-      const external = (partMeta.external_ids as {
-        BrickLink?: { ext_ids?: unknown[] };
-      } | undefined)?.BrickLink;
+      const external = (
+        partMeta.external_ids as
+          | {
+              BrickLink?: { ext_ids?: unknown[] };
+            }
+          | undefined
+      )?.BrickLink;
       const extIds: unknown[] = Array.isArray(external?.ext_ids)
         ? external!.ext_ids!
         : [];
@@ -443,7 +437,10 @@ export async function GET(req: NextRequest) {
           }
         })
       );
-      const summaryBySet = new Map<string, Awaited<ReturnType<typeof getSetSummary>>>();
+      const summaryBySet = new Map<
+        string,
+        Awaited<ReturnType<typeof getSetSummary>>
+      >();
       for (const item of summaries) {
         if (item?.summary) summaryBySet.set(item.setNumber, item.summary);
       }

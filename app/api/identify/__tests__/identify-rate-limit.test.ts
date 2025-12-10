@@ -6,13 +6,17 @@ vi.mock('server-only', () => ({}));
 import { POST } from '../route';
 
 vi.mock('@/lib/rateLimit', () => ({
-  consumeRateLimit: vi.fn().mockResolvedValue({ allowed: false, retryAfterSeconds: 7 }),
+  consumeRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: false, retryAfterSeconds: 7 }),
   getClientIp: vi.fn().mockResolvedValue('1.1.1.1'),
 }));
 
 describe('identify route rate limiting', () => {
   it('returns 429 with Retry-After when rate limited', async () => {
-    const req = new NextRequest('http://localhost/api/identify', { method: 'POST' });
+    const req = new NextRequest('http://localhost/api/identify', {
+      method: 'POST',
+    });
     const res = await POST(req);
 
     expect(res.status).toBe(429);
@@ -21,4 +25,3 @@ describe('identify route rate limiting', () => {
     expect(json.error).toBe('rate_limited');
   });
 });
-

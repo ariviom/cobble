@@ -50,11 +50,3 @@ export function useMinifigOwnershipState({
     isAuthenticating: isLoading,
   };
 }
-
-
-
-
-
-
-
-

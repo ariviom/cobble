@@ -91,9 +91,12 @@ async function resolveBrickLinkIdFromRebrickable(
     const part = await getPart(partId);
     // Rebrickable external_ids.BrickLink is directly an array: ["3024"]
     // Not an object with ext_ids like some other sources
-    const external = part.external_ids as Record<string, unknown> | null | undefined;
+    const external = part.external_ids as
+      | Record<string, unknown>
+      | null
+      | undefined;
     const blIds = external?.BrickLink;
-    
+
     // Handle both array format ["3024"] and potential object format {ext_ids: [...]}
     let ids: Array<string | number> = [];
     if (Array.isArray(blIds)) {
@@ -108,7 +111,11 @@ async function resolveBrickLinkIdFromRebrickable(
     const normalized =
       ids
         .map(id =>
-          typeof id === 'number' ? String(id) : typeof id === 'string' ? id : null
+          typeof id === 'number'
+            ? String(id)
+            : typeof id === 'string'
+              ? id
+              : null
         )
         .find(id => id && id.trim().length > 0) ?? null;
 
@@ -162,7 +169,9 @@ export async function GET(req: NextRequest) {
   const part = searchParams.get('part');
   if (!part || !part.trim()) {
     incrementCounter('parts_bricklink_validation_failed');
-    return errorResponse('missing_required_field', { message: 'Part ID is required' });
+    return errorResponse('missing_required_field', {
+      message: 'Part ID is required',
+    });
   }
   const clientIp = (await getClientIp(req)) ?? 'unknown';
   const ipLimit = await consumeRateLimit(`ip:${clientIp}`, {
@@ -182,7 +191,9 @@ export async function GET(req: NextRequest) {
   let userId: string | null = null;
   try {
     // Lightweight attempt to read user; failure should not block anon usage.
-    const { getSupabaseAuthServerClient } = await import('@/app/lib/supabaseAuthServerClient');
+    const { getSupabaseAuthServerClient } = await import(
+      '@/app/lib/supabaseAuthServerClient'
+    );
     const supabase = await getSupabaseAuthServerClient();
     const {
       data: { user },
@@ -201,7 +212,10 @@ export async function GET(req: NextRequest) {
       incrementCounter('parts_bricklink_rate_limited', { scope: 'user' });
       return errorResponse('rate_limited', {
         status: 429,
-        details: { scope: 'user', retryAfterSeconds: userLimit.retryAfterSeconds },
+        details: {
+          scope: 'user',
+          retryAfterSeconds: userLimit.retryAfterSeconds,
+        },
         headers: { 'Retry-After': String(userLimit.retryAfterSeconds) },
       });
     }
@@ -221,6 +235,8 @@ export async function GET(req: NextRequest) {
       part,
       error: err instanceof Error ? err.message : String(err),
     });
-    return errorResponse('external_service_error', { message: 'Part lookup failed' });
+    return errorResponse('external_service_error', {
+      message: 'Part lookup failed',
+    });
   }
 }

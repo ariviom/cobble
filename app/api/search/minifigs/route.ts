@@ -44,7 +44,9 @@ const querySchema = z.object({
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const parsed = querySchema.safeParse(Object.fromEntries(searchParams.entries()));
+  const parsed = querySchema.safeParse(
+    Object.fromEntries(searchParams.entries())
+  );
   if (!parsed.success) {
     return errorResponse('validation_failed', {
       details: { issues: parsed.error.flatten() },
@@ -84,8 +86,3 @@ export async function GET(req: NextRequest) {
     return errorResponse('search_failed', { message: 'Minifig search failed' });
   }
 }
-
-
-
-
-

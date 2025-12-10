@@ -12,17 +12,3 @@ export function EmptyState({ message, className }: EmptyStateProps) {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

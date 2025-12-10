@@ -1,3 +1,1 @@
 export { InventoryTable } from './InventoryTableContainer';
-
-

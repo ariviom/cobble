@@ -6,15 +6,3 @@ export default function AccountLayout({
 }: PropsWithChildren<{ children?: React.ReactNode }>) {
   return <PageLayout noPadding>{children}</PageLayout>;
 }
-
-
-
-
-
-
-
-
-
-
-
-

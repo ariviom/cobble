@@ -145,14 +145,3 @@ describe('deriveCategory', () => {
     expect(deriveCategory('BrickArch')).toBe('BrickArch');
   });
 });
-
-
-
-
-
-
-
-
-
-
-

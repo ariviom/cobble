@@ -258,10 +258,22 @@ export type BLPriceGuide = {
 };
 
 // LRU caches with TTL for BrickLink API responses
-const subsetsCache = new LRUCache<string, BLSubsetItem[]>(CACHE.MAX_ENTRIES, CACHE.TTL_MS.DEFAULT);
-const supersetsCache = new LRUCache<string, BLSupersetItem[]>(CACHE.MAX_ENTRIES, CACHE.TTL_MS.DEFAULT);
-const colorsCache = new LRUCache<string, BLColorEntry[]>(CACHE.MAX_ENTRIES, CACHE.TTL_MS.DEFAULT);
-const priceGuideCache = new LRUCache<string, BLPriceGuide>(CACHE.MAX_ENTRIES, CACHE.TTL_MS.PRICE_GUIDE);
+const subsetsCache = new LRUCache<string, BLSubsetItem[]>(
+  CACHE.MAX_ENTRIES,
+  CACHE.TTL_MS.DEFAULT
+);
+const supersetsCache = new LRUCache<string, BLSupersetItem[]>(
+  CACHE.MAX_ENTRIES,
+  CACHE.TTL_MS.DEFAULT
+);
+const colorsCache = new LRUCache<string, BLColorEntry[]>(
+  CACHE.MAX_ENTRIES,
+  CACHE.TTL_MS.DEFAULT
+);
+const priceGuideCache = new LRUCache<string, BLPriceGuide>(
+  CACHE.MAX_ENTRIES,
+  CACHE.TTL_MS.PRICE_GUIDE
+);
 const priceGuideInFlight = new Map<string, Promise<BLPriceGuide>>();
 
 function makeKey(no: string, colorId?: number): string {
@@ -290,7 +302,11 @@ type BLSubsetResponse =
 function normalizeSubsetEntries(raw: BLSubsetResponse[]): BLSubsetItem[] {
   const result: BLSubsetItem[] = [];
   for (const group of raw) {
-    if (isRecord(group) && hasProperty(group, 'entries') && Array.isArray(group.entries)) {
+    if (
+      isRecord(group) &&
+      hasProperty(group, 'entries') &&
+      Array.isArray(group.entries)
+    ) {
       const entries = (group.entries ?? []) as BLSubsetItem[];
       for (const e of entries) {
         if (e && typeof e === 'object') {
@@ -312,7 +328,9 @@ async function fetchSubsets(
 ): Promise<BLSubsetItem[]> {
   const path = `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}/subsets`;
   const query = colorId ? { color_id: colorId } : {};
-  const data = await blGet<BLSubsetResponse[] | { entries?: BLSubsetResponse[] }>(path, query);
+  const data = await blGet<
+    BLSubsetResponse[] | { entries?: BLSubsetResponse[] }
+  >(path, query);
   const raw: BLSubsetResponse[] = Array.isArray(data)
     ? data
     : Array.isArray((data as { entries?: BLSubsetResponse[] }).entries)
@@ -354,7 +372,13 @@ export async function blGetPartSubsets(
 // [{ color_id, entries: [{ item: { no, name, image_url, type }, quantity, appears_as }, ...] }, ...]
 // Some responses may omit color_id or wrap entries differently; we normalize all variants here.
 export type BLSupersetEntryRaw = {
-  item?: { no?: string; name?: string; image_url?: string; type?: string; [k: string]: unknown };
+  item?: {
+    no?: string;
+    name?: string;
+    image_url?: string;
+    type?: string;
+    [k: string]: unknown;
+  };
   quantity?: number;
   appears_as?: string;
 };
@@ -366,7 +390,16 @@ export type BLSupersetColorBucket = {
 
 type BLSupersetResponse =
   | BLSupersetColorBucket
-  | { entries?: BLSupersetItem[]; item?: { no?: string; name?: string; image_url?: string; quantity?: number }; quantity?: number }
+  | {
+      entries?: BLSupersetItem[];
+      item?: {
+        no?: string;
+        name?: string;
+        image_url?: string;
+        quantity?: number;
+      };
+      quantity?: number;
+    }
   | BLSupersetItem
   | BLSupersetItem[];
 
@@ -374,31 +407,38 @@ function normalizeSupersetEntries(raw: BLSupersetResponse[]): BLSupersetItem[] {
   const result: BLSupersetItem[] = [];
   for (const group of raw) {
     // Color-bucketed shape: { color_id, entries: [...] }
-    if (isRecord(group) && hasProperty(group, 'entries') && Array.isArray(group.entries)) {
+    if (
+      isRecord(group) &&
+      hasProperty(group, 'entries') &&
+      Array.isArray(group.entries)
+    ) {
       const entries = (group.entries ?? []) as BLSupersetEntryRaw[];
       for (const entry of entries) {
         const item = entry?.item;
-        const setNumber =
-          item && typeof item.no === 'string' ? item.no : '';
+        const setNumber = item && typeof item.no === 'string' ? item.no : '';
         if (!setNumber) continue;
-        const name =
-          item && typeof item.name === 'string' ? item.name : '';
+        const name = item && typeof item.name === 'string' ? item.name : '';
         const imageUrl = normalizeBLImageUrl(
           item && typeof item.image_url === 'string' ? item.image_url : null
         );
         const quantity =
-          typeof entry.quantity === 'number'
-            ? entry.quantity
-            : 1;
+          typeof entry.quantity === 'number' ? entry.quantity : 1;
         result.push({ setNumber, name, imageUrl, quantity });
       }
       continue;
     }
 
-    if (isRecord(group) && hasProperty(group, 'entries') && Array.isArray(group.entries)) {
+    if (
+      isRecord(group) &&
+      hasProperty(group, 'entries') &&
+      Array.isArray(group.entries)
+    ) {
       const entries = (group.entries ?? []) as BLSupersetItem[];
       for (const e of entries) {
-        if (isRecord(e) && typeof (e as { setNumber?: string }).setNumber === 'string') {
+        if (
+          isRecord(e) &&
+          typeof (e as { setNumber?: string }).setNumber === 'string'
+        ) {
           result.push(e);
         }
       }
@@ -408,10 +448,18 @@ function normalizeSupersetEntries(raw: BLSupersetResponse[]): BLSupersetItem[] {
     if (isRecord(group)) {
       const record: Record<string, unknown> = group;
       const item =
-        hasProperty(record, 'item') && isRecord(record.item) ? record.item : record;
-      const setNumber = typeof (item as { no?: unknown }).no === 'string' ? (item as { no: string }).no : '';
+        hasProperty(record, 'item') && isRecord(record.item)
+          ? record.item
+          : record;
+      const setNumber =
+        typeof (item as { no?: unknown }).no === 'string'
+          ? (item as { no: string }).no
+          : '';
       if (!setNumber) continue;
-      const name = typeof (item as { name?: unknown }).name === 'string' ? (item as { name: string }).name : '';
+      const name =
+        typeof (item as { name?: unknown }).name === 'string'
+          ? (item as { name: string }).name
+          : '';
       const imageUrl = normalizeBLImageUrl(
         typeof (item as { image_url?: unknown }).image_url === 'string'
           ? (item as { image_url: string }).image_url
@@ -435,10 +483,9 @@ async function fetchSupersets(
 ): Promise<BLSupersetItem[]> {
   const path = `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}/supersets`;
   const query = colorId ? { color_id: colorId } : {};
-  const data = await blGet<BLSupersetResponse[] | { entries?: BLSupersetResponse[] }>(
-    path,
-    query
-  );
+  const data = await blGet<
+    BLSupersetResponse[] | { entries?: BLSupersetResponse[] }
+  >(path, query);
   const raw: BLSupersetResponse[] = Array.isArray(data)
     ? data
     : Array.isArray((data as { entries?: BLSupersetResponse[] }).entries)
@@ -476,9 +523,7 @@ export async function blGetPartSupersets(
   return list;
 }
 
-export async function blGetSetSubsets(
-  setNum: string
-): Promise<BLSubsetItem[]> {
+export async function blGetSetSubsets(setNum: string): Promise<BLSubsetItem[]> {
   // Reuse the same shape/logic as blGetPartSubsets, but for SET items with no color.
   const key = makeKey(setNum, undefined);
   const cached = subsetsCache.get(key);
@@ -595,71 +640,73 @@ type BLPriceGuideRaw = {
   price_detail?: BLPriceGuideDetail[];
 };
 
-function parsePriceValue(...values: Array<number | string | undefined>): number | null {
-	for (const v of values) {
-		if (v == null) continue;
-		const n = typeof v === 'number' ? v : Number(v);
-		if (Number.isFinite(n) && n >= 0) return n;
-	}
-	return null;
+function parsePriceValue(
+  ...values: Array<number | string | undefined>
+): number | null {
+  for (const v of values) {
+    if (v == null) continue;
+    const n = typeof v === 'number' ? v : Number(v);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return null;
 }
 
 function parsePriceGuideDetails(raw: BLPriceGuideRaw) {
-	let unitPriceUsed = parsePriceValue(
-		raw.avg_price,
-		raw.qty_avg_price,
-		raw.unit_price,
-		raw.min_price
-	);
-	let minPriceUsed = parsePriceValue(raw.min_price);
-	let maxPriceUsed = parsePriceValue(raw.max_price);
+  let unitPriceUsed = parsePriceValue(
+    raw.avg_price,
+    raw.qty_avg_price,
+    raw.unit_price,
+    raw.min_price
+  );
+  let minPriceUsed = parsePriceValue(raw.min_price);
+  let maxPriceUsed = parsePriceValue(raw.max_price);
 
-	const details = Array.isArray(raw.price_detail) ? raw.price_detail : [];
-	if (unitPriceUsed == null && details.length > 0) {
-		let sum = 0;
-		let count = 0;
-		for (const entry of details) {
-			const val = parsePriceValue(entry.unit_price);
-			if (val != null) {
-				sum += val;
-				count += 1;
-			}
-		}
-		if (count > 0) {
-			unitPriceUsed = sum / count;
-		}
-	}
+  const details = Array.isArray(raw.price_detail) ? raw.price_detail : [];
+  if (unitPriceUsed == null && details.length > 0) {
+    let sum = 0;
+    let count = 0;
+    for (const entry of details) {
+      const val = parsePriceValue(entry.unit_price);
+      if (val != null) {
+        sum += val;
+        count += 1;
+      }
+    }
+    if (count > 0) {
+      unitPriceUsed = sum / count;
+    }
+  }
 
-	if (details.length > 0) {
-		for (const entry of details) {
-			const val = parsePriceValue(entry.unit_price);
-			if (val == null) continue;
-			if (minPriceUsed == null || val < minPriceUsed) {
-				minPriceUsed = val;
-			}
-			if (maxPriceUsed == null || val > maxPriceUsed) {
-				maxPriceUsed = val;
-			}
-		}
-	}
+  if (details.length > 0) {
+    for (const entry of details) {
+      const val = parsePriceValue(entry.unit_price);
+      if (val == null) continue;
+      if (minPriceUsed == null || val < minPriceUsed) {
+        minPriceUsed = val;
+      }
+      if (maxPriceUsed == null || val > maxPriceUsed) {
+        maxPriceUsed = val;
+      }
+    }
+  }
 
-	return { unitPriceUsed, minPriceUsed, maxPriceUsed };
+  return { unitPriceUsed, minPriceUsed, maxPriceUsed };
 }
 
 function makePriceGuideKey(
-	itemType: 'PART' | 'MINIFIG' | 'SET',
-	no: string,
-	guideType: 'stock' | 'sold',
-	currencyCode: string | null | undefined,
-	countryCode: string | null | undefined,
-	colorId: number | null | undefined
+  itemType: 'PART' | 'MINIFIG' | 'SET',
+  no: string,
+  guideType: 'stock' | 'sold',
+  currencyCode: string | null | undefined,
+  countryCode: string | null | undefined,
+  colorId: number | null | undefined
 ) {
-	const currencyKey = (currencyCode || 'USD').toLowerCase();
-	const countryKey = (countryCode || 'WORLD').toLowerCase();
-	return makeKey(
-		`${itemType}::${no}::price-${guideType}-used-${currencyKey}-${countryKey}`,
-		typeof colorId === 'number' ? colorId : undefined
-	);
+  const currencyKey = (currencyCode || 'USD').toLowerCase();
+  const countryKey = (countryCode || 'WORLD').toLowerCase();
+  return makeKey(
+    `${itemType}::${no}::price-${guideType}-used-${currencyKey}-${countryKey}`,
+    typeof colorId === 'number' ? colorId : undefined
+  );
 }
 
 /**
@@ -676,80 +723,85 @@ async function fetchPriceGuide(
   guideType: 'stock' | 'sold',
   prefs?: PricingPreferences
 ): Promise<BLPriceGuide> {
-	const effectivePrefs = prefs ?? DEFAULT_PRICING_PREFERENCES;
-	const key = makePriceGuideKey(
-		itemType,
-		no,
-		guideType,
-		effectivePrefs.currencyCode,
-		effectivePrefs.countryCode,
-		colorId
-	);
-	const cached = priceGuideCache.get(key);
-	if (cached) return cached;
+  const effectivePrefs = prefs ?? DEFAULT_PRICING_PREFERENCES;
+  const key = makePriceGuideKey(
+    itemType,
+    no,
+    guideType,
+    effectivePrefs.currencyCode,
+    effectivePrefs.countryCode,
+    colorId
+  );
+  const cached = priceGuideCache.get(key);
+  if (cached) return cached;
 
-	const inFlight = priceGuideInFlight.get(key);
-	if (inFlight) return inFlight;
+  const inFlight = priceGuideInFlight.get(key);
+  if (inFlight) return inFlight;
 
-	const promise = (async (): Promise<BLPriceGuide> => {
-		const typeSegment =
-			itemType === 'MINIFIG'
-				? STORE_ITEM_TYPE_MINIFIG
-				: itemType === 'SET'
-					? STORE_ITEM_TYPE_SET
-					: STORE_ITEM_TYPE_PART;
+  const promise = (async (): Promise<BLPriceGuide> => {
+    const typeSegment =
+      itemType === 'MINIFIG'
+        ? STORE_ITEM_TYPE_MINIFIG
+        : itemType === 'SET'
+          ? STORE_ITEM_TYPE_SET
+          : STORE_ITEM_TYPE_PART;
 
-		const data = await blGet<BLPriceGuideRaw>(
-			`/items/${typeSegment}/${encodeURIComponent(no)}/price`,
-			{
-				...(typeof colorId === 'number' ? { color_id: colorId } : {}),
-				guide_type: guideType,
-				new_or_used: 'U',
-				currency_code: effectivePrefs.currencyCode,
-				...(effectivePrefs.countryCode ? { country_code: effectivePrefs.countryCode } : {}),
-			}
-		);
+    const data = await blGet<BLPriceGuideRaw>(
+      `/items/${typeSegment}/${encodeURIComponent(no)}/price`,
+      {
+        ...(typeof colorId === 'number' ? { color_id: colorId } : {}),
+        guide_type: guideType,
+        new_or_used: 'U',
+        currency_code: effectivePrefs.currencyCode,
+        ...(effectivePrefs.countryCode
+          ? { country_code: effectivePrefs.countryCode }
+          : {}),
+      }
+    );
 
-		if (process.env.NODE_ENV !== 'production') {
-			logger.debug('bricklink.price_guide_raw', {
-				no,
-				colorId: typeof colorId === 'number' ? colorId : null,
-				itemType,
-				guideType,
-				currency_code: data.currency_code ?? null,
-				topLevelAvg: data.avg_price ?? null,
-				detailCount: Array.isArray(data.price_detail) ? data.price_detail.length : 0,
-			});
-		}
+    if (process.env.NODE_ENV !== 'production') {
+      logger.debug('bricklink.price_guide_raw', {
+        no,
+        colorId: typeof colorId === 'number' ? colorId : null,
+        itemType,
+        guideType,
+        currency_code: data.currency_code ?? null,
+        topLevelAvg: data.avg_price ?? null,
+        detailCount: Array.isArray(data.price_detail)
+          ? data.price_detail.length
+          : 0,
+      });
+    }
 
-		const { unitPriceUsed, minPriceUsed, maxPriceUsed } = parsePriceGuideDetails(data);
+    const { unitPriceUsed, minPriceUsed, maxPriceUsed } =
+      parsePriceGuideDetails(data);
 
-		const pg: BLPriceGuide = {
-			unitPriceUsed,
-			unitPriceNew: null,
-			minPriceUsed,
-			maxPriceUsed,
-			currencyCode: data.currency_code ?? effectivePrefs.currencyCode,
-		};
+    const pg: BLPriceGuide = {
+      unitPriceUsed,
+      unitPriceNew: null,
+      minPriceUsed,
+      maxPriceUsed,
+      currencyCode: data.currency_code ?? effectivePrefs.currencyCode,
+    };
 
-		if (
-			pg.unitPriceUsed == null &&
-			pg.minPriceUsed == null &&
-			pg.maxPriceUsed == null
-		) {
-			pg.__miss = true;
-		}
+    if (
+      pg.unitPriceUsed == null &&
+      pg.minPriceUsed == null &&
+      pg.maxPriceUsed == null
+    ) {
+      pg.__miss = true;
+    }
 
-		priceGuideCache.set(key, pg);
-		return pg;
-	})();
+    priceGuideCache.set(key, pg);
+    return pg;
+  })();
 
-	priceGuideInFlight.set(key, promise);
-	try {
-		return await promise;
-	} finally {
-		priceGuideInFlight.delete(key);
-	}
+  priceGuideInFlight.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    priceGuideInFlight.delete(key);
+  }
 }
 
 export async function blGetPartPriceGuide(

@@ -1,42 +1,46 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database } from '@/supabase/types'
-import { getMinifigParts, getSetSubsets, ScriptBLMinifigPart } from './bricklink-script-client'
+import type { Database } from '@/supabase/types';
+import {
+  getMinifigParts,
+  getSetSubsets,
+  ScriptBLMinifigPart,
+} from './bricklink-script-client';
 
 export function requireEnv(name: string): string {
-  const value = process.env[name]
+  const value = process.env[name];
   if (!value) {
-    throw new Error(`Missing required env var: ${name}`)
+    throw new Error(`Missing required env var: ${name}`);
   }
-  return value
+  return value;
 }
 
 export function normalizeName(name: string | null | undefined): string {
-  if (!name) return ''
+  if (!name) return '';
   return name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
+    .trim();
 }
 
 export function createSupabaseClient(): SupabaseClient<Database> {
   return createClient<Database>(
     requireEnv('NEXT_PUBLIC_SUPABASE_URL'),
-    requireEnv('SUPABASE_SERVICE_ROLE_KEY'),
-  )
+    requireEnv('SUPABASE_SERVICE_ROLE_KEY')
+  );
 }
 
 export type BlMinifig = {
-  minifigNo: string
-  name: string | null
-  quantity: number
-  imageUrl: string | null
-}
+  minifigNo: string;
+  name: string | null;
+  quantity: number;
+  imageUrl: string | null;
+};
 
 export type SetMappingResult = {
-  processed: boolean
-  pairs: { rbFigId: string; blItemId: string }[]
-}
+  processed: boolean;
+  pairs: { rbFigId: string; blItemId: string }[];
+};
 
 /**
  * Process a single set: fetch BL minifigs, cache them, and create RB→BL mappings.
@@ -45,34 +49,34 @@ export type SetMappingResult = {
 export async function processSetForMinifigMapping(
   supabase: SupabaseClient<Database>,
   setNum: string,
-  logPrefix: string,
+  logPrefix: string
 ): Promise<SetMappingResult> {
   // Check if we already have a successful sync for this set.
   const { data: blSet, error: blSetErr } = await supabase
     .from('bl_sets')
     .select('minifig_sync_status,last_minifig_sync_at')
     .eq('set_num', setNum)
-    .maybeSingle()
+    .maybeSingle();
 
   if (blSetErr) {
     // eslint-disable-next-line no-console
     console.error(`${logPrefix} Failed to read bl_sets for`, {
       setNum,
       error: blSetErr.message,
-    })
-    return { processed: false, pairs: [] }
+    });
+    return { processed: false, pairs: [] };
   }
 
   if (blSet?.minifig_sync_status === 'ok') {
     // eslint-disable-next-line no-console
-    console.log(`${logPrefix} Skipping ${setNum}, already synced (status=ok).`)
-    return { processed: false, pairs: [] }
+    console.log(`${logPrefix} Skipping ${setNum}, already synced (status=ok).`);
+    return { processed: false, pairs: [] };
   }
 
   // Fetch BrickLink set subsets (minifigs).
-  let blMinifigs: BlMinifig[] = []
+  let blMinifigs: BlMinifig[] = [];
   try {
-    const subsets = await getSetSubsets(setNum)
+    const subsets = await getSetSubsets(setNum);
     blMinifigs = subsets
       .filter(entry => entry.item?.type === 'MINIFIG')
       .map(entry => ({
@@ -83,18 +87,22 @@ export async function processSetForMinifigMapping(
             ? entry.quantity
             : 1,
         imageUrl: entry.item.image_url ?? null,
-      }))
+      }));
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error(`${logPrefix} Failed to fetch BL subsets for set`, setNum, err)
+    console.error(
+      `${logPrefix} Failed to fetch BL subsets for set`,
+      setNum,
+      err
+    );
     await supabase.from('bl_sets').upsert({
       set_num: setNum,
       minifig_sync_status: 'error',
       last_error:
         err instanceof Error ? err.message : String(err ?? 'unknown error'),
       last_minifig_sync_at: new Date().toISOString(),
-    })
-    return { processed: false, pairs: [] }
+    });
+    return { processed: false, pairs: [] };
   }
 
   // Upsert BL set sync status.
@@ -104,8 +112,8 @@ export async function processSetForMinifigMapping(
       minifig_sync_status: 'ok',
       last_minifig_sync_at: new Date().toISOString(),
     },
-    { onConflict: 'set_num' },
-  )
+    { onConflict: 'set_num' }
+  );
 
   // Cache BL set minifigs.
   if (blMinifigs.length > 0) {
@@ -116,18 +124,18 @@ export async function processSetForMinifigMapping(
       quantity: m.quantity,
       image_url: m.imageUrl,
       last_refreshed_at: new Date().toISOString(),
-    }))
+    }));
 
     const { error: upsertErr } = await supabase
       .from('bl_set_minifigs')
-      .upsert(blSetRows)
+      .upsert(blSetRows);
     if (upsertErr) {
       // eslint-disable-next-line no-console
       console.error(
         `${logPrefix} Failed to upsert bl_set_minifigs for`,
         setNum,
-        upsertErr.message,
-      )
+        upsertErr.message
+      );
     }
   }
 
@@ -136,246 +144,247 @@ export async function processSetForMinifigMapping(
     supabase,
     setNum,
     blMinifigs,
-    logPrefix,
-  )
+    logPrefix
+  );
 
   if (mappingResult.count > 0) {
     // eslint-disable-next-line no-console
     console.log(
-      `${logPrefix} Mapped ${mappingResult.count} figs for set ${setNum}.`,
-    )
+      `${logPrefix} Mapped ${mappingResult.count} figs for set ${setNum}.`
+    );
 
     const setLinkRows = mappingResult.pairs.map(({ rbFigId, blItemId }) => ({
       set_num: setNum,
       minifig_no: blItemId,
       rb_fig_id: rbFigId,
       last_refreshed_at: new Date().toISOString(),
-    }))
+    }));
 
     const { error: linkErr } = await supabase
       .from('bl_set_minifigs')
-      .upsert(setLinkRows)
+      .upsert(setLinkRows);
 
     if (linkErr) {
       // eslint-disable-next-line no-console
       console.error(
         `${logPrefix} Failed to store per-set RB links for`,
         setNum,
-        linkErr.message,
-      )
+        linkErr.message
+      );
     }
   }
 
-  return { processed: true, pairs: mappingResult.pairs }
+  return { processed: true, pairs: mappingResult.pairs };
 }
 
 type MappingResult = {
-  count: number
-  pairs: { rbFigId: string; blItemId: string }[]
-}
+  count: number;
+  pairs: { rbFigId: string; blItemId: string }[];
+};
 
 type RbCandidate = {
-  fig_num: string
-  name: string
-  quantity: number
-  normName: string
-  tokens: Set<string>
-}
+  fig_num: string;
+  name: string;
+  quantity: number;
+  normName: string;
+  tokens: Set<string>;
+};
 
 type BlCandidate = {
-  minifigNo: string
-  name: string
-  quantity: number
-  normName: string
-  tokens: Set<string>
-}
+  minifigNo: string;
+  name: string;
+  quantity: number;
+  normName: string;
+  tokens: Set<string>;
+};
 
 function tokenize(name: string): Set<string> {
-  const norm = normalizeName(name)
-  if (!norm) return new Set()
-  return new Set(norm.split(/\s+/).filter(Boolean))
+  const norm = normalizeName(name);
+  if (!norm) return new Set();
+  return new Set(norm.split(/\s+/).filter(Boolean));
 }
 
 function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
-  if (!a.size || !b.size) return 0
-  let intersection = 0
+  if (!a.size || !b.size) return 0;
+  let intersection = 0;
   for (const token of a) {
-    if (b.has(token)) intersection += 1
+    if (b.has(token)) intersection += 1;
   }
-  const union = a.size + b.size - intersection
-  return union === 0 ? 0 : intersection / union
+  const union = a.size + b.size - intersection;
+  return union === 0 ? 0 : intersection / union;
 }
 
 async function createMinifigMappingsForSet(
   supabase: SupabaseClient<Database>,
   setNum: string,
   blMinifigs: BlMinifig[],
-  logPrefix: string,
+  logPrefix: string
 ): Promise<MappingResult> {
   if (blMinifigs.length === 0) {
-    return { count: 0, pairs: [] }
+    return { count: 0, pairs: [] };
   }
 
   // Load RB inventories for this set.
   const { data: inventories, error: invErr } = await supabase
     .from('rb_inventories')
     .select('id')
-    .eq('set_num', setNum)
+    .eq('set_num', setNum);
 
   if (invErr) {
     // eslint-disable-next-line no-console
     console.error(
       `${logPrefix} Failed to load RB inventories for set`,
       setNum,
-      invErr.message,
-    )
-    return { count: 0, pairs: [] }
+      invErr.message
+    );
+    return { count: 0, pairs: [] };
   }
 
-  const inventoryIds = (inventories ?? []).map(row => row.id)
+  const inventoryIds = (inventories ?? []).map(row => row.id);
   if (inventoryIds.length === 0) {
-    return { count: 0, pairs: [] }
+    return { count: 0, pairs: [] };
   }
 
   // Load RB inventory minifigs.
   const { data: invMinifigs, error: invFigErr } = await supabase
     .from('rb_inventory_minifigs')
     .select('inventory_id,fig_num,quantity')
-    .in('inventory_id', inventoryIds)
+    .in('inventory_id', inventoryIds);
 
   if (invFigErr) {
     // eslint-disable-next-line no-console
     console.error(
       `${logPrefix} Failed to load RB inventory minifigs for set`,
       setNum,
-      invFigErr.message,
-    )
-    return { count: 0, pairs: [] }
+      invFigErr.message
+    );
+    return { count: 0, pairs: [] };
   }
 
   if (!invMinifigs || invMinifigs.length === 0) {
-    return { count: 0, pairs: [] }
+    return { count: 0, pairs: [] };
   }
 
   // Aggregate quantities by fig_num.
-  const figQuantityMap = new Map<string, number>()
+  const figQuantityMap = new Map<string, number>();
   for (const row of invMinifigs) {
-    const current = figQuantityMap.get(row.fig_num) ?? 0
-    figQuantityMap.set(row.fig_num, current + (row.quantity ?? 0))
+    const current = figQuantityMap.get(row.fig_num) ?? 0;
+    figQuantityMap.set(row.fig_num, current + (row.quantity ?? 0));
   }
 
-  const figNums = Array.from(figQuantityMap.keys())
+  const figNums = Array.from(figQuantityMap.keys());
 
   // Load RB minifig names.
   const { data: figs, error: figsErr } = await supabase
     .from('rb_minifigs')
     .select('fig_num,name')
-    .in('fig_num', figNums)
+    .in('fig_num', figNums);
 
   if (figsErr) {
     // eslint-disable-next-line no-console
     console.error(
       `${logPrefix} Failed to load rb_minifigs for set`,
       setNum,
-      figsErr.message,
-    )
-    return { count: 0, pairs: [] }
+      figsErr.message
+    );
+    return { count: 0, pairs: [] };
   }
 
-  const nameByFig = new Map<string, string>()
+  const nameByFig = new Map<string, string>();
   for (const row of figs ?? []) {
-    nameByFig.set(row.fig_num, row.name)
+    nameByFig.set(row.fig_num, row.name);
   }
 
   const rbCandidates: RbCandidate[] = figNums.map(figNum => {
-    const name = nameByFig.get(figNum) ?? figNum
-    const normName = normalizeName(name)
+    const name = nameByFig.get(figNum) ?? figNum;
+    const normName = normalizeName(name);
     return {
       fig_num: figNum,
       name,
       quantity: figQuantityMap.get(figNum) ?? 0,
       normName,
       tokens: tokenize(name),
-    }
-  })
+    };
+  });
 
   if (rbCandidates.length === 0) {
-    return { count: 0, pairs: [] }
+    return { count: 0, pairs: [] };
   }
 
   const blCandidates: BlCandidate[] = blMinifigs.map(bl => {
-    const normName = normalizeName(bl.name)
+    const normName = normalizeName(bl.name);
     return {
       minifigNo: bl.minifigNo,
       name: bl.name ?? bl.minifigNo,
       quantity: bl.quantity,
       normName,
       tokens: tokenize(bl.name ?? bl.minifigNo),
-    }
-  })
+    };
+  });
 
   // Build normalized name lookup for BL minifigs.
-  const normBlByName = new Map<string, BlCandidate[]>()
+  const normBlByName = new Map<string, BlCandidate[]>();
   for (const bl of blCandidates) {
-    const key = bl.normName
-    if (!key) continue
-    const list = normBlByName.get(key) ?? []
-    list.push(bl)
-    normBlByName.set(key, list)
+    const key = bl.normName;
+    if (!key) continue;
+    const list = normBlByName.get(key) ?? [];
+    list.push(bl);
+    normBlByName.set(key, list);
   }
 
-  const unmatchedRb = new Map<string, RbCandidate>()
+  const unmatchedRb = new Map<string, RbCandidate>();
   for (const rb of rbCandidates) {
-    unmatchedRb.set(rb.fig_num, rb)
+    unmatchedRb.set(rb.fig_num, rb);
   }
-  const matchedBl = new Set<string>()
+  const matchedBl = new Set<string>();
 
   // Create mappings where normalized names match uniquely.
   const mappingRows: Database['public']['Tables']['bricklink_minifig_mappings']['Insert'][] =
-    []
-  const pairedIds: { rbFigId: string; blItemId: string }[] = []
+    [];
+  const pairedIds: { rbFigId: string; blItemId: string }[] = [];
 
   function recordMatch(
     rb: RbCandidate,
     bl: BlCandidate,
     confidence: number,
-    source: string,
+    source: string
   ) {
     mappingRows.push({
       rb_fig_id: rb.fig_num,
       bl_item_id: bl.minifigNo,
       confidence,
       source,
-    })
-    pairedIds.push({ rbFigId: rb.fig_num, blItemId: bl.minifigNo })
-    unmatchedRb.delete(rb.fig_num)
-    matchedBl.add(bl.minifigNo)
+    });
+    pairedIds.push({ rbFigId: rb.fig_num, blItemId: bl.minifigNo });
+    unmatchedRb.delete(rb.fig_num);
+    matchedBl.add(bl.minifigNo);
   }
 
   for (const rb of rbCandidates) {
-    if (!rb.normName) continue
+    if (!rb.normName) continue;
     const candidates =
-      normBlByName.get(rb.normName)?.filter(bl => !matchedBl.has(bl.minifigNo)) ??
-      []
+      normBlByName
+        .get(rb.normName)
+        ?.filter(bl => !matchedBl.has(bl.minifigNo)) ?? [];
     if (candidates.length === 1) {
-      recordMatch(rb, candidates[0]!, 1, 'set:name-normalized')
+      recordMatch(rb, candidates[0]!, 1, 'set:name-normalized');
     }
   }
 
   // Similarity-based matching for remaining figs (lowered threshold for divergent naming).
-  const SIM_THRESHOLD = 0.25
-  const SECOND_GAP = 0.10
+  const SIM_THRESHOLD = 0.25;
+  const SECOND_GAP = 0.1;
   for (const rb of Array.from(unmatchedRb.values())) {
-    let best: { bl: BlCandidate; score: number } | null = null
-    let second = 0
+    let best: { bl: BlCandidate; score: number } | null = null;
+    let second = 0;
     for (const bl of blCandidates) {
-      if (matchedBl.has(bl.minifigNo)) continue
-      const score = jaccardSimilarity(rb.tokens, bl.tokens)
+      if (matchedBl.has(bl.minifigNo)) continue;
+      const score = jaccardSimilarity(rb.tokens, bl.tokens);
       if (score > (best?.score ?? 0)) {
-        second = best?.score ?? 0
-        best = { bl, score }
+        second = best?.score ?? 0;
+        best = { bl, score };
       } else if (score > second) {
-        second = score
+        second = score;
       }
     }
     if (
@@ -383,83 +392,79 @@ async function createMinifigMappingsForSet(
       best.score >= SIM_THRESHOLD &&
       best.score - second >= SECOND_GAP
     ) {
-      recordMatch(rb, best.bl, best.score, 'set:name-similarity')
+      recordMatch(rb, best.bl, best.score, 'set:name-similarity');
     }
   }
 
   // Greedy best-match fallback: if equal counts remain, pair by best available similarity.
   // This handles cases where RB/BL naming conventions diverge significantly.
-  let remainingRb = Array.from(unmatchedRb.values())
-  let remainingBl = blCandidates.filter(bl => !matchedBl.has(bl.minifigNo))
+  let remainingRb = Array.from(unmatchedRb.values());
+  let remainingBl = blCandidates.filter(bl => !matchedBl.has(bl.minifigNo));
 
   if (remainingRb.length > 0 && remainingRb.length === remainingBl.length) {
     // Sort RB by name length (shorter = more generic, match last)
     const sortedRb = [...remainingRb].sort(
-      (a, b) => b.name.length - a.name.length,
-    )
+      (a, b) => b.name.length - a.name.length
+    );
     for (const rb of sortedRb) {
-      if (!unmatchedRb.has(rb.fig_num)) continue
-      const available = blCandidates.filter(
-        bl => !matchedBl.has(bl.minifigNo),
-      )
-      if (available.length === 0) break
+      if (!unmatchedRb.has(rb.fig_num)) continue;
+      const available = blCandidates.filter(bl => !matchedBl.has(bl.minifigNo));
+      if (available.length === 0) break;
 
-      let best: { bl: BlCandidate; score: number } | null = null
+      let best: { bl: BlCandidate; score: number } | null = null;
       for (const bl of available) {
-        const score = jaccardSimilarity(rb.tokens, bl.tokens)
+        const score = jaccardSimilarity(rb.tokens, bl.tokens);
         if (!best || score > best.score) {
-          best = { bl, score }
+          best = { bl, score };
         }
       }
       if (best) {
-        recordMatch(rb, best.bl, best.score, 'set:greedy-fallback')
+        recordMatch(rb, best.bl, best.score, 'set:greedy-fallback');
       }
     }
   }
 
   // Final fallback: if exactly one RB and one BL remain, pair them.
-  remainingRb = Array.from(unmatchedRb.values())
-  remainingBl = blCandidates.filter(bl => !matchedBl.has(bl.minifigNo))
+  remainingRb = Array.from(unmatchedRb.values());
+  remainingBl = blCandidates.filter(bl => !matchedBl.has(bl.minifigNo));
   if (remainingRb.length === 1 && remainingBl.length === 1) {
-    recordMatch(remainingRb[0]!, remainingBl[0]!, 0.5, 'set:single-fig')
+    recordMatch(remainingRb[0]!, remainingBl[0]!, 0.5, 'set:single-fig');
   }
 
   if (mappingRows.length === 0) {
-    return { count: 0, pairs: [] }
+    return { count: 0, pairs: [] };
   }
 
   const { error: mapErr } = await supabase
     .from('bricklink_minifig_mappings')
-    .upsert(mappingRows, { onConflict: 'rb_fig_id' })
+    .upsert(mappingRows, { onConflict: 'rb_fig_id' });
 
   if (mapErr) {
     // eslint-disable-next-line no-console
     console.error(
       `${logPrefix} Failed to upsert fig mappings for set`,
       setNum,
-      mapErr.message,
-    )
-    return { count: 0, pairs: [] }
+      mapErr.message
+    );
+    return { count: 0, pairs: [] };
   }
 
   // Log mapping quality for observability.
-  const confidences = mappingRows.map(row => row.confidence ?? 0)
-  const total = confidences.length
+  const confidences = mappingRows.map(row => row.confidence ?? 0);
+  const total = confidences.length;
   const avgConfidence =
-    confidences.reduce((sum, v) => sum + v, 0) / (total || 1)
-  const minConfidence = confidences.length
-    ? Math.min(...confidences)
-    : null
-  const lowConfidenceCount = confidences.filter(v => v < 0.5).length
+    confidences.reduce((sum, v) => sum + v, 0) / (total || 1);
+  const minConfidence = confidences.length ? Math.min(...confidences) : null;
+  const lowConfidenceCount = confidences.filter(v => v < 0.5).length;
   // eslint-disable-next-line no-console
   console.log(`${logPrefix} Mapping stats for set ${setNum}`, {
     total,
     lowConfidenceCount,
     minConfidence,
     avgConfidence: Number.isFinite(avgConfidence) ? avgConfidence : null,
-  })
+  });
 
-  return { count: mappingRows.length, pairs: pairedIds }
+  return { count: mappingRows.length, pairs: pairedIds };
 }
 
 // =============================================================================
@@ -467,30 +472,30 @@ async function createMinifigMappingsForSet(
 // =============================================================================
 
 type BlMinifigPartEntry = {
-  bl_part_id: string
-  bl_color_id: number
-  name: string | null
-  quantity: number
-}
+  bl_part_id: string;
+  bl_color_id: number;
+  name: string | null;
+  quantity: number;
+};
 
 /**
  * Check if a BL minifig has had its component parts synced.
  */
 async function isMinifigPartsSynced(
   supabase: SupabaseClient<Database>,
-  blMinifigNo: string,
+  blMinifigNo: string
 ): Promise<boolean> {
   const { data, error } = await supabase
     .from('bricklink_minifigs')
     .select('parts_sync_status')
     .eq('item_id', blMinifigNo)
-    .maybeSingle()
+    .maybeSingle();
 
   if (error) {
-    return false
+    return false;
   }
 
-  return data?.parts_sync_status === 'ok'
+  return data?.parts_sync_status === 'ok';
 }
 
 /**
@@ -500,29 +505,34 @@ async function isMinifigPartsSynced(
 async function fetchAndCacheMinifigParts(
   supabase: SupabaseClient<Database>,
   blMinifigNo: string,
-  logPrefix: string,
+  logPrefix: string
 ): Promise<BlMinifigPartEntry[] | null> {
   // Check if already synced
   if (await isMinifigPartsSynced(supabase, blMinifigNo)) {
-    return null // Already synced, skip API call
+    return null; // Already synced, skip API call
   }
 
-  let blParts: ScriptBLMinifigPart[] = []
+  let blParts: ScriptBLMinifigPart[] = [];
   try {
-    blParts = await getMinifigParts(blMinifigNo)
+    blParts = await getMinifigParts(blMinifigNo);
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.error(`${logPrefix} Failed to fetch BL parts for minifig`, blMinifigNo, err)
+    console.error(
+      `${logPrefix} Failed to fetch BL parts for minifig`,
+      blMinifigNo,
+      err
+    );
     // Mark as error so we don't retry indefinitely
-    await supabase
-      .from('bricklink_minifigs')
-      .upsert({
+    await supabase.from('bricklink_minifigs').upsert(
+      {
         item_id: blMinifigNo,
         name: blMinifigNo, // Placeholder name
         parts_sync_status: 'error',
         last_parts_sync_at: new Date().toISOString(),
-      }, { onConflict: 'item_id' })
-    return null
+      },
+      { onConflict: 'item_id' }
+    );
+    return null;
   }
 
   const parts: BlMinifigPartEntry[] = blParts.map(p => ({
@@ -530,7 +540,7 @@ async function fetchAndCacheMinifigParts(
     bl_color_id: p.color_id ?? 0,
     name: p.item.name ?? null,
     quantity: p.quantity ?? 1,
-  }))
+  }));
 
   // Cache in bl_minifig_parts
   if (parts.length > 0) {
@@ -541,29 +551,34 @@ async function fetchAndCacheMinifigParts(
       name: p.name,
       quantity: p.quantity,
       last_refreshed_at: new Date().toISOString(),
-    }))
+    }));
 
     const { error: upsertErr } = await supabase
       .from('bl_minifig_parts')
-      .upsert(rows)
+      .upsert(rows);
 
     if (upsertErr) {
       // eslint-disable-next-line no-console
-      console.error(`${logPrefix} Failed to cache bl_minifig_parts for`, blMinifigNo, upsertErr.message)
+      console.error(
+        `${logPrefix} Failed to cache bl_minifig_parts for`,
+        blMinifigNo,
+        upsertErr.message
+      );
     }
   }
 
   // Update sync status
-  await supabase
-    .from('bricklink_minifigs')
-    .upsert({
+  await supabase.from('bricklink_minifigs').upsert(
+    {
       item_id: blMinifigNo,
       name: blMinifigNo, // Placeholder name, will be overwritten if entry exists
       parts_sync_status: 'ok',
       last_parts_sync_at: new Date().toISOString(),
-    }, { onConflict: 'item_id' })
+    },
+    { onConflict: 'item_id' }
+  );
 
-  return parts
+  return parts;
 }
 
 /**
@@ -571,18 +586,18 @@ async function fetchAndCacheMinifigParts(
  */
 async function loadRbMinifigParts(
   supabase: SupabaseClient<Database>,
-  rbFigId: string,
+  rbFigId: string
 ): Promise<Array<{ part_num: string; color_id: number; quantity: number }>> {
   const { data, error } = await supabase
     .from('rb_minifig_parts')
     .select('part_num, color_id, quantity')
-    .eq('fig_num', rbFigId)
+    .eq('fig_num', rbFigId);
 
   if (error || !data) {
-    return []
+    return [];
   }
 
-  return data
+  return data;
 }
 
 /**
@@ -590,33 +605,41 @@ async function loadRbMinifigParts(
  */
 async function loadBlMinifigParts(
   supabase: SupabaseClient<Database>,
-  blMinifigNo: string,
+  blMinifigNo: string
 ): Promise<BlMinifigPartEntry[]> {
   const { data, error } = await supabase
     .from('bl_minifig_parts')
     .select('bl_part_id, bl_color_id, name, quantity')
-    .eq('bl_minifig_no', blMinifigNo)
+    .eq('bl_minifig_no', blMinifigNo);
 
   if (error || !data) {
-    return []
+    return [];
   }
 
-  return data
+  return data;
 }
 
 // Minifig part categories for matching
-type PartCategory = 'head' | 'torso' | 'legs' | 'hips' | 'arms' | 'hands' | 'accessory' | 'other'
+type PartCategory =
+  | 'head'
+  | 'torso'
+  | 'legs'
+  | 'hips'
+  | 'arms'
+  | 'hands'
+  | 'accessory'
+  | 'other';
 
 function categorizePartByName(name: string | null): PartCategory {
-  if (!name) return 'other'
-  const lower = name.toLowerCase()
-  if (lower.includes('head') || lower.includes('face')) return 'head'
-  if (lower.includes('torso') || lower.includes('body')) return 'torso'
-  if (lower.includes('leg') && !lower.includes('hips')) return 'legs'
-  if (lower.includes('hips')) return 'hips'
-  if (lower.includes('arm')) return 'arms'
-  if (lower.includes('hand')) return 'hands'
-  return 'accessory'
+  if (!name) return 'other';
+  const lower = name.toLowerCase();
+  if (lower.includes('head') || lower.includes('face')) return 'head';
+  if (lower.includes('torso') || lower.includes('body')) return 'torso';
+  if (lower.includes('leg') && !lower.includes('hips')) return 'legs';
+  if (lower.includes('hips')) return 'hips';
+  if (lower.includes('arm')) return 'arms';
+  if (lower.includes('hand')) return 'hands';
+  return 'accessory';
 }
 
 /**
@@ -627,64 +650,77 @@ async function mapMinifigComponentParts(
   supabase: SupabaseClient<Database>,
   rbFigId: string,
   blMinifigNo: string,
-  logPrefix: string,
+  logPrefix: string
 ): Promise<number> {
-  const rbParts = await loadRbMinifigParts(supabase, rbFigId)
-  const blParts = await loadBlMinifigParts(supabase, blMinifigNo)
+  const rbParts = await loadRbMinifigParts(supabase, rbFigId);
+  const blParts = await loadBlMinifigParts(supabase, blMinifigNo);
 
   if (rbParts.length === 0 || blParts.length === 0) {
-    return 0
+    return 0;
   }
 
   // Group parts by category
-  type CategorizedPart<T> = { part: T; category: PartCategory }
-  
+  type CategorizedPart<T> = { part: T; category: PartCategory };
+
   // For RB parts, we need to fetch names from rb_parts
-  const rbPartNums = rbParts.map(p => p.part_num)
+  const rbPartNums = rbParts.map(p => p.part_num);
   const { data: rbPartDetails } = await supabase
     .from('rb_parts')
     .select('part_num, name')
-    .in('part_num', rbPartNums)
+    .in('part_num', rbPartNums);
 
-  const rbNameMap = new Map<string, string>()
+  const rbNameMap = new Map<string, string>();
   for (const p of rbPartDetails ?? []) {
-    rbNameMap.set(p.part_num, p.name)
+    rbNameMap.set(p.part_num, p.name);
   }
 
-  const categorizedRb: CategorizedPart<typeof rbParts[0]>[] = rbParts.map(p => ({
-    part: p,
-    category: categorizePartByName(rbNameMap.get(p.part_num) ?? null),
-  }))
+  const categorizedRb: CategorizedPart<(typeof rbParts)[0]>[] = rbParts.map(
+    p => ({
+      part: p,
+      category: categorizePartByName(rbNameMap.get(p.part_num) ?? null),
+    })
+  );
 
-  const categorizedBl: CategorizedPart<BlMinifigPartEntry>[] = blParts.map(p => ({
-    part: p,
-    category: categorizePartByName(p.name),
-  }))
+  const categorizedBl: CategorizedPart<BlMinifigPartEntry>[] = blParts.map(
+    p => ({
+      part: p,
+      category: categorizePartByName(p.name),
+    })
+  );
 
   // Match parts by category
-  const mappings: Array<{ rb_part_id: string; bl_part_id: string; confidence: number }> = []
-  const matchedBlParts = new Set<string>()
+  const mappings: Array<{
+    rb_part_id: string;
+    bl_part_id: string;
+    confidence: number;
+  }> = [];
+  const matchedBlParts = new Set<string>();
 
   // Group by category for matching
-  const blByCategory = new Map<PartCategory, CategorizedPart<BlMinifigPartEntry>[]>()
+  const blByCategory = new Map<
+    PartCategory,
+    CategorizedPart<BlMinifigPartEntry>[]
+  >();
   for (const bl of categorizedBl) {
-    const list = blByCategory.get(bl.category) ?? []
-    list.push(bl)
-    blByCategory.set(bl.category, list)
+    const list = blByCategory.get(bl.category) ?? [];
+    list.push(bl);
+    blByCategory.set(bl.category, list);
   }
 
   for (const rb of categorizedRb) {
-    const candidates = blByCategory.get(rb.category) ?? []
-    const available = candidates.filter(c => !matchedBlParts.has(c.part.bl_part_id))
+    const candidates = blByCategory.get(rb.category) ?? [];
+    const available = candidates.filter(
+      c => !matchedBlParts.has(c.part.bl_part_id)
+    );
 
-    if (available.length === 0) continue
+    if (available.length === 0) continue;
 
     // Prefer color match
-    let matched = available.find(c => c.part.bl_color_id === rb.part.color_id)
-    
+    let matched = available.find(c => c.part.bl_color_id === rb.part.color_id);
+
     // If no color match, take first available in category
     if (!matched && available.length === 1) {
-      matched = available[0]
+      matched = available[0];
     }
 
     if (matched) {
@@ -692,13 +728,13 @@ async function mapMinifigComponentParts(
         rb_part_id: rb.part.part_num,
         bl_part_id: matched.part.bl_part_id,
         confidence: matched.part.bl_color_id === rb.part.color_id ? 0.9 : 0.7,
-      })
-      matchedBlParts.add(matched.part.bl_part_id)
+      });
+      matchedBlParts.add(matched.part.bl_part_id);
     }
   }
 
   if (mappings.length === 0) {
-    return 0
+    return 0;
   }
 
   // Persist to part_id_mappings
@@ -708,28 +744,33 @@ async function mapMinifigComponentParts(
     source: 'minifig-component',
     confidence: m.confidence,
     updated_at: new Date().toISOString(),
-  }))
+  }));
 
   const { error } = await supabase
     .from('part_id_mappings')
-    .upsert(rows, { onConflict: 'rb_part_id' })
+    .upsert(rows, { onConflict: 'rb_part_id' });
 
   if (error) {
     // eslint-disable-next-line no-console
-    console.error(`${logPrefix} Failed to persist part mappings for ${rbFigId}→${blMinifigNo}`, error.message)
-    return 0
+    console.error(
+      `${logPrefix} Failed to persist part mappings for ${rbFigId}→${blMinifigNo}`,
+      error.message
+    );
+    return 0;
   }
 
   // eslint-disable-next-line no-console
-  console.log(`${logPrefix} Mapped ${mappings.length} component parts for ${rbFigId}→${blMinifigNo}`)
+  console.log(
+    `${logPrefix} Mapped ${mappings.length} component parts for ${rbFigId}→${blMinifigNo}`
+  );
 
-  return mappings.length
+  return mappings.length;
 }
 
 /**
  * Process minifig component part mappings for a list of RB↔BL minifig pairs.
  * This function respects rate limits by tracking API calls made.
- * 
+ *
  * @param pairs - List of { rbFigId, blItemId } pairs from minifig mapping
  * @param maxApiCalls - Maximum number of BrickLink API calls to make (for rate limiting)
  * @returns Number of API calls made
@@ -738,31 +779,41 @@ export async function processMinifigComponentMappings(
   supabase: SupabaseClient<Database>,
   pairs: Array<{ rbFigId: string; blItemId: string }>,
   maxApiCalls: number,
-  logPrefix: string,
+  logPrefix: string
 ): Promise<{ apiCallsMade: number; partsMapped: number }> {
-  let apiCallsMade = 0
-  let partsMapped = 0
+  let apiCallsMade = 0;
+  let partsMapped = 0;
 
   for (const { rbFigId, blItemId } of pairs) {
     if (apiCallsMade >= maxApiCalls) {
       // eslint-disable-next-line no-console
-      console.log(`${logPrefix} Rate limit reached (${maxApiCalls} API calls), stopping component mapping`)
-      break
+      console.log(
+        `${logPrefix} Rate limit reached (${maxApiCalls} API calls), stopping component mapping`
+      );
+      break;
     }
 
     // Fetch BL minifig parts (makes 1 API call if not already cached)
-    const blParts = await fetchAndCacheMinifigParts(supabase, blItemId, logPrefix)
-    
+    const blParts = await fetchAndCacheMinifigParts(
+      supabase,
+      blItemId,
+      logPrefix
+    );
+
     if (blParts !== null) {
       // Made an API call (wasn't already cached)
-      apiCallsMade++
+      apiCallsMade++;
     }
 
     // Map RB parts to BL parts (no API calls, uses cached data)
-    const mapped = await mapMinifigComponentParts(supabase, rbFigId, blItemId, logPrefix)
-    partsMapped += mapped
+    const mapped = await mapMinifigComponentParts(
+      supabase,
+      rbFigId,
+      blItemId,
+      logPrefix
+    );
+    partsMapped += mapped;
   }
 
-  return { apiCallsMade, partsMapped }
+  return { apiCallsMade, partsMapped };
 }
-

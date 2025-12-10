@@ -2,8 +2,8 @@ import 'server-only';
 
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import {
-    getGlobalMinifigMappingsBatch,
-    normalizeRebrickableFigId,
+  getGlobalMinifigMappingsBatch,
+  normalizeRebrickableFigId,
 } from '@/app/lib/minifigMappingBatched';
 import { rbFetch } from '@/app/lib/rebrickable/client';
 import { getMinifigPartsCached } from '@/app/lib/rebrickable/minifigs';
@@ -127,7 +127,10 @@ export async function enrichMinifigs(
     );
   }
 
-  const metaByFig = new Map<string, { name: string | null; numParts: number | null }>();
+  const metaByFig = new Map<
+    string,
+    { name: string | null; numParts: number | null }
+  >();
   for (const row of metaRes.data ?? []) {
     metaByFig.set(row.fig_num, {
       name: row.name ?? null,
@@ -141,7 +144,11 @@ export async function enrichMinifigs(
   // Build a map of part_num -> part metadata for enriching subparts
   const partMetaByNum = new Map<
     string,
-    { name: string | null; imageUrl: string | null; bricklinkPartId: string | null }
+    {
+      name: string | null;
+      imageUrl: string | null;
+      bricklinkPartId: string | null;
+    }
   >();
   // Build a map of color_id -> color name
   const colorNameById = new Map<number, string>();
@@ -244,7 +251,7 @@ export async function enrichMinifigs(
   for (const fig of trimmed) {
     const baseImage = imageByFig.get(fig) ?? null;
     const baseMeta = metaByFig.get(fig);
-    const baseSubparts = includeSubparts ? partsByFig.get(fig) ?? null : null;
+    const baseSubparts = includeSubparts ? (partsByFig.get(fig) ?? null) : null;
     const normalized = normalizeRebrickableFigId(fig);
     const blId = globalBlMappings.get(normalized) ?? null;
     results.set(fig, {
@@ -267,7 +274,10 @@ export async function enrichMinifigs(
 
     if (
       includeSubparts &&
-      (forceRefresh || !baseSubparts || baseSubparts.length === 0 || subpartsLackImages)
+      (forceRefresh ||
+        !baseSubparts ||
+        baseSubparts.length === 0 ||
+        subpartsLackImages)
     ) {
       missingSubparts.push(fig);
     }
@@ -290,7 +300,8 @@ export async function enrichMinifigs(
               ? data.name.trim()
               : null;
           const numParts =
-            typeof data.num_parts === 'number' && Number.isFinite(data.num_parts)
+            typeof data.num_parts === 'number' &&
+            Number.isFinite(data.num_parts)
               ? data.num_parts
               : null;
 
@@ -364,7 +375,8 @@ export async function enrichMinifigs(
               partId,
               name: c.part.name ?? partId,
               colorId: c.color?.id ?? 0,
-              colorName: c.color?.name ?? (c.color ? `Color ${c.color.id}` : 'Color 0'),
+              colorName:
+                c.color?.name ?? (c.color ? `Color ${c.color.id}` : 'Color 0'),
               quantity: Math.max(1, Math.floor(c.quantity ?? 1)),
               imageUrl:
                 typeof c.part.part_img_url === 'string'

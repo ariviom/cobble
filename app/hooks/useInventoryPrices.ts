@@ -308,5 +308,3 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
     requestPricesForKeys,
   };
 }
-
-

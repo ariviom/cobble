@@ -19,7 +19,10 @@ export type UseUserListsResult = {
 
 const STORAGE_KEY = 'brick_party_user_lists_cache_v1';
 
-type CacheShape = Record<string, { lists: UserListSummary[]; updatedAt: number }>;
+type CacheShape = Record<
+  string,
+  { lists: UserListSummary[]; updatedAt: number }
+>;
 
 let cache: CacheShape | null = null;
 
@@ -71,9 +74,7 @@ export function useUserLists(): UseUserListsResult {
   const { user } = useSupabaseUser();
   const cached = getCachedLists(user?.id ?? undefined);
   const [lists, setLists] = useState<UserListSummary[]>(cached ?? []);
-  const [isLoading, setIsLoading] = useState<boolean>(
-    !!user && !cached
-  );
+  const [isLoading, setIsLoading] = useState<boolean>(!!user && !cached);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -136,4 +137,3 @@ export function useUserLists(): UseUserListsResult {
 
   return { lists, isLoading, error };
 }
-

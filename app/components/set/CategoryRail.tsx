@@ -169,7 +169,7 @@ export function CategoryRail({
       <div
         ref={listRef}
         className={cx(
-          'no-scrollbar flex w-full overflow-x-auto scroll-smooth whitespace-nowrap',
+          'flex w-full overflow-x-auto scroll-smooth whitespace-nowrap no-scrollbar',
           hasOverflow ? 'px-8' : 'px-0'
         )}
         role="tablist"

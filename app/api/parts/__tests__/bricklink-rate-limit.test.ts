@@ -6,7 +6,9 @@ vi.mock('server-only', () => ({}));
 import { GET } from '../bricklink/route';
 
 vi.mock('@/lib/rateLimit', () => ({
-  consumeRateLimit: vi.fn().mockResolvedValue({ allowed: false, retryAfterSeconds: 5 }),
+  consumeRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: false, retryAfterSeconds: 5 }),
   getClientIp: vi.fn().mockResolvedValue('2.2.2.2'),
 }));
 
@@ -21,9 +23,12 @@ vi.mock('@/app/lib/supabaseAuthServerClient', () => ({
 
 describe('parts/bricklink rate limiting', () => {
   it('returns 429 with Retry-After when rate limited (IP)', async () => {
-    const req = new NextRequest('http://localhost/api/parts/bricklink?part=3001', {
-      method: 'GET',
-    });
+    const req = new NextRequest(
+      'http://localhost/api/parts/bricklink?part=3001',
+      {
+        method: 'GET',
+      }
+    );
     const res = await GET(req);
 
     expect(res.status).toBe(429);
@@ -33,4 +38,3 @@ describe('parts/bricklink rate limiting', () => {
     expect(json.details?.scope).toBe('ip');
   });
 });
-

@@ -84,8 +84,9 @@ export function useMinifigLists({
         }
 
         const listRows = (listsRes.data ?? []) as Array<Tables<'user_lists'>>;
-        const membershipRows = (membershipRes.data ??
-          []) as Array<Tables<'user_list_items'>>;
+        const membershipRows = (membershipRes.data ?? []) as Array<
+          Tables<'user_list_items'>
+        >;
 
         const normalizedLists: MinifigUserList[] = listRows
           .map(row => ({
@@ -104,8 +105,7 @@ export function useMinifigLists({
         if (!cancelled) {
           console.error('useMinifigLists load failed', err);
           const message =
-            (err as { message?: string })?.message ??
-            'Failed to load lists';
+            (err as { message?: string })?.message ?? 'Failed to load lists';
           setError(message);
           setLists([]);
           setSelectedListIds([]);
@@ -254,11 +254,3 @@ export function useMinifigLists({
     createList,
   };
 }
-
-
-
-
-
-
-
-

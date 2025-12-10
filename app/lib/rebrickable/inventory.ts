@@ -1,20 +1,18 @@
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import { getMinifigPartsCached } from '@/app/lib/rebrickable/minifigs';
-import {
-    getPartCategories
-} from '@/app/lib/rebrickable/parts';
+import { getPartCategories } from '@/app/lib/rebrickable/parts';
 import { getThemes } from '@/app/lib/rebrickable/themes';
 import type {
-    InventoryRow,
-    RebrickableCategory,
-    RebrickableSetInventoryItem,
-    RebrickableSetMinifigItem,
-    RebrickableSetSearchResult,
-    RebrickableTheme,
+  InventoryRow,
+  RebrickableCategory,
+  RebrickableSetInventoryItem,
+  RebrickableSetMinifigItem,
+  RebrickableSetSearchResult,
+  RebrickableTheme,
 } from '@/app/lib/rebrickable/types';
 import {
-    extractBricklinkPartId,
-    mapCategoryNameToParent,
+  extractBricklinkPartId,
+  mapCategoryNameToParent,
 } from '@/app/lib/rebrickable/utils';
 
 export async function getSetInventory(
@@ -61,9 +59,10 @@ export async function getSetInventory(
         ...(parentCategory && { parentCategory }),
         inventoryKey,
         // Only include bricklinkPartId if different from partId
-        ...(bricklinkPartId && bricklinkPartId !== i.part.part_num && {
-          bricklinkPartId,
-        }),
+        ...(bricklinkPartId &&
+          bricklinkPartId !== i.part.part_num && {
+            bricklinkPartId,
+          }),
       } satisfies InventoryRow;
     });
 
@@ -151,7 +150,10 @@ export async function getSetInventory(
             if (!existingRow.parentRelations) {
               existingRow.parentRelations = [];
             }
-            existingRow.parentRelations.push({ parentKey, quantity: perParentQty });
+            existingRow.parentRelations.push({
+              parentKey,
+              quantity: perParentQty,
+            });
             parentRow.componentRelations!.push({
               key: existingRow.inventoryKey,
               quantity: perParentQty,
@@ -164,7 +166,9 @@ export async function getSetInventory(
               catId != null
                 ? (idToName.get(catId) ?? 'Minifig Component')
                 : 'Minifig Component';
-            const bricklinkPartId = extractBricklinkPartId(component.part.external_ids);
+            const bricklinkPartId = extractBricklinkPartId(
+              component.part.external_ids
+            );
 
             const childRow: InventoryRow = {
               setNumber,
@@ -181,9 +185,10 @@ export async function getSetInventory(
               inventoryKey,
               parentRelations: [{ parentKey, quantity: perParentQty }],
               // Only include bricklinkPartId if different from partId
-              ...(bricklinkPartId && bricklinkPartId !== component.part.part_num && {
-                bricklinkPartId,
-              }),
+              ...(bricklinkPartId &&
+                bricklinkPartId !== component.part.part_num && {
+                  bricklinkPartId,
+                }),
             };
             parentRow.componentRelations!.push({
               key: inventoryKey,

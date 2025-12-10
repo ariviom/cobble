@@ -11,10 +11,3 @@ export async function POST(): Promise<NextResponse> {
 export async function GET(): Promise<NextResponse> {
   return NextResponse.json({ ok: true });
 }
-
-
-
-
-
-
-

@@ -76,5 +76,3 @@ export function getMinifigDisplayIds(params: {
     rebrickableId,
   };
 }
-
-

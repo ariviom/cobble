@@ -111,7 +111,7 @@ export function InventoryFilterTabs({
       <div
         ref={listRef}
         className={cx(
-          'no-scrollbar flex w-full overflow-x-auto scroll-smooth px-8 whitespace-nowrap'
+          'flex w-full overflow-x-auto scroll-smooth px-8 whitespace-nowrap no-scrollbar'
         )}
         role="tablist"
         aria-label="Inventory filters"

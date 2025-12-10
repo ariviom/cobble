@@ -6,5 +6,3 @@ export default function IdentifyLayout({
 }: PropsWithChildren<{ children?: React.ReactNode }>) {
   return <PageLayout>{children}</PageLayout>;
 }
-
-

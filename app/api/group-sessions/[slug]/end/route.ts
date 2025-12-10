@@ -9,7 +9,9 @@ import type { Tables } from '@/supabase/types';
 type GroupSessionRow = Tables<'group_sessions'>;
 
 function extractSlugFromRequest(req: NextRequest): string | null {
-  const match = req.nextUrl.pathname.match(/\/api\/group-sessions\/([^/]+)\/end$/);
+  const match = req.nextUrl.pathname.match(
+    /\/api\/group-sessions\/([^/]+)\/end$/
+  );
   if (!match || !match[1]) return null;
   try {
     return decodeURIComponent(match[1]).trim();
@@ -42,10 +44,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       return errorResponse('unauthorized');
     }
 
-    const {
-      data: session,
-      error: sessionError,
-    } = await supabase
+    const { data: session, error: sessionError } = await supabase
       .from('group_sessions')
       .select('*')
       .eq('slug', slug as GroupSessionRow['slug'])
@@ -96,5 +95,3 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     return errorResponse('unknown_error');
   }
 });
-
-

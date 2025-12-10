@@ -39,12 +39,13 @@ export function Toast({
   mobileBottomOffset = 'calc(var(--nav-height, 64px) + 12px)',
   className,
 }: ToastProps) {
-  const role = variant === 'error' || variant === 'warning' ? 'alert' : 'status';
+  const role =
+    variant === 'error' || variant === 'warning' ? 'alert' : 'status';
 
   return (
     <div
       className={cn(
-        'pointer-events-none fixed left-0 right-0 z-[60] flex justify-center px-4',
+        'pointer-events-none fixed right-0 left-0 z-[60] flex justify-center px-4',
         'bottom-[var(--toast-bottom-mobile)] lg:bottom-4',
         className
       )}
@@ -59,7 +60,9 @@ export function Toast({
         )}
       >
         <div className="flex-1 space-y-1">
-          {title ? <div className="font-semibold leading-tight">{title}</div> : null}
+          {title ? (
+            <div className="leading-tight font-semibold">{title}</div>
+          ) : null}
           <div className="text-sm leading-snug">{description}</div>
           {actionLabel && onAction ? (
             <button
@@ -85,4 +88,3 @@ export function Toast({
     </div>
   );
 }
-

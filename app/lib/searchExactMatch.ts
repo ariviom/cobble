@@ -71,7 +71,10 @@ function matchesExactItem(
   return matchesExactTheme(item, normalizedQuery, matchType);
 }
 
-export function filterExactMatches(items: SimpleSet[], query: string): SimpleSet[] {
+export function filterExactMatches(
+  items: SimpleSet[],
+  query: string
+): SimpleSet[] {
   const rawQuery = query.trim().toLowerCase();
   const normalizedQuery = normalizeExactText(query);
   if (!rawQuery && !normalizedQuery) {
@@ -81,8 +84,3 @@ export function filterExactMatches(items: SimpleSet[], query: string): SimpleSet
     matchesExactItem(item, rawQuery, normalizedQuery)
   );
 }
-
-
-
-
-

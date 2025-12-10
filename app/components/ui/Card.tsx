@@ -86,5 +86,3 @@ export function CardFooter({ className, ...rest }: CardFooterProps) {
     />
   );
 }
-
-

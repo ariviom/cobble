@@ -8,13 +8,13 @@
 
 import type { InventoryRow } from '@/app/components/set/types';
 import {
-    getLocalDb,
-    isIndexedDBAvailable,
-    type CatalogColor,
-    type CatalogMinifig,
-    type CatalogPart,
-    type CatalogSet,
-    type CatalogSetPart,
+  getLocalDb,
+  isIndexedDBAvailable,
+  type CatalogColor,
+  type CatalogMinifig,
+  type CatalogPart,
+  type CatalogSet,
+  type CatalogSetPart,
 } from './schema';
 
 // Cache TTL: long-lived; version mismatches will force invalidation
@@ -171,7 +171,8 @@ export async function setCachedInventory(
       };
       if (row.bricklinkFigId) setPart.bricklinkFigId = row.bricklinkFigId;
       if (row.parentRelations) setPart.parentRelations = row.parentRelations;
-      if (row.componentRelations) setPart.componentRelations = row.componentRelations;
+      if (row.componentRelations)
+        setPart.componentRelations = row.componentRelations;
       setParts.push(setPart);
 
       // Collect minifig metadata for cross-set reuse
@@ -245,7 +246,9 @@ export async function setCachedInventory(
 /**
  * Check if inventory cache is valid for a set.
  */
-export async function isInventoryCacheValid(setNumber: string): Promise<boolean> {
+export async function isInventoryCacheValid(
+  setNumber: string
+): Promise<boolean> {
   if (!isIndexedDBAvailable()) return false;
 
   try {
@@ -333,4 +336,3 @@ export async function setCachedSetSummary(
     console.warn('Failed to cache set summary:', error);
   }
 }
-

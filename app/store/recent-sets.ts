@@ -56,7 +56,8 @@ function loadRecentSetsUnsafe(): RecentSetEntry[] {
         const themeName =
           typeof obj.themeName === 'string' ? obj.themeName : null;
         const lastViewedAt =
-          typeof obj.lastViewedAt === 'number' && Number.isFinite(obj.lastViewedAt)
+          typeof obj.lastViewedAt === 'number' &&
+          Number.isFinite(obj.lastViewedAt)
             ? obj.lastViewedAt
             : 0;
         return {
@@ -122,5 +123,3 @@ export function removeRecentSet(setNumber: string): void {
     // ignore storage errors
   }
 }
-
-

@@ -151,7 +151,9 @@ function getRootThemeName(themeId: number, themeMap: ThemeMap): string | null {
   return root?.name ?? null;
 }
 
-function getMinifigStatusLabel(status: Tables<'user_minifigs'>['status'] | null): string {
+function getMinifigStatusLabel(
+  status: Tables<'user_minifigs'>['status'] | null
+): string {
   switch (status) {
     case 'owned':
       return 'Owned';
@@ -177,23 +179,17 @@ export function UserCollectionOverview({
   useHydrateUserSets();
   const { user } = useSupabaseUser();
   const setsRecord = useUserSetsStore(state => state.sets);
-  const {
-    lists,
-    isLoading: listsLoading,
-    error: listsError,
-  } = useUserLists();
+  const { lists, isLoading: listsLoading, error: listsError } = useUserLists();
   const {
     minifigs,
     isLoading: minifigsLoading,
     error: minifigsError,
   } = useUserMinifigs();
-  const [listFilter, setListFilter] = useState<ListFilter>(
-    () => {
-      if (initialView === 'owned') return 'owned';
-      if (initialView === 'wishlist') return 'wishlist';
-      return 'all';
-    }
-  );
+  const [listFilter, setListFilter] = useState<ListFilter>(() => {
+    if (initialView === 'owned') return 'owned';
+    if (initialView === 'wishlist') return 'wishlist';
+    return 'all';
+  });
   const [collectionType, setCollectionType] =
     useState<CollectionType>(initialType);
   const [groupBy, setGroupBy] = useState<GroupBy>('status');
@@ -201,17 +197,16 @@ export function UserCollectionOverview({
   const [listMembership, setListMembership] = useState<
     Record<string, ListMembership>
   >({});
-  const [listMembershipLoading, setListMembershipLoading] =
-    useState<string | null>(null);
-  const [listMembershipErrorId, setListMembershipErrorId] =
-    useState<string | null>(null);
-  const [listMembershipError, setListMembershipError] = useState<
+  const [listMembershipLoading, setListMembershipLoading] = useState<
     string | null
   >(null);
-  const selectedListId = useMemo(
-    () => extractListId(listFilter),
-    [listFilter]
+  const [listMembershipErrorId, setListMembershipErrorId] = useState<
+    string | null
+  >(null);
+  const [listMembershipError, setListMembershipError] = useState<string | null>(
+    null
   );
+  const selectedListId = useMemo(() => extractListId(listFilter), [listFilter]);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -230,7 +225,6 @@ export function UserCollectionOverview({
       current === targetFilter ? current : targetFilter
     );
   }, [lists, searchParams]);
-
 
   useEffect(() => {
     if (!user) {
@@ -273,9 +267,7 @@ export function UserCollectionOverview({
 
       if (error) {
         console.error('Failed to load list membership', error);
-        setListMembershipError(
-          error.message ?? 'Failed to load list'
-        );
+        setListMembershipError(error.message ?? 'Failed to load list');
         setListMembershipErrorId(selectedListId);
         setListMembershipLoading(current =>
           current === selectedListId ? null : current
@@ -313,12 +305,7 @@ export function UserCollectionOverview({
     return () => {
       cancelled = true;
     };
-  }, [
-    user,
-    selectedListId,
-    listMembership,
-    listMembershipErrorId,
-  ]);
+  }, [user, selectedListId, listMembership, listMembershipErrorId]);
 
   const sets = useMemo(
     () =>
@@ -370,9 +357,7 @@ export function UserCollectionOverview({
 
   const filteredSets = useMemo(() => {
     const customListId = selectedListId;
-    const membership = customListId
-      ? listMembership[customListId]?.sets
-      : null;
+    const membership = customListId ? listMembership[customListId]?.sets : null;
     return sets.filter(set => {
       const { status } = set;
       if (listFilter === 'owned' && !status.owned) return false;
@@ -392,14 +377,7 @@ export function UserCollectionOverview({
       }
       return true;
     });
-  }, [
-    sets,
-    listFilter,
-    selectedListId,
-    listMembership,
-    themeFilter,
-    themeMap,
-  ]);
+  }, [sets, listFilter, selectedListId, listMembership, themeFilter, themeMap]);
 
   const grouped = useMemo(() => {
     const groups = new Map<string, typeof filteredSets>();
@@ -461,10 +439,8 @@ export function UserCollectionOverview({
     !!selectedListId &&
     listMembershipLoading === selectedListId &&
     !listMembership[selectedListId];
-  const hasAnyItems =
-    collectionType === 'sets' ? hasAnySets : hasAnyMinifigs;
-  const heading =
-    collectionType === 'sets' ? 'Your sets' : 'Your minifigures';
+  const hasAnyItems = collectionType === 'sets' ? hasAnySets : hasAnyMinifigs;
+  const heading = collectionType === 'sets' ? 'Your sets' : 'Your minifigures';
 
   const handleCollectionTypeChange = (next: CollectionType) => {
     if (collectionType === next) {
@@ -782,17 +758,17 @@ export function UserCollectionOverview({
                 <div key={group.label} className="flex flex-col gap-2">
                   <CollectionGroupHeading>{group.label}</CollectionGroupHeading>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {group.items.map(fig => (
-                    <MinifigCard
-                      key={fig.figNum}
-                      figNum={fig.figNum}
-                      name={fig.name}
-                      imageUrl={fig.imageUrl}
-                      blId={fig.blId ?? null}
-                      numParts={fig.numParts}
-                      quantity={fig.quantity}
-                    />
-                  ))}
+                    {group.items.map(fig => (
+                      <MinifigCard
+                        key={fig.figNum}
+                        figNum={fig.figNum}
+                        name={fig.name}
+                        imageUrl={fig.imageUrl}
+                        blId={fig.blId ?? null}
+                        numParts={fig.numParts}
+                        quantity={fig.quantity}
+                      />
+                    ))}
                   </div>
                 </div>
               ))}
@@ -805,13 +781,11 @@ export function UserCollectionOverview({
           </div>
         )}
 
-        {collectionType === 'minifigs' &&
-          minifigsLoading &&
-          hasAnyMinifigs && (
-            <div className="mt-2 text-xs text-foreground-muted">
-              Loading minifigures…
-            </div>
-          )}
+        {collectionType === 'minifigs' && minifigsLoading && hasAnyMinifigs && (
+          <div className="mt-2 text-xs text-foreground-muted">
+            Loading minifigures…
+          </div>
+        )}
       </div>
     </section>
   );

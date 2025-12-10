@@ -300,7 +300,3 @@ export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
 
   throw lastError ?? new Error('Rebrickable error: absolute request failed');
 }
-
-
-
-

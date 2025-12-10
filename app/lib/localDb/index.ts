@@ -72,4 +72,3 @@ export {
   isMigrationComplete,
   setMigrationComplete,
 } from './metaStore';
-

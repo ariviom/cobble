@@ -10,11 +10,14 @@ import {
   type UserSet,
   useUserSetsStore,
 } from '@/app/store/user-sets';
-import type { UserSetWithMeta, UserSetsResponse } from '@/app/api/user-sets/route';
+import type {
+  UserSetWithMeta,
+  UserSetsResponse,
+} from '@/app/api/user-sets/route';
 
 /**
  * Global hydration state for deduplication across component instances.
- * 
+ *
  * We use a global Map + Promise pattern to prevent duplicate fetches when
  * multiple components mount simultaneously. Each user ID gets at most one
  * inflight request, and subsequent hook instances wait on the existing promise.
@@ -25,9 +28,7 @@ type HydrationEntry = {
 };
 const hydrationByUser = new Map<string, HydrationEntry>();
 
-function localStatusToDb(
-  status: SetStatus
-): 'owned' | 'want' | null {
+function localStatusToDb(status: SetStatus): 'owned' | 'want' | null {
   if (status.owned) return 'owned';
   if (status.wantToBuild) return 'want';
   return null;
@@ -41,8 +42,7 @@ async function syncLocalSetsToSupabase(
     const localSets = useUserSetsStore.getState().sets;
     const entries = Object.values(localSets).filter(
       (entry): entry is UserSet =>
-        !!entry &&
-        (entry.status.owned || entry.status.wantToBuild)
+        !!entry && (entry.status.owned || entry.status.wantToBuild)
     );
 
     if (entries.length === 0) {
@@ -52,9 +52,7 @@ async function syncLocalSetsToSupabase(
     const upserts = entries.map(entry => ({
       user_id: userId,
       set_num: entry.setNumber,
-      status:
-        localStatusToDb(entry.status) ??
-        'want',
+      status: localStatusToDb(entry.status) ?? 'want',
     }));
 
     if (upserts.length === 0) {
@@ -131,8 +129,8 @@ export function useHydrateUserSets() {
           return;
         }
 
-        const data = await response.json() as UserSetsResponse;
-        
+        const data = (await response.json()) as UserSetsResponse;
+
         if (cancelledRef.current) return;
 
         if (!data.sets || data.sets.length === 0) {
@@ -144,28 +142,30 @@ export function useHydrateUserSets() {
           return;
         }
 
-        const hydratedEntries: HydratedSetInput[] = data.sets.map((row: UserSetWithMeta) => {
-          const updatedAt =
-            row.updatedAt && !Number.isNaN(Date.parse(row.updatedAt))
-              ? Date.parse(row.updatedAt)
-              : undefined;
+        const hydratedEntries: HydratedSetInput[] = data.sets.map(
+          (row: UserSetWithMeta) => {
+            const updatedAt =
+              row.updatedAt && !Number.isNaN(Date.parse(row.updatedAt))
+                ? Date.parse(row.updatedAt)
+                : undefined;
 
-          const entry: HydratedSetInput = {
-            setNumber: row.setNumber,
-            status: mapDbStatusToLocal(row.status),
-            name: row.name,
-            year: row.year,
-            imageUrl: row.imageUrl,
-            numParts: row.numParts,
-            themeId: row.themeId,
-          };
+            const entry: HydratedSetInput = {
+              setNumber: row.setNumber,
+              status: mapDbStatusToLocal(row.status),
+              name: row.name,
+              year: row.year,
+              imageUrl: row.imageUrl,
+              numParts: row.numParts,
+              themeId: row.themeId,
+            };
 
-          if (typeof updatedAt === 'number') {
-            entry.updatedAt = updatedAt;
+            if (typeof updatedAt === 'number') {
+              entry.updatedAt = updatedAt;
+            }
+
+            return entry;
           }
-
-          return entry;
-        });
+        );
 
         hydrate(hydratedEntries);
         // Mark as completed

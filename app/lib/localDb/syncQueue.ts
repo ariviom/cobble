@@ -19,7 +19,10 @@ const MAX_RETRY_COUNT = 5;
  * Add an operation to the sync queue.
  */
 export async function enqueueSyncOperation(
-  operation: Omit<SyncQueueItem, 'id' | 'createdAt' | 'retryCount' | 'lastError'>
+  operation: Omit<
+    SyncQueueItem,
+    'id' | 'createdAt' | 'retryCount' | 'lastError'
+  >
 ): Promise<number | undefined> {
   if (!isIndexedDBAvailable()) return undefined;
 
@@ -107,7 +110,10 @@ export async function getSyncQueueCount(): Promise<number> {
 
   try {
     const db = getLocalDb();
-    return await db.syncQueue.where('retryCount').below(MAX_RETRY_COUNT).count();
+    return await db.syncQueue
+      .where('retryCount')
+      .below(MAX_RETRY_COUNT)
+      .count();
   } catch {
     return 0;
   }
@@ -231,4 +237,3 @@ export async function enqueueOwnedChange(
     console.warn('Failed to enqueue owned change:', error);
   }
 }
-

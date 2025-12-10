@@ -137,9 +137,7 @@ function writeCacheEntry(key: string, entry: ListCacheEntry) {
   listCache.set(key, entry);
 }
 
-export function useSetLists({
-  setNumber,
-}: UseSetListsArgs): UseSetListsResult {
+export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
   const { user } = useSupabaseUser();
   const [lists, setLists] = useState<UserList[]>([]);
   const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
@@ -227,8 +225,9 @@ export function useSetLists({
         }
 
         const listRows = (listsRes.data ?? []) as Array<Tables<'user_lists'>>;
-        const membershipRows = (membershipRes.data ??
-          []) as Array<Tables<'user_list_items'>>;
+        const membershipRows = (membershipRes.data ?? []) as Array<
+          Tables<'user_list_items'>
+        >;
 
         const normalizedLists = listRows
           .map(row => ({
@@ -505,5 +504,3 @@ export function useSetLists({
     createList,
   };
 }
-
-

@@ -3,10 +3,10 @@ import 'server-only';
 import { LRUCache } from '@/app/lib/cache/lru';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import type {
-    PartAvailableColor,
-    PartInSet,
-    RebrickableCategory,
-    RebrickablePart,
+  PartAvailableColor,
+  PartInSet,
+  RebrickableCategory,
+  RebrickablePart,
 } from '@/app/lib/rebrickable/types';
 import { dedup } from '@/app/lib/utils/dedup';
 import { logger } from '@/lib/metrics';
@@ -18,10 +18,9 @@ export async function getPart(partNum: string): Promise<RebrickablePart> {
   }
   const key = `getPart:${trimmed.toLowerCase()}`;
   return dedup(key, () =>
-    rbFetch<RebrickablePart>(
-      `/lego/parts/${encodeURIComponent(trimmed)}/`,
-      { inc_part_details: 1 }
-    )
+    rbFetch<RebrickablePart>(`/lego/parts/${encodeURIComponent(trimmed)}/`, {
+      inc_part_details: 1,
+    })
   );
 }
 
@@ -172,19 +171,13 @@ export async function getPartColorsForPart(
   let nextUrl: string | null = null;
   while (first || nextUrl) {
     const page: Page = first
-      ? await dedup(
-          `partColors:first:${trimmed.toLowerCase()}`,
-          () =>
-            rbFetch<Page>(
-              `/lego/parts/${encodeURIComponent(trimmed)}/colors/`,
-              {
-                page_size: 1000,
-              }
-            )
+      ? await dedup(`partColors:first:${trimmed.toLowerCase()}`, () =>
+          rbFetch<Page>(`/lego/parts/${encodeURIComponent(trimmed)}/colors/`, {
+            page_size: 1000,
+          })
         )
-      : await dedup(
-          `partColors:next:${nextUrl}`,
-          () => rbFetchAbsolute<Page>(nextUrl!)
+      : await dedup(`partColors:next:${nextUrl}`, () =>
+          rbFetchAbsolute<Page>(nextUrl!)
         );
     results.push(...page.results);
     nextUrl = page.next;
@@ -301,9 +294,8 @@ export async function getSetsForPart(
       typeof color === 'number'
         ? `/lego/parts/${encodeURIComponent(pn)}/colors/${color}/sets/`
         : `/lego/parts/${encodeURIComponent(pn)}/sets/`;
-    const first = await dedup(
-      `getSetsForPart:first:${path}`,
-      () => rbFetch<Page>(path, params)
+    const first = await dedup(`getSetsForPart:first:${path}`, () =>
+      rbFetch<Page>(path, params)
     );
     if (process.env.NODE_ENV !== 'production') {
       logger.debug('rebrickable.parts.sets_first_page', {
@@ -318,9 +310,8 @@ export async function getSetsForPart(
     const all: Page['results'] = [...first.results];
     let nextUrl: string | null = first.next;
     while (nextUrl) {
-      const page = await dedup(
-        `getSetsForPart:next:${nextUrl}`,
-        () => rbFetchAbsolute<Page>(nextUrl!)
+      const page = await dedup(`getSetsForPart:next:${nextUrl}`, () =>
+        rbFetchAbsolute<Page>(nextUrl!)
       );
       if (process.env.NODE_ENV !== 'production') {
         logger.debug('rebrickable.parts.sets_next_page', {

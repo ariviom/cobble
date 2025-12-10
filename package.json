@@ -10,6 +10,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest",
+    "prepare": "simple-git-hooks",
     "ingest:rebrickable": "tsx scripts/ingest-rebrickable.ts",
     "ingest:bricklink-minifigs": "tsx scripts/ingest-bricklink-minifigs.ts",
     "build:minifig-mappings:user": "tsx scripts/build-minifig-mappings-from-user-sets.ts",
@@ -55,12 +56,20 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
     "jsdom": "^27.0.1",
+    "lint-staged": "^15.2.10",
     "prettier": "^3.6.2",
+    "simple-git-hooks": "^2.11.1",
     "supabase": "^2.61.2",
     "tailwindcss": "^4",
     "tsx": "^4.20.6",
     "typescript": "^5",
     "vitest": "^4.0.15"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,css,scss,md,mdx,json,yaml,yml,html}": "prettier --write --ignore-unknown"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "npx lint-staged"
   },
   "license": "MIT"
 }

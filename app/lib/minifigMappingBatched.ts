@@ -40,9 +40,7 @@ const inFlightSyncs = new Map<string, Promise<boolean>>();
  * Execute a sync for a set, deduplicating concurrent requests.
  * Returns true if sync completed successfully, false otherwise.
  */
-async function executeSetSyncDeduplicated(
-  setNumber: string
-): Promise<boolean> {
+async function executeSetSyncDeduplicated(setNumber: string): Promise<boolean> {
   const existing = inFlightSyncs.get(setNumber);
   if (existing) {
     logger.debug('minifig_mapping.batched.join_existing_sync', { setNumber });
@@ -87,14 +85,14 @@ export function normalizeRebrickableFigId(figId: string): string {
 
 /**
  * Fetch minifig mappings for a set in a single batched query.
- * 
+ *
  * This replaces the previous pattern of:
  * 1. mapSetRebrickableFigsToBrickLink() - query bl_set_minifigs
  * 2. Check for missing IDs
  * 3. Query bl_sets.minifig_sync_status
  * 4. Optionally trigger sync
  * 5. Re-query bl_set_minifigs
- * 
+ *
  * With a single query that fetches mappings + sync status together,
  * and uses request deduplication for sync triggers.
  */
@@ -106,7 +104,7 @@ export async function getMinifigMappingsForSetBatched(
   const { triggerSyncIfMissing = true, readOnly = false } = options;
   // bl_set_minifigs, bl_sets require service role
   const supabase = getCatalogWriteClient();
-  
+
   const cleanIds = figIds.map(normalizeRebrickableFigId).filter(Boolean);
   if (!cleanIds.length) {
     return {
@@ -149,11 +147,18 @@ export async function getMinifigMappingsForSetBatched(
   const mappings = new Map<string, string | null>();
   for (const row of mappingsResult.data ?? []) {
     if (!row.rb_fig_id) continue;
-    mappings.set(normalizeRebrickableFigId(row.rb_fig_id), row.minifig_no ?? null);
+    mappings.set(
+      normalizeRebrickableFigId(row.rb_fig_id),
+      row.minifig_no ?? null
+    );
   }
 
-  const syncStatus = (syncStatusResult.data?.minifig_sync_status as 'ok' | 'error' | 'pending') ?? null;
-  
+  const syncStatus =
+    (syncStatusResult.data?.minifig_sync_status as
+      | 'ok'
+      | 'error'
+      | 'pending') ?? null;
+
   // Determine which fig IDs are missing
   const unmappedFigIds = cleanIds.filter(id => !mappings.has(id));
 
@@ -179,7 +184,7 @@ export async function getMinifigMappingsForSetBatched(
 
   // Trigger sync (deduplicated across concurrent requests)
   const syncSuccess = await executeSetSyncDeduplicated(setNumber);
-  
+
   if (!syncSuccess) {
     return {
       mappings,
@@ -197,16 +202,22 @@ export async function getMinifigMappingsForSetBatched(
     .in('rb_fig_id', cleanIds);
 
   if (updateErr) {
-    console.error('[minifigMapping:batched] Failed to reload mappings after sync', {
-      setNumber,
-      error: updateErr.message,
-    });
+    console.error(
+      '[minifigMapping:batched] Failed to reload mappings after sync',
+      {
+        setNumber,
+        error: updateErr.message,
+      }
+    );
   }
 
   // Merge updated mappings
   for (const row of updatedMappings ?? []) {
     if (!row.rb_fig_id) continue;
-    mappings.set(normalizeRebrickableFigId(row.rb_fig_id), row.minifig_no ?? null);
+    mappings.set(
+      normalizeRebrickableFigId(row.rb_fig_id),
+      row.minifig_no ?? null
+    );
   }
 
   // Recalculate unmapped
@@ -230,7 +241,7 @@ const globalMinifigIdCache = new Map<string, string | null>();
 /**
  * Look up a single RB fig ID → BL minifig ID using global mapping tables.
  * This is used as a fallback when per-set mapping doesn't exist.
- * 
+ *
  * Checks in order:
  * 1. In-memory cache
  * 2. bricklink_minifig_mappings table
@@ -240,7 +251,7 @@ export async function getGlobalMinifigMapping(
   figId: string
 ): Promise<string | null> {
   const cacheKey = normalizeRebrickableFigId(figId);
-  
+
   if (globalMinifigIdCache.has(cacheKey)) {
     return globalMinifigIdCache.get(cacheKey)!;
   }
@@ -340,7 +351,7 @@ export async function getGlobalMinifigMappingsBatch(
 
   // Find remaining IDs not in explicit mappings
   const remainingIds = uncachedIds.filter(id => !foundInExplicit.has(id));
-  
+
   if (remainingIds.length > 0) {
     // Batch query set mappings for remaining
     const { data: setMappings } = await supabase
@@ -351,7 +362,11 @@ export async function getGlobalMinifigMappingsBatch(
 
     const foundInSet = new Set<string>();
     for (const row of setMappings ?? []) {
-      if (!row.rb_fig_id || foundInSet.has(normalizeRebrickableFigId(row.rb_fig_id))) continue;
+      if (
+        !row.rb_fig_id ||
+        foundInSet.has(normalizeRebrickableFigId(row.rb_fig_id))
+      )
+        continue;
       const normalized = normalizeRebrickableFigId(row.rb_fig_id);
       results.set(normalized, row.minifig_no ?? null);
       globalMinifigIdCache.set(normalized, row.minifig_no ?? null);
@@ -385,7 +400,7 @@ export async function mapBrickLinkFigToRebrickable(
   blId: string
 ): Promise<string | null> {
   const cacheKey = blId.trim().toLowerCase();
-  
+
   if (globalMinifigBlToRbCache.has(cacheKey)) {
     logger.debug('minifig_mapping.batched.bl_to_rb_cache_hit', { blId });
     return globalMinifigBlToRbCache.get(cacheKey)!;
@@ -506,7 +521,7 @@ export async function mapRebrickableFigToBrickLinkOnDemand(
   });
 
   const syncSuccess = await executeSetSyncDeduplicated(setNum);
-  
+
   if (!syncSuccess) {
     return null;
   }
@@ -557,4 +572,3 @@ export async function mapSetRebrickableFigsToBrickLinkOnDemand(
   });
   return result.mappings;
 }
-

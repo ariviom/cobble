@@ -246,7 +246,7 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
         imageUrl:
           typeof meta?.imageUrl === 'string' || meta?.imageUrl === null
             ? meta.imageUrl
-            : prevEntry?.imageUrl ?? null,
+            : (prevEntry?.imageUrl ?? null),
         numParts:
           typeof meta?.numParts === 'number'
             ? meta.numParts
@@ -256,7 +256,7 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
         themeId:
           typeof meta?.themeId === 'number'
             ? meta.themeId
-            : prevEntry?.themeId ?? null,
+            : (prevEntry?.themeId ?? null),
       };
 
       const nextEntry: UserSet = {
@@ -306,7 +306,8 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
         const normKey = normalizeKey(entry.setNumber);
         const existing = nextSets[normKey];
         const incomingUpdatedAt =
-          typeof entry.updatedAt === 'number' && Number.isFinite(entry.updatedAt)
+          typeof entry.updatedAt === 'number' &&
+          Number.isFinite(entry.updatedAt)
             ? entry.updatedAt
             : Date.now();
 
@@ -319,21 +320,19 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
           setNumber: entry.setNumber,
           name: entry.name ?? existing?.name ?? entry.setNumber,
           year:
-            typeof entry.year === 'number'
-              ? entry.year
-              : existing?.year ?? 0,
+            typeof entry.year === 'number' ? entry.year : (existing?.year ?? 0),
           imageUrl:
             typeof entry.imageUrl === 'string'
               ? entry.imageUrl
-              : existing?.imageUrl ?? null,
+              : (existing?.imageUrl ?? null),
           numParts:
             typeof entry.numParts === 'number'
               ? entry.numParts
-              : existing?.numParts ?? 0,
+              : (existing?.numParts ?? 0),
           themeId:
             typeof entry.themeId === 'number'
               ? entry.themeId
-              : existing?.themeId ?? null,
+              : (existing?.themeId ?? null),
           status: entry.status ?? existing?.status ?? EMPTY_SET_STATUS,
           lastUpdatedAt: incomingUpdatedAt,
         };
@@ -364,5 +363,3 @@ if (typeof window !== 'undefined') {
     }));
   });
 }
-
-

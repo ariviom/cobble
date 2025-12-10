@@ -38,12 +38,9 @@ export function Modal({ open, title, onClose, children }: Props) {
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative mx-4 w-full max-w-md rounded-md bg-card shadow-lg border border-subtle">
+      <div className="relative mx-4 w-full max-w-md rounded-md border border-subtle bg-card shadow-lg">
         <div className="flex items-center justify-between border-b border-subtle px-4 py-3">
-          <div
-            id={titleId}
-            className="text-sm font-semibold text-foreground"
-          >
+          <div id={titleId} className="text-sm font-semibold text-foreground">
             {title}
           </div>
           <Button variant="ghost" onClick={onClose} aria-label="Close">
@@ -56,5 +53,3 @@ export function Modal({ open, title, onClose, children }: Props) {
     document.body
   );
 }
-
-

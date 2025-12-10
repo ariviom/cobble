@@ -47,4 +47,3 @@ export async function GET(): Promise<
     return errorResponse('unknown_error');
   }
 }
-

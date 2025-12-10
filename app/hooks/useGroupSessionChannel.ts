@@ -32,7 +32,10 @@ type UseGroupSessionChannelArgs = {
    * Optional callback to update per-participant stats when a delta occurs.
    * Called both for local broadcasts and for remote events.
    */
-  onParticipantPiecesDelta?: (participantId: string | null, delta: number) => void;
+  onParticipantPiecesDelta?: (
+    participantId: string | null,
+    delta: number
+  ) => void;
 };
 
 type UseGroupSessionChannelResult = {
@@ -87,13 +90,11 @@ export function useGroupSessionChannel({
     });
 
     channel.on('broadcast', { event: 'owned_snapshot' }, ({ payload }) => {
-      const data = payload as
-        | {
-            ownedByKey: Record<string, number>;
-            setNumber: string;
-            clientId: string;
-          }
-        | null;
+      const data = payload as {
+        ownedByKey: Record<string, number>;
+        setNumber: string;
+        clientId: string;
+      } | null;
       if (!data) return;
       if (data.setNumber !== setNumber) return;
       if (data.clientId === clientId) return;
@@ -216,5 +217,3 @@ export function useGroupSessionChannel({
 
   return { broadcastPieceDelta, broadcastOwnedSnapshot };
 }
-
-

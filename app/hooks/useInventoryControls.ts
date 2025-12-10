@@ -88,17 +88,3 @@ export function useInventoryControls() {
     setGroupBy,
   };
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

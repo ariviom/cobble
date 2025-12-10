@@ -7,7 +7,9 @@ import { POST as PricesPost } from '../bricklink/route';
 import { POST as PricesSetPost } from '../bricklink-set/route';
 
 vi.mock('@/lib/rateLimit', () => ({
-  consumeRateLimit: vi.fn().mockResolvedValue({ allowed: false, retryAfterSeconds: 9 }),
+  consumeRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: false, retryAfterSeconds: 9 }),
   getClientIp: vi.fn().mockResolvedValue('3.3.3.3'),
 }));
 
@@ -59,4 +61,3 @@ describe('prices bricklink rate limiting', () => {
     expect(json.error).toBe('rate_limited');
   });
 });
-

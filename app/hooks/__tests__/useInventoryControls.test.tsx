@@ -31,17 +31,3 @@ describe('useInventoryControls', () => {
     expect(result.current.filter.display).toBe('missing');
   });
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-

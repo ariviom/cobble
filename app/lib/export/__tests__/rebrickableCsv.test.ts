@@ -15,7 +15,10 @@ describe('generateRebrickableCsv', () => {
     // Starts with UTF-8 BOM
     expect(csv.charCodeAt(0)).toBe(0xfeff);
 
-    const lines = csv.replace(/^\uFEFF/, '').trim().split('\n');
+    const lines = csv
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\n');
     expect(lines[0]).toBe('part_num,color_id,quantity');
     expect(lines[1]).toBe('3002,2,5');
     expect(lines.length).toBe(2);
@@ -28,7 +31,10 @@ describe('generateRebrickableCsv', () => {
     ];
 
     const csv = generateRebrickableCsv(rows);
-    const lines = csv.replace(/^\uFEFF/, '').trim().split('\n');
+    const lines = csv
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\n');
 
     expect(lines[0]).toBe('part_num,color_id,quantity');
     expect(lines.length).toBe(1); // Only header, no data rows
@@ -36,7 +42,10 @@ describe('generateRebrickableCsv', () => {
 
   it('returns only headers for empty input array', () => {
     const csv = generateRebrickableCsv([]);
-    const lines = csv.replace(/^\uFEFF/, '').trim().split('\n');
+    const lines = csv
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\n');
 
     expect(lines[0]).toBe('part_num,color_id,quantity');
     expect(lines.length).toBe(1);
@@ -50,7 +59,10 @@ describe('generateRebrickableCsv', () => {
     ];
 
     const csv = generateRebrickableCsv(rows);
-    const lines = csv.replace(/^\uFEFF/, '').trim().split('\n');
+    const lines = csv
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\n');
 
     expect(lines.length).toBe(4); // header + 3 data rows
     expect(lines[1]).toBe('3001,1,3');
@@ -75,7 +87,10 @@ describe('generateRebrickableCsv', () => {
     ];
 
     const csv = generateRebrickableCsv(rows);
-    const lines = csv.replace(/^\uFEFF/, '').trim().split('\n');
+    const lines = csv
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\n');
 
     expect(lines[1]).toBe('973pb1234c01,1,2');
     expect(lines[2]).toBe('2336p68,0,1');
@@ -92,7 +107,10 @@ describe('generateRebrickableCsv', () => {
     ];
 
     const csv = generateRebrickableCsv(rows);
-    const lines = csv.replace(/^\uFEFF/, '').trim().split('\n');
+    const lines = csv
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\n');
 
     expect(lines[1]).toBe('3001,1,9999');
   });
@@ -109,21 +127,13 @@ describe('generateRebrickableCsv', () => {
     ];
 
     const csv = generateRebrickableCsv(rows);
-    const lines = csv.replace(/^\uFEFF/, '').trim().split('\n');
+    const lines = csv
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\n');
 
     // elementId should not appear in output
     expect(lines[1]).toBe('3001,1,2');
     expect(lines[1]).not.toContain('300123');
   });
 });
-
-
-
-
-
-
-
-
-
-
-

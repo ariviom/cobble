@@ -291,7 +291,12 @@ export default async function PublicProfilePage({
 
   let minifigMeta: Record<
     string,
-  { name: string | null; num_parts: number | null; image_url: string | null; bl_id?: string | null }
+    {
+      name: string | null;
+      num_parts: number | null;
+      image_url: string | null;
+      bl_id?: string | null;
+    }
   > = {};
 
   if (allMinifigIds.length > 0) {
@@ -332,7 +337,7 @@ export default async function PublicProfilePage({
     }
 
     // Per-set fallback for missing BL IDs
-    const missingForBl = allMinifigIds.filter(id => !(minifigMeta[id]?.bl_id));
+    const missingForBl = allMinifigIds.filter(id => !minifigMeta[id]?.bl_id);
     if (missingForBl.length > 0) {
       const { data: setMap, error: setErr } = await supabase
         .from('bl_set_minifigs')

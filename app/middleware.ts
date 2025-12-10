@@ -4,4 +4,3 @@ import { updateSession } from '@/utils/supabase/middleware';
 export function middleware(request: NextRequest) {
   return updateSession(request);
 }
-

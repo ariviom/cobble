@@ -4,17 +4,17 @@ import { getSetsForPartLocal, getSetSummaryLocal } from '@/app/lib/catalog';
 import { EXTERNAL } from '@/app/lib/constants';
 import { fetchBLSupersetsFallback } from '@/app/lib/identify/blFallback';
 import {
-    ExternalCallBudget,
-    isBudgetError,
-    type BLFallbackResult,
+  ExternalCallBudget,
+  isBudgetError,
+  type BLFallbackResult,
 } from '@/app/lib/identify/types';
 import {
-    getPartColorsForPart,
-    getSetsForPart,
-    getSetSummary,
-    resolvePartIdToRebrickable,
-    type PartAvailableColor,
-    type PartInSet,
+  getPartColorsForPart,
+  getSetsForPart,
+  getSetSummary,
+  resolvePartIdToRebrickable,
+  type PartAvailableColor,
+  type PartInSet,
 } from '@/app/lib/rebrickable';
 import { logger } from '@/lib/metrics';
 
@@ -45,12 +45,16 @@ export async function resolveCandidates(
 ): Promise<ResolvedCandidate[]> {
   const resolved = await Promise.all(
     raw.map(async candidate => {
-      const blId = typeof candidate.bricklinkId === 'string' ? candidate.bricklinkId : undefined;
+      const blId =
+        typeof candidate.bricklinkId === 'string'
+          ? candidate.bricklinkId
+          : undefined;
       const base = await resolvePartIdToRebrickable(
         candidate.partNum,
         blId ? { bricklinkId: blId } : undefined
       );
-      const resolvedPart = base ?? (await resolvePartIdToRebrickable(candidate.partNum));
+      const resolvedPart =
+        base ?? (await resolvePartIdToRebrickable(candidate.partNum));
       if (resolvedPart) {
         return {
           partNum: resolvedPart.partNum,
@@ -149,7 +153,10 @@ export async function selectCandidateWithSets(
     for (let i = 1; i < Math.min(candidates.length, 5); i++) {
       const candidate = candidates[i]!;
       const nextColor = colorHint ?? candidate.colorId ?? undefined;
-      const candidateSets = await fetchCandidateSets(candidate.partNum, nextColor);
+      const candidateSets = await fetchCandidateSets(
+        candidate.partNum,
+        nextColor
+      );
       if (candidateSets.length) {
         chosen = candidate;
         selectedColorId = nextColor;
@@ -180,7 +187,9 @@ export function needsEnrichment(sets: PartInSet[]): boolean {
   );
 }
 
-export async function enrichSetsIfNeeded(sets: PartInSet[]): Promise<PartInSet[]> {
+export async function enrichSetsIfNeeded(
+  sets: PartInSet[]
+): Promise<PartInSet[]> {
   if (!needsEnrichment(sets)) return sets;
 
   const summaries = await Promise.all(
@@ -200,7 +209,10 @@ export async function enrichSetsIfNeeded(sets: PartInSet[]): Promise<PartInSet[]
     })
   );
 
-  const summaryBySet = new Map<string, Awaited<ReturnType<typeof getSetSummary>>>();
+  const summaryBySet = new Map<
+    string,
+    Awaited<ReturnType<typeof getSetSummary>>
+  >();
   for (const entry of summaries) {
     if (entry?.summary) summaryBySet.set(entry.setNumber, entry.summary);
   }
@@ -275,10 +287,14 @@ export async function resolveIdentifyResult(opts: {
   if (!rbCandidates.length) {
     const blCand = candidates.find(c => c.bricklinkId);
     if (blCand?.bricklinkId) {
-      const fallback = await fetchBLSupersetsFallback(blCand.bricklinkId, budget, {
-        initialImage: blCand.imageUrl,
-        initialName: blCand.name,
-      });
+      const fallback = await fetchBLSupersetsFallback(
+        blCand.bricklinkId,
+        budget,
+        {
+          initialImage: blCand.imageUrl,
+          initialName: blCand.name,
+        }
+      );
       return {
         status: 'fallback',
         payload: {
@@ -301,37 +317,39 @@ export async function resolveIdentifyResult(opts: {
     return { status: 'no_valid_candidate' };
   }
 
-  const { chosen, sets, selectedColorId, availableColors } = await selectCandidateWithSets(
-    rbCandidates,
-    colorHint
-  );
+  const { chosen, sets, selectedColorId, availableColors } =
+    await selectCandidateWithSets(rbCandidates, colorHint);
 
   if (!sets.length) {
     const blCand = candidates.find(c => c.bricklinkId);
     if (blCand?.bricklinkId) {
-      const fallback = await fetchBLSupersetsFallback(blCand.bricklinkId, budget, {
-        initialImage: chosen.imageUrl,
-        initialName: chosen.name,
-      });
-			// Always return a fallback payload when we have a BL candidate, even if sets are empty.
-			return {
-				status: 'fallback',
-				payload: {
-					part: {
-						partNum: chosen.partNum,
-						name: fallback.partName,
-						imageUrl: fallback.partImage,
-						confidence: chosen.confidence,
-					},
-					blPartId: blCand.bricklinkId,
-					blAvailableColors: fallback.blAvailableColors,
-					candidates: candidates.slice(0, 5),
-					availableColors: [],
-					selectedColorId: null,
-					sets: fallback.sets,
+      const fallback = await fetchBLSupersetsFallback(
+        blCand.bricklinkId,
+        budget,
+        {
+          initialImage: chosen.imageUrl,
+          initialName: chosen.name,
+        }
+      );
+      // Always return a fallback payload when we have a BL candidate, even if sets are empty.
+      return {
+        status: 'fallback',
+        payload: {
+          part: {
+            partNum: chosen.partNum,
+            name: fallback.partName,
+            imageUrl: fallback.partImage,
+            confidence: chosen.confidence,
+          },
+          blPartId: blCand.bricklinkId,
+          blAvailableColors: fallback.blAvailableColors,
+          candidates: candidates.slice(0, 5),
+          availableColors: [],
+          selectedColorId: null,
+          sets: fallback.sets,
           source: fallback.source,
-				},
-			};
+        },
+      };
     }
     return { status: 'no_valid_candidate' };
   }

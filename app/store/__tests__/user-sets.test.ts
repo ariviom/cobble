@@ -1,11 +1,7 @@
 import { act } from '@testing-library/react';
 import { type SetStatusKey, useUserSetsStore } from '@/app/store/user-sets';
 
-function setStatus(
-  setNumber: string,
-  key: SetStatusKey,
-  value: boolean
-): void {
+function setStatus(setNumber: string, key: SetStatusKey, value: boolean): void {
   const setStatusFn = useUserSetsStore.getState().setStatus;
   act(() => {
     setStatusFn({
@@ -56,6 +52,3 @@ describe('useUserSetsStore', () => {
     expect(useUserSetsStore.getState().sets['1234-1']).toBeUndefined();
   });
 });
-
-
-

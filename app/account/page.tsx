@@ -19,9 +19,9 @@ export default async function AccountPage() {
   let initialSyncOwnedMinifigsFromSets = true;
 
   try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       return (
@@ -37,27 +37,29 @@ export default async function AccountPage() {
 
     initialUser = user;
 
-    const {
-      data: existingProfile,
-      error: profileError,
-    } = await (supabase as unknown as {
-      from: (table: 'user_profiles') => {
-        select: (columns: '*') => {
-          eq: (column: 'user_id', value: UserId) => {
-            maybeSingle: () => Promise<{
-              data: UserProfileRow | null;
-              error: { message: string } | null;
-            }>;
+    const { data: existingProfile, error: profileError } = await (
+      supabase as unknown as {
+        from: (table: 'user_profiles') => {
+          select: (columns: '*') => {
+            eq: (
+              column: 'user_id',
+              value: UserId
+            ) => {
+              maybeSingle: () => Promise<{
+                data: UserProfileRow | null;
+                error: { message: string } | null;
+              }>;
+            };
           };
         };
-      };
-    })
+      }
+    )
       .from('user_profiles')
       .select('*')
       .eq('user_id', user.id as UserId)
       .maybeSingle();
 
-        if (profileError) {
+    if (profileError) {
       // Swallow and let the client surface a generic error if needed.
       // Profile creation will be handled client-side as a fallback.
     } else if (existingProfile) {
@@ -98,5 +100,3 @@ export default async function AccountPage() {
     />
   );
 }
-
-

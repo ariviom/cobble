@@ -77,5 +77,3 @@ export type MinifigSearchPage = {
   results: MinifigSearchResult[];
   nextPage: number | null;
 };
-
-

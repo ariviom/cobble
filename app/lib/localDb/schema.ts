@@ -154,11 +154,7 @@ export type LocalCollectionItem = {
  */
 export type SyncQueueItem = {
   id?: number; // Auto-increment primary key
-  table:
-    | 'user_set_parts'
-    | 'user_lists'
-    | 'user_list_items'
-    | 'user_minifigs'; // Extensible
+  table: 'user_set_parts' | 'user_lists' | 'user_list_items' | 'user_minifigs'; // Extensible
   operation: 'upsert' | 'delete';
   payload: Record<string, unknown>;
   clientId: string;
@@ -244,7 +240,8 @@ export class BrickPartyDB extends Dexie {
       catalogMinifigs: 'figNum, blId, cachedAt',
 
       // User data tables
-      localOwned: '++id, setNumber, inventoryKey, [setNumber+inventoryKey], updatedAt',
+      localOwned:
+        '++id, setNumber, inventoryKey, [setNumber+inventoryKey], updatedAt',
       localCollections: 'id, userId, type, updatedAt',
       localCollectionItems: '++id, collectionId, itemType, itemId, addedAt',
 
@@ -309,7 +306,3 @@ export function isIndexedDBAvailable(): boolean {
     return false;
   }
 }
-
-
-
-

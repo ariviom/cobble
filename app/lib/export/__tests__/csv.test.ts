@@ -50,12 +50,24 @@ describe('toCsv', () => {
   });
 
   it('creates CSV with headers and rows', () => {
-    const result = toCsv(['name', 'value'], [['foo', 1], ['bar', 2]]);
+    const result = toCsv(
+      ['name', 'value'],
+      [
+        ['foo', 1],
+        ['bar', 2],
+      ]
+    );
     expect(result).toBe('name,value\nfoo,1\nbar,2');
   });
 
   it('handles null and undefined values in rows', () => {
-    const result = toCsv(['a', 'b'], [[null, undefined], ['x', 'y']]);
+    const result = toCsv(
+      ['a', 'b'],
+      [
+        [null, undefined],
+        ['x', 'y'],
+      ]
+    );
     expect(result).toBe('a,b\n,\nx,y');
   });
 
@@ -85,7 +97,3 @@ describe('toCsv', () => {
     expect(result).toBe('a,b,c\nstring,123,');
   });
 });
-
-
-
-

@@ -1,7 +1,10 @@
 'use client';
 
 import { SetOwnershipAndCollectionsRow } from '@/app/components/set/SetOwnershipAndCollectionsRow';
-import { SetDisplayCard, type SetDisplayCardProps } from '@/app/components/set/SetDisplayCard';
+import {
+  SetDisplayCard,
+  type SetDisplayCardProps,
+} from '@/app/components/set/SetDisplayCard';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 
 /**
@@ -28,6 +31,3 @@ export function SetSearchResultCard(props: SetDisplayCardProps) {
     </SetDisplayCard>
   );
 }
-
-
-

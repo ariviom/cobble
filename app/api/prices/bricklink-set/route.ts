@@ -120,5 +120,3 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     return errorResponse('external_service_error', { status: 502 });
   }
 });
-
-

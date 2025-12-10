@@ -42,8 +42,3 @@ export function useGroupClientId(): string | null {
 
   return clientId;
 }
-
-
-
-
-

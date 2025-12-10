@@ -267,5 +267,3 @@ if (typeof window !== 'undefined') {
     }));
   });
 }
-
-

@@ -112,7 +112,8 @@ async function fetchSubparts(figNum: string): Promise<
       const body = (err as any)?.body as string | undefined;
       const match = body?.match(/Expected available in\s+(\d+)\s+seconds?/i);
       if (status === 429) {
-        const delaySeconds = match && Number(match[1]) > 0 ? Number(match[1]) : 30;
+        const delaySeconds =
+          match && Number(match[1]) > 0 ? Number(match[1]) : 30;
         const delayMs = delaySeconds * 1000;
         log('Throttled; backing off', { figNum, delayMs });
         await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -217,26 +218,28 @@ async function main() {
     const mappingRows = subparts
       .filter(sp => sp.bricklinkPartId && sp.bricklinkPartId !== sp.partId)
       // Deduplicate by rb_part_id to avoid ON CONFLICT issues within a single statement.
-      .reduce<Record<string, { rb_part_id: string; bl_part_id: string; source: string }>>(
-        (acc, sp) => {
-          const rbId = sp.partId;
-          if (!rbId) return acc;
-          if (acc[rbId]) return acc;
-          acc[rbId] = {
-            rb_part_id: rbId,
-            bl_part_id: sp.bricklinkPartId!,
-            source: 'minifig-component',
-          };
-          return acc;
-        },
-        {}
-      );
+      .reduce<
+        Record<
+          string,
+          { rb_part_id: string; bl_part_id: string; source: string }
+        >
+      >((acc, sp) => {
+        const rbId = sp.partId;
+        if (!rbId) return acc;
+        if (acc[rbId]) return acc;
+        acc[rbId] = {
+          rb_part_id: rbId,
+          bl_part_id: sp.bricklinkPartId!,
+          source: 'minifig-component',
+        };
+        return acc;
+      }, {});
 
-      const dedupedMappings = Object.values(mappingRows);
-      if (dedupedMappings.length > 0) {
+    const dedupedMappings = Object.values(mappingRows);
+    if (dedupedMappings.length > 0) {
       const { error: mapErr } = await supabase
         .from('part_id_mappings')
-          .upsert(dedupedMappings, { onConflict: 'rb_part_id' });
+        .upsert(dedupedMappings, { onConflict: 'rb_part_id' });
       if (mapErr) {
         log('Failed to upsert part_id_mappings', {
           figNum,
@@ -294,4 +297,3 @@ main().catch(err => {
   console.error(err);
   process.exit(1);
 });
-

@@ -103,9 +103,9 @@ export function useMinifigDetails(
           { cache }
         );
         if (!res.ok) {
-          const payload = (await res.json().catch(() => null)) as
-            | { error?: string }
-            | null;
+          const payload = (await res.json().catch(() => null)) as {
+            error?: string;
+          } | null;
           const code = payload?.error ?? 'minifig_details_failed';
           throw new Error(code);
         }
@@ -116,9 +116,7 @@ export function useMinifigDetails(
         if (cancelled) return;
         console.error('useMinifigDetails failed', err);
         setError(
-          err instanceof Error
-            ? err.message
-            : 'Failed to load minifig details'
+          err instanceof Error ? err.message : 'Failed to load minifig details'
         );
         setDetails(null);
       } finally {
@@ -137,8 +135,3 @@ export function useMinifigDetails(
 
   return { details, isLoading, error };
 }
-
-
-
-
-

@@ -3,9 +3,9 @@ import { NextResponse } from 'next/server';
 import { logger } from '@/lib/metrics';
 
 import {
-    toApiError,
-    type ApiErrorResponse,
-    type AppErrorCode,
+  toApiError,
+  type ApiErrorResponse,
+  type AppErrorCode,
 } from '../domain/errors';
 
 const STATUS_MAP: Partial<Record<AppErrorCode, number>> = {
@@ -36,9 +36,11 @@ export function errorResponse(
 ): NextResponse<ApiErrorResponse> {
   const status = options?.status ?? STATUS_MAP[code] ?? 500;
   logger.warn('api.error', { code, status, details: options?.details });
-  return NextResponse.json(toApiError(code, options?.message, options?.details), {
-    status,
-    ...(options?.headers ? { headers: options.headers } : {}),
-  });
+  return NextResponse.json(
+    toApiError(code, options?.message, options?.details),
+    {
+      status,
+      ...(options?.headers ? { headers: options.headers } : {}),
+    }
+  );
 }
-

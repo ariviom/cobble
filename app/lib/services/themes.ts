@@ -9,14 +9,3 @@ export async function fetchThemes() {
     return getThemes();
   }
 }
-
-
-
-
-
-
-
-
-
-
-

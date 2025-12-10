@@ -42,10 +42,9 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 describe('useInventoryViewModel', () => {
   it('derives visible indices and color options', async () => {
-    const { result } = renderHook(
-      () => useInventoryViewModel('1234-1'),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useInventoryViewModel('1234-1'), {
+      wrapper,
+    });
 
     await vi.waitFor(() => {
       expect(result.current.rows.length).toBe(2);
@@ -67,9 +66,7 @@ describe('useInventoryViewModel', () => {
 
     // Mark first row fully owned
     act(() => {
-      useOwnedStore
-        .getState()
-        .setOwned('1234-1', '3001:1', 4);
+      useOwnedStore.getState().setOwned('1234-1', '3001:1', 4);
     });
     rerender();
 
@@ -86,4 +83,3 @@ describe('useInventoryViewModel', () => {
     expect(result.current.visibleIndices).toEqual([1]);
   });
 });
-

@@ -1,9 +1,10 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
+import { DEFAULT_PRICING_PREFERENCES } from '@/app/lib/pricing';
 import {
-    DEFAULT_PRICING_PREFERENCES,
-} from '@/app/lib/pricing';
-import { fetchBricklinkPrices, type PriceRequestItem } from '@/app/lib/services/pricing';
+  fetchBricklinkPrices,
+  type PriceRequestItem,
+} from '@/app/lib/services/pricing';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
 import { incrementCounter, logEvent, logger } from '@/lib/metrics';
@@ -130,6 +131,10 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
   // stale-while-revalidate gives a snappy UX while background refreshing.
   return NextResponse.json(
     { prices },
-    { headers: { 'Cache-Control': 'private, max-age=300, stale-while-revalidate=3600' } }
+    {
+      headers: {
+        'Cache-Control': 'private, max-age=300, stale-while-revalidate=3600',
+      },
+    }
   );
 });

@@ -10,12 +10,10 @@ export type LocalTheme = {
   name: string;
 };
 
-type LocalThemesCache =
-  | {
-      at: number;
-      items: LocalTheme[];
-    }
-  | null;
+type LocalThemesCache = {
+  at: number;
+  items: LocalTheme[];
+} | null;
 
 const LOCAL_THEMES_TTL_MS = 60 * 60 * 1000;
 
@@ -51,10 +49,7 @@ export function buildThemeMetaHelpers(themes: LocalTheme[]) {
   const themeById = new Map<number, LocalTheme>(themes.map(t => [t.id, t]));
   const { getThemeMeta } = buildThemeHelpersFromMap(themeById);
 
-  function matchesTheme(
-    queryNorm: string,
-    compactQuery: string
-  ): Set<number> {
+  function matchesTheme(queryNorm: string, compactQuery: string): Set<number> {
     const matching = new Set<number>();
     for (const theme of themes) {
       const { themeName, themePath } = getThemeMeta(theme.id);
@@ -92,4 +87,3 @@ export function deriveRootThemeName(
   }
   return rootName;
 }
-

@@ -34,5 +34,3 @@ describe('recent-searches store', () => {
     expect(searches[0]?.query).toBe('pirates');
   });
 });
-
-

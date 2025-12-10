@@ -1,9 +1,9 @@
 /**
  * Minifig sync module - explicit control over BrickLink sync operations.
- * 
+ *
  * This module separates the "check if sync is needed" logic from the
  * "perform the sync" logic, providing:
- * 
+ *
  * 1. Clear separation between read and write operations
  * 2. Request deduplication for concurrent sync triggers
  * 3. Audit logging for sync operations
@@ -31,7 +31,12 @@ export type SetSyncInfo = {
 export type SyncTriggerResult = {
   triggered: boolean;
   success: boolean;
-  reason: 'already_synced' | 'sync_in_flight' | 'sync_completed' | 'sync_failed' | 'sync_skipped';
+  reason:
+    | 'already_synced'
+    | 'sync_in_flight'
+    | 'sync_completed'
+    | 'sync_failed'
+    | 'sync_skipped';
   error?: string | undefined;
 };
 
@@ -85,9 +90,11 @@ export async function waitForSync(setNumber: string): Promise<boolean> {
  * Check the sync status for a set without triggering any operations.
  * This is a pure read operation.
  */
-export async function checkSetSyncStatus(setNumber: string): Promise<SetSyncInfo> {
+export async function checkSetSyncStatus(
+  setNumber: string
+): Promise<SetSyncInfo> {
   const supabase = getCatalogWriteClient();
-  
+
   const { data, error } = await supabase
     .from('bl_sets')
     .select('minifig_sync_status, last_minifig_sync_at, last_error')
@@ -117,8 +124,8 @@ export async function checkSetSyncStatus(setNumber: string): Promise<SetSyncInfo
   }
 
   const status = (data.minifig_sync_status as SyncStatus) ?? 'never_synced';
-  const lastSyncAt = data.last_minifig_sync_at 
-    ? new Date(data.last_minifig_sync_at) 
+  const lastSyncAt = data.last_minifig_sync_at
+    ? new Date(data.last_minifig_sync_at)
     : null;
 
   return {
@@ -132,7 +139,9 @@ export async function checkSetSyncStatus(setNumber: string): Promise<SetSyncInfo
 /**
  * Check if a set needs sync based on its current status.
  */
-export async function checkIfSyncNeeded(setNumber: string): Promise<SyncCheckResult> {
+export async function checkIfSyncNeeded(
+  setNumber: string
+): Promise<SyncCheckResult> {
   // Check cooldown first
   const lastCompletion = recentSyncCompletions.get(setNumber);
   if (lastCompletion && Date.now() - lastCompletion < SYNC_COOLDOWN_MS) {
@@ -185,7 +194,7 @@ export async function checkIfSyncNeeded(setNumber: string): Promise<SyncCheckRes
 
 /**
  * Trigger a sync for a set, with deduplication and proper status tracking.
- * 
+ *
  * Options:
  * - force: Bypass the "already synced" check and re-sync
  * - skipCooldown: Bypass the recent sync cooldown
@@ -251,7 +260,7 @@ export async function triggerMinifigSync(
  */
 async function executeSync(setNumber: string): Promise<boolean> {
   const supabase = getCatalogWriteClient();
-  
+
   logger.debug('minifig_sync.start', { setNumber });
   const startTime = Date.now();
 
@@ -264,10 +273,10 @@ async function executeSync(setNumber: string): Promise<boolean> {
 
     const duration = Date.now() - startTime;
     logger.debug('minifig_sync.completed', { setNumber, duration });
-    
+
     // Track completion time
     recentSyncCompletions.set(setNumber, Date.now());
-    
+
     return true;
   } catch (err) {
     const duration = Date.now() - startTime;
@@ -300,7 +309,7 @@ export async function checkMultipleSetsStatus(
   }
 
   const supabase = getCatalogWriteClient();
-  
+
   const { data, error } = await supabase
     .from('bl_sets')
     .select('set_num, minifig_sync_status, last_minifig_sync_at, last_error')
@@ -331,8 +340,8 @@ export async function checkMultipleSetsStatus(
     results.set(row.set_num, {
       setNumber: row.set_num,
       status: (row.minifig_sync_status as SyncStatus) ?? 'never_synced',
-      lastSyncAt: row.last_minifig_sync_at 
-        ? new Date(row.last_minifig_sync_at) 
+      lastSyncAt: row.last_minifig_sync_at
+        ? new Date(row.last_minifig_sync_at)
         : null,
       lastError: row.last_error ?? null,
     });
@@ -348,7 +357,7 @@ export async function getSetsNeedingSync(
   setNumbers: string[]
 ): Promise<string[]> {
   const statuses = await checkMultipleSetsStatus(setNumbers);
-  
+
   return setNumbers.filter(setNum => {
     const info = statuses.get(setNum);
     if (!info) return true;
@@ -380,4 +389,3 @@ export function getInFlightSyncs(): string[] {
 export function clearRecentCompletions(): void {
   recentSyncCompletions.clear();
 }
-

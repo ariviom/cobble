@@ -4,10 +4,10 @@ import type { MinifigCatalogResult } from '@/app/lib/catalog';
 
 vi.mock('server-only', () => ({}));
 
-let sortMinifigResults: typeof import('@/app/lib/catalog')['sortMinifigResults'];
+let sortMinifigResults: (typeof import('@/app/lib/catalog'))['sortMinifigResults'];
 
 beforeAll(async () => {
-	({ sortMinifigResults } = await import('@/app/lib/catalog'));
+  ({ sortMinifigResults } = await import('@/app/lib/catalog'));
 });
 
 function makeResult(

@@ -13,11 +13,3 @@ import { DataProvider } from '@/app/components/providers/data-provider';
 export function LocalDataProviderBoundary({ children }: PropsWithChildren) {
   return <DataProvider>{children}</DataProvider>;
 }
-
-
-
-
-
-
-
-

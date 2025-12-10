@@ -27,7 +27,10 @@ type UseMinifigEnrichmentResult = {
 const BATCH_SIZE = 15;
 const BATCH_DELAY_MS = 500;
 
-function computeTargets(figNums: string[], existingData: ExistingData): string[] {
+function computeTargets(
+  figNums: string[],
+  existingData: ExistingData
+): string[] {
   return figNums.filter(figNum => {
     const existing = existingData.get(figNum);
     return (
@@ -55,54 +58,49 @@ export function useMinifigEnrichment(
     [figNums, existingData]
   );
 
-  const enrichFigs = useCallback(
-    async (requested: string[]) => {
-      const unique = Array.from(new Set(requested)).filter(Boolean);
-      if (!unique.length) return;
-      setIsEnriching(true);
-      setError(null);
+  const enrichFigs = useCallback(async (requested: string[]) => {
+    const unique = Array.from(new Set(requested)).filter(Boolean);
+    if (!unique.length) return;
+    setIsEnriching(true);
+    setError(null);
 
-      try {
-        for (let i = 0; i < unique.length; i += BATCH_SIZE) {
-          if (abortRef.current.aborted) break;
-          const batch = unique.slice(i, i + BATCH_SIZE);
-          const res = await fetch('/api/minifigs/enrich', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ figNums: batch, includeSubparts: true }),
-          });
-          if (!res.ok) {
-            const msg = `Enrichment failed (${res.status})`;
-            setError(msg);
-            break;
-          }
-          const payload = (await res.json()) as {
-            results?: Record<string, MinifigEnrichmentResult>;
-          };
-          const entries = payload.results
-            ? Object.entries(payload.results)
-            : [];
-          if (entries.length) {
-            setEnrichedData(prev => {
-              const next = new Map(prev);
-              for (const [fig, value] of entries) {
-                next.set(fig, value);
-              }
-              return next;
-            });
-          }
-          if (i + BATCH_SIZE < unique.length) {
-            await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
-          }
+    try {
+      for (let i = 0; i < unique.length; i += BATCH_SIZE) {
+        if (abortRef.current.aborted) break;
+        const batch = unique.slice(i, i + BATCH_SIZE);
+        const res = await fetch('/api/minifigs/enrich', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ figNums: batch, includeSubparts: true }),
+        });
+        if (!res.ok) {
+          const msg = `Enrichment failed (${res.status})`;
+          setError(msg);
+          break;
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setIsEnriching(false);
+        const payload = (await res.json()) as {
+          results?: Record<string, MinifigEnrichmentResult>;
+        };
+        const entries = payload.results ? Object.entries(payload.results) : [];
+        if (entries.length) {
+          setEnrichedData(prev => {
+            const next = new Map(prev);
+            for (const [fig, value] of entries) {
+              next.set(fig, value);
+            }
+            return next;
+          });
+        }
+        if (i + BATCH_SIZE < unique.length) {
+          await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS));
+        }
       }
-    },
-    []
-  );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsEnriching(false);
+    }
+  }, []);
 
   useEffect(() => {
     const ref = abortRef.current;

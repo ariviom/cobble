@@ -11,6 +11,8 @@ export async function GET() {
     logger.error('themes.route.failed', {
       error: err instanceof Error ? err.message : String(err),
     });
-    return errorResponse('external_service_error', { message: 'Failed to fetch themes' });
+    return errorResponse('external_service_error', {
+      message: 'Failed to fetch themes',
+    });
   }
 }

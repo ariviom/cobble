@@ -15,7 +15,9 @@ const joinBodySchema = z.object({
 });
 
 function extractSlug(req: NextRequest): string | null {
-  const match = req.nextUrl.pathname.match(/\/api\/group-sessions\/([^/]+)\/join$/);
+  const match = req.nextUrl.pathname.match(
+    /\/api\/group-sessions\/([^/]+)\/join$/
+  );
   if (!match || !match[1]) return null;
   try {
     const decoded = decodeURIComponent(match[1]).trim();
@@ -43,7 +45,9 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
 
   const parsed = joinBodySchema.safeParse(rawBody);
   if (!parsed.success) {
-    return errorResponse('validation_failed', { details: parsed.error.flatten() });
+    return errorResponse('validation_failed', {
+      details: parsed.error.flatten(),
+    });
   }
 
   const { displayName, clientToken } = parsed.data;
@@ -83,7 +87,10 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       .from('group_session_participants')
       .select('*')
       .eq('session_id', session.id as GroupSessionParticipantRow['session_id'])
-      .eq('client_token', clientToken as GroupSessionParticipantRow['client_token'])
+      .eq(
+        'client_token',
+        clientToken as GroupSessionParticipantRow['client_token']
+      )
       .maybeSingle();
 
     if (participantError) {
@@ -168,5 +175,3 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     return errorResponse('unknown_error');
   }
 });
-
-

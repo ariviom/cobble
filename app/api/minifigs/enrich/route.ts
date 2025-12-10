@@ -50,4 +50,3 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     return errorResponse('enrichment_failed');
   }
 });
-

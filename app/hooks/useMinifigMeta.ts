@@ -1,9 +1,9 @@
 'use client';
 
 import {
-    getCachedMinifig,
-    getCachedMinifigByBlId,
-    setCachedMinifig,
+  getCachedMinifig,
+  getCachedMinifigByBlId,
+  setCachedMinifig,
 } from '@/app/lib/localDb';
 import { useEffect, useState } from 'react';
 
@@ -70,9 +70,9 @@ export function useMinifigMeta(figNum: string): UseMinifigMetaResult {
           { cache: 'force-cache' }
         );
         if (!res.ok) {
-          const payload = (await res.json().catch(() => null)) as
-            | { error?: string }
-            | null;
+          const payload = (await res.json().catch(() => null)) as {
+            error?: string;
+          } | null;
           const code = payload?.error ?? 'minifig_meta_failed';
           throw new Error(code);
         }
@@ -113,5 +113,3 @@ export function useMinifigMeta(figNum: string): UseMinifigMetaResult {
 
   return { meta, isLoading, error };
 }
-
-

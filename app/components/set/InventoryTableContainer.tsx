@@ -196,7 +196,11 @@ export function InventoryTable({
   const pinnedAdapter = useMemo(
     () => ({
       toggle: (key: string) =>
-        pinnedStore.togglePinned({ setNumber, key, ...(setName ? { setName } : {}) }),
+        pinnedStore.togglePinned({
+          setNumber,
+          key,
+          ...(setName ? { setName } : {}),
+        }),
       isPinned: (key: string) => pinnedStore.isPinned(setNumber, key),
     }),
     [pinnedStore, setNumber, setName]
@@ -237,7 +241,9 @@ export function InventoryTable({
       handleExportOpen={handleExportOpen}
       pricesByKey={pricesByKey}
       pendingPriceKeys={pendingKeys}
-      {...(handlePricesForKeys ? { requestPricesForKeys: handlePricesForKeys } : {})}
+      {...(handlePricesForKeys
+        ? { requestPricesForKeys: handlePricesForKeys }
+        : {})}
       pinnedStore={pinnedAdapter}
       handleOwnedChange={handleOwnedChange}
       migration={migration}
@@ -248,4 +254,3 @@ export function InventoryTable({
     />
   );
 }
-

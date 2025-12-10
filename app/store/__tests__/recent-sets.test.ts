@@ -34,6 +34,3 @@ describe('recent-sets store', () => {
     expect(recents[1]?.setNumber).toBe('1000-1');
   });
 });
-
-
-

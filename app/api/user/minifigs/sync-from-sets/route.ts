@@ -25,7 +25,9 @@ export const POST = withCsrfProtection(async function POST(
       .transform(value => {
         if (!value) return false;
         const normalized = value.toLowerCase();
-        return normalized === '1' || normalized === 'true' || normalized === 'yes';
+        return (
+          normalized === '1' || normalized === 'true' || normalized === 'yes'
+        );
       }),
   });
 
@@ -183,7 +185,9 @@ export const POST = withCsrfProtection(async function POST(
         user_id: user.id,
         fig_num: figNum,
         status: nextStatus,
-        created_at: existing ? undefined as unknown as string : new Date().toISOString(),
+        created_at: existing
+          ? (undefined as unknown as string)
+          : new Date().toISOString(),
         updated_at: new Date().toISOString(),
         quantity: quantity ?? 0,
       } as Tables<'user_minifigs'>);
@@ -213,5 +217,3 @@ export const POST = withCsrfProtection(async function POST(
     return errorResponse('unknown_error');
   }
 });
-
-

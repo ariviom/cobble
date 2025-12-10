@@ -17,9 +17,7 @@ export type ResolvedUser =
   | { type: 'private'; info: PrivateUserInfo }
   | { type: 'not_found' };
 
-export async function resolvePublicUser(
-  handle: string
-): Promise<ResolvedUser> {
+export async function resolvePublicUser(handle: string): Promise<ResolvedUser> {
   const supabase = getSupabaseServiceRoleClient();
 
   const isUsername = USERNAME_REGEX.test(handle);
@@ -61,5 +59,3 @@ export async function resolvePublicUser(
     profile: data as PublicUserProfile,
   };
 }
-
-

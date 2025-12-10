@@ -10,4 +10,3 @@ export type { ThemePreference, ResolvedTheme, ThemeColor };
 export function useTheme() {
   return useThemeContext();
 }
-

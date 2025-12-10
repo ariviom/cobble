@@ -6,15 +6,3 @@ export default function LoginLayout({
 }: PropsWithChildren<{ children?: React.ReactNode }>) {
   return <PageLayout noPadding>{children}</PageLayout>;
 }
-
-
-
-
-
-
-
-
-
-
-
-

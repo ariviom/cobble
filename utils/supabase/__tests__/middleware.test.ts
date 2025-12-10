@@ -5,20 +5,41 @@ import { updateSession } from '../middleware';
 
 vi.mock('@supabase/ssr', () => {
   return {
-    createServerClient: vi.fn((url: string, key: string, opts: { cookies: { setAll: (cookies: Array<{ name: string; value: string; options?: Record<string, unknown> }>) => void; getAll: () => unknown } }) => {
-      const { cookies } = opts;
-      return {
-        auth: {
-          // Simulate Supabase refreshing cookies during getUser().
-          getUser: vi.fn().mockImplementation(async () => {
-            cookies.setAll([
-              { name: 'sb-test-refresh', value: 'refreshed', options: { path: '/' } },
-            ]);
-            return { data: { user: null }, error: null };
-          }),
-        },
-      };
-    }),
+    createServerClient: vi.fn(
+      (
+        url: string,
+        key: string,
+        opts: {
+          cookies: {
+            setAll: (
+              cookies: Array<{
+                name: string;
+                value: string;
+                options?: Record<string, unknown>;
+              }>
+            ) => void;
+            getAll: () => unknown;
+          };
+        }
+      ) => {
+        const { cookies } = opts;
+        return {
+          auth: {
+            // Simulate Supabase refreshing cookies during getUser().
+            getUser: vi.fn().mockImplementation(async () => {
+              cookies.setAll([
+                {
+                  name: 'sb-test-refresh',
+                  value: 'refreshed',
+                  options: { path: '/' },
+                },
+              ]);
+              return { data: { user: null }, error: null };
+            }),
+          },
+        };
+      }
+    ),
   };
 });
 
@@ -41,8 +62,14 @@ describe('updateSession middleware', () => {
     expect(refreshed?.value).toBe('refreshed');
 
     const { createServerClient } = await import('@supabase/ssr');
-    expect((createServerClient as unknown as { mock: { calls: unknown[] } }).mock.calls[0]?.[0]).toBe('http://example.test');
-    expect((createServerClient as unknown as { mock: { calls: unknown[] } }).mock.calls[0]?.[1]).toBe('anon_key');
+    expect(
+      (createServerClient as unknown as { mock: { calls: unknown[] } }).mock
+        .calls[0]?.[0]
+    ).toBe('http://example.test');
+    expect(
+      (createServerClient as unknown as { mock: { calls: unknown[] } }).mock
+        .calls[0]?.[1]
+    ).toBe('anon_key');
   });
 
   it('is a no-op when env vars are missing', async () => {
@@ -57,4 +84,3 @@ describe('updateSession middleware', () => {
     expect(refreshed).toBeUndefined();
   });
 });
-

@@ -34,13 +34,20 @@ function log(level: LogLevel, event: string, data?: LogPayload): void {
 }
 
 export function incrementCounter(name: string, payload?: MetricPayload): void {
-  const current = counters.get(name) ?? { count: 0, last: undefined as MetricPayload | undefined };
+  const current = counters.get(name) ?? {
+    count: 0,
+    last: undefined as MetricPayload | undefined,
+  };
   const next: CounterRecord = {
     count: current.count + 1,
     last: payload ?? current.last,
   };
   counters.set(name, next);
-  log('info', 'metric', { name, count: next.count, ...(payload ? { payload } : {}) });
+  log('info', 'metric', {
+    name,
+    count: next.count,
+    ...(payload ? { payload } : {}),
+  });
 }
 
 export function logEvent(name: string, payload?: MetricPayload): void {

@@ -1,22 +1,22 @@
-import { createClient } from "@supabase/supabase-js";
-import { parse } from "csv-parse";
-import "dotenv/config";
-import { Readable } from "node:stream";
-import type { ReadableStream as NodeReadableStream } from "node:stream/web";
-import zlib from "node:zlib";
+import { createClient } from '@supabase/supabase-js';
+import { parse } from 'csv-parse';
+import 'dotenv/config';
+import { Readable } from 'node:stream';
+import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
+import zlib from 'node:zlib';
 
-import type { Database } from "@/supabase/types";
+import type { Database } from '@/supabase/types';
 
 type SourceKey =
-  | "themes"
-  | "colors"
-  | "part_categories"
-  | "parts"
-  | "sets"
-  | "minifigs"
-  | "inventories"
-  | "inventory_parts"
-  | "inventory_minifigs";
+  | 'themes'
+  | 'colors'
+  | 'part_categories'
+  | 'parts'
+  | 'sets'
+  | 'minifigs'
+  | 'inventories'
+  | 'inventory_parts'
+  | 'inventory_minifigs';
 
 type DownloadInfo = {
   source: SourceKey;
@@ -25,7 +25,7 @@ type DownloadInfo = {
 
 // Pipeline salt to force re-ingest when downstream schema/logic changes
 // even if the source URLs stay the same. Bump this to invalidate cache.
-const PIPELINE_VERSION = "img-url-v1";
+const PIPELINE_VERSION = 'img-url-v1';
 
 type ForceConfig = {
   all: boolean;
@@ -39,7 +39,7 @@ function log(message: string) {
 }
 
 function parseForceArg(argv: string[]): ForceConfig {
-  const forceArg = argv.find(arg => arg.startsWith("--force"));
+  const forceArg = argv.find(arg => arg.startsWith('--force'));
   if (!forceArg) {
     return { all: false, sources: new Set<SourceKey>() };
   }
@@ -49,30 +49,30 @@ function parseForceArg(argv: string[]): ForceConfig {
   // --force=all
   // --force=inventory_parts
   // --force=parts,inventory_parts
-  const [, rawValue] = forceArg.split("=", 2);
+  const [, rawValue] = forceArg.split('=', 2);
   if (!rawValue || rawValue.trim().length === 0) {
     return { all: true, sources: new Set<SourceKey>() };
   }
 
   const tokens = rawValue
-    .split(",")
+    .split(',')
     .map(token => token.trim())
     .filter(Boolean);
 
-  if (tokens.length === 0 || tokens.includes("all")) {
+  if (tokens.length === 0 || tokens.includes('all')) {
     return { all: true, sources: new Set<SourceKey>() };
   }
 
   const validSources: SourceKey[] = [
-    "themes",
-    "colors",
-    "part_categories",
-    "parts",
-    "sets",
-    "minifigs",
-    "inventories",
-    "inventory_parts",
-    "inventory_minifigs",
+    'themes',
+    'colors',
+    'part_categories',
+    'parts',
+    'sets',
+    'minifigs',
+    'inventories',
+    'inventory_parts',
+    'inventory_minifigs',
   ];
 
   const sources = new Set<SourceKey>();
@@ -99,29 +99,33 @@ async function getDownloadUrls(): Promise<DownloadInfo[]> {
   // We intentionally do not depend on the timestamp query param for basic ingestion;
   // version tracking happens via rb_download_versions.
 
-  const base = "https://cdn.rebrickable.com/media/downloads";
+  const base = 'https://cdn.rebrickable.com/media/downloads';
 
   return [
-    { source: "themes", url: `${base}/themes.csv.gz` },
-    { source: "colors", url: `${base}/colors.csv.gz` },
-    { source: "part_categories", url: `${base}/part_categories.csv.gz` },
-    { source: "parts", url: `${base}/parts.csv.gz` },
-    { source: "sets", url: `${base}/sets.csv.gz` },
-    { source: "minifigs", url: `${base}/minifigs.csv.gz` },
-    { source: "inventories", url: `${base}/inventories.csv.gz` },
-    { source: "inventory_parts", url: `${base}/inventory_parts.csv.gz` },
+    { source: 'themes', url: `${base}/themes.csv.gz` },
+    { source: 'colors', url: `${base}/colors.csv.gz` },
+    { source: 'part_categories', url: `${base}/part_categories.csv.gz` },
+    { source: 'parts', url: `${base}/parts.csv.gz` },
+    { source: 'sets', url: `${base}/sets.csv.gz` },
+    { source: 'minifigs', url: `${base}/minifigs.csv.gz` },
+    { source: 'inventories', url: `${base}/inventories.csv.gz` },
+    { source: 'inventory_parts', url: `${base}/inventory_parts.csv.gz` },
     {
-      source: "inventory_minifigs",
+      source: 'inventory_minifigs',
       url: `${base}/inventory_minifigs.csv.gz`,
     },
   ];
 }
 
-async function downloadAndDecompress(url: string): Promise<NodeJS.ReadableStream> {
+async function downloadAndDecompress(
+  url: string
+): Promise<NodeJS.ReadableStream> {
   log(`Downloading ${url}`);
   const res = await fetch(url);
   if (!res.ok || !res.body) {
-    throw new Error(`Failed to download ${url}: ${res.status} ${res.statusText}`);
+    throw new Error(
+      `Failed to download ${url}: ${res.status} ${res.statusText}`
+    );
   }
 
   // In Node 18+, fetch() returns a Web ReadableStream; convert to Node.js Readable.
@@ -136,9 +140,9 @@ async function readCurrentVersion(
   source: SourceKey
 ): Promise<string | null> {
   const { data, error } = await supabase
-    .from("rb_download_versions")
-    .select("version")
-    .eq("source", source)
+    .from('rb_download_versions')
+    .select('version')
+    .eq('source', source)
     .maybeSingle();
 
   if (error) {
@@ -153,15 +157,13 @@ async function updateVersion(
   source: SourceKey,
   version: string
 ): Promise<void> {
-  const { error } = await supabase
-    .from("rb_download_versions")
-    .upsert(
-      {
-        source,
-        version,
-      },
-      { onConflict: "source" }
-    );
+  const { error } = await supabase.from('rb_download_versions').upsert(
+    {
+      source,
+      version,
+    },
+    { onConflict: 'source' }
+  );
 
   if (error) {
     throw error;
@@ -172,7 +174,7 @@ async function ingestThemes(
   supabase: ReturnType<typeof createClient<Database>>,
   stream: NodeJS.ReadableStream
 ): Promise<void> {
-  log("Ingesting themes into rb_themes");
+  log('Ingesting themes into rb_themes');
 
   const parser = stream.pipe(
     parse({
@@ -181,7 +183,7 @@ async function ingestThemes(
     })
   );
 
-  const batch: Array<Database["public"]["Tables"]["rb_themes"]["Insert"]> = [];
+  const batch: Array<Database['public']['Tables']['rb_themes']['Insert']> = [];
   const batchSize = 2000;
 
   for await (const record of parser) {
@@ -190,22 +192,22 @@ async function ingestThemes(
 
     batch.push({
       id,
-      name: record.name ?? "",
+      name: record.name ?? '',
       parent_id:
-        record.parent_id !== "" && record.parent_id != null
+        record.parent_id !== '' && record.parent_id != null
           ? Number(record.parent_id)
           : null,
     });
 
     if (batch.length >= batchSize) {
-      const { error } = await supabase.from("rb_themes").upsert(batch);
+      const { error } = await supabase.from('rb_themes').upsert(batch);
       if (error) throw error;
       batch.length = 0;
     }
   }
 
   if (batch.length > 0) {
-    const { error } = await supabase.from("rb_themes").upsert(batch);
+    const { error } = await supabase.from('rb_themes').upsert(batch);
     if (error) throw error;
   }
 }
@@ -214,7 +216,7 @@ async function ingestColors(
   supabase: ReturnType<typeof createClient<Database>>,
   stream: NodeJS.ReadableStream
 ): Promise<void> {
-  log("Ingesting colors into rb_colors");
+  log('Ingesting colors into rb_colors');
 
   const parser = stream.pipe(
     parse({
@@ -223,7 +225,7 @@ async function ingestColors(
     })
   );
 
-  const batch: Array<Database["public"]["Tables"]["rb_colors"]["Insert"]> = [];
+  const batch: Array<Database['public']['Tables']['rb_colors']['Insert']> = [];
   const batchSize = 2000;
 
   for await (const record of parser) {
@@ -232,23 +234,23 @@ async function ingestColors(
 
     batch.push({
       id,
-      name: record.name ?? "",
+      name: record.name ?? '',
       rgb: record.rgb && record.rgb.length === 6 ? record.rgb : null,
       is_trans:
-        record.is_trans === "t" ||
-        record.is_trans === "true" ||
-        record.is_trans === "1",
+        record.is_trans === 't' ||
+        record.is_trans === 'true' ||
+        record.is_trans === '1',
     });
 
     if (batch.length >= batchSize) {
-      const { error } = await supabase.from("rb_colors").upsert(batch);
+      const { error } = await supabase.from('rb_colors').upsert(batch);
       if (error) throw error;
       batch.length = 0;
     }
   }
 
   if (batch.length > 0) {
-    const { error } = await supabase.from("rb_colors").upsert(batch);
+    const { error } = await supabase.from('rb_colors').upsert(batch);
     if (error) throw error;
   }
 }
@@ -257,7 +259,7 @@ async function ingestPartCategories(
   supabase: ReturnType<typeof createClient<Database>>,
   stream: NodeJS.ReadableStream
 ): Promise<void> {
-  log("Ingesting part categories into rb_part_categories");
+  log('Ingesting part categories into rb_part_categories');
 
   const parser = stream.pipe(
     parse({
@@ -266,7 +268,9 @@ async function ingestPartCategories(
     })
   );
 
-  const batch: Array<Database["public"]["Tables"]["rb_part_categories"]["Insert"]> = [];
+  const batch: Array<
+    Database['public']['Tables']['rb_part_categories']['Insert']
+  > = [];
   const batchSize = 2000;
 
   for await (const record of parser) {
@@ -275,18 +279,18 @@ async function ingestPartCategories(
 
     batch.push({
       id,
-      name: record.name ?? "",
+      name: record.name ?? '',
     });
 
     if (batch.length >= batchSize) {
-      const { error } = await supabase.from("rb_part_categories").upsert(batch);
+      const { error } = await supabase.from('rb_part_categories').upsert(batch);
       if (error) throw error;
       batch.length = 0;
     }
   }
 
   if (batch.length > 0) {
-    const { error } = await supabase.from("rb_part_categories").upsert(batch);
+    const { error } = await supabase.from('rb_part_categories').upsert(batch);
     if (error) throw error;
   }
 }
@@ -295,7 +299,7 @@ async function ingestParts(
   supabase: ReturnType<typeof createClient<Database>>,
   stream: NodeJS.ReadableStream
 ): Promise<void> {
-  log("Ingesting parts into rb_parts");
+  log('Ingesting parts into rb_parts');
 
   const parser = stream.pipe(
     parse({
@@ -304,7 +308,7 @@ async function ingestParts(
     })
   );
 
-  const batch: Array<Database["public"]["Tables"]["rb_parts"]["Insert"]> = [];
+  const batch: Array<Database['public']['Tables']['rb_parts']['Insert']> = [];
   const batchSize = 2000;
 
   for await (const record of parser) {
@@ -313,23 +317,23 @@ async function ingestParts(
 
     batch.push({
       part_num,
-      name: record.name ?? "",
+      name: record.name ?? '',
       part_cat_id:
-        record.part_cat_id !== "" && record.part_cat_id != null
+        record.part_cat_id !== '' && record.part_cat_id != null
           ? Number(record.part_cat_id)
           : null,
       image_url: record.part_img_url || null,
     });
 
     if (batch.length >= batchSize) {
-      const { error } = await supabase.from("rb_parts").upsert(batch);
+      const { error } = await supabase.from('rb_parts').upsert(batch);
       if (error) throw error;
       batch.length = 0;
     }
   }
 
   if (batch.length > 0) {
-    const { error } = await supabase.from("rb_parts").upsert(batch);
+    const { error } = await supabase.from('rb_parts').upsert(batch);
     if (error) throw error;
   }
 }
@@ -338,7 +342,7 @@ async function ingestSets(
   supabase: ReturnType<typeof createClient<Database>>,
   stream: NodeJS.ReadableStream
 ): Promise<void> {
-  log("Ingesting sets into rb_sets");
+  log('Ingesting sets into rb_sets');
 
   const parser = stream.pipe(
     parse({
@@ -347,7 +351,7 @@ async function ingestSets(
     })
   );
 
-  const batch: Array<Database["public"]["Tables"]["rb_sets"]["Insert"]> = [];
+  const batch: Array<Database['public']['Tables']['rb_sets']['Insert']> = [];
   const batchSize = 2000;
 
   for await (const record of parser) {
@@ -356,29 +360,29 @@ async function ingestSets(
 
     batch.push({
       set_num,
-      name: record.name ?? "",
+      name: record.name ?? '',
       year:
-        record.year !== "" && record.year != null ? Number(record.year) : null,
+        record.year !== '' && record.year != null ? Number(record.year) : null,
       theme_id:
-        record.theme_id !== "" && record.theme_id != null
+        record.theme_id !== '' && record.theme_id != null
           ? Number(record.theme_id)
           : null,
       num_parts:
-        record.num_parts !== "" && record.num_parts != null
+        record.num_parts !== '' && record.num_parts != null
           ? Number(record.num_parts)
           : null,
       image_url: record.img_url || null,
     });
 
     if (batch.length >= batchSize) {
-      const { error } = await supabase.from("rb_sets").upsert(batch);
+      const { error } = await supabase.from('rb_sets').upsert(batch);
       if (error) throw error;
       batch.length = 0;
     }
   }
 
   if (batch.length > 0) {
-    const { error } = await supabase.from("rb_sets").upsert(batch);
+    const { error } = await supabase.from('rb_sets').upsert(batch);
     if (error) throw error;
   }
 }
@@ -387,7 +391,7 @@ async function ingestMinifigs(
   supabase: ReturnType<typeof createClient<Database>>,
   stream: NodeJS.ReadableStream
 ): Promise<void> {
-  log("Ingesting minifigs into rb_minifigs");
+  log('Ingesting minifigs into rb_minifigs');
 
   const parser = stream.pipe(
     parse({
@@ -396,7 +400,8 @@ async function ingestMinifigs(
     })
   );
 
-  const batch: Array<Database["public"]["Tables"]["rb_minifigs"]["Insert"]> = [];
+  const batch: Array<Database['public']['Tables']['rb_minifigs']['Insert']> =
+    [];
   const batchSize = 2000;
 
   for await (const record of parser) {
@@ -405,22 +410,22 @@ async function ingestMinifigs(
 
     batch.push({
       fig_num,
-      name: record.name ?? "",
+      name: record.name ?? '',
       num_parts:
-        record.num_parts !== "" && record.num_parts != null
+        record.num_parts !== '' && record.num_parts != null
           ? Number(record.num_parts)
           : null,
     });
 
     if (batch.length >= batchSize) {
-      const { error } = await supabase.from("rb_minifigs").upsert(batch);
+      const { error } = await supabase.from('rb_minifigs').upsert(batch);
       if (error) throw error;
       batch.length = 0;
     }
   }
 
   if (batch.length > 0) {
-    const { error } = await supabase.from("rb_minifigs").upsert(batch);
+    const { error } = await supabase.from('rb_minifigs').upsert(batch);
     if (error) throw error;
   }
 }
@@ -429,7 +434,7 @@ async function ingestInventories(
   supabase: ReturnType<typeof createClient<Database>>,
   stream: NodeJS.ReadableStream
 ): Promise<void> {
-  log("Ingesting inventories into rb_inventories");
+  log('Ingesting inventories into rb_inventories');
 
   const parser = stream.pipe(
     parse({
@@ -438,7 +443,8 @@ async function ingestInventories(
     })
   );
 
-  const batch: Array<Database["public"]["Tables"]["rb_inventories"]["Insert"]> = [];
+  const batch: Array<Database['public']['Tables']['rb_inventories']['Insert']> =
+    [];
   const batchSize = 2000;
 
   for await (const record of parser) {
@@ -448,21 +454,21 @@ async function ingestInventories(
     batch.push({
       id,
       version:
-        record.version !== "" && record.version != null
+        record.version !== '' && record.version != null
           ? Number(record.version)
           : null,
       set_num: (record.set_num as string | undefined) ?? null,
     });
 
     if (batch.length >= batchSize) {
-      const { error } = await supabase.from("rb_inventories").upsert(batch);
+      const { error } = await supabase.from('rb_inventories').upsert(batch);
       if (error) throw error;
       batch.length = 0;
     }
   }
 
   if (batch.length > 0) {
-    const { error } = await supabase.from("rb_inventories").upsert(batch);
+    const { error } = await supabase.from('rb_inventories').upsert(batch);
     if (error) throw error;
   }
 }
@@ -471,7 +477,7 @@ async function ingestInventoryParts(
   supabase: ReturnType<typeof createClient<Database>>,
   stream: NodeJS.ReadableStream
 ): Promise<void> {
-  log("Ingesting inventory parts into rb_inventory_parts");
+  log('Ingesting inventory parts into rb_inventory_parts');
 
   const parser = stream.pipe(
     parse({
@@ -480,9 +486,10 @@ async function ingestInventoryParts(
     })
   );
 
-  type InsertRow = Database["public"]["Tables"]["rb_inventory_parts"]["Insert"] & {
-    img_url?: string | null;
-  };
+  type InsertRow =
+    Database['public']['Tables']['rb_inventory_parts']['Insert'] & {
+      img_url?: string | null;
+    };
 
   // We may see duplicate keys (same PK) within a single CSV chunk.
   // To avoid ON CONFLICT updating the same row twice in one statement,
@@ -493,7 +500,7 @@ async function ingestInventoryParts(
   const flush = async () => {
     if (batchMap.size === 0) return;
     const rows = Array.from(batchMap.values());
-    const { error } = await supabase.from("rb_inventory_parts").upsert(rows);
+    const { error } = await supabase.from('rb_inventory_parts').upsert(rows);
     if (error) throw error;
     batchMap.clear();
   };
@@ -524,13 +531,13 @@ async function ingestInventoryParts(
     }
 
     const is_spare =
-      record.is_spare === "t" ||
-      record.is_spare === "true" ||
-      record.is_spare === "1";
-    const element_id = (record.element_id as string | undefined) ?? "";
-    const img_url_raw = (record.img_url as string | undefined) ?? "";
+      record.is_spare === 't' ||
+      record.is_spare === 'true' ||
+      record.is_spare === '1';
+    const element_id = (record.element_id as string | undefined) ?? '';
+    const img_url_raw = (record.img_url as string | undefined) ?? '';
     const img_url =
-      typeof img_url_raw === "string" && img_url_raw.trim().length > 0
+      typeof img_url_raw === 'string' && img_url_raw.trim().length > 0
         ? img_url_raw.trim()
         : null;
 
@@ -567,7 +574,7 @@ async function ingestInventoryMinifigs(
   supabase: ReturnType<typeof createClient<Database>>,
   stream: NodeJS.ReadableStream
 ): Promise<void> {
-  log("Ingesting inventory minifigs into rb_inventory_minifigs");
+  log('Ingesting inventory minifigs into rb_inventory_minifigs');
 
   const parser = stream.pipe(
     parse({
@@ -577,7 +584,7 @@ async function ingestInventoryMinifigs(
   );
 
   const batch: Array<
-    Database["public"]["Tables"]["rb_inventory_minifigs"]["Insert"]
+    Database['public']['Tables']['rb_inventory_minifigs']['Insert']
   > = [];
   const batchSize = 2000;
 
@@ -599,7 +606,7 @@ async function ingestInventoryMinifigs(
 
     if (batch.length >= batchSize) {
       const { error } = await supabase
-        .from("rb_inventory_minifigs")
+        .from('rb_inventory_minifigs')
         .upsert(batch);
       if (error) throw error;
       batch.length = 0;
@@ -608,15 +615,15 @@ async function ingestInventoryMinifigs(
 
   if (batch.length > 0) {
     const { error } = await supabase
-      .from("rb_inventory_minifigs")
+      .from('rb_inventory_minifigs')
       .upsert(batch);
     if (error) throw error;
   }
 }
 
 async function main() {
-  const supabaseUrl = getEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const supabaseServiceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const supabaseUrl = getEnv('NEXT_PUBLIC_SUPABASE_URL');
+  const supabaseServiceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
 
   const supabase = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
   const forceConfig = parseForceArg(process.argv);
@@ -640,23 +647,23 @@ async function main() {
 
     const stream = await downloadAndDecompress(info.url);
 
-    if (info.source === "themes") {
+    if (info.source === 'themes') {
       await ingestThemes(supabase, stream);
-    } else if (info.source === "colors") {
+    } else if (info.source === 'colors') {
       await ingestColors(supabase, stream);
-    } else if (info.source === "part_categories") {
+    } else if (info.source === 'part_categories') {
       await ingestPartCategories(supabase, stream);
-    } else if (info.source === "parts") {
+    } else if (info.source === 'parts') {
       await ingestParts(supabase, stream);
-    } else if (info.source === "sets") {
+    } else if (info.source === 'sets') {
       await ingestSets(supabase, stream);
-    } else if (info.source === "minifigs") {
+    } else if (info.source === 'minifigs') {
       await ingestMinifigs(supabase, stream);
-    } else if (info.source === "inventories") {
+    } else if (info.source === 'inventories') {
       await ingestInventories(supabase, stream);
-    } else if (info.source === "inventory_parts") {
+    } else if (info.source === 'inventory_parts') {
       await ingestInventoryParts(supabase, stream);
-    } else if (info.source === "inventory_minifigs") {
+    } else if (info.source === 'inventory_minifigs') {
       await ingestInventoryMinifigs(supabase, stream);
     }
 
@@ -664,7 +671,7 @@ async function main() {
     log(`Finished ingest for ${info.source} (stored version ${versionKey}).`);
   }
 
-  log("All ingestion tasks complete.");
+  log('All ingestion tasks complete.');
 }
 
 // Allow running via `npm run ingest:rebrickable`
@@ -673,5 +680,3 @@ main().catch(error => {
   console.error(error);
   process.exitCode = 1;
 });
-
-

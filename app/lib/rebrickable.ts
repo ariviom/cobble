@@ -431,9 +431,10 @@ export async function getAggregatedSearchResults(
   // names, so Rebrickable's built-in search returns no results.
   // Helper to resolve theme name and full path for a given theme ID.
   // Defined at function scope so it can be used throughout the function.
-  function getThemeMeta(
-    themeId: number | null | undefined
-  ): { themeName: string | null; themePath: string | null } {
+  function getThemeMeta(themeId: number | null | undefined): {
+    themeName: string | null;
+    themePath: string | null;
+  } {
     if (themeId == null || !Number.isFinite(themeId)) {
       return { themeName: null, themePath: null };
     }
@@ -683,9 +684,10 @@ export async function getSetInventory(
         ...(parentCategory && { parentCategory }),
         inventoryKey,
         // Only include bricklinkPartId if different from partId
-        ...(bricklinkPartId && bricklinkPartId !== i.part.part_num && {
-          bricklinkPartId,
-        }),
+        ...(bricklinkPartId &&
+          bricklinkPartId !== i.part.part_num && {
+            bricklinkPartId,
+          }),
       } satisfies InventoryRow;
     });
 
@@ -781,7 +783,10 @@ export async function getSetInventory(
             if (!existingRow.parentRelations) {
               existingRow.parentRelations = [];
             }
-            existingRow.parentRelations.push({ parentKey, quantity: perParentQty });
+            existingRow.parentRelations.push({
+              parentKey,
+              quantity: perParentQty,
+            });
             parentRow.componentRelations!.push({
               key: existingRow.inventoryKey,
               quantity: perParentQty,
@@ -794,7 +799,9 @@ export async function getSetInventory(
               catId != null
                 ? (idToName.get(catId) ?? 'Minifig Component')
                 : 'Minifig Component';
-            const bricklinkPartId = extractBricklinkPartId(component.part.external_ids);
+            const bricklinkPartId = extractBricklinkPartId(
+              component.part.external_ids
+            );
 
             const childRow: InventoryRow = {
               setNumber,
@@ -811,9 +818,10 @@ export async function getSetInventory(
               inventoryKey,
               parentRelations: [{ parentKey, quantity: perParentQty }],
               // Only include bricklinkPartId if different from partId
-              ...(bricklinkPartId && bricklinkPartId !== component.part.part_num && {
-                bricklinkPartId,
-              }),
+              ...(bricklinkPartId &&
+                bricklinkPartId !== component.part.part_num && {
+                  bricklinkPartId,
+                }),
             };
             parentRow.componentRelations!.push({
               key: inventoryKey,
@@ -1163,7 +1171,8 @@ export async function searchMinifigs(
       const figNum = rawId || '';
       const name = result.name || figNum || trimmed;
       const numParts =
-        typeof result.num_parts === 'number' && Number.isFinite(result.num_parts)
+        typeof result.num_parts === 'number' &&
+        Number.isFinite(result.num_parts)
           ? result.num_parts
           : null;
       const imageUrl =
@@ -1430,7 +1439,10 @@ export async function getSetsForPart(
   let sets = await fetchAll(partNum, colorId);
   if (!sets.length && typeof colorId === 'number') {
     if (process.env.NODE_ENV !== 'production') {
-      logger.debug('rebrickable.sets.retry_without_color', { partNum, colorId });
+      logger.debug('rebrickable.sets.retry_without_color', {
+        partNum,
+        colorId,
+      });
     }
     sets = await fetchAll(partNum, undefined);
   }
@@ -1534,9 +1546,7 @@ export async function getSetsForPart(
   return sets;
 }
 
-export async function getSetsForMinifig(
-  figNum: string
-): Promise<PartInSet[]> {
+export async function getSetsForMinifig(figNum: string): Promise<PartInSet[]> {
   const SETS_TTL_MS = 60 * 60 * 1000;
   const NEGATIVE_TTL_MS = 10 * 60 * 1000;
   const MAX_CACHE_ENTRIES = 500;
@@ -1616,8 +1626,7 @@ export async function getSetsForMinifig(
           name: r.set_name ?? '',
           year:
             typeof r.year === 'number' && Number.isFinite(r.year) ? r.year : 0,
-          imageUrl:
-            typeof r.set_img_url === 'string' ? r.set_img_url : null,
+          imageUrl: typeof r.set_img_url === 'string' ? r.set_img_url : null,
           quantity: typeof r.quantity === 'number' ? r.quantity : 1,
         };
       })

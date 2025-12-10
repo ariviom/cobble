@@ -24,7 +24,11 @@ export function PublicSetCard({
   if (year) {
     metadataParts.push(String(year));
   }
-  if (typeof numParts === 'number' && Number.isFinite(numParts) && numParts > 0) {
+  if (
+    typeof numParts === 'number' &&
+    Number.isFinite(numParts) &&
+    numParts > 0
+  ) {
     metadataParts.push(`${numParts} parts`);
   }
 
@@ -74,6 +78,3 @@ export function PublicSetCard({
     </div>
   );
 }
-
-
-

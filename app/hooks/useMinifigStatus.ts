@@ -45,16 +45,14 @@ export function useMinifigStatus({
       return;
     }
 
-    void supabase
-      .from('user_minifigs')
-      .upsert(
-        {
-          user_id: user.id,
-          fig_num: figNum,
-          status: next,
-        },
-        { onConflict: 'user_id,fig_num' }
-      );
+    void supabase.from('user_minifigs').upsert(
+      {
+        user_id: user.id,
+        fig_num: figNum,
+        status: next,
+      },
+      { onConflict: 'user_id,fig_num' }
+    );
   };
 
   return {
@@ -64,11 +62,3 @@ export function useMinifigStatus({
     isAuthenticating: isLoading,
   };
 }
-
-
-
-
-
-
-
-

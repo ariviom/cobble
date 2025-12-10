@@ -26,20 +26,26 @@ const querySchema = z.object({
   filter: z
     .string()
     .optional()
-    .transform(v => (allowedFilters.includes((v as FilterType) ?? 'all') ? (v as FilterType) : 'all')),
+    .transform(v =>
+      allowedFilters.includes((v as FilterType) ?? 'all')
+        ? (v as FilterType)
+        : 'all'
+    ),
   exact: z
     .string()
     .optional()
-    .transform(v =>
-      v === '1' || v === 'true' || v?.toLowerCase() === 'yes'
-    ),
+    .transform(v => v === '1' || v === 'true' || v?.toLowerCase() === 'yes'),
 });
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const parsed = querySchema.safeParse(Object.fromEntries(searchParams.entries()));
+  const parsed = querySchema.safeParse(
+    Object.fromEntries(searchParams.entries())
+  );
   if (!parsed.success) {
-    incrementCounter('search_validation_failed', { issues: parsed.error.flatten() });
+    incrementCounter('search_validation_failed', {
+      issues: parsed.error.flatten(),
+    });
     return errorResponse('validation_failed', {
       details: { issues: parsed.error.flatten() },
     });

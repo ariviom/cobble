@@ -89,6 +89,3 @@ export async function throwAppErrorFromResponse(
 
   throw new AppError(code, message, res.status);
 }
-
-
-

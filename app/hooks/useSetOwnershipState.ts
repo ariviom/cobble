@@ -1,10 +1,7 @@
 'use client';
 
 import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
-import {
-  useSetLists,
-  type UserList,
-} from '@/app/hooks/useSetLists';
+import { useSetLists, type UserList } from '@/app/hooks/useSetLists';
 import { useSetStatus } from '@/app/hooks/useSetStatus';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import type { SetStatus, SetStatusKey } from '@/app/store/user-sets';
@@ -71,4 +68,3 @@ export function useSetOwnershipState({
     isAuthenticating: isLoading,
   };
 }
-

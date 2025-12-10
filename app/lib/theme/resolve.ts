@@ -62,13 +62,3 @@ export function resolveThemePreference({
     source: 'system',
   };
 }
-
-
-
-
-
-
-
-
-
-

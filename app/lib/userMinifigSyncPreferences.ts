@@ -122,7 +122,3 @@ export async function saveUserMinifigSyncPreferences(
     { onConflict: 'user_id' }
   );
 }
-
-
-
-

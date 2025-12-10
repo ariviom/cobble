@@ -39,9 +39,9 @@ export function useUserMinifigs(): UseUserMinifigsResult {
           return;
         }
         if (!res.ok) {
-          const payload = (await res.json().catch(() => null)) as
-            | { error?: string }
-            | null;
+          const payload = (await res.json().catch(() => null)) as {
+            error?: string;
+          } | null;
           const code = payload?.error ?? 'minifigs_fetch_failed';
           throw new Error(code);
         }
@@ -71,5 +71,3 @@ export function useUserMinifigs(): UseUserMinifigsResult {
 
   return { minifigs, isLoading, error };
 }
-
-

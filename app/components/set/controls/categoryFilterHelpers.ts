@@ -43,7 +43,11 @@ export function toggleParent(
     parents.delete(parent);
     const nextSubs = { ...(filter.subcategoriesByParent || {}) };
     delete nextSubs[parent];
-    return { ...filter, parents: Array.from(parents), subcategoriesByParent: nextSubs };
+    return {
+      ...filter,
+      parents: Array.from(parents),
+      subcategoriesByParent: nextSubs,
+    };
   }
 }
 

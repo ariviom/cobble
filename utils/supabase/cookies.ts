@@ -44,7 +44,9 @@ export function createCookieMethods(options: {
  * Create CookieMethodsServer for middleware context (NextRequest/NextResponse).
  */
 export function createMiddlewareCookieMethods(
-  request: { cookies: { getAll: () => Array<{ name: string; value: string }> } },
+  request: {
+    cookies: { getAll: () => Array<{ name: string; value: string }> };
+  },
   response: {
     cookies: {
       set: (options: {
@@ -86,7 +88,11 @@ export function createMiddlewareCookieMethods(
  */
 export function createServerComponentCookieMethods(cookieStore: {
   getAll: () => Array<{ name: string; value: string }>;
-  set: (options: { name: string; value: string; [key: string]: unknown }) => void;
+  set: (options: {
+    name: string;
+    value: string;
+    [key: string]: unknown;
+  }) => void;
 }): CookieMethodsServer {
   return {
     getAll: async () => {
@@ -102,12 +108,3 @@ export function createServerComponentCookieMethods(cookieStore: {
     },
   };
 }
-
-
-
-
-
-
-
-
-

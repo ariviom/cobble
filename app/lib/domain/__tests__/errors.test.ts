@@ -32,6 +32,3 @@ describe('AppError and throwAppErrorFromResponse', () => {
     });
   });
 });
-
-
-

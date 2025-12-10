@@ -1,7 +1,7 @@
 import { searchSetsLocal } from '@/app/lib/catalog';
 import {
-    getAggregatedSearchResults,
-    type SimpleSet,
+  getAggregatedSearchResults,
+  type SimpleSet,
 } from '@/app/lib/rebrickable';
 import type { FilterType } from '@/app/types/search';
 import { logger } from '@/lib/metrics';
@@ -10,13 +10,16 @@ const MAX_QUERY_LENGTH = 200;
 const SPECIAL_CHARS = /[%_\\]/g;
 
 function sanitizeSearchQuery(query: string): string {
-	return query
-		.slice(0, MAX_QUERY_LENGTH)
-		.replace(SPECIAL_CHARS, char => `\\${char}`)
-		.trim();
+  return query
+    .slice(0, MAX_QUERY_LENGTH)
+    .replace(SPECIAL_CHARS, char => `\\${char}`)
+    .trim();
 }
 
-function applyFilter(results: SimpleSet[], filterType: FilterType): SimpleSet[] {
+function applyFilter(
+  results: SimpleSet[],
+  filterType: FilterType
+): SimpleSet[] {
   if (filterType === 'all') {
     return results;
   }
@@ -44,13 +47,7 @@ export async function searchSetsPage(args: {
     total: number;
   };
 }> {
-  const {
-    sort,
-    page,
-    pageSize,
-    filterType = 'all',
-    exactMatch = false,
-  } = args;
+  const { sort, page, pageSize, filterType = 'all', exactMatch = false } = args;
   const sanitizedQuery = sanitizeSearchQuery(args.query);
 
   type ResultArray = Awaited<ReturnType<typeof getAggregatedSearchResults>>;
@@ -75,7 +72,9 @@ export async function searchSetsPage(args: {
 
   // Fallback to live Rebrickable search when Supabase has no results or errors.
   if (all.length === 0) {
-    all = await getAggregatedSearchResults(sanitizedQuery, sort, { exactMatch });
+    all = await getAggregatedSearchResults(sanitizedQuery, sort, {
+      exactMatch,
+    });
     usedFallback = true;
   }
 
@@ -95,7 +94,3 @@ export async function searchSetsPage(args: {
       : {}),
   };
 }
-
-
-
-

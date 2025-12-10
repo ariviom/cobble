@@ -20,13 +20,3 @@ export type UserSetRecord = {
   status: UserSetStatus;
   updatedAt: number;
 };
-
-
-
-
-
-
-
-
-
-

@@ -49,141 +49,155 @@ export const POST = withCsrfProtection(
   async (
     req: NextRequest
   ): Promise<NextResponse<SyncResponse | ApiErrorResponse>> => {
-  try {
-    // Authenticate the user
-    const supabase = await getSupabaseAuthServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    try {
+      // Authenticate the user
+      const supabase = await getSupabaseAuthServerClient();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-    if (authError || !user) {
-      incrementCounter('sync_unauthorized');
-      return errorResponse('unauthorized');
-    }
+      if (authError || !user) {
+        incrementCounter('sync_unauthorized');
+        return errorResponse('unauthorized');
+      }
 
-    const parsed = syncRequestSchema.safeParse(await req.json());
-    if (!parsed.success) {
-      incrementCounter('sync_validation_failed', { issues: parsed.error.flatten() });
-      return errorResponse('validation_failed', { details: parsed.error.flatten() });
-    }
-
-    const { operations } = parsed.data;
-
-    // Process operations
-    const failed: Array<{ id: number; error: string }> = [];
-    let processed = 0;
-
-    // Group operations by table for batching
-    const userSetPartsUpserts: Array<{
-      id: number;
-      payload: {
-        user_id: string;
-        set_num: string;
-        part_num: string;
-        color_id: number;
-        is_spare: boolean;
-        owned_quantity: number;
-      };
-    }> = [];
-
-    const userSetPartsDeletes: Array<{
-      id: number;
-      payload: {
-        set_num: string;
-        part_num: string;
-        color_id: number;
-        is_spare: boolean;
-      };
-    }> = [];
-
-    // Validate and categorize operations (table already constrained by schema)
-    for (const op of operations) {
-      const payload = op.payload;
-      const isSpare = payload.is_spare ?? false;
-
-      if (op.operation === 'upsert') {
-        const quantity = payload.owned_quantity ?? 0;
-        userSetPartsUpserts.push({
-          id: op.id,
-          payload: {
-            user_id: user.id,
-            set_num: payload.set_num,
-            part_num: payload.part_num,
-            color_id: payload.color_id,
-            is_spare: isSpare,
-            owned_quantity: Math.max(0, Math.floor(quantity)),
-          },
+      const parsed = syncRequestSchema.safeParse(await req.json());
+      if (!parsed.success) {
+        incrementCounter('sync_validation_failed', {
+          issues: parsed.error.flatten(),
         });
-      } else {
-        userSetPartsDeletes.push({
-          id: op.id,
-          payload: {
-            set_num: payload.set_num,
-            part_num: payload.part_num,
-            color_id: payload.color_id,
-            is_spare: isSpare,
-          },
+        return errorResponse('validation_failed', {
+          details: parsed.error.flatten(),
         });
       }
-    }
 
-    // Execute batched upserts for user_set_parts
-    if (userSetPartsUpserts.length > 0) {
-      const rows = userSetPartsUpserts.map(u => u.payload);
-      const { error: upsertError } = await supabase
-        .from('user_set_parts')
-        .upsert(rows, {
-          onConflict: 'user_id,set_num,part_num,color_id,is_spare',
-        });
+      const { operations } = parsed.data;
 
-      if (upsertError) {
-        // Mark all as failed
-        for (const u of userSetPartsUpserts) {
-          failed.push({ id: u.id, error: `upsert_failed:${upsertError.message}` });
+      // Process operations
+      const failed: Array<{ id: number; error: string }> = [];
+      let processed = 0;
+
+      // Group operations by table for batching
+      const userSetPartsUpserts: Array<{
+        id: number;
+        payload: {
+          user_id: string;
+          set_num: string;
+          part_num: string;
+          color_id: number;
+          is_spare: boolean;
+          owned_quantity: number;
+        };
+      }> = [];
+
+      const userSetPartsDeletes: Array<{
+        id: number;
+        payload: {
+          set_num: string;
+          part_num: string;
+          color_id: number;
+          is_spare: boolean;
+        };
+      }> = [];
+
+      // Validate and categorize operations (table already constrained by schema)
+      for (const op of operations) {
+        const payload = op.payload;
+        const isSpare = payload.is_spare ?? false;
+
+        if (op.operation === 'upsert') {
+          const quantity = payload.owned_quantity ?? 0;
+          userSetPartsUpserts.push({
+            id: op.id,
+            payload: {
+              user_id: user.id,
+              set_num: payload.set_num,
+              part_num: payload.part_num,
+              color_id: payload.color_id,
+              is_spare: isSpare,
+              owned_quantity: Math.max(0, Math.floor(quantity)),
+            },
+          });
+        } else {
+          userSetPartsDeletes.push({
+            id: op.id,
+            payload: {
+              set_num: payload.set_num,
+              part_num: payload.part_num,
+              color_id: payload.color_id,
+              is_spare: isSpare,
+            },
+          });
         }
-      } else {
-        processed += userSetPartsUpserts.length;
       }
-    }
 
-    // Execute deletes for user_set_parts (one by one for now)
-    for (const d of userSetPartsDeletes) {
-      const { error: deleteError } = await supabase
-        .from('user_set_parts')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('set_num', d.payload.set_num)
-        .eq('part_num', d.payload.part_num)
-        .eq('color_id', d.payload.color_id)
-        .eq('is_spare', d.payload.is_spare);
+      // Execute batched upserts for user_set_parts
+      if (userSetPartsUpserts.length > 0) {
+        const rows = userSetPartsUpserts.map(u => u.payload);
+        const { error: upsertError } = await supabase
+          .from('user_set_parts')
+          .upsert(rows, {
+            onConflict: 'user_id,set_num,part_num,color_id,is_spare',
+          });
 
-      if (deleteError) {
-        failed.push({ id: d.id, error: `delete_failed:${deleteError.message}` });
-      } else {
-        processed++;
+        if (upsertError) {
+          // Mark all as failed
+          for (const u of userSetPartsUpserts) {
+            failed.push({
+              id: u.id,
+              error: `upsert_failed:${upsertError.message}`,
+            });
+          }
+        } else {
+          processed += userSetPartsUpserts.length;
+        }
       }
-    }
 
-    const response: SyncResponse = {
-      success: failed.length === 0,
-      processed,
-      ...(failed.length > 0 ? { failed } : {}),
-    };
-    if (failed.length === 0) {
-      incrementCounter('sync_succeeded', { processed });
-    } else {
-      incrementCounter('sync_partial_failed', { processed, failed: failed.length });
+      // Execute deletes for user_set_parts (one by one for now)
+      for (const d of userSetPartsDeletes) {
+        const { error: deleteError } = await supabase
+          .from('user_set_parts')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('set_num', d.payload.set_num)
+          .eq('part_num', d.payload.part_num)
+          .eq('color_id', d.payload.color_id)
+          .eq('is_spare', d.payload.is_spare);
+
+        if (deleteError) {
+          failed.push({
+            id: d.id,
+            error: `delete_failed:${deleteError.message}`,
+          });
+        } else {
+          processed++;
+        }
+      }
+
+      const response: SyncResponse = {
+        success: failed.length === 0,
+        processed,
+        ...(failed.length > 0 ? { failed } : {}),
+      };
+      if (failed.length === 0) {
+        incrementCounter('sync_succeeded', { processed });
+      } else {
+        incrementCounter('sync_partial_failed', {
+          processed,
+          failed: failed.length,
+        });
+      }
+      logEvent('sync_response', { processed, failed: failed.length });
+      return NextResponse.json(response);
+    } catch (error) {
+      incrementCounter('sync_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return errorResponse('unknown_error');
     }
-    logEvent('sync_response', { processed, failed: failed.length });
-    return NextResponse.json(response);
-  } catch (error) {
-    incrementCounter('sync_failed', {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return errorResponse('unknown_error');
   }
-});
+);
 
 /**
  * Ping endpoint for sendBeacon on page unload.
@@ -193,10 +207,3 @@ export const POST = withCsrfProtection(
 export async function GET(): Promise<NextResponse> {
   return NextResponse.json({ ok: true });
 }
-
-
-
-
-
-
-

@@ -33,8 +33,3 @@ export function buildUserHandle(profile: UserProfileIdentity): string {
   }
   return profile.user_id;
 }
-
-
-
-
-

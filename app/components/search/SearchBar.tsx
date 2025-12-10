@@ -48,7 +48,8 @@ export function SearchBar({
     e.preventDefault();
     const next = q.trim();
     setQ(next);
-    const params = pathname === '/search' ? getCurrentSearchParams() : new URLSearchParams();
+    const params =
+      pathname === '/search' ? getCurrentSearchParams() : new URLSearchParams();
     if (next) {
       params.set('q', next);
     } else {

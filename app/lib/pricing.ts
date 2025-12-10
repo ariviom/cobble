@@ -74,7 +74,9 @@ function normalizeCode(code: string | null | undefined): string | null {
   return String(code).trim().toUpperCase() || null;
 }
 
-export function isSupportedCurrency(code: string | null | undefined): code is string {
+export function isSupportedCurrency(
+  code: string | null | undefined
+): code is string {
   const normalized = normalizeCode(code);
   if (!normalized) return false;
   return BRICKLINK_CURRENCY_OPTIONS.some(opt => opt.code === normalized);
@@ -118,5 +120,3 @@ export function formatPricingScopeLabel(prefs: PricingPreferences): string {
   const regionLabel = getRegionLabel(prefs.countryCode);
   return `${prefs.currencyCode}/${regionLabel}`;
 }
-
-

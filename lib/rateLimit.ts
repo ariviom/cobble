@@ -55,7 +55,10 @@ function getBucket(key: string, windowMs: number, now: number): Bucket {
   return bucket;
 }
 
-function coercePositiveInt(value: string | number | undefined, fallback: number) {
+function coercePositiveInt(
+  value: string | number | undefined,
+  fallback: number
+) {
   const num =
     typeof value === 'number'
       ? value
@@ -88,10 +91,15 @@ function consumeRateLimitInMemory(
   return { allowed: true, retryAfterSeconds: 0 };
 }
 
-export async function getClientIp(req: { headers: Headers }): Promise<string | null> {
+export async function getClientIp(req: {
+  headers: Headers;
+}): Promise<string | null> {
   const xff = req.headers.get('x-forwarded-for');
   if (xff && xff.trim().length > 0) {
-    const parts = xff.split(',').map(p => p.trim()).filter(Boolean);
+    const parts = xff
+      .split(',')
+      .map(p => p.trim())
+      .filter(Boolean);
     if (parts.length > 0) return parts[0]!;
   }
   const realIp = req.headers.get('x-real-ip');
@@ -114,9 +122,9 @@ export async function consumeRateLimit(
 
   try {
     const supabase = getCatalogReadClient();
-    const { data, error } = await (supabase as unknown as SupabaseRpcClient).rpc<
-      ConsumeRateLimitRow[]
-    >('consume_rate_limit', {
+    const { data, error } = await (
+      supabase as unknown as SupabaseRpcClient
+    ).rpc<ConsumeRateLimitRow[]>('consume_rate_limit', {
       p_key: key,
       p_max_hits: maxHits,
       p_window_ms: windowMs,
@@ -136,7 +144,10 @@ export async function consumeRateLimit(
 
     return { allowed, retryAfterSeconds };
   } catch (error) {
-    logger.warn('rate_limit.distributed_fallback', { key, error: String(error) });
+    logger.warn('rate_limit.distributed_fallback', {
+      key,
+      error: String(error),
+    });
     return consumeRateLimitInMemory(key, { windowMs, maxHits });
   }
 }

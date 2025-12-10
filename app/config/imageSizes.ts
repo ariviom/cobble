@@ -68,5 +68,3 @@ const IMAGE_SIZES: Record<ImageVariant, ImageSizeConfig> = {
 export function getImageSizeConfig(variant: ImageVariant): ImageSizeConfig {
   return IMAGE_SIZES[variant];
 }
-
-

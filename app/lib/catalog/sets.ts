@@ -4,9 +4,9 @@ import type { InventoryRow } from '@/app/components/set/types';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import type { PartInSet, SimpleSet } from '@/app/lib/rebrickable';
 import {
-    mapCategoryNameToParent,
-    normalizeText,
-    sortAggregatedResults,
+  mapCategoryNameToParent,
+  normalizeText,
+  sortAggregatedResults,
 } from '@/app/lib/rebrickable';
 import { filterExactMatches } from '@/app/lib/searchExactMatch';
 import { dedup } from '@/app/lib/utils/dedup';
@@ -14,10 +14,10 @@ import type { MatchType } from '@/app/types/search';
 import type { Json } from '@/supabase/types';
 
 import {
-    buildThemeMetaHelpers,
-    deriveRootThemeName,
-    getThemesLocal,
-    type LocalTheme,
+  buildThemeMetaHelpers,
+  deriveRootThemeName,
+  getThemesLocal,
+  type LocalTheme,
 } from './themes';
 
 export async function searchSetsLocal(
@@ -48,17 +48,14 @@ export async function searchSetsLocal(
         return { data, error };
       }
     ),
-    dedup(
-      `searchSetsLocal:name:${keyBase}:${sort}:${exactMatch}`,
-      async () => {
-        const { data, error } = await supabase
-          .from('rb_sets')
-          .select('set_num, name, year, num_parts, image_url, theme_id')
-          .ilike('name', `%${trimmed}%`)
-          .limit(250);
-        return { data, error };
-      }
-    ),
+    dedup(`searchSetsLocal:name:${keyBase}:${sort}:${exactMatch}`, async () => {
+      const { data, error } = await supabase
+        .from('rb_sets')
+        .select('set_num, name, year, num_parts, image_url, theme_id')
+        .ilike('name', `%${trimmed}%`)
+        .limit(250);
+      return { data, error };
+    }),
     dedup(`searchSetsLocal:themes`, () => getThemesLocal()),
   ]);
 
@@ -72,9 +69,7 @@ export async function searchSetsLocal(
   const themeById = new Map<number, LocalTheme>(themes.map(t => [t.id, t]));
   const { getThemeMeta, matchesTheme } = buildThemeMetaHelpers(themes);
 
-  function getMatchTypeForTheme(
-    themeId: number | null | undefined
-  ): MatchType {
+  function getMatchTypeForTheme(themeId: number | null | undefined): MatchType {
     if (themeId == null || !Number.isFinite(themeId)) {
       return 'theme';
     }
@@ -333,9 +328,7 @@ export async function getSetInventoryLocal(
     ) ?? [];
 
   if (inventoryCandidates.length > 0) {
-    inventoryCandidates.sort(
-      (a, b) => (b.version ?? -1) - (a.version ?? -1)
-    );
+    inventoryCandidates.sort((a, b) => (b.version ?? -1) - (a.version ?? -1));
     const selectedInventoryId = inventoryCandidates[0]!.id;
     const { data: inventoryParts, error: inventoryPartsError } = await supabase
       .from('rb_inventory_parts_public')
@@ -397,10 +390,7 @@ export async function getSetInventoryLocal(
           error: null;
         }),
     colorIds.length
-      ? supabase
-          .from('rb_colors')
-          .select('id, name')
-          .in('id', colorIds)
+      ? supabase.from('rb_colors').select('id, name').in('id', colorIds)
       : Promise.resolve({ data: [], error: null } as {
           data: { id: number; name: string }[];
           error: null;
@@ -509,7 +499,9 @@ export async function getSetInventoryLocal(
     const imageUrl =
       (typeof row.img_url === 'string' && row.img_url.trim().length > 0
         ? row.img_url.trim()
-        : null) ?? part?.image_url ?? null;
+        : null) ??
+      part?.image_url ??
+      null;
 
     return {
       setNumber: trimmedSet,
@@ -525,9 +517,10 @@ export async function getSetInventoryLocal(
       ...(parentCategory && { parentCategory }),
       inventoryKey: `${row.part_num}:${row.color_id}`,
       // Only include bricklinkPartId if different from partId
-      ...(bricklinkPartId && bricklinkPartId !== row.part_num && {
-        bricklinkPartId,
-      }),
+      ...(bricklinkPartId &&
+        bricklinkPartId !== row.part_num && {
+          bricklinkPartId,
+        }),
     };
   });
   const partRowMap = new Map<string, InventoryRow>();
@@ -644,7 +637,9 @@ export async function getSetInventoryLocal(
         figPartNums.add(partNum);
         figColorIds.add(colorId);
         if (!figPartsByFig.has(fn)) figPartsByFig.set(fn, []);
-        figPartsByFig.get(fn)!.push({ part_num: partNum, color_id: colorId, quantity });
+        figPartsByFig
+          .get(fn)!
+          .push({ part_num: partNum, color_id: colorId, quantity });
       }
 
       // Fetch missing part metadata for minifig components not already loaded
@@ -723,12 +718,14 @@ export async function getSetInventoryLocal(
 
       for (const invFig of inventoryMinifigs ?? []) {
         const figNum =
-          typeof invFig?.fig_num === 'string' && invFig.fig_num.trim().length > 0
+          typeof invFig?.fig_num === 'string' &&
+          invFig.fig_num.trim().length > 0
             ? invFig.fig_num.trim()
             : null;
         if (!figNum) continue;
         const parentQuantity =
-          typeof invFig.quantity === 'number' && Number.isFinite(invFig.quantity)
+          typeof invFig.quantity === 'number' &&
+          Number.isFinite(invFig.quantity)
             ? invFig.quantity
             : 1;
         const parentKey = `fig:${figNum}`;
@@ -754,10 +751,7 @@ export async function getSetInventoryLocal(
 
         const figParts = figPartsByFig.get(figNum) ?? [];
         for (const component of figParts) {
-          const perParentQty = Math.max(
-            1,
-            Math.floor(component.quantity ?? 1)
-          );
+          const perParentQty = Math.max(1, Math.floor(component.quantity ?? 1));
           const inventoryKey = `${component.part_num}:${component.color_id}`;
           const existingRow = partRowMap.get(inventoryKey);
 
@@ -784,7 +778,9 @@ export async function getSetInventoryLocal(
                 ? partMeta.part_cat_id
                 : undefined;
             const catName =
-              typeof catId === 'number' ? categoryMap.get(catId)?.name : undefined;
+              typeof catId === 'number'
+                ? categoryMap.get(catId)?.name
+                : undefined;
             const parentCategory =
               catName != null ? mapCategoryNameToParent(catName) : 'Minifigure';
             const bricklinkPartId = extractBricklinkPartId(
@@ -888,10 +884,13 @@ export async function getSetsForPartLocal(
   const bySet = new Map<string, PartInSet>();
 
   for (const row of data) {
-    const set = (row as unknown as { rb_sets?: Record<string, unknown> }).rb_sets;
+    const set = (row as unknown as { rb_sets?: Record<string, unknown> })
+      .rb_sets;
     if (!set) continue;
 
-    const setNum = String((set as { set_num?: unknown }).set_num ?? row.set_num ?? '').trim();
+    const setNum = String(
+      (set as { set_num?: unknown }).set_num ?? row.set_num ?? ''
+    ).trim();
     if (!setNum) continue;
 
     const key = setNum.toLowerCase();
@@ -942,11 +941,11 @@ export async function getSetsForPartLocal(
       if (!existing.themeName && base.themeName) {
         existing.themeName = base.themeName;
       }
-      if (!existing.imageUrl && base.imageUrl) existing.imageUrl = base.imageUrl;
+      if (!existing.imageUrl && base.imageUrl)
+        existing.imageUrl = base.imageUrl;
       if (!existing.name && base.name) existing.name = base.name;
     }
   }
 
   return Array.from(bySet.values());
 }
-

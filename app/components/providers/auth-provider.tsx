@@ -75,7 +75,9 @@ export function AuthProvider({
     return readCachedUser();
   });
 
-  const [handle, setHandle] = useState<string | null>(() => initialHandle ?? null);
+  const [handle, setHandle] = useState<string | null>(
+    () => initialHandle ?? null
+  );
 
   const [isLoading, setIsLoading] = useState<boolean>(() => {
     if (initialUser) return false;
@@ -168,7 +170,3 @@ export function useAuth(): AuthContextValue {
   }
   return ctx;
 }
-
-
-
-

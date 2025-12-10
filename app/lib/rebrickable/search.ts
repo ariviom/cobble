@@ -3,8 +3,8 @@ import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import { getThemes } from '@/app/lib/rebrickable/themes';
 import { buildThemeHelpers } from '@/app/lib/themes';
 import type {
-    RebrickableSetSearchResult,
-    SimpleSet,
+  RebrickableSetSearchResult,
+  SimpleSet,
 } from '@/app/lib/rebrickable/types';
 import { normalizeText } from '@/app/lib/rebrickable/utils';
 import { filterExactMatches } from '@/app/lib/searchExactMatch';

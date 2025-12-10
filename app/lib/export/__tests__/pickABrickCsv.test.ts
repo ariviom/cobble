@@ -35,7 +35,10 @@ describe('generatePickABrickCsv', () => {
     // Starts with UTF-8 BOM
     expect(csv.charCodeAt(0)).toBe(0xfeff);
 
-    const lines = csv.replace(/^\uFEFF/, '').trim().split('\n');
+    const lines = csv
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\n');
     expect(lines[0]).toBe('Element ID,Quantity');
     // Only the row with a valid elementId and positive quantity should appear
     expect(lines[1]).toBe('123456,3');
@@ -46,4 +49,3 @@ describe('generatePickABrickCsv', () => {
     expect(unmapped[0]?.partId).toBe('3003');
   });
 });
-

@@ -1,8 +1,8 @@
 import { LRUCache } from '@/app/lib/cache/lru';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import type {
-    PartInSet,
-    RebrickableMinifigComponent
+  PartInSet,
+  RebrickableMinifigComponent,
 } from '@/app/lib/rebrickable/types';
 
 type RebrickableMinifigSearchResult = {
@@ -97,7 +97,8 @@ export async function searchMinifigs(
       const figNum = rawId || '';
       const name = result.name || figNum || trimmed;
       const numParts =
-        typeof result.num_parts === 'number' && Number.isFinite(result.num_parts)
+        typeof result.num_parts === 'number' &&
+        Number.isFinite(result.num_parts)
           ? result.num_parts
           : null;
       const imageUrl =
@@ -115,9 +116,7 @@ export async function searchMinifigs(
   return { results, nextPage };
 }
 
-export async function getSetsForMinifig(
-  figNum: string
-): Promise<PartInSet[]> {
+export async function getSetsForMinifig(figNum: string): Promise<PartInSet[]> {
   const SETS_TTL_MS = 60 * 60 * 1000;
   const NEGATIVE_TTL_MS = 10 * 60 * 1000;
   const MAX_CACHE_ENTRIES = 500;
@@ -197,8 +196,7 @@ export async function getSetsForMinifig(
           name: r.set_name ?? '',
           year:
             typeof r.year === 'number' && Number.isFinite(r.year) ? r.year : 0,
-          imageUrl:
-            typeof r.set_img_url === 'string' ? r.set_img_url : null,
+          imageUrl: typeof r.set_img_url === 'string' ? r.set_img_url : null,
           quantity: typeof r.quantity === 'number' ? r.quantity : 1,
         };
       })

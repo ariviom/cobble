@@ -175,15 +175,6 @@ export async function isMigrationComplete(
 /**
  * Mark a migration as complete.
  */
-export async function setMigrationComplete(
-  migrationId: string
-): Promise<void> {
+export async function setMigrationComplete(migrationId: string): Promise<void> {
   await setMeta(`${MIGRATION_PREFIX}${migrationId}`, true);
 }
-
-
-
-
-
-
-

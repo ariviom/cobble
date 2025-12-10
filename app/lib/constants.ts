@@ -1,6 +1,6 @@
 /**
  * Centralized constants for the application.
- * 
+ *
  * These constants replace magic numbers scattered across the codebase.
  * Group by domain for easy discovery.
  */

@@ -190,8 +190,7 @@ export function extractCandidatePartNumbers(
         (c.image_url as string) ??
         (c.img_url as string) ??
         undefined;
-      const candidateName =
-        (typeof c.name === 'string' && c.name) || undefined;
+      const candidateName = (typeof c.name === 'string' && c.name) || undefined;
       // Try to extract BrickLink ID from explicit field or external_sites url param P=.
       // Prefer entries explicitly named "bricklink" (case/whitespace-insensitive), then fallback to URL host.
       let bricklinkId: string | undefined = undefined;

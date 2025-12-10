@@ -1,4 +1,8 @@
-import { LRUCache, isTTLCacheValid, type TTLCacheEntry } from '@/app/lib/cache/lru';
+import {
+  LRUCache,
+  isTTLCacheValid,
+  type TTLCacheEntry,
+} from '@/app/lib/cache/lru';
 
 describe('LRUCache', () => {
   describe('basic operations', () => {
@@ -297,7 +301,3 @@ describe('isTTLCacheValid', () => {
     expect(isTTLCacheValid(entry, 1000)).toBe(false);
   });
 });
-
-
-
-

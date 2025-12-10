@@ -47,17 +47,3 @@ describe('usePinnedStore', () => {
     expect(usePinnedStore.getState().isPinned(SET, KEY)).toBe(false);
   });
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-

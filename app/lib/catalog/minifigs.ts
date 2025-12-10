@@ -2,15 +2,12 @@ import 'server-only';
 
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { normalizeText } from '@/app/lib/rebrickable';
-import type {
-    MinifigMatchSource,
-    MinifigSortOption,
-} from '@/app/types/search';
+import type { MinifigMatchSource, MinifigSortOption } from '@/app/types/search';
 
 import {
-    buildThemeMetaHelpers,
-    getThemesLocal,
-    type ThemeMeta,
+  buildThemeMetaHelpers,
+  getThemesLocal,
+  type ThemeMeta,
 } from './themes';
 
 type MinifigRow = {
@@ -205,10 +202,7 @@ export async function searchMinifigsLocal(
 
     const themeBySet = new Map<string, number>();
     for (const row of setsForThemes ?? []) {
-      if (
-        typeof row.set_num === 'string' &&
-        typeof row.theme_id === 'number'
-      ) {
+      if (typeof row.set_num === 'string' && typeof row.theme_id === 'number') {
         themeBySet.set(row.set_num, row.theme_id);
       }
     }
@@ -296,7 +290,9 @@ export async function searchMinifigsLocal(
 
   let items = Array.from(seen.values());
   if (items.length > 0) {
-    const figNumsForImages = Array.from(new Set(items.map(item => item.figNum)));
+    const figNumsForImages = Array.from(
+      new Set(items.map(item => item.figNum))
+    );
     const { data: images, error: imageError } = await supabase
       .from('rb_minifig_images')
       .select('fig_num, image_url')

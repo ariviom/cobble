@@ -14,10 +14,16 @@ export function useOwnedSnapshot(
   keys: string[]
 ): UseOwnedSnapshotResult {
   const version = useOwnedStore((state: OwnedState) => state._version);
-  const hydratedSets = useOwnedStore((state: OwnedState) => state._hydratedSets);
-  const storageAvailable = useOwnedStore((state: OwnedState) => state._storageAvailable);
+  const hydratedSets = useOwnedStore(
+    (state: OwnedState) => state._hydratedSets
+  );
+  const storageAvailable = useOwnedStore(
+    (state: OwnedState) => state._storageAvailable
+  );
   const getOwned = useOwnedStore((state: OwnedState) => state.getOwned);
-  const hydrateFromIndexedDB = useOwnedStore((state: OwnedState) => state.hydrateFromIndexedDB);
+  const hydrateFromIndexedDB = useOwnedStore(
+    (state: OwnedState) => state.hydrateFromIndexedDB
+  );
 
   // Trigger IndexedDB hydration on mount
   useEffect(() => {
@@ -43,6 +49,3 @@ export function useOwnedSnapshot(
     isStorageAvailable: storageAvailable,
   };
 }
-
-
-

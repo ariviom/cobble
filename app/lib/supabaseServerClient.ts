@@ -29,5 +29,3 @@ export function getSupabaseServerClient(): SupabaseClient<Database> {
 
   return serverClient;
 }
-
-
