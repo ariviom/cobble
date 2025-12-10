@@ -171,7 +171,7 @@ export function DataProvider({ children }: PropsWithChildren) {
   // Sync Worker
   // ============================================================================
 
-  const performSync = useCallback(async (): Promise<void> => {
+  const performSync = useCallback(async (opts?: { keepalive?: boolean }): Promise<void> => {
     if (!isAvailable || !isReady) return;
 
     // Get stored user ID (may be from previous session if currently offline)
@@ -203,6 +203,8 @@ export function DataProvider({ children }: PropsWithChildren) {
           'Content-Type': 'application/json',
         },
         credentials: 'same-origin',
+        // keepalive allows best-effort delivery during unload/pagehide
+        keepalive: opts?.keepalive === true,
         body: JSON.stringify({
           operations: operations.map(op => ({
             id: op.id,
@@ -306,6 +308,8 @@ export function DataProvider({ children }: PropsWithChildren) {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         void performSync();
+      } else if (document.visibilityState === 'hidden') {
+        void performSync({ keepalive: true });
       }
     };
 
@@ -315,24 +319,21 @@ export function DataProvider({ children }: PropsWithChildren) {
     };
   }, [isAvailable, isReady, user, performSync]);
 
-  // Sync before unload
+  // Sync before unload / pagehide (best effort)
   useEffect(() => {
     if (!isAvailable || !isReady || !user) return;
 
-    const handleBeforeUnload = () => {
-      // Use sendBeacon for reliable sync on page close
-      // Note: This is a fire-and-forget, we can't await it
-      if (pendingSyncCount > 0 && navigator.sendBeacon) {
-        // We can't send complex data with sendBeacon easily,
-        // so we just trigger a lightweight ping that the server can use
-        // to know there might be pending data. Full sync happens on next load.
-        navigator.sendBeacon('/api/sync/ping', '');
+    const flushBestEffort = () => {
+      if (pendingSyncCount > 0) {
+        void performSync({ keepalive: true });
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('beforeunload', flushBestEffort);
+    window.addEventListener('pagehide', flushBestEffort);
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('beforeunload', flushBestEffort);
+      window.removeEventListener('pagehide', flushBestEffort);
     };
   }, [isAvailable, isReady, user, pendingSyncCount]);
 
