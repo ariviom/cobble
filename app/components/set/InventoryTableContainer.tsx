@@ -1,0 +1,251 @@
+'use client';
+
+import { useGroupSessionChannel } from '@/app/hooks/useGroupSessionChannel';
+import { useInventoryPrices } from '@/app/hooks/useInventoryPrices';
+import { useInventoryViewModel } from '@/app/hooks/useInventoryViewModel';
+import { useSupabaseOwned } from '@/app/hooks/useSupabaseOwned';
+import { useOwnedStore } from '@/app/store/owned';
+import { usePinnedStore } from '@/app/store/pinned';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { InventoryTableView, type PriceInfo } from './InventoryTableView';
+import type { InventoryRow } from './types';
+
+type PriceSummary = {
+  total: number;
+  minTotal: number | null;
+  maxTotal: number | null;
+  currency: string | null;
+  pricedItemCount: number;
+};
+
+type InventoryTableProps = {
+  setNumber: string;
+  setName?: string;
+  initialInventory?: InventoryRow[] | null;
+  enableCloudSync?: boolean;
+  groupSessionId?: string | null;
+  groupParticipantId?: string | null;
+  groupClientId?: string | null;
+  onParticipantPiecesDelta?: (
+    participantId: string | null,
+    delta: number
+  ) => void;
+  onPriceStatusChange?: (
+    status: 'idle' | 'loading' | 'loaded' | 'error'
+  ) => void;
+  onPriceTotalsChange?: (summary: PriceSummary | null) => void;
+};
+
+export function InventoryTable({
+  setNumber,
+  setName,
+  initialInventory,
+  enableCloudSync = true,
+  groupSessionId,
+  groupParticipantId,
+  groupClientId,
+  onParticipantPiecesDelta,
+  onPriceStatusChange,
+  onPriceTotalsChange,
+}: InventoryTableProps) {
+  const {
+    rows,
+    isLoading,
+    error,
+    keys,
+    ownedByKey,
+    isOwnedHydrated,
+    isMinifigEnriching,
+    minifigEnrichmentError,
+    retryMinifigEnrichment,
+    sortKey,
+    sortDir,
+    filter,
+    view,
+    itemSize,
+    groupBy,
+    setSortKey,
+    setSortDir,
+    setFilter,
+    setView,
+    setItemSize,
+    setGroupBy,
+    sortedIndices,
+    subcategoriesByParent,
+    colorOptions,
+    countsByParent,
+    parentOptions,
+  } = useInventoryViewModel(setNumber, {
+    initialRows: initialInventory ?? null,
+  });
+
+  const [exportOpen, setExportOpen] = useState(false);
+  const [showEnrichmentToast, setShowEnrichmentToast] = useState(false);
+  const clearAllOwned = useOwnedStore(state => state.clearAll);
+
+  const { pricesByKey, pendingKeys, requestPricesForKeys } =
+    useInventoryPrices<PriceInfo>({
+      setNumber,
+      rows,
+      keys,
+      ...(onPriceStatusChange ? { onPriceStatusChange } : {}),
+      ...(onPriceTotalsChange ? { onPriceTotalsChange } : {}),
+    });
+
+  const pinnedStore = usePinnedStore();
+
+  const {
+    handleOwnedChange,
+    migration,
+    isMigrating,
+    confirmMigration,
+    keepCloudData,
+  } = useSupabaseOwned({
+    setNumber,
+    rows,
+    keys,
+    enableCloudSync,
+  });
+
+  const { broadcastPieceDelta, broadcastOwnedSnapshot } =
+    useGroupSessionChannel({
+      enabled:
+        Boolean(groupSessionId) &&
+        Boolean(groupParticipantId) &&
+        Boolean(groupClientId),
+      sessionId: groupSessionId ?? null,
+      setNumber,
+      participantId: groupParticipantId ?? null,
+      clientId: groupClientId ?? '',
+      onRemoteDelta: payload => {
+        handleOwnedChange(payload.key, payload.newOwned);
+      },
+      onRemoteSnapshot: snapshot => {
+        if (!snapshot || typeof snapshot !== 'object') return;
+        Object.entries(snapshot).forEach(([key, value]) => {
+          if (typeof value !== 'number' || !Number.isFinite(value)) return;
+          handleOwnedChange(key, value);
+        });
+      },
+      ...(onParticipantPiecesDelta ? { onParticipantPiecesDelta } : {}),
+    });
+  const hasBroadcastSnapshotRef = useRef(false);
+  const hasClearedLocalForJoinerRef = useRef(false);
+
+  // For joiners (participants with cloud sync disabled), clear any stale local
+  // owned data once so the host snapshot can be authoritative.
+  useEffect(() => {
+    if (enableCloudSync) return;
+    if (!groupSessionId || !groupParticipantId || !groupClientId) return;
+    if (hasClearedLocalForJoinerRef.current) return;
+    clearAllOwned(setNumber);
+    hasClearedLocalForJoinerRef.current = true;
+  }, [
+    enableCloudSync,
+    groupSessionId,
+    groupParticipantId,
+    groupClientId,
+    clearAllOwned,
+    setNumber,
+  ]);
+
+  // Send initial owned snapshot for hosts (enableCloudSync) after hydration.
+  useEffect(() => {
+    if (
+      !enableCloudSync ||
+      !groupSessionId ||
+      !groupParticipantId ||
+      !groupClientId
+    ) {
+      return;
+    }
+    if (!isOwnedHydrated) return;
+    if (hasBroadcastSnapshotRef.current) return;
+
+    broadcastOwnedSnapshot(ownedByKey);
+    hasBroadcastSnapshotRef.current = true;
+  }, [
+    enableCloudSync,
+    groupSessionId,
+    groupParticipantId,
+    groupClientId,
+    isOwnedHydrated,
+    ownedByKey,
+    broadcastOwnedSnapshot,
+  ]);
+
+  const handlePricesForKeys = useMemo(
+    () =>
+      requestPricesForKeys
+        ? (targetKeys: string[]) => {
+            if (targetKeys.length === 0) return;
+            void requestPricesForKeys(targetKeys);
+          }
+        : undefined,
+    [requestPricesForKeys]
+  );
+
+  const handleExportOpen = useMemo(
+    () => ({
+      open: () => setExportOpen(true),
+      close: () => setExportOpen(false),
+    }),
+    []
+  );
+
+  const pinnedAdapter = useMemo(
+    () => ({
+      toggle: (key: string) =>
+        pinnedStore.togglePinned({ setNumber, key, ...(setName ? { setName } : {}) }),
+      isPinned: (key: string) => pinnedStore.isPinned(setNumber, key),
+    }),
+    [pinnedStore, setNumber, setName]
+  );
+
+  return (
+    <InventoryTableView
+      setNumber={setNumber}
+      {...(setName ? { setName } : {})}
+      rows={rows}
+      keys={keys}
+      ownedByKey={ownedByKey}
+      isLoading={isLoading}
+      error={error}
+      isMinifigEnriching={isMinifigEnriching}
+      minifigEnrichmentError={minifigEnrichmentError}
+      retryMinifigEnrichment={retryMinifigEnrichment}
+      sortKey={sortKey}
+      sortDir={sortDir}
+      filter={filter}
+      view={view}
+      itemSize={itemSize}
+      groupBy={groupBy}
+      setSortKey={setSortKey}
+      setSortDir={setSortDir}
+      setFilter={setFilter}
+      setView={setView}
+      setItemSize={setItemSize}
+      setGroupBy={group => setGroupBy((group ?? 'none') as typeof groupBy)}
+      sortedIndices={sortedIndices}
+      subcategoriesByParent={subcategoriesByParent}
+      colorOptions={colorOptions}
+      countsByParent={countsByParent}
+      parentOptions={parentOptions}
+      exportOpen={exportOpen}
+      showEnrichmentToast={showEnrichmentToast}
+      setShowEnrichmentToast={setShowEnrichmentToast}
+      handleExportOpen={handleExportOpen}
+      pricesByKey={pricesByKey}
+      pendingPriceKeys={pendingKeys}
+      {...(handlePricesForKeys ? { requestPricesForKeys: handlePricesForKeys } : {})}
+      pinnedStore={pinnedAdapter}
+      handleOwnedChange={handleOwnedChange}
+      migration={migration}
+      isMigrating={isMigrating}
+      confirmMigration={confirmMigration}
+      keepCloudData={keepCloudData}
+      broadcastPieceDelta={broadcastPieceDelta}
+    />
+  );
+}
+

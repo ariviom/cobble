@@ -12,6 +12,19 @@
  * It should wrap the app content but runs only on the client.
  */
 
+import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import {
+  getLocalDb,
+  getPendingSyncOperations,
+  getStoredUserId,
+  getSyncQueueCount,
+  isIndexedDBAvailable,
+  isMigrationComplete,
+  markSyncOperationFailed,
+  removeSyncOperations,
+  setMigrationComplete,
+  setStoredUserId,
+} from '@/app/lib/localDb';
 import {
   createContext,
   useCallback,
@@ -21,19 +34,6 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
-import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import {
-  getLocalDb,
-  isIndexedDBAvailable,
-  getPendingSyncOperations,
-  removeSyncOperations,
-  markSyncOperationFailed,
-  getSyncQueueCount,
-  setStoredUserId,
-  getStoredUserId,
-  isMigrationComplete,
-  setMigrationComplete,
-} from '@/app/lib/localDb';
 
 // ============================================================================
 // Context Types
@@ -121,14 +121,20 @@ export function DataProvider({ children }: PropsWithChildren) {
     // with initial render work on pages that mount this provider.
     if (typeof window !== 'undefined') {
       const win = window as Window & {
-        requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
+        requestIdleCallback?: (
+          cb: () => void,
+          opts?: { timeout?: number }
+        ) => number;
         cancelIdleCallback?: (id: number) => void;
       };
 
       if (typeof win.requestIdleCallback === 'function') {
-        const id = win.requestIdleCallback(() => {
-          void initializeDb();
-        }, { timeout: 2000 });
+        const id = win.requestIdleCallback(
+          () => {
+            void initializeDb();
+          },
+          { timeout: 2000 }
+        );
 
         return () => {
           isMountedRef.current = false;
@@ -171,98 +177,101 @@ export function DataProvider({ children }: PropsWithChildren) {
   // Sync Worker
   // ============================================================================
 
-  const performSync = useCallback(async (opts?: { keepalive?: boolean }): Promise<void> => {
-    if (!isAvailable || !isReady) return;
+  const performSync = useCallback(
+    async (opts?: { keepalive?: boolean }): Promise<void> => {
+      if (!isAvailable || !isReady) return;
 
-    // Get stored user ID (may be from previous session if currently offline)
-    const userId = userIdRef.current ?? (await getStoredUserId());
-    if (!userId) {
-      // No user to sync for
-      return;
-    }
-
-    // Check if we're online
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      return;
-    }
-
-    setIsSyncing(true);
-    setLastSyncError(null);
-
-    try {
-      // Get pending operations
-      const operations = await getPendingSyncOperations(SYNC_BATCH_SIZE);
-      if (operations.length === 0) {
+      // Get stored user ID (may be from previous session if currently offline)
+      const userId = userIdRef.current ?? (await getStoredUserId());
+      if (!userId) {
+        // No user to sync for
         return;
       }
 
-      // Send to sync endpoint
-      const response = await fetch('/api/sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'same-origin',
-        // keepalive allows best-effort delivery during unload/pagehide
-        keepalive: opts?.keepalive === true,
-        body: JSON.stringify({
-          operations: operations.map(op => ({
-            id: op.id,
-            table: op.table,
-            operation: op.operation,
-            payload: op.payload,
-          })),
-        }),
-      });
+      // Check if we're online
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        return;
+      }
 
-      if (!response.ok) {
-        const errorData = (await response.json().catch(() => ({}))) as {
-          error?: string;
+      setIsSyncing(true);
+      setLastSyncError(null);
+
+      try {
+        // Get pending operations
+        const operations = await getPendingSyncOperations(SYNC_BATCH_SIZE);
+        if (operations.length === 0) {
+          return;
+        }
+
+        // Send to sync endpoint
+        const response = await fetch('/api/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'same-origin',
+          // keepalive allows best-effort delivery during unload/pagehide
+          keepalive: opts?.keepalive === true,
+          body: JSON.stringify({
+            operations: operations.map(op => ({
+              id: op.id,
+              table: op.table,
+              operation: op.operation,
+              payload: op.payload,
+            })),
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = (await response.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          throw new Error(errorData.error || `Sync failed: ${response.status}`);
+        }
+
+        const result = (await response.json()) as {
+          success: boolean;
+          processed: number;
+          failed?: Array<{ id: number; error: string }>;
         };
-        throw new Error(errorData.error || `Sync failed: ${response.status}`);
-      }
 
-      const result = (await response.json()) as {
-        success: boolean;
-        processed: number;
-        failed?: Array<{ id: number; error: string }>;
-      };
+        // Remove successfully processed operations
+        const successIds = operations
+          .filter(op => !result.failed?.some(f => f.id === op.id))
+          .map(op => op.id!)
+          .filter((id): id is number => id !== undefined);
 
-      // Remove successfully processed operations
-      const successIds = operations
-        .filter(op => !result.failed?.some(f => f.id === op.id))
-        .map(op => op.id!)
-        .filter((id): id is number => id !== undefined);
+        if (successIds.length > 0) {
+          await removeSyncOperations(successIds);
+        }
 
-      if (successIds.length > 0) {
-        await removeSyncOperations(successIds);
-      }
+        // Mark failed operations
+        if (result.failed) {
+          for (const failure of result.failed) {
+            await markSyncOperationFailed(failure.id, failure.error);
+          }
+        }
 
-      // Mark failed operations
-      if (result.failed) {
-        for (const failure of result.failed) {
-          await markSyncOperationFailed(failure.id, failure.error);
+        // Update pending count
+        const newCount = await getSyncQueueCount();
+        if (isMountedRef.current) {
+          setPendingSyncCount(newCount);
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown sync error';
+        if (isMountedRef.current) {
+          setLastSyncError(errorMessage);
+        }
+        console.warn('Sync failed:', errorMessage);
+      } finally {
+        if (isMountedRef.current) {
+          setIsSyncing(false);
         }
       }
-
-      // Update pending count
-      const newCount = await getSyncQueueCount();
-      if (isMountedRef.current) {
-        setPendingSyncCount(newCount);
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown sync error';
-      if (isMountedRef.current) {
-        setLastSyncError(errorMessage);
-      }
-      console.warn('Sync failed:', errorMessage);
-    } finally {
-      if (isMountedRef.current) {
-        setIsSyncing(false);
-      }
-    }
-  }, [isAvailable, isReady]);
+    },
+    [isAvailable, isReady]
+  );
 
   // Start sync interval when ready and user is logged in
   useEffect(() => {
@@ -335,7 +344,7 @@ export function DataProvider({ children }: PropsWithChildren) {
       window.removeEventListener('beforeunload', flushBestEffort);
       window.removeEventListener('pagehide', flushBestEffort);
     };
-  }, [isAvailable, isReady, user, pendingSyncCount]);
+  }, [isAvailable, isReady, user, pendingSyncCount, performSync]);
 
   // ============================================================================
   // Context Value
@@ -483,4 +492,3 @@ async function migrateLocalStorageOwned(): Promise<void> {
     // Don't mark as complete so we can retry
   }
 }
-
