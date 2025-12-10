@@ -9,28 +9,6 @@ export type LogPayload = Record<string, unknown>;
 
 const counters = new Map<string, CounterRecord>();
 
-export function incrementCounter(name: string, payload?: MetricPayload): void {
-  const current = counters.get(name) ?? { count: 0, last: undefined as MetricPayload | undefined };
-  const next: CounterRecord = {
-    count: current.count + 1,
-    last: payload ?? current.last,
-  };
-  counters.set(name, next);
-  try {
-    console.log('[metric]', name, JSON.stringify({ count: next.count, payload }));
-  } catch {
-    // ignore logging errors
-  }
-}
-
-export function logEvent(name: string, payload?: MetricPayload): void {
-  try {
-    console.log('[event]', name, JSON.stringify(payload ?? {}));
-  } catch {
-    // ignore logging errors
-  }
-}
-
 function log(level: LogLevel, event: string, data?: LogPayload): void {
   const payload = {
     level,
@@ -39,10 +17,34 @@ function log(level: LogLevel, event: string, data?: LogPayload): void {
     timestamp: new Date().toISOString(),
   };
   try {
-    console.log(JSON.stringify(payload));
+    // Use console.info/warn/error so Next's removeConsole (keeping warn/error) preserves prod logs.
+    if (level === 'warn') {
+      console.warn(JSON.stringify(payload));
+      return;
+    }
+    if (level === 'error') {
+      console.error(JSON.stringify(payload));
+      return;
+    }
+    // info/debug
+    console.info(JSON.stringify(payload));
   } catch {
     // ignore logging errors
   }
+}
+
+export function incrementCounter(name: string, payload?: MetricPayload): void {
+  const current = counters.get(name) ?? { count: 0, last: undefined as MetricPayload | undefined };
+  const next: CounterRecord = {
+    count: current.count + 1,
+    last: payload ?? current.last,
+  };
+  counters.set(name, next);
+  log('info', 'metric', { name, count: next.count, ...(payload ? { payload } : {}) });
+}
+
+export function logEvent(name: string, payload?: MetricPayload): void {
+  log('info', 'event', { name, ...(payload ? { payload } : {}) });
 }
 
 export const logger = {
