@@ -10,6 +10,8 @@ const RATE_WINDOW_MS =
   Number.parseInt(process.env.BL_RATE_WINDOW_MS ?? '', 10) || 60_000;
 const RATE_LIMIT_PER_MINUTE =
   Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE ?? '', 10) || 60;
+const RATE_LIMIT_PER_MINUTE_USER =
+  Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE_USER ?? '', 10) || 60;
 
 async function checkMappingTable(partId: string): Promise<string | null> {
   try {
@@ -172,7 +174,37 @@ export async function GET(req: NextRequest) {
     return errorResponse('rate_limited', {
       status: 429,
       details: { scope: 'ip', retryAfterSeconds: ipLimit.retryAfterSeconds },
+      headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
     });
+  }
+
+  // Optional user scope if the request is authenticated (SSR cookies).
+  let userId: string | null = null;
+  try {
+    // Lightweight attempt to read user; failure should not block anon usage.
+    const { getSupabaseAuthServerClient } = await import('@/app/lib/supabaseAuthServerClient');
+    const supabase = await getSupabaseAuthServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    userId = user?.id ?? null;
+  } catch {
+    userId = null;
+  }
+
+  if (userId) {
+    const userLimit = await consumeRateLimit(`user:${userId}`, {
+      windowMs: RATE_WINDOW_MS,
+      maxHits: RATE_LIMIT_PER_MINUTE_USER,
+    });
+    if (!userLimit.allowed) {
+      incrementCounter('parts_bricklink_rate_limited', { scope: 'user' });
+      return errorResponse('rate_limited', {
+        status: 429,
+        details: { scope: 'user', retryAfterSeconds: userLimit.retryAfterSeconds },
+        headers: { 'Retry-After': String(userLimit.retryAfterSeconds) },
+      });
+    }
   }
   try {
     const itemNo = await resolveBrickLinkId(part.trim());

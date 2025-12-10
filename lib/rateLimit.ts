@@ -28,16 +28,30 @@ type SupabaseRpcClient = {
 
 type Bucket = {
   timestamps: number[];
+  expiresAt: number;
 };
 
+const MAX_BUCKETS = 500;
 const buckets = new Map<string, Bucket>();
 
-function getBucket(key: string): Bucket {
+function evictIfNeeded() {
+  if (buckets.size <= MAX_BUCKETS) return;
+  // Simple LRU-ish eviction by earliest expiresAt
+  const entries = Array.from(buckets.entries());
+  entries.sort((a, b) => a[1].expiresAt - b[1].expiresAt);
+  const toRemove = entries.slice(0, Math.max(0, buckets.size - MAX_BUCKETS));
+  for (const [key] of toRemove) {
+    buckets.delete(key);
+  }
+}
+
+function getBucket(key: string, windowMs: number, now: number): Bucket {
   let bucket = buckets.get(key);
-  if (!bucket) {
-    bucket = { timestamps: [] };
+  if (!bucket || bucket.expiresAt < now) {
+    bucket = { timestamps: [], expiresAt: now + windowMs };
     buckets.set(key, bucket);
   }
+  evictIfNeeded();
   return bucket;
 }
 
@@ -55,8 +69,8 @@ function consumeRateLimitInMemory(
   key: string,
   opts: { windowMs: number; maxHits: number }
 ): RateLimitResult {
-  const bucket = getBucket(key);
   const now = Date.now();
+  const bucket = getBucket(key, opts.windowMs, now);
   const windowStart = now - opts.windowMs;
 
   bucket.timestamps = bucket.timestamps.filter(ts => ts >= windowStart);

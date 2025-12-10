@@ -1,0 +1,24 @@
+import { NextRequest } from 'next/server';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
+
+import { POST } from '../route';
+
+vi.mock('@/lib/rateLimit', () => ({
+  consumeRateLimit: vi.fn().mockResolvedValue({ allowed: false, retryAfterSeconds: 7 }),
+  getClientIp: vi.fn().mockResolvedValue('1.1.1.1'),
+}));
+
+describe('identify route rate limiting', () => {
+  it('returns 429 with Retry-After when rate limited', async () => {
+    const req = new NextRequest('http://localhost/api/identify', { method: 'POST' });
+    const res = await POST(req);
+
+    expect(res.status).toBe(429);
+    expect(res.headers.get('Retry-After')).toBe('7');
+    const json = await res.json();
+    expect(json.error).toBe('rate_limited');
+  });
+});
+

@@ -51,4 +51,29 @@ describe('consumeRateLimit', () => {
 
     warnSpy.mockRestore();
   });
+
+  it('evicts old buckets and respects TTL in fallback mode', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: new Error('boom') });
+    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    vi.useFakeTimers();
+
+    const windowMs = 1_000;
+    const opts = { windowMs, maxHits: 1 };
+
+    // Fill more than max buckets (500) to trigger eviction; use 505 keys.
+    const keys = Array.from({ length: 505 }, (_, i) => `k${i}`);
+    for (const key of keys) {
+      await consumeRateLimit(key, opts);
+    }
+
+    // Advance time past window to force TTL expiry.
+    vi.advanceTimersByTime(windowMs + 10);
+
+    // Reuse an early key; it should have been evicted/expired and allowed again.
+    const result = await consumeRateLimit('k0', opts);
+    expect(result.allowed).toBe(true);
+
+    warnSpy.mockRestore();
+    vi.useRealTimers();
+  });
 });

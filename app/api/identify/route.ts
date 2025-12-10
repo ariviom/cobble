@@ -11,6 +11,7 @@ import {
 	resolveIdentifyResult,
 } from '@/app/lib/services/identify';
 import { logger } from '@/lib/metrics';
+import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 
 const ALLOWED_IMAGE_TYPES = new Set<string>(IMAGE.ALLOWED_TYPES);
 
@@ -45,61 +46,19 @@ const identifyBodySchema = z.object({
 	),
 });
 
-type RateLimitEntry = { count: number; resetAt: number };
-const identifyRateLimitStore = new Map<string, RateLimitEntry>();
-
-function getClientIdentifier(req: NextRequest): string {
-	const forwarded = req.headers.get('x-forwarded-for');
-	if (forwarded) {
-		const [first] = forwarded.split(',');
-		if (first?.trim()) return first.trim();
-	}
-	const realIp = req.headers.get('x-real-ip');
-	if (realIp) return realIp;
-	// @ts-expect-error: NextRequest may provide ip in runtime environments
-	return req.ip ?? 'anonymous';
-}
-
-function applyIdentifyRateLimit(identifier: string) {
-	const now = Date.now();
-	const entry = identifyRateLimitStore.get(identifier);
-	if (!entry || entry.resetAt < now) {
-		identifyRateLimitStore.set(identifier, {
-			count: 1,
-			resetAt: now + RATE_LIMIT.WINDOW_MS,
-		});
-		return { limited: false as const };
-	}
-
-	if (entry.count >= RATE_LIMIT.IDENTIFY_MAX) {
-		return {
-			limited: true as const,
-			retryAfter: Math.max(1, Math.ceil((entry.resetAt - now) / 1000)),
-		};
-	}
-
-	entry.count += 1;
-	return { limited: false as const };
-}
-
 export const POST = withCsrfProtection(async (req: NextRequest) => {
 	try {
-		const clientIdentifier = getClientIdentifier(req);
-		const rateLimitResult = applyIdentifyRateLimit(clientIdentifier);
-		if (rateLimitResult.limited) {
-			const retryAfterSeconds =
-				rateLimitResult.retryAfter !== undefined
-					? Math.max(0, Number(rateLimitResult.retryAfter))
-					: undefined;
-
+		const clientIp = (await getClientIp(req)) ?? 'unknown';
+		const ipLimit = await consumeRateLimit(`identify:ip:${clientIp}`, {
+			windowMs: RATE_LIMIT.WINDOW_MS,
+			maxHits: RATE_LIMIT.IDENTIFY_MAX,
+		});
+		if (!ipLimit.allowed) {
+			const retryAfterSeconds = ipLimit.retryAfterSeconds;
 			return errorResponse('rate_limited', {
 				status: 429,
-				...(retryAfterSeconds !== undefined
-					? { headers: { 'Retry-After': String(retryAfterSeconds) } }
-					: {}),
-				...(retryAfterSeconds !== undefined
-					? { details: { retryAfterSeconds } }
-					: {}),
+				headers: { 'Retry-After': String(retryAfterSeconds) },
+				details: { retryAfterSeconds },
 			});
 		}
 
