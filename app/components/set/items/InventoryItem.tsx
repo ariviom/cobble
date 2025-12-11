@@ -194,6 +194,7 @@ export function InventoryItem({
             <OptimizedImage
               src={row.imageUrl}
               alt={row.partName}
+              loading="lazy"
               variant="inventoryThumb"
               className={`mx-auto h-full w-full rounded-lg object-contain grid:item-sm:max-w-24 ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : 'ring-1 ring-foreground-accent'}`}
               data-knockout="true"
@@ -231,7 +232,7 @@ export function InventoryItem({
             )}
           </div>
         </button>
-        <div className="flex h-full max-h-min w-full flex-1 flex-col justify-between gap-x-6 gap-y-3 sm:flex-row sm:items-center grid:flex-col">
+        <div className="flex h-full max-h-min w-full flex-1 flex-col justify-between gap-x-6 gap-y-3 sm:flex-row grid:flex-col sm:grid:items-center">
           <div className="h-full w-full list:pr-12 lg:list:pr-0">
             <p className="line-clamp-1 w-full overflow-hidden font-medium lg:line-clamp-2">
               {row.partName}
@@ -306,6 +307,7 @@ export function InventoryItem({
               <OptimizedImage
                 src={row.imageUrl}
                 alt={row.partName}
+                loading="lazy"
                 variant="inventoryModal"
                 className="h-24 w-24 rounded border border-subtle object-contain"
               />

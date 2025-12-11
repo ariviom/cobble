@@ -8,8 +8,7 @@ import { Modal } from '@/app/components/ui/Modal';
 import { Spinner } from '@/app/components/ui/Spinner';
 import { Toast } from '@/app/components/ui/Toast';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
 import { InventoryControls } from './InventoryControls';
 import { InventoryItem } from './items/InventoryItem';
@@ -90,6 +89,7 @@ type InventoryTableViewProps = {
   colorOptions: string[];
   countsByParent: Record<string, number>;
   parentOptions: string[];
+  gridSizes: string;
   exportOpen: boolean;
   showEnrichmentToast: boolean;
   setShowEnrichmentToast: (show: boolean) => void;
@@ -145,6 +145,7 @@ export function InventoryTableView({
   colorOptions,
   countsByParent,
   parentOptions,
+  gridSizes,
   exportOpen,
   showEnrichmentToast,
   setShowEnrichmentToast,
@@ -162,45 +163,21 @@ export function InventoryTableView({
 }: InventoryTableViewProps) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
-  const virtualizer = useVirtualizer({
-    count: sortedIndices.length,
-    getScrollElement: () => scrollerRef.current,
-    estimateSize: () => {
-      if (view === 'grid') {
-        switch (itemSize) {
-          case 'sm':
-            return 140;
-          case 'md':
-            return 180;
-          case 'lg':
-          default:
-            return 230;
-        }
-      }
-      return 72;
-    },
-    overscan: 12,
-  });
-
-  const visibleIndices = virtualizer.getVirtualItems().map(v => v.index);
-
   useEffect(() => {
     if (isMinifigEnriching) {
       setShowEnrichmentToast(true);
     }
   }, [isMinifigEnriching, setShowEnrichmentToast]);
 
-  const renderRows = useMemo(() => {
-    return visibleIndices.map(virtualRow => {
-      const rowIndex = sortedIndices[virtualRow];
+  const renderInventoryItem = useCallback(
+    (rowIndex: number, key: string) => {
       const row = rows[rowIndex]!;
-      const key = keys[rowIndex]!;
       const priceInfo = pricesByKey ? pricesByKey[key] : null;
-
       const missingQty = computeMissing(
         row.quantityRequired ?? 0,
         ownedByKey[key] ?? 0
       );
+
       return (
         <InventoryItem
           key={key}
@@ -240,22 +217,53 @@ export function InventoryTableView({
           isEnriching={isMinifigEnriching}
         />
       );
+    },
+    [
+      rows,
+      pricesByKey,
+      ownedByKey,
+      setNumber,
+      pendingPriceKeys,
+      requestPricesForKeys,
+      handleOwnedChange,
+      broadcastPieceDelta,
+      pinnedStore,
+      isMinifigEnriching,
+    ]
+  );
+
+  // Note: List view is intentionally non-virtualized to avoid height/measurement
+  // drift when item sizes change (size toggle, enrichment). Re-enabling would
+  // require: size-aware estimates, measureElement/ResizeObserver, remeasure on
+  // view/size changes, and likely gating by a row-count threshold.
+  const listRows = useMemo(() => {
+    if (view !== 'list') return null;
+    return sortedIndices.map(rowIndex => {
+      const key = keys[rowIndex]!;
+      return (
+        <div
+          key={key}
+          className="w-full px-2 pb-2"
+          data-view="list"
+          data-item-size={itemSize}
+        >
+          {renderInventoryItem(rowIndex, key)}
+        </div>
+      );
     });
-  }, [
-    visibleIndices,
-    sortedIndices,
-    rows,
-    keys,
-    pricesByKey,
-    ownedByKey,
-    handleOwnedChange,
-    broadcastPieceDelta,
-    pinnedStore,
-    setNumber,
-    pendingPriceKeys,
-    requestPricesForKeys,
-    isMinifigEnriching,
-  ]);
+  }, [view, sortedIndices, keys, itemSize, renderInventoryItem]);
+
+  const gridRows = useMemo(() => {
+    if (view !== 'grid') return null;
+    return sortedIndices.map(rowIndex => {
+      const key = keys[rowIndex]!;
+      return (
+        <div key={key} data-view="grid" data-item-size={itemSize}>
+          {renderInventoryItem(rowIndex, key)}
+        </div>
+      );
+    });
+  }, [view, sortedIndices, keys, itemSize, renderInventoryItem]);
 
   const getMissingRows = useMemo(
     () => (): MissingRow[] =>
@@ -276,7 +284,7 @@ export function InventoryTableView({
   );
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <div className="flex h-full flex-col">
       <InventoryControls
         setNumber={setNumber}
         {...(setName ? { setName } : {})}
@@ -323,40 +331,39 @@ export function InventoryTableView({
       ) : (
         <div
           ref={scrollerRef}
-          className="border-border relative flex-1 overflow-auto rounded-lg border bg-card"
+          className="relative flex-1 overflow-auto bg-background"
+          data-view={view}
+          data-item-size={itemSize}
         >
           {isLoading ? (
             <div className="flex h-full items-center justify-center">
               <Spinner />
             </div>
           ) : (
-            <div
-              style={{
-                height: `${virtualizer.getTotalSize()}px`,
-                position: 'relative',
-              }}
-            >
-              {virtualizer.getVirtualItems().map(virtualRow => {
-                const top = virtualRow.start;
-                return (
-                  <div
-                    key={virtualRow.key}
-                    className="absolute left-0 w-full"
-                    style={{
-                      transform: `translateY(${top}px)`,
-                    }}
-                  >
-                    {renderRows[virtualRow.index]}
-                  </div>
-                );
-              })}
-            </div>
+            <>
+              {view === 'list' ? (
+                <div
+                  className="flex flex-col py-3"
+                  data-view="list"
+                  data-item-size={itemSize}
+                >
+                  {listRows}
+                </div>
+              ) : (
+                <div
+                  className={`grid ${gridSizes} gap-2 p-3`}
+                  data-view="grid"
+                  data-item-size={itemSize}
+                >
+                  {gridRows}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
 
       <div className="flex items-center gap-3">
-        <Button onClick={handleExportOpen.open}>Export</Button>
         {showEnrichmentToast && isMinifigEnriching ? (
           <Toast
             title="Enriching minifigs…"

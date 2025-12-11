@@ -75,6 +75,7 @@ export function InventoryTable({
     colorOptions,
     countsByParent,
     parentOptions,
+    gridSizes,
   } = useInventoryViewModel(setNumber, {
     initialRows: initialInventory ?? null,
   });
@@ -235,6 +236,7 @@ export function InventoryTable({
       colorOptions={colorOptions}
       countsByParent={countsByParent}
       parentOptions={parentOptions}
+      gridSizes={gridSizes}
       exportOpen={exportOpen}
       showEnrichmentToast={showEnrichmentToast}
       setShowEnrichmentToast={setShowEnrichmentToast}
