@@ -1,4 +1,4 @@
-import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
+import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import type { Tables } from '@/supabase/types';
 import { USERNAME_REGEX } from '@/app/lib/users';
 
@@ -18,12 +18,12 @@ export type ResolvedUser =
   | { type: 'not_found' };
 
 export async function resolvePublicUser(handle: string): Promise<ResolvedUser> {
-  const supabase = getSupabaseServiceRoleClient();
+  const supabase = getSupabaseServerClient();
 
   const isUsername = USERNAME_REGEX.test(handle);
 
   let query = supabase
-    .from('user_profiles')
+    .from('public_user_profiles_view')
     .select<'user_id,username,display_name,lists_public'>(
       'user_id,username,display_name,lists_public'
     );

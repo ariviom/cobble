@@ -2,7 +2,7 @@ import { PageLayout } from '@/app/components/layout/PageLayout';
 import { PublicUserCollectionOverview } from '@/app/components/user/PublicUserCollectionOverview';
 import { resolvePublicUser } from '@/app/lib/publicUsers';
 import { fetchThemes } from '@/app/lib/services/themes';
-import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
+import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import { buildUserHandle } from '@/app/lib/users';
 import { Lock } from 'lucide-react';
 import Link from 'next/link';
@@ -154,7 +154,7 @@ export default async function PublicProfilePage({
     redirect(target);
   }
 
-  const supabase = getSupabaseServiceRoleClient();
+  const supabase = getSupabaseServerClient();
 
   const [
     { data: userSets },
@@ -163,22 +163,22 @@ export default async function PublicProfilePage({
     { data: userMinifigs },
   ] = await Promise.all([
     supabase
-      .from('user_sets')
+      .from('public_user_sets_view')
       .select<'set_num,status'>('set_num,status')
       .eq('user_id', profile.user_id),
     supabase
-      .from('user_lists')
+      .from('public_user_lists_view')
       .select<'id,name,is_system'>('id,name,is_system')
       .eq('user_id', profile.user_id)
       .order('name', { ascending: true }),
     supabase
-      .from('user_list_items')
+      .from('public_user_list_items_view')
       .select<'list_id,item_type,set_num,minifig_id'>(
         'list_id,item_type,set_num,minifig_id'
       )
       .eq('user_id', profile.user_id),
     supabase
-      .from('user_minifigs')
+      .from('public_user_minifigs_view')
       .select<'fig_num,status'>('fig_num,status')
       .eq('user_id', profile.user_id),
   ]);

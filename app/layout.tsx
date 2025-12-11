@@ -37,7 +37,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
 };
 
 export default async function RootLayout({
@@ -155,31 +154,6 @@ export default async function RootLayout({
             </ReactQueryProvider>
           </ThemeProvider>
         </AuthProvider>
-        {/* <svg
-          width="0"
-          height="0"
-          aria-hidden="true"
-          focusable="false"
-          style={{ position: 'absolute' }}
-        >
-          <filter id="knockout-white" colorInterpolationFilters="sRGB">
-            <feColorMatrix
-              in="SourceGraphic"
-              type="matrix"
-              values={`
-                1 0 0 0 0
-                0 1 0 0 0
-                0 0 1 0 0
-               -1 -1 -1 3 0
-              `}
-              result="rgba"
-            />
-            <feComponentTransfer in="rgba">
-              <feFuncA type="linear" slope="1000" />
-            </feComponentTransfer>
-            <feComposite in="SourceGraphic" in2="rgba" operator="in" />
-          </filter>
-        </svg> */}
       </body>
     </html>
   );
