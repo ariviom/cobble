@@ -53,12 +53,30 @@ export function validateOrigin(req: NextRequest): boolean {
   return false;
 }
 
+function extractCsrfToken(req: NextRequest): string | null {
+  const header = req.headers.get('x-csrf-token');
+  const cookie = req.cookies.get('csrf_token')?.value ?? null;
+  // Optional double-submit: only enforce when header is provided.
+  if (header) {
+    if (!cookie) return null;
+    return header === cookie ? header : null;
+  }
+  return cookie ?? null;
+}
+
 export function withCsrfProtection(
   handler: (req: NextRequest) => Promise<NextResponse> | NextResponse
 ) {
   return async (req: NextRequest) => {
     if (req.method !== 'GET' && !validateOrigin(req)) {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+    }
+    if (req.method !== 'GET') {
+      const token = extractCsrfToken(req);
+      // If a header is provided, require it to match the cookie; otherwise allow origin-only defense.
+      if (req.headers.get('x-csrf-token') && !token) {
+        return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+      }
     }
     return handler(req);
   };

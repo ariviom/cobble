@@ -44,6 +44,7 @@ type SpareCacheEntry = {
 };
 
 const SPARE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const SPARE_CACHE_MAX = 200;
 const spareCache = new Map<string, SpareCacheEntry>();
 const inFlightSpares = new Map<string, Promise<SpareCacheEntry>>();
 
@@ -90,6 +91,18 @@ async function fetchSparesFromRebrickable(
   return buildSpareCacheEntry(all);
 }
 
+function setSpareCache(key: string, entry: SpareCacheEntry) {
+  spareCache.set(key, entry);
+  if (spareCache.size > SPARE_CACHE_MAX) {
+    const oldest = [...spareCache.entries()].sort(
+      (a, b) => a[1].fetchedAt - b[1].fetchedAt
+    )[0]?.[0];
+    if (oldest) {
+      spareCache.delete(oldest);
+    }
+  }
+}
+
 async function getSpareCacheEntry(
   setNumber: string
 ): Promise<SpareCacheEntry | null> {
@@ -102,7 +115,7 @@ async function getSpareCacheEntry(
   }
   const promise = fetchSparesFromRebrickable(setNumber)
     .then(entry => {
-      spareCache.set(setNumber, entry);
+      setSpareCache(setNumber, entry);
       return entry;
     })
     .catch(err => {

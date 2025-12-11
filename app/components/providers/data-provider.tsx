@@ -34,6 +34,7 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
+import { SYNC_BATCH_SIZE, SYNC_INTERVAL_MS } from '@/app/config/timing';
 
 // ============================================================================
 // Context Types
@@ -59,12 +60,6 @@ const DataContext = createContext<DataContextValue | undefined>(undefined);
 // ============================================================================
 // Constants
 // ============================================================================
-
-// Sync interval: 30 seconds when online
-const SYNC_INTERVAL_MS = 30 * 1000;
-
-// Batch size for sync operations
-const SYNC_BATCH_SIZE = 50;
 
 // Migration IDs
 const MIGRATION_LOCALSTORAGE_OWNED = 'localStorage_owned_v1';
@@ -181,78 +176,87 @@ export function DataProvider({ children }: PropsWithChildren) {
     async (opts?: { keepalive?: boolean }): Promise<void> => {
       if (!isAvailable || !isReady) return;
 
-      // Get stored user ID (may be from previous session if currently offline)
       const userId = userIdRef.current ?? (await getStoredUserId());
-      if (!userId) {
-        // No user to sync for
-        return;
-      }
-
-      // Check if we're online
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        return;
-      }
+      if (!userId) return;
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 
       setIsSyncing(true);
       setLastSyncError(null);
 
       try {
-        // Get pending operations
         const operations = await getPendingSyncOperations(SYNC_BATCH_SIZE);
-        if (operations.length === 0) {
-          return;
-        }
+        if (operations.length === 0) return;
 
-        // Send to sync endpoint
-        const response = await fetch('/api/sync', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'same-origin',
-          // keepalive allows best-effort delivery during unload/pagehide
-          keepalive: opts?.keepalive === true,
-          body: JSON.stringify({
-            operations: operations.map(op => ({
-              id: op.id,
-              table: op.table,
-              operation: op.operation,
-              payload: op.payload,
-            })),
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = (await response.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          throw new Error(errorData.error || `Sync failed: ${response.status}`);
-        }
-
-        const result = (await response.json()) as {
-          success: boolean;
-          processed: number;
-          failed?: Array<{ id: number; error: string }>;
+        const payload = {
+          operations: operations.map(op => ({
+            id: op.id,
+            table: op.table,
+            operation: op.operation,
+            payload: op.payload,
+          })),
         };
 
-        // Remove successfully processed operations
-        const successIds = operations
-          .filter(op => !result.failed?.some(f => f.id === op.id))
-          .map(op => op.id!)
-          .filter((id): id is number => id !== undefined);
+        // Prefer sendBeacon for background flush; fall back to fetch if unavailable.
+        const useBeacon =
+          opts?.keepalive === true &&
+          typeof navigator !== 'undefined' &&
+          typeof navigator.sendBeacon === 'function';
 
-        if (successIds.length > 0) {
-          await removeSyncOperations(successIds);
-        }
+        if (useBeacon) {
+          const blob = new Blob([JSON.stringify(payload)], {
+            type: 'application/json',
+          });
+          const sent = navigator.sendBeacon('/api/sync', blob);
+          if (!sent) {
+            throw new Error('sendBeacon failed');
+          }
+          // Assume success for best-effort delivery; the server will drop bad payloads.
+          const successIds = operations
+            .map(op => op.id)
+            .filter((id): id is number => id !== undefined);
+          if (successIds.length > 0) {
+            await removeSyncOperations(successIds);
+          }
+        } else {
+          const response = await fetch('/api/sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin',
+            keepalive: opts?.keepalive === true,
+            body: JSON.stringify(payload),
+          });
 
-        // Mark failed operations
-        if (result.failed) {
-          for (const failure of result.failed) {
-            await markSyncOperationFailed(failure.id, failure.error);
+          if (!response.ok) {
+            const errorData = (await response.json().catch(() => ({}))) as {
+              error?: string;
+            };
+            throw new Error(errorData.error || `Sync failed: ${response.status}`);
+          }
+
+          const result = (await response.json()) as {
+            success: boolean;
+            processed: number;
+            failed?: Array<{ id: number; error: string }>;
+          };
+
+          const successIds = operations
+            .filter(op => !result.failed?.some(f => f.id === op.id))
+            .map(op => op.id!)
+            .filter((id): id is number => id !== undefined);
+
+          if (successIds.length > 0) {
+            await removeSyncOperations(successIds);
+          }
+
+          if (result.failed) {
+            for (const failure of result.failed) {
+              await markSyncOperationFailed(failure.id, failure.error);
+            }
           }
         }
 
-        // Update pending count
         const newCount = await getSyncQueueCount();
         if (isMountedRef.current) {
           setPendingSyncCount(newCount);

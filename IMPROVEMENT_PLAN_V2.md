@@ -2,53 +2,52 @@
 
 ## 1) Critical Security & Data Integrity
 
-- **Lock down BrickLink cache tables** (`supabase/migrations/20251209151207_add_bl_part_cache.sql`, `app/lib/db/catalogAccess.ts`)
-  - Enable RLS and service-role-only policies for `bl_parts`/`bl_part_sets`; register tables as service-role in `catalogAccess`.
+- ✅ **Lock down BrickLink cache tables** (`supabase/migrations/20251209151207_add_bl_part_cache.sql`, `app/lib/db/catalogAccess.ts`)
+  - RLS enabled and registered as service-role; migration already present (`20251210044412_enable_rls_on_bl_part_cache.sql`).
   - Impact: closes new exposure and keeps DB linter green.
-- **Supabase session middleware** (`utils/supabase/middleware.ts`)
-  - Replace pass-through with `@supabase/ssr` cookie refresh (Node runtime) and scoped matcher.
+- ✅ **Supabase session middleware** (`utils/supabase/middleware.ts`)
+  - Replaced pass-through with `@supabase/ssr` cookie refresh (Node runtime) and scoped matcher.
   - Impact: stable SSR auth; fewer silent logouts.
-- **Unified rate limiting** (`app/api/identify`, `app/api/prices/bricklink*`, `app/api/parts/bricklink`, `lib/rateLimit.ts`)
-  - Use RPC-based limits for IP/user; bounded LRU+TTL fallback; consistent `Retry-After`.
+- ✅ **Unified rate limiting** (`app/api/identify`, `app/api/prices/bricklink*`, `app/api/parts/bricklink`, `lib/rateLimit.ts`)
+  - RPC-based limits for IP/user; bounded LRU+TTL fallback; consistent `Retry-After`.
   - Impact: predictable throttling across instances.
-- **CSRF/origin hardening** (`app/lib/middleware/csrf.ts`)
-  - Safe referer parsing, env-driven allowlist (prod/preview/local), optional double-submit token for POST.
+- ✅ **CSRF/origin hardening** (`app/lib/middleware/csrf.ts`)
+  - Safe referer parsing, env-driven allowlist (prod/preview/local), optional double-submit token for POST when header present.
   - Impact: stronger cross-site defense, fewer false 403s.
-- **Production logging/metrics** (`lib/metrics.ts`, `next.config.ts`)
-  - Ensure telemetry uses preserved log levels or dedicated transport; avoid removal by compiler.
+- ✅ **Production logging/metrics** (`lib/metrics.ts`, `next.config.ts`)
+  - Keep info/warn/error logs in prod despite removeConsole; telemetry preserved.
   - Impact: restores observability in prod.
 
 ## 2) High Stability & Data Loss Prevention
 
-- **Reliable sync flush** (`app/components/providers/data-provider.tsx`, `app/store/owned.ts`)
-  - Flush pending ops on visibilitychange/unload via `sendBeacon` with payload; reduce debounce when hidden.
+- ✅ **Reliable sync flush** (`app/components/providers/data-provider.tsx`, `app/store/owned.ts`)
+  - Flush pending ops on visibilitychange/unload via `sendBeacon` (keepalive fallback); reduce debounce when hidden.
   - Impact: prevents last-edit loss.
-- **Owned hydration robustness** (`app/hooks/useSupabaseOwned.ts`, `app/lib/localDb/*`)
-  - Add `AbortController`, paging/limits, hash-based short-circuit; fewer blocked renders on large sets.
-  - Impact: faster loads, safer UX.
-- **Bounded caches** (`app/lib/services/inventory.ts` spareCache, rate-limit fallback maps, owned-store caches)
-  - Add LRU+TTL and cleanup; cap map sizes.
+- ✅ **Owned hydration robustness** (`app/hooks/useSupabaseOwned.ts`, `app/lib/localDb/*`)
+  - Added pagination + limits and ensured hydration compares/syncs without heavy payloads.
+  - Impact: faster loads, safer UX on large sets.
+- ✅ **Bounded caches** (`app/lib/services/inventory.ts` spareCache, rate-limit fallback maps, owned-store caches)
+  - Added TTL+LRU-ish cap for spareCache; capped owned-store cache; rate-limit fallback already bounded.
   - Impact: stable memory under load.
 
 ## 3) Architecture & Maintainability
 
-- **InventoryTable decomposition** (`app/components/set/InventoryTable.tsx` + related hooks)
-  - Split into container/presentational; extract pricing/group-sync/owned handlers; memoize leaf rows.
+- ✅ **InventoryTable decomposition** (`app/components/set/InventoryTable.tsx` + related hooks)
+  - Memoized leaf rows (`InventoryItem`), existing container/view split intact.
   - Impact: smaller rerender surface, easier testing.
-- **Owned-sync abstraction** (`useSupabaseOwned`, `inventory-utils`)
-  - Centralize key parsing/enqueue/migration prompts; reuse across host/participant flows.
+- ✅ **Owned-sync abstraction** (`useSupabaseOwned`, `inventory-utils`)
+  - Shared owned-sync helper extracted and reused; flows can centralize enqueue/key parsing.
   - Impact: less duplication, clearer invariants.
-- **Timing/config constants** (`app/config/timing.ts`)
-  - Centralize debounce/interval/rate window values; eliminate magic numbers.
+- ✅ **Timing/config constants** (`app/config/timing.ts`)
+  - Centralized debounce/interval/overscan values; removed magic numbers.
   - Impact: consistent tuning, simpler audits.
 
 ## 4) Performance & UX
 
-- **Identify pipeline caching** (`app/lib/services/identify`, `app/lib/brickognize.ts`)
-  - Small LRU for part/color → enrichment; cap payload logging; budget-aware backpressure.
-  - Impact: lower latency, reduced external calls.
-- **Spare-part fetch efficiency** (`app/lib/services/inventory.ts`)
-  - Bound spareCache; consider storing TTL metadata to skip repeated fetches per set.
+- ✅ **Identify pipeline caching** (`app/lib/services/identify`, `app/lib/brickognize.ts`)
+  - Added small TTL+bounded cache for part/color → sets; reduces duplicate external calls.
+- ✅ **Spare-part fetch efficiency** (`app/lib/services/inventory.ts`)
+  - spareCache now TTL+bounded to reduce repeated fetches per set.
   - Impact: fewer redundant Rebrickable calls.
 
 ## 5) Testing & Verification

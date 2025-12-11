@@ -3,7 +3,7 @@
 import type { InventoryRow } from '@/app/components/set/types';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import { enqueueOwnedChange, isIndexedDBAvailable } from '@/app/lib/localDb';
+import { enqueueOwnedChangeIfPossible, parseInventoryKey } from '@/app/lib/ownedSync';
 import { useOwnedStore, type OwnedState } from '@/app/store/owned';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -32,25 +32,6 @@ type UseSupabaseOwnedResult = {
   confirmMigration: () => Promise<void>;
   keepCloudData: () => Promise<void>;
 };
-
-type ParsedKey = {
-  partNum: string;
-  colorId: number;
-  isSpare: boolean;
-};
-
-function parseInventoryKey(key: string): ParsedKey | null {
-  // We only persist rows that correspond to real set parts in rb_set_parts.
-  // Minifig parent/child rows use fig:… or include parent=… in the key;
-  // those are skipped for persistence to user_set_parts.
-  if (key.startsWith('fig:') || key.includes(':parent=')) return null;
-
-  const [partNum, colorIdRaw] = key.split(':');
-  if (!partNum || !colorIdRaw) return null;
-  const colorId = Number(colorIdRaw);
-  if (!Number.isFinite(colorId)) return null;
-  return { partNum, colorId, isSpare: false };
-}
 
 export function useSupabaseOwned({
   setNumber,
@@ -107,23 +88,15 @@ export function useSupabaseOwned({
    */
   const enqueueChange = useCallback(
     (key: string, quantity: number) => {
-      if (!enableCloudSync || !userId) return;
-      if (!isIndexedDBAvailable()) return;
-
-      const parsed = parseInventoryKey(key);
-      if (!parsed) return;
-
       const clientId = clientIdRef.current ?? 'unknown';
-
-      // Fire-and-forget: enqueue to IndexedDB sync queue
-      enqueueOwnedChange(
+      enqueueOwnedChangeIfPossible({
+        enableCloudSync,
+        userId,
         clientId,
         setNumber,
-        parsed.partNum,
-        parsed.colorId,
-        parsed.isSpare,
-        quantity
-      ).catch(error => {
+        key,
+        quantity,
+      }).catch(error => {
         console.warn('Failed to enqueue owned change:', error);
       });
     },
@@ -154,14 +127,45 @@ export function useSupabaseOwned({
     if (hydrated) return;
 
     let cancelled = false;
+    const PAGE_SIZE = 500;
+    const abortController = new AbortController();
+    const timeoutId =
+      typeof window !== 'undefined'
+        ? window.setTimeout(() => abortController.abort(), 10_000)
+        : undefined;
 
     async function run() {
       const supabase = getSupabaseBrowserClient();
-      const { data, error } = await supabase
-        .from('user_set_parts')
-        .select('part_num, color_id, is_spare, owned_quantity')
-        .eq('user_id', userId as string)
-        .eq('set_num', setNumber);
+      const supabaseByKey = new Map<string, number>();
+      let offset = 0;
+      let error: { message: string } | null = null;
+
+      while (true) {
+        const { data, error: pageError } = await supabase
+          .from('user_set_parts')
+          .select('part_num, color_id, is_spare, owned_quantity')
+          .eq('user_id', userId as string)
+          .eq('set_num', setNumber)
+          .range(offset, offset + PAGE_SIZE - 1)
+          // Abort if the request overruns the timeout or the effect cleans up.
+          .abortSignal(abortController.signal);
+
+        if (pageError) {
+          error = pageError;
+          break;
+        }
+
+        for (const row of data ?? []) {
+          if (row.is_spare) continue;
+          const key = `${row.part_num}:${row.color_id}`;
+          supabaseByKey.set(key, row.owned_quantity ?? 0);
+        }
+
+        if (!data || data.length < PAGE_SIZE) {
+          break;
+        }
+        offset += PAGE_SIZE;
+      }
 
       if (cancelled) return;
 
@@ -171,13 +175,6 @@ export function useSupabaseOwned({
           error: error.message,
         });
         return;
-      }
-
-      const supabaseByKey = new Map<string, number>();
-      for (const row of data ?? []) {
-        if (row.is_spare) continue;
-        const key = `${row.part_num}:${row.color_id}`;
-        supabaseByKey.set(key, row.owned_quantity ?? 0);
       }
 
       const localByKey = new Map<string, number>();
@@ -197,6 +194,15 @@ export function useSupabaseOwned({
         0
       );
 
+      const supabaseHash = Array.from(supabaseByKey.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}:${v}`)
+        .join('|');
+      const localHash = Array.from(localByKey.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}:${v}`)
+        .join('|');
+
       // Determine whether data is materially different.
       const differInTotals = supabaseTotal !== localTotal;
       let differInKeys = false;
@@ -213,7 +219,8 @@ export function useSupabaseOwned({
         }
       }
 
-      const mapsDiffer = differInTotals || differInKeys;
+      const mapsDiffer =
+        differInTotals || differInKeys || supabaseHash !== localHash;
 
       let existingDecision: string | null = null;
       try {
@@ -274,6 +281,10 @@ export function useSupabaseOwned({
 
     return () => {
       cancelled = true;
+      abortController.abort();
+      if (typeof timeoutId === 'number') {
+        window.clearTimeout(timeoutId);
+      }
     };
   }, [
     enableCloudSync,

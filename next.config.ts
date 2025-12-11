@@ -4,7 +4,8 @@ const compiler =
   process.env.NODE_ENV === 'production'
     ? {
         removeConsole: {
-          exclude: ['error', 'warn'],
+          // Preserve info/warn/error so structured logs are kept in production.
+          exclude: ['error', 'warn', 'info'],
         },
       }
     : undefined;

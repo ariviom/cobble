@@ -18,6 +18,36 @@ import {
 } from '@/app/lib/rebrickable';
 import { logger } from '@/lib/metrics';
 
+type CacheKey = string;
+type CacheEntry = { sets: PartInSet[]; fetchedAt: number };
+const IDENTIFY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const IDENTIFY_CACHE_MAX = 200;
+const identifyCache = new Map<CacheKey, CacheEntry>();
+
+function cacheKey(partNum: string, colorId?: number) {
+  return `${partNum}::${typeof colorId === 'number' ? colorId : 'any'}`;
+}
+
+function getCachedSets(partNum: string, colorId?: number): PartInSet[] | null {
+  const key = cacheKey(partNum, colorId);
+  const entry = identifyCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.fetchedAt > IDENTIFY_CACHE_TTL_MS) {
+    identifyCache.delete(key);
+    return null;
+  }
+  return entry.sets;
+}
+
+function setCachedSets(partNum: string, colorId: number | undefined, sets: PartInSet[]) {
+  const key = cacheKey(partNum, colorId);
+  identifyCache.set(key, { sets, fetchedAt: Date.now() });
+  if (identifyCache.size > IDENTIFY_CACHE_MAX) {
+    const oldest = [...identifyCache.entries()].sort((a, b) => a[1].fetchedAt - b[1].fetchedAt)[0]?.[0];
+    if (oldest) identifyCache.delete(oldest);
+  }
+}
+
 export type IdentifyCandidate = {
   partNum: string;
   bricklinkId?: string;
@@ -90,6 +120,9 @@ async function fetchCandidateSets(
   partNum: string,
   preferredColorId?: number
 ): Promise<PartInSet[]> {
+  const cached = getCachedSets(partNum, preferredColorId);
+  if (cached) return cached;
+
   try {
     const local = await getSetsForPartLocal(
       partNum,
@@ -111,14 +144,19 @@ async function fetchCandidateSets(
   if (typeof preferredColorId === 'number') {
     try {
       const remoteWithColor = await getSetsForPart(partNum, preferredColorId);
-      if (remoteWithColor.length) return remoteWithColor;
+      if (remoteWithColor.length) {
+        setCachedSets(partNum, preferredColorId, remoteWithColor);
+        return remoteWithColor;
+      }
     } catch (err) {
       if (isBudgetError(err)) throw err;
     }
   }
 
   try {
-    return await getSetsForPart(partNum, undefined);
+    const remote = await getSetsForPart(partNum, undefined);
+    setCachedSets(partNum, preferredColorId, remote);
+    return remote;
   } catch (err) {
     if (isBudgetError(err)) throw err;
     return [];

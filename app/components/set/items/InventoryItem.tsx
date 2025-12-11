@@ -9,7 +9,7 @@ import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import { ExternalLink, Info, Pin, Search } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import type { InventoryRow } from '../types';
 import { OwnedQuantityControl } from './OwnedQuantityControl';
 
@@ -36,7 +36,7 @@ type Props = {
   isEnriching?: boolean;
 };
 
-export function InventoryItem({
+function InventoryItemComponent({
   row,
   owned,
   unitPrice,
@@ -378,3 +378,23 @@ export function InventoryItem({
     </>
   );
 }
+
+function areEqual(prev: Props, next: Props) {
+  return (
+    prev.setNumber === next.setNumber &&
+    prev.row === next.row &&
+    prev.owned === next.owned &&
+    prev.missing === next.missing &&
+    prev.unitPrice === next.unitPrice &&
+    prev.minPrice === next.minPrice &&
+    prev.maxPrice === next.maxPrice &&
+    prev.pricingSource === next.pricingSource &&
+    prev.bricklinkColorId === next.bricklinkColorId &&
+    prev.isPricePending === next.isPricePending &&
+    prev.isPinned === next.isPinned &&
+    prev.canRequestPrice === next.canRequestPrice &&
+    prev.isEnriching === next.isEnriching
+  );
+}
+
+export const InventoryItem = memo(InventoryItemComponent, areEqual);

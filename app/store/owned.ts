@@ -6,6 +6,7 @@ import {
   setOwnedForSet,
   isIndexedDBAvailable,
 } from '@/app/lib/localDb';
+import { OWNED_WRITE_DEBOUNCE_HIDDEN_MS, OWNED_WRITE_DEBOUNCE_MS } from '@/app/config/timing';
 
 export type OwnedState = {
   getOwned: (setNumber: string, key: string) => number;
@@ -29,10 +30,9 @@ export type OwnedState = {
   _storageAvailable: boolean;
 };
 
-const WRITE_DEBOUNCE_MS = 500; // longer debounce per UX guidance
-
 // Simple in-memory cache - this is the synchronous read source
 const cache: Map<string, Record<string, number>> = new Map();
+const CACHE_MAX_ENTRIES = 400;
 
 // Debounced write scheduling per setNumber
 const pendingWrites: Map<string, Record<string, number>> = new Map();
@@ -104,6 +104,10 @@ function flushAllPendingWrites() {
 function scheduleWrite(setNumber: string) {
   const existing = writeTimers.get(setNumber);
   if (existing) clearTimeout(existing);
+  const debounceMs =
+    typeof document !== 'undefined' && document.visibilityState === 'hidden'
+      ? OWNED_WRITE_DEBOUNCE_HIDDEN_MS
+      : OWNED_WRITE_DEBOUNCE_MS;
   const timer = setTimeout(() => {
     // Prefer idle time when available
     const idle =
@@ -127,7 +131,7 @@ function scheduleWrite(setNumber: string) {
       flushWriteNow(setNumber);
     }
     writeTimers.delete(setNumber);
-  }, WRITE_DEBOUNCE_MS);
+  }, debounceMs);
   writeTimers.set(setNumber, timer);
 }
 
@@ -146,6 +150,12 @@ function read(setNumber: string): Record<string, number> {
 function write(setNumber: string, data: Record<string, number>) {
   // Update in-memory cache immediately for responsive reads
   cache.set(setNumber, data);
+  if (cache.size > CACHE_MAX_ENTRIES) {
+    const oldestKey = cache.keys().next().value as string | undefined;
+    if (oldestKey) {
+      cache.delete(oldestKey);
+    }
+  }
   pendingWrites.set(setNumber, data);
   scheduleWrite(setNumber);
 }
