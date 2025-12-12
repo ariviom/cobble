@@ -11,7 +11,8 @@ This document defines the foundational architecture for Stripe subscriptions (Pl
 - Countries: All Stripe-supported countries allowed.
 - Tax/VAT: Enable Stripe Tax and automatic tax collection.
 - Coupons/Promos: None at launch.
-- Feature placement: Free keeps current features/limits; Plus = unlimited identify, unlimited custom lists, “Search Party” features, custom list uploads; Pro = everything in Plus + BYO key for real-time BrickLink + custom MOCs.
+- Feature placement: Free keeps current features/limits; Plus = unlimited identify and “Search Party” features; Pro = everything in Plus + BYO key for real-time BrickLink + custom MoCs (treated as custom user sets, not lists). Lists are specifically labeled user collections of sets; initial gating target is free capped at 3 lists, Plus/Pro unlimited. No other “custom lists” concept exists beyond these user set collections.
+- Initial throttles to validate gating: Search Party on free capped at 2 runs/month/user (usage counters), Plus/Pro unlimited; lists cap applies to user collections of sets (free up to 3, Plus/Pro unlimited).
 
 ## Implementation Status (current)
 
@@ -136,13 +137,16 @@ Indexes: `billing_subscriptions(user_id)`, `billing_subscriptions(stripe_subscri
 - Effective tier: highest active/trialing subscription (pro > plus > free), else free.
 - Feature flag allow: `feature_flags.min_tier <= user tier`, overridden by `feature_overrides.force`.
 - SSR preload recommended to avoid flicker; client hook `useFeatureFlag` can consume preloaded entitlements post-foundation.
-- Initial feature keys (seed candidates):
+- Initial feature keys (seed candidates; seeds aligned via `20251212090000_update_feature_flag_seeds.sql`):
   - `identify.unlimited` → min_tier `plus`
-  - `lists.unlimited` → min_tier `plus`
-  - `lists.upload` → min_tier `plus`
-  - `search_party.advanced` → min_tier `plus`
+  - `lists.unlimited` → min_tier `plus` (user collections of sets; free capped at 3 lists)
+  - `search_party.unlimited` → min_tier `plus` (free capped via usage counters)
+  - `search_party.advanced` → min_tier `plus` (advanced tools toggled separately)
   - `bricklink.byo_key` → min_tier `pro`
-  - `mocs.custom` → min_tier `pro`
+  - `mocs.custom` → min_tier `pro` (custom MoC uploads treated as custom user sets)
+- Planned quantitative limits (to enforce via `usage_counters` + per-tier rules):
+  - User lists (set collections): free tier capped at 3 lists; Plus/Pro unlimited.
+  - Search Party: free tier capped at 2 runs per month per user; Plus/Pro unlimited.
 
 ## Foundation Implementation Steps (to execute)
 
