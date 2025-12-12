@@ -3,4 +3,3 @@ export const SYNC_BATCH_SIZE = 50;
 export const OWNED_WRITE_DEBOUNCE_MS = 500;
 export const OWNED_WRITE_DEBOUNCE_HIDDEN_MS = 150;
 export const INVENTORY_VIRTUAL_OVERSCAN = 12;
-

@@ -6,7 +6,10 @@ import {
   setOwnedForSet,
   isIndexedDBAvailable,
 } from '@/app/lib/localDb';
-import { OWNED_WRITE_DEBOUNCE_HIDDEN_MS, OWNED_WRITE_DEBOUNCE_MS } from '@/app/config/timing';
+import {
+  OWNED_WRITE_DEBOUNCE_HIDDEN_MS,
+  OWNED_WRITE_DEBOUNCE_MS,
+} from '@/app/config/timing';
 
 export type OwnedState = {
   getOwned: (setNumber: string, key: string) => number;

@@ -3,7 +3,10 @@
 import type { InventoryRow } from '@/app/components/set/types';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import { enqueueOwnedChangeIfPossible, parseInventoryKey } from '@/app/lib/ownedSync';
+import {
+  enqueueOwnedChangeIfPossible,
+  parseInventoryKey,
+} from '@/app/lib/ownedSync';
 import { useOwnedStore, type OwnedState } from '@/app/store/owned';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 

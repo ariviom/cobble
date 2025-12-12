@@ -83,4 +83,3 @@ describe('resolvePublicUser', () => {
     expect(result).toEqual({ type: 'not_found' });
   });
 });
-

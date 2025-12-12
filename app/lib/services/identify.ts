@@ -39,11 +39,17 @@ function getCachedSets(partNum: string, colorId?: number): PartInSet[] | null {
   return entry.sets;
 }
 
-function setCachedSets(partNum: string, colorId: number | undefined, sets: PartInSet[]) {
+function setCachedSets(
+  partNum: string,
+  colorId: number | undefined,
+  sets: PartInSet[]
+) {
   const key = cacheKey(partNum, colorId);
   identifyCache.set(key, { sets, fetchedAt: Date.now() });
   if (identifyCache.size > IDENTIFY_CACHE_MAX) {
-    const oldest = [...identifyCache.entries()].sort((a, b) => a[1].fetchedAt - b[1].fetchedAt)[0]?.[0];
+    const oldest = [...identifyCache.entries()].sort(
+      (a, b) => a[1].fetchedAt - b[1].fetchedAt
+    )[0]?.[0];
     if (oldest) identifyCache.delete(oldest);
   }
 }

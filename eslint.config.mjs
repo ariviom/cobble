@@ -47,6 +47,9 @@ const eslintConfig = [
           ],
         },
       ],
+      // Normalize trailing whitespace/newlines: keep a single trailing newline, no multiples.
+      'eol-last': ['error', 'always'],
+      'no-multiple-empty-lines': ['error', { max: 1, maxEOF: 0 }],
     },
   },
   // Typed ESLint rules (requires type information)

@@ -3,4 +3,3 @@
  * while delegating to the modular implementation in `app/lib/rebrickable/`.
  */
 export * from './rebrickable/index';
-

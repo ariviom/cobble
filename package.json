@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --write . && eslint --ext .ts,.tsx --ignore-pattern \"scripts/**\" --ignore-pattern \"coverage/**\" .",
+    "format:check": "prettier --check . && eslint --ext .ts,.tsx --ignore-pattern \"scripts/**\" --ignore-pattern \"coverage/**\" .",
     "test": "vitest",
     "prepare": "simple-git-hooks",
     "ingest:rebrickable": "tsx scripts/ingest-rebrickable.ts",
@@ -67,7 +67,11 @@
     "vitest": "^4.0.15"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,css,scss,md,mdx,json,yaml,yml,html}": "prettier --write --ignore-unknown"
+    "*.{ts,tsx}": [
+      "prettier --write --ignore-unknown",
+      "eslint --ext .ts,.tsx --fix"
+    ],
+    "*.{js,jsx,css,scss,md,mdx,json,yaml,yml,html}": "prettier --write --ignore-unknown"
   },
   "simple-git-hooks": {
     "pre-commit": "npx lint-staged"

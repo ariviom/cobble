@@ -232,7 +232,9 @@ export function DataProvider({ children }: PropsWithChildren) {
             const errorData = (await response.json().catch(() => ({}))) as {
               error?: string;
             };
-            throw new Error(errorData.error || `Sync failed: ${response.status}`);
+            throw new Error(
+              errorData.error || `Sync failed: ${response.status}`
+            );
           }
 
           const result = (await response.json()) as {
