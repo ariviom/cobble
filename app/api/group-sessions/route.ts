@@ -4,6 +4,8 @@ import { z } from 'zod';
 
 import { errorResponse } from '@/app/lib/api/responses';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
+import { getEntitlements, hasFeature } from '@/app/lib/services/entitlements';
+import { checkAndIncrementUsage } from '@/app/lib/services/usageCounters';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { logger } from '@/lib/metrics';
 import type { Tables } from '@/supabase/types';
@@ -64,6 +66,29 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
         error: userError?.message,
       });
       return errorResponse('unauthorized');
+    }
+
+    const entitlements = await getEntitlements(user.id, { supabase });
+    if (!hasFeature(entitlements, 'search_party.unlimited')) {
+      const usage = await checkAndIncrementUsage({
+        userId: user.id,
+        featureKey: 'search_party_host:monthly',
+        windowKind: 'monthly',
+        limit: 2,
+        supabase,
+      });
+      if (!usage.allowed) {
+        return NextResponse.json(
+          {
+            error: 'feature_unavailable',
+            reason: 'quota_exceeded',
+            limit: usage.limit,
+            remaining: usage.remaining,
+            resetAt: usage.resetAt,
+          },
+          { status: 429 }
+        );
+      }
     }
 
     // Reuse an existing active session for this host + set when possible so

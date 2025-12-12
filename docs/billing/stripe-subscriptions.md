@@ -13,6 +13,15 @@ This document defines the foundational architecture for Stripe subscriptions (Pl
 - Coupons/Promos: None at launch.
 - Feature placement: Free keeps current features/limits; Plus = unlimited identify, unlimited custom lists, “Search Party” features, custom list uploads; Pro = everything in Plus + BYO key for real-time BrickLink + custom MOCs.
 
+## Implementation Status (current)
+
+- Supabase tables + RLS in place: `billing_customers`, `billing_subscriptions`, `billing_webhook_events`, `feature_flags`, `feature_overrides`.
+- Server helpers: Stripe client, price allowlist, customer ensure, subscription upsert, entitlements resolver.
+- API routes: `POST /api/billing/create-checkout-session`, `POST /api/billing/create-portal-session`, `POST /api/stripe/webhook` (idempotent).
+- Beta override: `BETA_ALL_ACCESS=true` treats all users as Plus (Pro gating not wired yet).
+- Pages for flows: `/billing/success`, `/billing/cancel`, `/account/billing` (billing portal entry).
+- Tests: price allowlist/mapping.
+
 ## Environment Variables (set for test and live separately)
 
 - `STRIPE_SECRET_KEY`
@@ -24,6 +33,13 @@ This document defines the foundational architecture for Stripe subscriptions (Pl
 - `STRIPE_CHECKOUT_SUCCESS_URL`
 - `STRIPE_CHECKOUT_CANCEL_URL`
 - `STRIPE_BILLING_PORTAL_RETURN_URL`
+
+Local (test) example paths:
+
+- `STRIPE_CHECKOUT_SUCCESS_URL=http://localhost:3000/billing/success`
+- `STRIPE_CHECKOUT_CANCEL_URL=http://localhost:3000/billing/cancel`
+- `STRIPE_BILLING_PORTAL_RETURN_URL=http://localhost:3000/account/billing`
+- Optional beta override: `BETA_ALL_ACCESS=true` (treats everyone as Plus during beta).
 
 ## Stripe Resources to Create (Test Mode First)
 
@@ -100,7 +116,7 @@ Indexes: `billing_subscriptions(user_id)`, `billing_subscriptions(stripe_subscri
   - `ensureStripeCustomer(user)`: find/create `billing_customers` row and Stripe customer.
   - `mapPriceToTier(priceId)`: allowlist from env; unknown price → error.
   - `upsertSubscriptionFromStripe(stripeSub)`: persist `billing_subscriptions`.
-  - `getUserEntitlements(userId)`: returns `{ tier, features }` (foundation returns tier only; flags later).
+  - `getUserEntitlements(userId)`: returns `{ tier, features }`; supports `BETA_ALL_ACCESS=true` to treat all users as Plus during beta.
 
 - Route Handlers:
   - `POST /api/billing/create-checkout-session`
@@ -152,6 +168,7 @@ Indexes: `billing_subscriptions(user_id)`, `billing_subscriptions(stripe_subscri
 - Flows: checkout success/cancel, trial start/end (7 days), payment failure (invoice.payment_failed), cancel_at_period_end, subscription delete.
 - Verify DB: `billing_customers` and `billing_subscriptions` reflect Stripe state; idempotency table records events.
 - Ensure unknown price IDs are rejected.
+- Beta override path: with `BETA_ALL_ACCESS=true`, entitlements should resolve to Plus even without an active subscription (used for beta testing; disable for real gating).
 
 ## Ops Runbook (baseline)
 

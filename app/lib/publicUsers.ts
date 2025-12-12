@@ -43,6 +43,10 @@ export async function resolvePublicUser(handle: string): Promise<ResolvedUser> {
     return { type: 'not_found' };
   }
 
+  if (!data.user_id) {
+    return { type: 'not_found' };
+  }
+
   if (!data.lists_public) {
     return {
       type: 'private',

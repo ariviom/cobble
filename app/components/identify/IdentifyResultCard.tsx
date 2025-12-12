@@ -14,7 +14,7 @@ export function IdentifyResultCard({
   onChangeColor,
   showConfidence = true,
 }: {
-  part: IdentifyPart;
+  part: IdentifyPart | null;
   candidates: IdentifyCandidate[];
   onSelectCandidate?: (c: IdentifyCandidate) => void;
   colorOptions?: Array<{ id: number; name: string }>;
@@ -22,25 +22,33 @@ export function IdentifyResultCard({
   onChangeColor?: (id: number | null) => void;
   showConfidence?: boolean;
 }) {
-  const looksLikeRbFigId = /^fig-[a-z0-9]+$/i.test(part.partNum);
+  const hasPart = Boolean(part?.partNum);
+  const partNum = part?.partNum ?? '';
+  const looksLikeRbFigId = /^fig-[a-z0-9]+$/i.test(partNum);
   const rebrickableFigId =
-    part.rebrickableFigId ?? (looksLikeRbFigId ? part.partNum : null);
-  const isMinifig = part.isMinifig === true || Boolean(rebrickableFigId);
+    part?.rebrickableFigId ?? (looksLikeRbFigId ? partNum : null);
+  const isMinifig = (part?.isMinifig ?? false) || Boolean(rebrickableFigId);
 
   const idLabel = isMinifig
     ? formatMinifigId({
-        bricklinkId: part.bricklinkFigId ?? undefined,
+        bricklinkId: part?.bricklinkFigId ?? undefined,
         rebrickableId: rebrickableFigId ?? undefined,
       }).label
-    : part.partNum;
+    : partNum;
 
   const { meta } = useMinifigMeta(
     isMinifig && rebrickableFigId ? rebrickableFigId : ''
   );
 
+  if (!hasPart) {
+    return null;
+  }
+
+  const partSafe = part as IdentifyPart;
+
   const displayName =
-    (isMinifig && meta?.name && meta.name.trim()) || part.name;
-  const displayImageUrl = (isMinifig && meta?.imageUrl) || part.imageUrl;
+    (isMinifig && meta?.name && meta.name.trim()) || partSafe.name || partNum;
+  const displayImageUrl = (isMinifig && meta?.imageUrl) || partSafe.imageUrl;
 
   return (
     <div className="mb-4 overflow-hidden rounded-lg border border-subtle bg-card p-4">
@@ -62,9 +70,9 @@ export function IdentifyResultCard({
           <div className="mt-1 text-xs text-foreground-muted">
             {idLabel}
             {showConfidence &&
-              typeof part.confidence === 'number' &&
-              !Number.isNaN(part.confidence) && (
-                <> • confidence {(part.confidence * 100).toFixed(0)}%</>
+              typeof partSafe.confidence === 'number' &&
+              !Number.isNaN(partSafe.confidence) && (
+                <> • confidence {(partSafe.confidence * 100).toFixed(0)}%</>
               )}
           </div>
           <div className="mt-2 flex items-center gap-2">

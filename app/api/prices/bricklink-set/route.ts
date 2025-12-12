@@ -2,6 +2,7 @@ import { errorResponse } from '@/app/lib/api/responses';
 import { blGetSetPriceGuide } from '@/app/lib/bricklink';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { DEFAULT_PRICING_PREFERENCES } from '@/app/lib/pricing';
+import { getEntitlements, hasFeature } from '@/app/lib/services/entitlements';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
 import { incrementCounter, logEvent, logger } from '@/lib/metrics';
@@ -36,6 +37,8 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
   // authenticated via Supabase cookies; otherwise fall back to global USD).
   let pricingPrefs = DEFAULT_PRICING_PREFERENCES;
   let userId: string | null = null;
+  let entitlementsTier: 'free' | 'plus' | 'pro' = 'free';
+  let entitlementsFeatures: string[] = [];
   try {
     const supabase = await getSupabaseAuthServerClient();
     const {
@@ -45,12 +48,34 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
 
     if (!userError && user) {
       userId = user.id;
+      const entitlements = await getEntitlements(user.id, { supabase });
+      entitlementsTier = entitlements.tier;
+      entitlementsFeatures = entitlements.features;
       pricingPrefs = await loadUserPricingPreferences(supabase, user.id);
     }
   } catch (err) {
     logger.warn('prices.bricklink_set.load_prefs_failed', {
       setNumber,
       error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  if (
+    !hasFeature(
+      {
+        tier: entitlementsTier,
+        features: entitlementsFeatures,
+        featureFlagsByKey: {},
+      },
+      'pricing.full_cached'
+    )
+  ) {
+    return NextResponse.json({
+      error: 'feature_unavailable',
+      reason: 'upgrade_required',
+      tier: 'plus',
+      pricingSource: 'unavailable',
+      pricing_source: 'unavailable',
     });
   }
 

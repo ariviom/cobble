@@ -14,6 +14,102 @@ export type Database = {
   };
   public: {
     Tables: {
+      billing_customers: {
+        Row: {
+          created_at: string | null;
+          email: string | null;
+          stripe_customer_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          email?: string | null;
+          stripe_customer_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string | null;
+          email?: string | null;
+          stripe_customer_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      billing_subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean | null;
+          created_at: string | null;
+          current_period_end: string | null;
+          id: string;
+          metadata: Json | null;
+          quantity: number | null;
+          status: string | null;
+          stripe_price_id: string;
+          stripe_product_id: string;
+          stripe_subscription_id: string;
+          tier: string | null;
+          updated_at: string | null;
+          user_id: string | null;
+        };
+        Insert: {
+          cancel_at_period_end?: boolean | null;
+          created_at?: string | null;
+          current_period_end?: string | null;
+          id?: string;
+          metadata?: Json | null;
+          quantity?: number | null;
+          status?: string | null;
+          stripe_price_id: string;
+          stripe_product_id: string;
+          stripe_subscription_id: string;
+          tier?: string | null;
+          updated_at?: string | null;
+          user_id?: string | null;
+        };
+        Update: {
+          cancel_at_period_end?: boolean | null;
+          created_at?: string | null;
+          current_period_end?: string | null;
+          id?: string;
+          metadata?: Json | null;
+          quantity?: number | null;
+          status?: string | null;
+          stripe_price_id?: string;
+          stripe_product_id?: string;
+          stripe_subscription_id?: string;
+          tier?: string | null;
+          updated_at?: string | null;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
+      billing_webhook_events: {
+        Row: {
+          error: string | null;
+          event_id: string;
+          payload: Json | null;
+          processed_at: string | null;
+          status: string | null;
+          type: string | null;
+        };
+        Insert: {
+          error?: string | null;
+          event_id: string;
+          payload?: Json | null;
+          processed_at?: string | null;
+          status?: string | null;
+          type?: string | null;
+        };
+        Update: {
+          error?: string | null;
+          event_id?: string;
+          payload?: Json | null;
+          processed_at?: string | null;
+          status?: string | null;
+          type?: string | null;
+        };
+        Relationships: [];
+      };
       bl_minifig_parts: {
         Row: {
           bl_color_id: number;
@@ -44,24 +140,24 @@ export type Database = {
       bl_part_sets: {
         Row: {
           bl_part_id: string;
-          set_num: string;
-          quantity: number | null;
-          source: string;
           last_fetched_at: string;
+          quantity: number | null;
+          set_num: string;
+          source: string;
         };
         Insert: {
           bl_part_id: string;
-          set_num: string;
-          quantity?: number | null;
-          source: string;
           last_fetched_at?: string;
+          quantity?: number | null;
+          set_num: string;
+          source: string;
         };
         Update: {
           bl_part_id?: string;
-          set_num?: string;
-          quantity?: number | null;
-          source?: string;
           last_fetched_at?: string;
+          quantity?: number | null;
+          set_num?: string;
+          source?: string;
         };
         Relationships: [
           {
@@ -76,21 +172,21 @@ export type Database = {
       bl_parts: {
         Row: {
           bl_part_id: string;
-          name: string | null;
           image_url: string | null;
           last_fetched_at: string;
+          name: string | null;
         };
         Insert: {
           bl_part_id: string;
-          name?: string | null;
           image_url?: string | null;
           last_fetched_at?: string;
+          name?: string | null;
         };
         Update: {
           bl_part_id?: string;
-          name?: string | null;
           image_url?: string | null;
           last_fetched_at?: string;
+          name?: string | null;
         };
         Relationships: [];
       };
@@ -227,6 +323,62 @@ export type Database = {
         };
         Relationships: [];
       };
+      feature_flags: {
+        Row: {
+          description: string | null;
+          is_enabled: boolean | null;
+          key: string;
+          min_tier: string | null;
+          rollout_pct: number | null;
+        };
+        Insert: {
+          description?: string | null;
+          is_enabled?: boolean | null;
+          key: string;
+          min_tier?: string | null;
+          rollout_pct?: number | null;
+        };
+        Update: {
+          description?: string | null;
+          is_enabled?: boolean | null;
+          key?: string;
+          min_tier?: string | null;
+          rollout_pct?: number | null;
+        };
+        Relationships: [];
+      };
+      feature_overrides: {
+        Row: {
+          created_at: string | null;
+          feature_key: string | null;
+          force: boolean;
+          id: string;
+          user_id: string | null;
+        };
+        Insert: {
+          created_at?: string | null;
+          feature_key?: string | null;
+          force: boolean;
+          id?: string;
+          user_id?: string | null;
+        };
+        Update: {
+          created_at?: string | null;
+          feature_key?: string | null;
+          force?: boolean;
+          id?: string;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'feature_overrides_feature_key_fkey';
+            columns: ['feature_key'];
+            isOneToOne: false;
+            referencedRelation: 'feature_flags';
+            referencedColumns: ['key'];
+          },
+        ];
+      };
       group_session_participants: {
         Row: {
           client_token: string;
@@ -336,6 +488,30 @@ export type Database = {
           rb_part_id?: string;
           source?: string;
           updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      rate_limits: {
+        Row: {
+          count: number;
+          key: string;
+          updated_at: string;
+          window_ms: number;
+          window_start: string;
+        };
+        Insert: {
+          count?: number;
+          key: string;
+          updated_at?: string;
+          window_ms?: number;
+          window_start?: string;
+        };
+        Update: {
+          count?: number;
+          key?: string;
+          updated_at?: string;
+          window_ms?: number;
+          window_start?: string;
         };
         Relationships: [];
       };
@@ -487,6 +663,32 @@ export type Database = {
           },
         ];
       };
+      rb_minifig_images: {
+        Row: {
+          fig_num: string;
+          image_url: string;
+          last_fetched_at: string;
+        };
+        Insert: {
+          fig_num: string;
+          image_url: string;
+          last_fetched_at?: string;
+        };
+        Update: {
+          fig_num?: string;
+          image_url?: string;
+          last_fetched_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'rb_minifig_images_fig_num_fkey';
+            columns: ['fig_num'];
+            isOneToOne: true;
+            referencedRelation: 'rb_minifigs';
+            referencedColumns: ['fig_num'];
+          },
+        ];
+      };
       rb_minifig_parts: {
         Row: {
           color_id: number;
@@ -529,24 +731,6 @@ export type Database = {
             referencedColumns: ['part_num'];
           },
         ];
-      };
-      rb_minifig_images: {
-        Row: {
-          fig_num: string;
-          image_url: string | null;
-          last_fetched_at: string | null;
-        };
-        Insert: {
-          fig_num: string;
-          image_url?: string | null;
-          last_fetched_at?: string | null;
-        };
-        Update: {
-          fig_num?: string;
-          image_url?: string | null;
-          last_fetched_at?: string | null;
-        };
-        Relationships: [];
       };
       rb_minifigs: {
         Row: {
@@ -754,6 +938,13 @@ export type Database = {
             foreignKeyName: 'user_list_items_list_id_fkey';
             columns: ['list_id'];
             isOneToOne: false;
+            referencedRelation: 'public_user_lists_view';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'user_list_items_list_id_fkey';
+            columns: ['list_id'];
+            isOneToOne: false;
             referencedRelation: 'user_lists';
             referencedColumns: ['id'];
           },
@@ -770,13 +961,6 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'rb_sets';
             referencedColumns: ['set_num'];
-          },
-          {
-            foreignKeyName: 'user_list_items_user_id_fkey';
-            columns: ['user_id'];
-            isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
           },
         ];
       };
@@ -808,13 +992,40 @@ export type Database = {
           updated_at?: string;
           user_id?: string;
         };
+        Relationships: [];
+      };
+      user_minifigs: {
+        Row: {
+          created_at: string;
+          fig_num: string;
+          quantity: number;
+          status: Database['public']['Enums']['set_status'];
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          fig_num: string;
+          quantity?: number;
+          status?: Database['public']['Enums']['set_status'];
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          fig_num?: string;
+          quantity?: number;
+          status?: Database['public']['Enums']['set_status'];
+          updated_at?: string;
+          user_id?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: 'user_lists_user_id_fkey';
-            columns: ['user_id'];
+            foreignKeyName: 'user_minifigs_fig_num_fkey';
+            columns: ['fig_num'];
             isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
+            referencedRelation: 'rb_minifigs';
+            referencedColumns: ['fig_num'];
           },
         ];
       };
@@ -886,48 +1097,6 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
-      };
-      user_minifigs: {
-        Row: {
-          created_at: string;
-          fig_num: string;
-          status: Database['public']['Enums']['set_status'];
-          updated_at: string;
-          user_id: string;
-          quantity: number | null;
-        };
-        Insert: {
-          created_at?: string;
-          fig_num: string;
-          status?: Database['public']['Enums']['set_status'];
-          updated_at?: string;
-          user_id: string;
-          quantity?: number | null;
-        };
-        Update: {
-          created_at?: string;
-          fig_num?: string;
-          status?: Database['public']['Enums']['set_status'];
-          updated_at?: string;
-          user_id?: string;
-          quantity?: number | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'user_minifigs_fig_num_fkey';
-            columns: ['fig_num'];
-            isOneToOne: false;
-            referencedRelation: 'rb_minifigs';
-            referencedColumns: ['fig_num'];
-          },
-          {
-            foreignKeyName: 'user_minifigs_user_id_fkey';
-            columns: ['user_id'];
-            isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
-          },
-        ];
       };
       user_profiles: {
         Row: {
@@ -1019,31 +1188,31 @@ export type Database = {
           created_at: string;
           has_box: boolean;
           has_instructions: boolean;
+          quantity: number;
           set_num: string;
           status: Database['public']['Enums']['set_status'];
           updated_at: string;
           user_id: string;
-          quantity: number;
         };
         Insert: {
           created_at?: string;
           has_box?: boolean;
           has_instructions?: boolean;
+          quantity?: number;
           set_num: string;
           status: Database['public']['Enums']['set_status'];
           updated_at?: string;
           user_id: string;
-          quantity?: number;
         };
         Update: {
           created_at?: string;
           has_box?: boolean;
           has_instructions?: boolean;
+          quantity?: number;
           set_num?: string;
           status?: Database['public']['Enums']['set_status'];
           updated_at?: string;
           user_id?: string;
-          quantity?: number;
         };
         Relationships: [
           {
@@ -1057,33 +1226,152 @@ export type Database = {
       };
     };
     Views: {
-      rb_inventory_parts_public: {
+      public_user_list_items_view: {
         Row: {
-          color_id: number;
-          element_id: string | null;
-          img_url: string | null;
-          inventory_id: number;
-          is_spare: boolean;
-          part_num: string;
-          quantity: number;
+          item_type: Database['public']['Enums']['collection_item_type'] | null;
+          list_id: string | null;
+          minifig_id: string | null;
+          set_num: string | null;
+          user_id: string | null;
         };
         Relationships: [
           {
-            foreignKeyName: 'rb_inventory_parts_public_color_id_fkey';
+            foreignKeyName: 'user_list_items_list_id_fkey';
+            columns: ['list_id'];
+            isOneToOne: false;
+            referencedRelation: 'public_user_lists_view';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'user_list_items_list_id_fkey';
+            columns: ['list_id'];
+            isOneToOne: false;
+            referencedRelation: 'user_lists';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'user_list_items_minifig_id_fkey';
+            columns: ['minifig_id'];
+            isOneToOne: false;
+            referencedRelation: 'rb_minifigs';
+            referencedColumns: ['fig_num'];
+          },
+          {
+            foreignKeyName: 'user_list_items_set_num_fkey';
+            columns: ['set_num'];
+            isOneToOne: false;
+            referencedRelation: 'rb_sets';
+            referencedColumns: ['set_num'];
+          },
+        ];
+      };
+      public_user_lists_view: {
+        Row: {
+          id: string | null;
+          is_system: boolean | null;
+          name: string | null;
+          user_id: string | null;
+        };
+        Relationships: [];
+      };
+      public_user_minifigs_view: {
+        Row: {
+          fig_num: string | null;
+          status: Database['public']['Enums']['set_status'] | null;
+          user_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'user_minifigs_fig_num_fkey';
+            columns: ['fig_num'];
+            isOneToOne: false;
+            referencedRelation: 'rb_minifigs';
+            referencedColumns: ['fig_num'];
+          },
+        ];
+      };
+      public_user_profiles_view: {
+        Row: {
+          display_name: string | null;
+          lists_public: boolean | null;
+          user_id: string | null;
+          username: string | null;
+        };
+        Insert: {
+          display_name?: string | null;
+          lists_public?: boolean | null;
+          user_id?: string | null;
+          username?: string | null;
+        };
+        Update: {
+          display_name?: string | null;
+          lists_public?: boolean | null;
+          user_id?: string | null;
+          username?: string | null;
+        };
+        Relationships: [];
+      };
+      public_user_sets_view: {
+        Row: {
+          set_num: string | null;
+          status: Database['public']['Enums']['set_status'] | null;
+          user_id: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'user_sets_set_num_fkey';
+            columns: ['set_num'];
+            isOneToOne: false;
+            referencedRelation: 'rb_sets';
+            referencedColumns: ['set_num'];
+          },
+        ];
+      };
+      rb_inventory_parts_public: {
+        Row: {
+          color_id: number | null;
+          element_id: string | null;
+          img_url: string | null;
+          inventory_id: number | null;
+          is_spare: boolean | null;
+          part_num: string | null;
+          quantity: number | null;
+        };
+        Insert: {
+          color_id?: number | null;
+          element_id?: string | null;
+          img_url?: string | null;
+          inventory_id?: number | null;
+          is_spare?: boolean | null;
+          part_num?: string | null;
+          quantity?: number | null;
+        };
+        Update: {
+          color_id?: number | null;
+          element_id?: string | null;
+          img_url?: string | null;
+          inventory_id?: number | null;
+          is_spare?: boolean | null;
+          part_num?: string | null;
+          quantity?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'rb_inventory_parts_color_id_fkey';
             columns: ['color_id'];
             isOneToOne: false;
             referencedRelation: 'rb_colors';
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'rb_inventory_parts_public_inventory_id_fkey';
+            foreignKeyName: 'rb_inventory_parts_inventory_id_fkey';
             columns: ['inventory_id'];
             isOneToOne: false;
             referencedRelation: 'rb_inventories';
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'rb_inventory_parts_public_part_num_fkey';
+            foreignKeyName: 'rb_inventory_parts_part_num_fkey';
             columns: ['part_num'];
             isOneToOne: false;
             referencedRelation: 'rb_parts';
@@ -1093,7 +1381,15 @@ export type Database = {
       };
     };
     Functions: {
-      [_ in never]: never;
+      consume_rate_limit: {
+        Args: { p_key: string; p_max_hits?: number; p_window_ms?: number };
+        Returns: {
+          allowed: boolean;
+          retry_after_seconds: number;
+        }[];
+      };
+      show_limit: { Args: never; Returns: number };
+      show_trgm: { Args: { '': string }; Returns: string[] };
     };
     Enums: {
       collection_item_type: 'set' | 'minifig';

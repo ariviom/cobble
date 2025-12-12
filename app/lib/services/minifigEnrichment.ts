@@ -306,17 +306,19 @@ export async function enrichMinifigs(
               : null;
 
           if (imageUrl || name || numParts != null) {
-            const upsertResult = await supabase
-              .from('rb_minifig_images')
-              .upsert(
-                { fig_num: figNum, image_url: imageUrl },
-                { onConflict: 'fig_num' }
-              );
-            if (upsertResult.error) {
-              logger.warn('minifig_enrich.image_upsert_failed', {
-                figNum,
-                error: upsertResult.error.message,
-              });
+            if (imageUrl) {
+              const upsertResult = await supabase
+                .from('rb_minifig_images')
+                .upsert(
+                  { fig_num: figNum, image_url: imageUrl },
+                  { onConflict: 'fig_num' }
+                );
+              if (upsertResult.error) {
+                logger.warn('minifig_enrich.image_upsert_failed', {
+                  figNum,
+                  error: upsertResult.error.message,
+                });
+              }
             }
             if (name || numParts != null) {
               const metaPayload: {

@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -13,11 +15,36 @@ import {
   resolveCandidates,
   resolveIdentifyResult,
 } from '@/app/lib/services/identify';
+import { getEntitlements, hasFeature } from '@/app/lib/services/entitlements';
+import { checkAndIncrementUsage } from '@/app/lib/services/usageCounters';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 
 const ALLOWED_IMAGE_TYPES = new Set<string>(IMAGE.ALLOWED_TYPES);
+const IDENTIFY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h local cache
 
+type CachedIdentifyResponse = {
+  status: number;
+  body: unknown;
+  cachedAt: number;
+};
+
+const localIdentifyCache = new Map<string, CachedIdentifyResponse>();
+
+function getCachedResponse(cacheKey: string): CachedIdentifyResponse | null {
+  const entry = localIdentifyCache.get(cacheKey);
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAt > IDENTIFY_CACHE_TTL_MS) {
+    localIdentifyCache.delete(cacheKey);
+    return null;
+  }
+  return entry;
+}
+
+function setCachedResponse(cacheKey: string, status: number, body: unknown) {
+  localIdentifyCache.set(cacheKey, { status, body, cachedAt: Date.now() });
+}
 function isFileLike(value: unknown): value is Blob {
   if (!value || typeof value !== 'object') return false;
   return value instanceof Blob || value instanceof File;
@@ -71,6 +98,18 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       });
     }
 
+    const supabase = await getSupabaseAuthServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return errorResponse('unauthorized', {
+        message: 'sign_in_required',
+      });
+    }
+
     const form = await req.formData();
     const parsed = identifyBodySchema.safeParse({
       image: form.get('image'),
@@ -82,6 +121,44 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       });
     }
     const { image, colorHint } = parsed.data;
+
+    // Hash image to dedupe identical uploads for the same user.
+    const arrayBuf = await (image as Blob).arrayBuffer();
+    const imageBuffer = Buffer.from(arrayBuf);
+    const imageHash = crypto
+      .createHash('sha256')
+      .update(imageBuffer)
+      .digest('hex');
+    const cacheKey = `${user.id}:${imageHash}`;
+
+    const cached = getCachedResponse(cacheKey);
+    const skipQuota = !!cached;
+    if (cached) {
+      return NextResponse.json(cached.body, { status: cached.status });
+    }
+
+    const entitlements = await getEntitlements(user.id);
+    if (!skipQuota && !hasFeature(entitlements, 'identify.unlimited')) {
+      const usage = await checkAndIncrementUsage({
+        userId: user.id,
+        featureKey: 'identify:daily',
+        windowKind: 'daily',
+        limit: 5,
+      });
+      if (!usage.allowed) {
+        return NextResponse.json(
+          {
+            error: 'feature_unavailable',
+            reason: 'quota_exceeded',
+            limit: usage.limit,
+            remaining: usage.remaining,
+            resetAt: usage.resetAt,
+            dedupe: false,
+          },
+          { status: 429 }
+        );
+      }
+    }
 
     const externalBudget = new ExternalCallBudget(
       EXTERNAL.EXTERNAL_CALL_BUDGET
@@ -141,7 +218,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       return errorResponse('no_valid_candidate');
     }
     if (result.status === 'fallback') {
-      return NextResponse.json({
+      const body = {
         part: result.payload.part,
         blPartId: result.payload.blPartId,
         blAvailableColors: result.payload.blAvailableColors,
@@ -150,9 +227,12 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
         availableColors: result.payload.availableColors,
         selectedColorId: result.payload.selectedColorId,
         sets: result.payload.sets,
-      });
+      };
+      setCachedResponse(cacheKey, 200, body);
+      return NextResponse.json(body);
     }
 
+    setCachedResponse(cacheKey, 200, result.payload);
     return NextResponse.json(result.payload);
   } catch (err) {
     if (err instanceof Error && err.message === 'external_budget_exhausted') {

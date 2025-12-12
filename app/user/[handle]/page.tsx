@@ -205,10 +205,12 @@ export default async function PublicProfilePage({
 
   for (const list of userLists ?? []) {
     if (list.is_system) continue;
+    if (!list.id) continue;
     listMembership.set(list.id, { setNums: [], minifigIds: [] });
   }
 
   for (const item of listItems ?? []) {
+    if (!item.list_id) continue;
     const bucket = listMembership.get(item.list_id);
     if (!bucket) continue;
     if (item.item_type === 'set' && item.set_num) {
@@ -264,15 +266,15 @@ export default async function PublicProfilePage({
     .filter(Boolean);
 
   const publicLists: PublicList[] = (userLists ?? [])
-    .filter(list => !list.is_system)
+    .filter(list => !list.is_system && !!list.id)
     .map(list => {
-      const membership = listMembership.get(list.id) ?? {
+      const membership = listMembership.get(list.id!) ?? {
         setNums: [],
         minifigIds: [],
       };
       return {
-        id: list.id,
-        name: list.name,
+        id: list.id!,
+        name: list.name ?? '',
         setNums: membership.setNums,
         minifigIds: membership.minifigIds,
       };
