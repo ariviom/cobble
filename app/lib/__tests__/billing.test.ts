@@ -1,4 +1,6 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
 
 import { getPriceAllowlist, mapPriceToTier } from '@/app/lib/services/billing';
 

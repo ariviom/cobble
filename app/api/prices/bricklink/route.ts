@@ -78,25 +78,6 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     });
   }
 
-  if (
-    !hasFeature(
-      {
-        tier: entitlementsTier,
-        features: entitlementsFeatures,
-        featureFlagsByKey: {},
-      },
-      'pricing.full_cached'
-    )
-  ) {
-    // Upsell response for free users; do not fetch pricing.
-    return NextResponse.json({
-      error: 'feature_unavailable',
-      reason: 'upgrade_required',
-      tier: 'plus',
-      prices: {},
-    });
-  }
-
   const ipLimit = await consumeRateLimit(`ip:${clientIp}`, {
     windowMs: RATE_WINDOW_MS,
     maxHits: RATE_LIMIT_PER_MINUTE,
@@ -135,6 +116,25 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
         }
       );
     }
+  }
+
+  if (
+    !hasFeature(
+      {
+        tier: entitlementsTier,
+        features: entitlementsFeatures,
+        featureFlagsByKey: {},
+      },
+      'pricing.full_cached'
+    )
+  ) {
+    // Upsell response for free users; do not fetch pricing.
+    return NextResponse.json({
+      error: 'feature_unavailable',
+      reason: 'upgrade_required',
+      tier: 'plus',
+      prices: {},
+    });
   }
 
   const prices = await fetchBricklinkPrices(items, pricingPrefs, {

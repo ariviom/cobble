@@ -1,3 +1,4 @@
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 const isDev = process.env.NODE_ENV !== 'production';
@@ -113,6 +114,30 @@ export async function updateSession(request: NextRequest) {
       headers: request.headers,
     },
   });
+
+  // Refresh Supabase auth cookies when configuration is available. This uses
+  // the SSR client, which is safe in middleware/Edge and keeps cookies
+  // up-to-date without needing access tokens on the client.
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (supabaseUrl && supabaseAnonKey) {
+    try {
+      const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+        cookies: {
+          getAll: () => request.cookies.getAll(),
+          setAll: cookies => {
+            for (const { name, value, options } of cookies) {
+              response.cookies.set(name, value, options);
+            }
+          },
+        },
+      });
+
+      await supabase.auth.getUser();
+    } catch {
+      // Swallow refresh errors to keep middleware non-fatal.
+    }
+  }
 
   const nonce = getNonce(request);
   const relaxedCsp = buildRelaxedCsp();
