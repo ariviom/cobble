@@ -572,23 +572,34 @@ export default function AccountPageClient({
     setError(null);
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const { error: signOutError } = await supabase.auth.signOut();
+      const apiResponse = await fetch('/api/auth/signout', {
+        method: 'POST',
+        credentials: 'include',
+      });
 
-      if (signOutError) {
-        setError('Failed to log out. Please try again.');
-        return;
+      if (!apiResponse.ok) {
+        throw new Error('Server sign out failed');
       }
 
-      clearThemePersistence();
-      setUser(null);
-      setProfile(null);
-      router.push('/login');
-    } catch {
+      const supabase = getSupabaseBrowserClient();
+      const { error: signOutError } = await supabase.auth.signOut({
+        scope: 'local',
+      });
+
+      if (signOutError) {
+        throw signOutError;
+      }
+    } catch (err) {
       setError('Failed to log out. Please try again.');
+      return;
     } finally {
       setIsLoggingOut(false);
     }
+
+    clearThemePersistence();
+    setUser(null);
+    setProfile(null);
+    router.push('/login');
   };
 
   return (
