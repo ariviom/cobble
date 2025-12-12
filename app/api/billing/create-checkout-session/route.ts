@@ -46,7 +46,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
 
   try {
     mapPriceToTier(priceId);
-  } catch (err) {
+  } catch {
     return errorResponse('invalid_format', {
       message: 'Unknown priceId',
       status: 400,

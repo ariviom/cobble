@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     return response;
-  } catch (err) {
+  } catch {
     const response = NextResponse.json(
       { error: 'Unexpected error signing out.' },
       { status: 500 }

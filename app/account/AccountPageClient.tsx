@@ -589,7 +589,7 @@ export default function AccountPageClient({
       if (signOutError) {
         throw signOutError;
       }
-    } catch (err) {
+    } catch {
       setError('Failed to log out. Please try again.');
       return;
     } finally {
