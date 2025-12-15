@@ -1,11 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 import { parse } from 'csv-parse';
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import { Readable } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import zlib from 'node:zlib';
 
 import type { Database } from '@/supabase/types';
+
+// Load environment variables:
+// - In production: load ".env" only.
+// - In development / non-production: load ".env" then ".env.local" overriding,
+//   mirroring Next.js behavior (local overrides base).
+dotenv.config();
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: '.env.local', override: true });
+}
 
 type SourceKey =
   | 'themes'

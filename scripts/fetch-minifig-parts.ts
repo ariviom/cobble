@@ -1,8 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
-import 'dotenv/config';
+import dotenv from 'dotenv';
 
 import { extractBricklinkPartId } from '@/app/lib/rebrickable/utils';
 import type { Database } from '@/supabase/types';
+
+// Load environment variables with Next.js-style precedence:
+// - Production: ".env" only
+// - Non-production: ".env" then ".env.local" (local overrides base)
+dotenv.config();
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: '.env.local', override: true });
+}
 
 type RebrickableMinifigPart = {
   part: {

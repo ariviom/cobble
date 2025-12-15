@@ -59,6 +59,10 @@ export function SetTopBar({
   themeId,
   searchParty,
 }: SetTopBarProps) {
+  const [resolvedImageUrl, setResolvedImageUrl] = useState<string | null>(
+    imageUrl ?? null
+  );
+  const [hasTriedRefresh, setHasTriedRefresh] = useState(false);
   const [searchPartyModalOpen, setSearchTogetherModalOpen] = useState(false);
   const [setQuantity, setSetQuantity] = useState<number>(1);
   const { isLoading, ownedTotal } = useInventory(setNumber);
@@ -122,6 +126,50 @@ export function SetTopBar({
       if (process.env.NODE_ENV !== 'production') {
         console.error('Failed to copy Search Party link', err);
       }
+    }
+  };
+
+  const handleImageError = async () => {
+    if (hasTriedRefresh) {
+      // Avoid hammering the API on repeated errors in the same session.
+      setResolvedImageUrl(null);
+      return;
+    }
+    setHasTriedRefresh(true);
+    try {
+      const res = await fetch(
+        `/api/sets/id/${encodeURIComponent(setNumber)}/refresh-image`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          cache: 'no-store',
+        }
+      );
+      if (!res.ok) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('SetTopBar: refresh-image request failed', {
+            status: res.status,
+          });
+        }
+        setResolvedImageUrl(null);
+        return;
+      }
+      const data = (await res.json()) as { imageUrl?: string | null };
+      if (
+        typeof data.imageUrl === 'string' &&
+        data.imageUrl.trim().length > 0
+      ) {
+        setResolvedImageUrl(data.imageUrl.trim());
+      } else {
+        setResolvedImageUrl(null);
+      }
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('SetTopBar: refresh-image request errored', err);
+      }
+      setResolvedImageUrl(null);
     }
   };
 
@@ -193,13 +241,14 @@ export function SetTopBar({
       >
         <div className="group set flex h-full w-full items-center gap-3 bg-card px-2 py-2 lg:pr-2">
           <div className="aspect-square max-h-full overflow-hidden rounded-sm border border-foreground-accent">
-            {imageUrl ? (
+            {resolvedImageUrl ? (
               <Image
-                src={imageUrl}
+                src={resolvedImageUrl}
                 alt="Set thumbnail"
                 width={240}
                 height={240}
                 className="h-full w-auto object-cover transition-transform"
+                onError={handleImageError}
               />
             ) : (
               <div className="flex size-[calc(var(--spacing-topnav-height)-1rem)] flex-shrink-0 items-center justify-center rounded-sm border border-subtle bg-card-muted">

@@ -1,10 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createInterface } from 'node:readline';
 
 import type { Database } from '@/supabase/types';
+
+// Load environment variables with Next.js-style precedence:
+// - Production: ".env" only
+// - Non-production: ".env" then ".env.local" (local overrides base)
+dotenv.config();
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: '.env.local', override: true });
+}
 
 type MinifigInsert =
   Database['public']['Tables']['bricklink_minifigs']['Insert'];

@@ -1,10 +1,18 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 
 import {
   createSupabaseClient,
   processMinifigComponentMappings,
   processSetForMinifigMapping,
 } from './minifig-mapping-core';
+
+// Load environment variables with Next.js-style precedence:
+// - Production: ".env" only
+// - Non-production: ".env" then ".env.local" (local overrides base)
+dotenv.config();
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: '.env.local', override: true });
+}
 
 // Total daily API budget: 2500 calls
 // We split between set mapping (1 call per set) and component mapping (1 call per unique minifig)
