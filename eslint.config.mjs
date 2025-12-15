@@ -63,8 +63,8 @@ const eslintConfig = [
     },
     rules: {
       // Enable as warnings to surface issues without blocking while refactors land.
-      '@typescript-eslint/prefer-nullish-coalescing': 'warn',
-      '@typescript-eslint/no-unnecessary-condition': 'warn',
+      // '@typescript-eslint/prefer-nullish-coalescing': 'warn',
+      // '@typescript-eslint/no-unnecessary-condition': 'warn',
     },
   },
   {

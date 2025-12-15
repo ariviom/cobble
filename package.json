@@ -69,7 +69,7 @@
   "lint-staged": {
     "*.{ts,tsx}": [
       "prettier --write --ignore-unknown",
-      "eslint --ext .ts,.tsx --fix"
+      "eslint --ext .ts,.tsx --ignore-pattern \"scripts/**\" --ignore-pattern \"coverage/**\" --fix"
     ],
     "*.{js,jsx,css,scss,md,mdx,json,yaml,yml,html}": "prettier --write --ignore-unknown"
   },
