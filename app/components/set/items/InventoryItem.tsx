@@ -8,6 +8,7 @@ import {
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import { useAuth } from '@/app/components/providers/auth-provider';
+import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
 import { ExternalLink, Info, Pin, Search } from 'lucide-react';
 import Link from 'next/link';
 import { memo, useEffect, useState } from 'react';
@@ -55,6 +56,7 @@ function InventoryItemComponent({
 }: Props) {
   const { user, isLoading } = useAuth();
   const isAuthenticated = !!user && !isLoading;
+  const pricingEnabled = usePricingEnabled();
   const isFigId =
     typeof row.partId === 'string' && row.partId.startsWith('fig:');
   const isMinifig = row.parentCategory === 'Minifigure' && isFigId;
@@ -340,22 +342,38 @@ function InventoryItemComponent({
             </div>
           </div>
           <div className="space-y-1">
-            {hasPrice ? null : isPricePending ? (
-              <p className="text-foreground-muted italic">Fetching price…</p>
-            ) : pricingSource === 'unavailable' ? (
-              <p className="text-foreground-muted italic">
-                Price unavailable; BrickLink limit hit. Retry after daily reset.
-              </p>
-            ) : canRequestPrice && onRequestPrice ? (
-              <button
-                type="button"
-                className="underline hover:text-theme-primary"
-                onClick={() => onRequestPrice()}
-              >
-                Get BrickLink price
-              </button>
+            {pricingEnabled ? (
+              <>
+                {hasPrice ? null : isPricePending ? (
+                  <p className="text-foreground-muted italic">
+                    Fetching price…
+                  </p>
+                ) : pricingSource === 'unavailable' ? (
+                  <p className="text-foreground-muted italic">
+                    Price unavailable; BrickLink limit hit. Retry after daily
+                    reset.
+                  </p>
+                ) : canRequestPrice && onRequestPrice ? (
+                  <button
+                    type="button"
+                    className="underline hover:text-theme-primary"
+                    onClick={() => onRequestPrice()}
+                  >
+                    Get BrickLink price
+                  </button>
+                ) : (
+                  <p className="text-foreground-muted italic">
+                    Price unavailable.
+                  </p>
+                )}
+              </>
             ) : (
-              <p className="text-foreground-muted italic">Price unavailable.</p>
+              <div className="text-xs text-foreground-muted italic">
+                <p>Price data coming soon</p>
+                <p className="mt-0.5 text-[11px]">
+                  We&apos;re building a reliable price database
+                </p>
+              </div>
             )}
           </div>
           <a

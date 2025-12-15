@@ -9,6 +9,7 @@ import {
   formatMultiSelectLabel,
 } from '@/app/components/ui/GroupedDropdown';
 import { RowButton } from '@/app/components/ui/RowButton';
+import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
 import {
   CheckSquare,
   Download,
@@ -98,6 +99,7 @@ export function TopBarControls({
   isColorOpen,
   onOpenExportModal,
 }: Props) {
+  const pricingEnabled = usePricingEnabled();
   const getColorLabel = () =>
     formatMultiSelectLabel('Colors', filter.colors || []);
 
@@ -174,7 +176,9 @@ export function TopBarControls({
                     { key: 'color', text: 'Color' },
                     { key: 'size', text: 'Size' },
                     { key: 'category', text: 'Category' },
-                    { key: 'price', text: 'Price' },
+                    ...(pricingEnabled
+                      ? [{ key: 'price', text: 'Price' }]
+                      : []),
                   ],
                   selectedKey: sortKey,
                   onChange: k => {

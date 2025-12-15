@@ -1,6 +1,7 @@
 'use client';
 
 import type { InventoryRow } from '@/app/components/set/types';
+import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
 import { logger } from '@/lib/metrics';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -59,6 +60,7 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
   onPriceStatusChange,
   onPriceTotalsChange,
 }: UseInventoryPricesArgs): UseInventoryPricesResult<TPriceInfo> {
+  const pricingEnabled = usePricingEnabled();
   const [pricesByKey, setPricesByKey] = useState<Record<string, TPriceInfo>>(
     {}
   );
@@ -68,6 +70,9 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
 
   const requestPricesForKeys = useCallback(
     async (keysToLoad: string[]) => {
+      // Short-circuit if pricing is disabled
+      if (!pricingEnabled) return;
+
       const uniqueKeys = Array.from(
         new Set(keysToLoad.filter((key): key is string => Boolean(key)))
       );
@@ -228,7 +233,7 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
         });
       }
     },
-    [keys, rows, pendingKeys, pricesByKey, setNumber]
+    [pricingEnabled, keys, rows, pendingKeys, pricesByKey, setNumber]
   );
 
   // Reset prices when switching sets
