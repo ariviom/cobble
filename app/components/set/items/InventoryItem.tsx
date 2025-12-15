@@ -7,6 +7,7 @@ import {
 } from '@/app/components/ui/MoreDropdown';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { formatMinifigId } from '@/app/lib/minifigIds';
+import { useAuth } from '@/app/components/providers/auth-provider';
 import { ExternalLink, Info, Pin, Search } from 'lucide-react';
 import Link from 'next/link';
 import { memo, useEffect, useState } from 'react';
@@ -52,6 +53,8 @@ function InventoryItemComponent({
   onRequestPrice,
   isEnriching = false,
 }: Props) {
+  const { user, isLoading } = useAuth();
+  const isAuthenticated = !!user && !isLoading;
   const isFigId =
     typeof row.partId === 'string' && row.partId.startsWith('fig:');
   const isMinifig = row.parentCategory === 'Minifigure' && isFigId;
@@ -288,11 +291,17 @@ function InventoryItemComponent({
                   : `Need ${row.quantityRequired - owned}`}
               </p>
             </div>
-            <OwnedQuantityControl
-              required={row.quantityRequired}
-              owned={owned}
-              onChange={onOwnedChange}
-            />
+            {isAuthenticated ? (
+              <OwnedQuantityControl
+                required={row.quantityRequired}
+                owned={owned}
+                onChange={onOwnedChange}
+              />
+            ) : (
+              <div className="flex h-12 w-full min-w-min items-center justify-center rounded-lg border border-subtle px-3 text-xs text-foreground-muted">
+                Sign in to track inventory
+              </div>
+            )}
           </div>
         </div>
       </div>

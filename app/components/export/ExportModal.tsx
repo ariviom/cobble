@@ -3,6 +3,7 @@
 import { Button } from '@/app/components/ui/Button';
 import { Modal } from '@/app/components/ui/Modal';
 import { Select } from '@/app/components/ui/Select';
+import { useAuth } from '@/app/components/providers/auth-provider';
 import { generateBrickLinkCsv } from '@/app/lib/export/bricklinkCsv';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
 import { generateRebrickableCsv } from '@/app/lib/export/rebrickableCsv';
@@ -24,6 +25,8 @@ export function ExportModal({
   setName,
   getMissingRows,
 }: Props) {
+  const { user, isLoading } = useAuth();
+  const isAuthenticated = !!user && !isLoading;
   const [target, setTarget] = useState<
     'rebrickable' | 'bricklink' | 'pickABrick'
   >('rebrickable');
@@ -96,13 +99,23 @@ export function ExportModal({
           <option value="bricklink">BrickLink Wanted List CSV</option>
           <option value="pickABrick">LEGO Pick-a-Brick CSV</option>
         </Select>
+        {!isAuthenticated && (
+          <div className="text-xs text-amber-600">
+            Sign in to export your missing parts list.
+          </div>
+        )}
         {error && <div className="text-xs text-red-600">{error}</div>}
         <div className="mt-2 flex justify-end gap-2">
           <Button onClick={onClose} variant="ghost">
             Cancel
           </Button>
-          <Button onClick={onExport} variant="primary">
-            Export
+          <Button
+            onClick={onExport}
+            variant="primary"
+            disabled={!isAuthenticated}
+            title={!isAuthenticated ? 'Sign in to export' : undefined}
+          >
+            {isAuthenticated ? 'Export' : 'Sign in to Export'}
           </Button>
         </div>
       </div>

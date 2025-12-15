@@ -905,6 +905,36 @@ export type Database = {
           },
         ];
       };
+      usage_counters: {
+        Row: {
+          count: number;
+          created_at: string | null;
+          feature_key: string;
+          updated_at: string | null;
+          user_id: string;
+          window_kind: string;
+          window_start: string;
+        };
+        Insert: {
+          count?: number;
+          created_at?: string | null;
+          feature_key: string;
+          updated_at?: string | null;
+          user_id: string;
+          window_kind: string;
+          window_start: string;
+        };
+        Update: {
+          count?: number;
+          created_at?: string | null;
+          feature_key?: string;
+          updated_at?: string | null;
+          user_id?: string;
+          window_kind?: string;
+          window_start?: string;
+        };
+        Relationships: [];
+      };
       user_list_items: {
         Row: {
           created_at: string;
@@ -1386,6 +1416,12 @@ export type Database = {
         Returns: {
           allowed: boolean;
           retry_after_seconds: number;
+        }[];
+      };
+      get_sets_with_minifigs: {
+        Args: never;
+        Returns: {
+          set_num: string;
         }[];
       };
       show_limit: { Args: never; Returns: number };
