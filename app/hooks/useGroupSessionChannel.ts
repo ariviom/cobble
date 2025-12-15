@@ -3,7 +3,7 @@
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { logEvent } from '@/lib/metrics';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type PieceDeltaPayload = {
   key: string;
@@ -45,6 +45,7 @@ type UseGroupSessionChannelResult = {
     newOwned: number;
   }) => void;
   broadcastOwnedSnapshot: (ownedByKey: Record<string, number>) => void;
+  connectionState: 'disconnected' | 'connecting' | 'connected';
 };
 
 export function useGroupSessionChannel({
@@ -58,6 +59,11 @@ export function useGroupSessionChannel({
   onParticipantPiecesDelta,
 }: UseGroupSessionChannelArgs): UseGroupSessionChannelResult {
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const [connectionState, setConnectionState] = useState<
+    'disconnected' | 'connecting' | 'connected'
+  >('disconnected');
+  const reconnectAttemptRef = useRef(0);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!enabled || !sessionId) {
@@ -104,12 +110,46 @@ export function useGroupSessionChannel({
 
     try {
       channel.subscribe(status => {
+        // Update connection state based on Realtime status
+        if (status === 'SUBSCRIBED') {
+          setConnectionState('connected');
+          reconnectAttemptRef.current = 0; // Reset on successful connection
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+          }
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          setConnectionState('disconnected');
+          // Attempt reconnect with exponential backoff
+          const delay = Math.min(
+            1000 * Math.pow(2, reconnectAttemptRef.current),
+            30000 // Max 30 seconds
+          );
+          reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectAttemptRef.current += 1;
+            setConnectionState('connecting');
+            // Re-subscription will happen on next effect run
+          }, delay);
+
+          if (process.env.NODE_ENV !== 'production') {
+            logEvent('group_session.channel_disconnected', {
+              sessionId,
+              reconnectAttempt: reconnectAttemptRef.current,
+              retryDelayMs: delay,
+            });
+          }
+        } else {
+          // Handle other states like SUBSCRIBING, TIMED_OUT
+          setConnectionState('connecting');
+        }
+
         if (process.env.NODE_ENV !== 'production') {
           // This is intentionally verbose only in development to help debug
           // Realtime connectivity issues.
           logEvent('group_session.channel_status', {
             sessionId,
             status,
+            connectionState,
           });
         }
       });
@@ -120,14 +160,22 @@ export function useGroupSessionChannel({
           error: err instanceof Error ? err.message : String(err),
         });
       }
+      setConnectionState('disconnected');
     }
 
     return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
       if (channelRef.current) {
         void channelRef.current.unsubscribe();
         channelRef.current = null;
       }
+      setConnectionState('disconnected');
     };
+    // Note: connectionState is intentionally not in deps to avoid re-subscribing on every state change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     enabled,
     sessionId,
@@ -215,5 +263,5 @@ export function useGroupSessionChannel({
     [enabled, sessionId, setNumber, clientId]
   );
 
-  return { broadcastPieceDelta, broadcastOwnedSnapshot };
+  return { broadcastPieceDelta, broadcastOwnedSnapshot, connectionState };
 }

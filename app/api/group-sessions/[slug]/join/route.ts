@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { errorResponse } from '@/app/lib/api/responses';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { logger } from '@/lib/metrics';
 import type { Tables } from '@/supabase/types';
 
@@ -34,6 +35,27 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       message: 'slug is required',
       details: { field: 'slug' },
     });
+  }
+
+  // Rate limit by IP - max 5 join attempts per minute to prevent abuse
+  const clientIp = await getClientIp(req);
+  if (clientIp) {
+    const ipLimit = await consumeRateLimit(`group-join:ip:${clientIp}`, {
+      windowMs: 60_000, // 1 minute
+      maxHits: 5,
+    });
+    if (!ipLimit.allowed) {
+      logger.warn('group_sessions.join.rate_limited', {
+        clientIp,
+        slug,
+        retryAfterSeconds: ipLimit.retryAfterSeconds,
+      });
+      return errorResponse('rate_limited', {
+        message: 'Too many join attempts. Please wait a moment.',
+        status: 429,
+        details: { retryAfterSeconds: ipLimit.retryAfterSeconds },
+      });
+    }
   }
 
   let rawBody: unknown;

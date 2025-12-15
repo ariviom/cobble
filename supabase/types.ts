@@ -1411,6 +1411,14 @@ export type Database = {
       };
     };
     Functions: {
+      check_participant_limit: {
+        Args: { session_uuid: string };
+        Returns: boolean;
+      };
+      cleanup_stale_participants: {
+        Args: { session_uuid: string };
+        Returns: number;
+      };
       consume_rate_limit: {
         Args: { p_key: string; p_max_hits?: number; p_window_ms?: number };
         Returns: {
