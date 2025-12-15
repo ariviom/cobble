@@ -2,13 +2,19 @@ import { errorResponse } from '@/app/lib/api/responses';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { getSetSummary } from '@/app/lib/rebrickable';
 import { incrementCounter, logger } from '@/lib/metrics';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-export async function POST(
-  _req: Request,
-  { params }: { params: { setNumber: string } }
-) {
-  const trimmed = params.setNumber.trim();
+export async function POST(req: NextRequest) {
+  const url = new URL(req.url);
+  const segments = url.pathname.split('/').filter(Boolean);
+  // Expecting path: /api/sets/id/[setNumber]/refresh-image
+  const idIndex = segments.indexOf('id');
+  const rawSetNumber =
+    idIndex !== -1 && segments.length > idIndex + 1
+      ? decodeURIComponent(segments[idIndex + 1] ?? '')
+      : '';
+  const trimmed = rawSetNumber.trim();
 
   if (!trimmed) {
     return errorResponse('validation_failed', {
