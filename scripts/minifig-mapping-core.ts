@@ -39,17 +39,20 @@ export type BlMinifig = {
 
 export type SetMappingResult = {
   processed: boolean;
+  skipped: boolean;
+  error: boolean;
   pairs: { rbFigId: string; blItemId: string }[];
 };
 
 /**
  * Process a single set: fetch BL minifigs, cache them, and create RB→BL mappings.
- * Returns { processed: true, pairs: [...] } if processed, { processed: false, pairs: [] } if skipped.
+ * Returns { processed: true, pairs: [...] } if processed, { processed: false, skipped: true } if already synced, or { error: true } on errors.
  */
 export async function processSetForMinifigMapping(
   supabase: SupabaseClient<Database>,
   setNum: string,
-  logPrefix: string
+  logPrefix: string,
+  force = false
 ): Promise<SetMappingResult> {
   // Check if we already have a successful sync for this set.
   const { data: blSet, error: blSetErr } = await supabase
@@ -64,13 +67,12 @@ export async function processSetForMinifigMapping(
       setNum,
       error: blSetErr.message,
     });
-    return { processed: false, pairs: [] };
+    return { processed: false, skipped: false, error: true, pairs: [] };
   }
 
-  if (blSet?.minifig_sync_status === 'ok') {
-    // eslint-disable-next-line no-console
-    console.log(`${logPrefix} Skipping ${setNum}, already synced (status=ok).`);
-    return { processed: false, pairs: [] };
+  if (!force && blSet?.minifig_sync_status === 'ok') {
+    // Skip already-synced sets unless force is enabled
+    return { processed: false, skipped: true, error: false, pairs: [] };
   }
 
   // Fetch BrickLink set subsets (minifigs).
@@ -102,7 +104,7 @@ export async function processSetForMinifigMapping(
         err instanceof Error ? err.message : String(err ?? 'unknown error'),
       last_minifig_sync_at: new Date().toISOString(),
     });
-    return { processed: false, pairs: [] };
+    return { processed: false, skipped: false, error: true, pairs: [] };
   }
 
   // Upsert BL set sync status.
@@ -174,7 +176,12 @@ export async function processSetForMinifigMapping(
     }
   }
 
-  return { processed: true, pairs: mappingResult.pairs };
+  return {
+    processed: true,
+    skipped: false,
+    error: false,
+    pairs: mappingResult.pairs,
+  };
 }
 
 type MappingResult = {
