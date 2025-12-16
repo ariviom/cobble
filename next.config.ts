@@ -12,6 +12,19 @@ const compiler =
 
 const nextConfig: NextConfig = {
   ...(compiler ? { compiler } : {}),
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      // Copy WASM files for server-side usage (imghash library)
+      config.module.rules.push({
+        test: /\.wasm$/,
+        type: 'asset/resource',
+        generator: {
+          filename: 'static/wasm/[name].[hash][ext]',
+        },
+      });
+    }
+    return config;
+  },
   images: {
     remotePatterns: [
       {

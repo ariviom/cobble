@@ -192,6 +192,8 @@ export type Database = {
       };
       bl_set_minifigs: {
         Row: {
+          image_hash: string | null;
+          image_hash_algorithm: string | null;
           image_url: string | null;
           last_refreshed_at: string | null;
           minifig_no: string;
@@ -201,6 +203,8 @@ export type Database = {
           set_num: string;
         };
         Insert: {
+          image_hash?: string | null;
+          image_hash_algorithm?: string | null;
           image_url?: string | null;
           last_refreshed_at?: string | null;
           minifig_no: string;
@@ -210,6 +214,8 @@ export type Database = {
           set_num: string;
         };
         Update: {
+          image_hash?: string | null;
+          image_hash_algorithm?: string | null;
           image_url?: string | null;
           last_refreshed_at?: string | null;
           minifig_no?: string;
@@ -260,7 +266,13 @@ export type Database = {
           bl_item_id: string;
           confidence: number | null;
           created_at: string;
+          image_match_attempted: boolean | null;
+          image_similarity: number | null;
+          manual_review: boolean | null;
+          manually_approved: boolean | null;
           rb_fig_id: string;
+          review_notes: string | null;
+          reviewed_at: string | null;
           source: string | null;
           updated_at: string;
         };
@@ -268,7 +280,13 @@ export type Database = {
           bl_item_id: string;
           confidence?: number | null;
           created_at?: string;
+          image_match_attempted?: boolean | null;
+          image_similarity?: number | null;
+          manual_review?: boolean | null;
+          manually_approved?: boolean | null;
           rb_fig_id: string;
+          review_notes?: string | null;
+          reviewed_at?: string | null;
           source?: string | null;
           updated_at?: string;
         };
@@ -276,7 +294,13 @@ export type Database = {
           bl_item_id?: string;
           confidence?: number | null;
           created_at?: string;
+          image_match_attempted?: boolean | null;
+          image_similarity?: number | null;
+          manual_review?: boolean | null;
+          manually_approved?: boolean | null;
           rb_fig_id?: string;
+          review_notes?: string | null;
+          reviewed_at?: string | null;
           source?: string | null;
           updated_at?: string;
         };
@@ -666,16 +690,22 @@ export type Database = {
       rb_minifig_images: {
         Row: {
           fig_num: string;
+          image_hash: string | null;
+          image_hash_algorithm: string | null;
           image_url: string;
           last_fetched_at: string;
         };
         Insert: {
           fig_num: string;
+          image_hash?: string | null;
+          image_hash_algorithm?: string | null;
           image_url: string;
           last_fetched_at?: string;
         };
         Update: {
           fig_num?: string;
+          image_hash?: string | null;
+          image_hash_algorithm?: string | null;
           image_url?: string;
           last_fetched_at?: string;
         };
@@ -735,16 +765,22 @@ export type Database = {
       rb_minifigs: {
         Row: {
           fig_num: string;
+          image_hash: string | null;
+          image_hash_algorithm: string | null;
           name: string;
           num_parts: number | null;
         };
         Insert: {
           fig_num: string;
+          image_hash?: string | null;
+          image_hash_algorithm?: string | null;
           name: string;
           num_parts?: number | null;
         };
         Update: {
           fig_num?: string;
+          image_hash?: string | null;
+          image_hash_algorithm?: string | null;
           name?: string;
           num_parts?: number | null;
         };
