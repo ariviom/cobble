@@ -2,10 +2,11 @@
 
 import { SetTopBar } from '@/app/components/nav/SetTopBar';
 import { InventoryTable } from '@/app/components/set/InventoryTable';
+import type { InventoryRow } from '@/app/components/set/types';
 import { Toast } from '@/app/components/ui/Toast';
 import { cn } from '@/app/components/ui/utils';
-import type { InventoryRow } from '@/app/components/set/types';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
+import { useOrigin } from '@/app/hooks/useOrigin';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { addRecentSet } from '@/app/store/recent-sets';
@@ -51,9 +52,9 @@ export function SetPageClient({
     useState<GroupParticipant | null>(null);
   const [participants, setParticipants] = useState<GroupParticipant[]>([]);
   const [isSearchTogetherLoading, setIsSearchTogetherLoading] = useState(false);
-  const [origin, setOrigin] = useState('');
   const [searchPartyError, setSearchPartyError] = useState<string | null>(null);
 
+  const origin = useOrigin();
   const { user } = useSupabaseUser();
   const clientId = useGroupClientId();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
@@ -69,12 +70,6 @@ export function SetPageClient({
       themeName: themeName ?? null,
     });
   }, [setNumber, setName, year, imageUrl, numParts, themeId, themeName]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setOrigin(window.location.origin);
-    }
-  }, []);
 
   const joinUrl = useMemo(() => {
     if (!groupSession || !groupSession.slug) return null;

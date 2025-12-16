@@ -11,6 +11,7 @@ import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
 import { Select } from '@/app/components/ui/Select';
 import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
+import { useOrigin } from '@/app/hooks/useOrigin';
 import { useTheme } from '@/app/hooks/useTheme';
 import {
   BRICKLINK_COUNTRY_OPTIONS,
@@ -363,15 +364,7 @@ export default function AccountPageClient({
   };
 
   const publicPath = publicHandle ? `/user/${publicHandle}` : null;
-
-  const [origin, setOrigin] = useState('');
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setOrigin(window.location.origin);
-    }
-  }, []);
-
+  const origin = useOrigin();
   const publicUrl = publicPath ? `${origin || ''}${publicPath}` : null;
 
   const handleSavePricingPreferences = async () => {

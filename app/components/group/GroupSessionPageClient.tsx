@@ -4,6 +4,7 @@ import { SetTopBar } from '@/app/components/nav/SetTopBar';
 import { InventoryTable } from '@/app/components/set/InventoryTable';
 import { cn } from '@/app/components/ui/utils';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
+import { useOrigin } from '@/app/hooks/useOrigin';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -39,15 +40,14 @@ export function GroupSessionPageClient({
   const [currentParticipant, setCurrentParticipant] =
     useState<GroupParticipant | null>(null);
   const [participants, setParticipants] = useState<GroupParticipant[]>([]);
-  const [origin, setOrigin] = useState('');
 
+  const origin = useOrigin();
   const clientId = useGroupClientId();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
+  // Restore display name from localStorage for returning participants
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    setOrigin(window.location.origin);
-
     try {
       const stored = window.localStorage.getItem(
         `brick_party_group_session_name_${slug}`
