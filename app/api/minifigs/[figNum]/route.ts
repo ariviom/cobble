@@ -1,3 +1,4 @@
+import { errorResponse } from '@/app/lib/api/responses';
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
 import {
   mapBrickLinkFigToRebrickable,
@@ -8,6 +9,7 @@ import { getSetSummary, getSetsForMinifig } from '@/app/lib/rebrickable';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import { extractBricklinkPartId } from '@/app/lib/rebrickable/utils';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
+import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 
 type MinifigMetaLight = {
@@ -110,7 +112,7 @@ async function loadSubpartsFromDb(
       .eq('fig_num', figNum);
 
     if (error) {
-      console.error('[minifig-meta] failed to read rb_minifig_parts', {
+      logger.warn('minifig.subparts.db_read_failed', {
         figNum,
         error: error.message,
       });
@@ -152,7 +154,7 @@ async function loadSubpartsFromDb(
       };
     });
   } catch (err) {
-    console.error('[minifig-meta] error loading subparts from db', {
+    logger.warn('minifig.subparts.db_load_error', {
       figNum,
       error: err instanceof Error ? err.message : String(err),
     });
@@ -221,7 +223,7 @@ async function fetchAndPersistSubparts(
       }));
       const { error } = await supabase.from('rb_minifig_parts').upsert(rows);
       if (error) {
-        console.error('[minifig-meta] failed to upsert rb_minifig_parts', {
+        logger.warn('minifig.subparts.upsert_failed', {
           figNum,
           error: error.message,
         });
@@ -240,7 +242,7 @@ async function fetchAndPersistSubparts(
           .from('part_id_mappings')
           .upsert(mappingRows, { onConflict: 'rb_part_id' });
         if (mapErr) {
-          console.error('[minifig-meta] failed to upsert part_id_mappings', {
+          logger.warn('minifig.part_mappings.upsert_failed', {
             figNum,
             error: mapErr.message,
           });
@@ -250,7 +252,7 @@ async function fetchAndPersistSubparts(
 
     return mapped;
   } catch (err) {
-    console.error('[minifig-meta] failed to fetch subparts', {
+    logger.warn('minifig.subparts.fetch_failed', {
       figNum,
       error: err instanceof Error ? err.message : String(err),
     });
@@ -278,7 +280,9 @@ export async function GET(
   const raw = resolvedParams?.figNum ?? '';
   const inputId = raw.trim();
   if (!inputId) {
-    return NextResponse.json({ error: 'missing_fig_num' }, { status: 400 });
+    return errorResponse('missing_required_field', {
+      message: 'Minifig figure number is required',
+    });
   }
 
   // Accept BrickLink IDs in the path; map to RB fig_num for lookups.
@@ -327,7 +331,7 @@ export async function GET(
         }
       }
     } catch (err) {
-      console.error('[minifig-meta] rb_minifigs lookup failed', {
+      logger.warn('minifig.catalog_lookup_failed', {
         figNum,
         error: err instanceof Error ? err.message : String(err),
       });
@@ -344,7 +348,7 @@ export async function GET(
           rbName = d.name;
         }
       } catch (err) {
-        console.error('[minifig-meta] fallback minifig name lookup failed', {
+        logger.warn('minifig.name_fallback_failed', {
           figNum,
           error: err instanceof Error ? err.message : String(err),
         });
@@ -355,7 +359,7 @@ export async function GET(
     try {
       blId = await mapRebrickableFigToBrickLink(figNum);
     } catch (err) {
-      console.error('[minifig-meta] mapRebrickableFigToBrickLink failed', {
+      logger.warn('minifig.bl_mapping_failed', {
         figNum,
         error: err instanceof Error ? err.message : String(err),
       });
@@ -365,13 +369,10 @@ export async function GET(
       try {
         blId = await mapRebrickableFigToBrickLinkOnDemand(figNum);
       } catch (err) {
-        console.error(
-          '[minifig-meta] on-demand BL mapping failed (includeSubparts path)',
-          {
-            figNum,
-            error: err instanceof Error ? err.message : String(err),
-          }
-        );
+        logger.warn('minifig.bl_mapping_ondemand_failed', {
+          figNum,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
     // If the caller provided a BL ID in the path, prefer to echo it back.
@@ -392,7 +393,7 @@ export async function GET(
         imageUrl = cached.image_url;
       }
     } catch (err) {
-      console.error('[minifig-meta] rb_minifig_images lookup failed', {
+      logger.warn('minifig.image_cache_lookup_failed', {
         figNum,
         error: err instanceof Error ? err.message : String(err),
       });
@@ -424,14 +425,14 @@ export async function GET(
               { onConflict: 'fig_num' }
             );
           } catch (err) {
-            console.error('[minifig-meta] failed to cache rb_minifig_images', {
+            logger.warn('minifig.image_cache_write_failed', {
               figNum,
               error: err instanceof Error ? err.message : String(err),
             });
           }
         }
       } catch (err) {
-        console.error('[minifig-meta] Rebrickable image lookup failed', {
+        logger.warn('minifig.rb_image_lookup_failed', {
           figNum,
           error: err instanceof Error ? err.message : String(err),
         });
@@ -459,7 +460,7 @@ export async function GET(
             themeName = summary.themeName;
           }
         } catch (err) {
-          console.error('[minifig-meta] set summary fallback failed', {
+          logger.warn('minifig.set_summary_fallback_failed', {
             figNum,
             setNumber: firstSet?.setNumber,
             error: err instanceof Error ? err.message : String(err),
@@ -467,7 +468,7 @@ export async function GET(
         }
       }
     } catch (err) {
-      console.error('[minifig-meta] getSetsForMinifig failed', {
+      logger.warn('minifig.get_sets_failed', {
         figNum,
         error: err instanceof Error ? err.message : String(err),
       });
@@ -526,10 +527,12 @@ export async function GET(
 
     return NextResponse.json(payload);
   } catch (err) {
-    console.error('[minifig-meta] unexpected error', {
+    logger.error('minifig.unexpected_error', {
       figNum,
       error: err instanceof Error ? err.message : String(err),
     });
-    return NextResponse.json({ error: 'minifig_meta_failed' }, { status: 500 });
+    return errorResponse('minifig_meta_failed', {
+      message: 'Failed to fetch minifig metadata',
+    });
   }
 }

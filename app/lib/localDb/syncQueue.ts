@@ -59,7 +59,9 @@ export async function getPendingSyncOperations(
 
     return limit ? results.slice(0, limit) : results;
   } catch (error) {
-    console.warn('Failed to get pending sync operations:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to get pending sync operations:', error);
+    }
     return [];
   }
 }
@@ -75,7 +77,9 @@ export async function removeSyncOperations(ids: number[]): Promise<void> {
     const db = getLocalDb();
     await db.syncQueue.bulkDelete(ids);
   } catch (error) {
-    console.warn('Failed to remove sync operations:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to remove sync operations:', error);
+    }
   }
 }
 
@@ -98,7 +102,9 @@ export async function markSyncOperationFailed(
       });
     }
   } catch (err) {
-    console.warn('Failed to mark sync operation as failed:', err);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to mark sync operation as failed:', err);
+    }
   }
 }
 
@@ -163,7 +169,9 @@ export async function clearSyncQueue(): Promise<void> {
     const db = getLocalDb();
     await db.syncQueue.clear();
   } catch (error) {
-    console.warn('Failed to clear sync queue:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to clear sync queue:', error);
+    }
   }
 }
 
@@ -234,6 +242,8 @@ export async function enqueueOwnedChange(
       });
     }
   } catch (error) {
-    console.warn('Failed to enqueue owned change:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to enqueue owned change:', error);
+    }
   }
 }

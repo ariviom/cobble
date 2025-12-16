@@ -1,3 +1,4 @@
+import { errorResponse } from '@/app/lib/api/responses';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -22,7 +23,9 @@ export async function GET(req: NextRequest) {
     Object.fromEntries(searchParams.entries())
   );
   if (!parsed.success) {
-    return NextResponse.json({ error: 'validation_failed' }, { status: 400 });
+    return errorResponse('validation_failed', {
+      details: { issues: parsed.error.flatten() },
+    });
   }
 
   // Default: return all sources if none specified
@@ -49,10 +52,9 @@ export async function GET(req: NextRequest) {
       .in('source', sources);
 
     if (error) {
-      return NextResponse.json(
-        { error: 'version_read_failed' },
-        { status: 500 }
-      );
+      return errorResponse('catalog_version_failed', {
+        message: 'Failed to read catalog versions',
+      });
     }
 
     const versions: Record<string, string | null> = {};
@@ -67,9 +69,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ versions });
   } catch {
-    return NextResponse.json(
-      { error: 'version_unexpected_error' },
-      { status: 500 }
-    );
+    return errorResponse('catalog_version_failed', {
+      message: 'Unexpected error fetching catalog versions',
+    });
   }
 }

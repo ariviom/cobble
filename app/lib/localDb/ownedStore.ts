@@ -106,7 +106,9 @@ export async function setOwnedForSet(
       }
     });
   } catch (error) {
-    console.warn('Failed to write owned quantities to IndexedDB:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to write owned quantities to IndexedDB:', error);
+    }
   }
 }
 
@@ -154,7 +156,9 @@ export async function setOwnedQuantity(
       }
     });
   } catch (error) {
-    console.warn('Failed to set owned quantity in IndexedDB:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to set owned quantity in IndexedDB:', error);
+    }
   }
 }
 
@@ -168,7 +172,9 @@ export async function clearOwnedForSet(setNumber: string): Promise<void> {
     const db = getLocalDb();
     await db.localOwned.where('setNumber').equals(setNumber).delete();
   } catch (error) {
-    console.warn('Failed to clear owned quantities from IndexedDB:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to clear owned quantities from IndexedDB:', error);
+    }
   }
 }
 
@@ -183,7 +189,9 @@ export async function markAllOwnedForSet(
 ): Promise<void> {
   if (!isIndexedDBAvailable()) return;
   if (keys.length !== quantities.length) {
-    console.warn('markAllOwnedForSet: keys and quantities arrays must match');
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('markAllOwnedForSet: keys and quantities arrays must match');
+    }
     return;
   }
 
@@ -269,7 +277,9 @@ export async function importOwnedFromRecord(
       }
     });
   } catch (error) {
-    console.warn('Failed to import owned quantities to IndexedDB:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to import owned quantities to IndexedDB:', error);
+    }
   }
 }
 
@@ -304,7 +314,9 @@ export async function exportOwnedToRecord(
 
     return { data, maxUpdatedAt };
   } catch (error) {
-    console.warn('Failed to export owned quantities from IndexedDB:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to export owned quantities from IndexedDB:', error);
+    }
     return { data: {}, maxUpdatedAt: 0 };
   }
 }

@@ -17,7 +17,7 @@ import type {
 } from '@/app/types/search';
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { SearchResultListItem } from './SearchResultListItem';
 
 async function fetchSearchPage(
@@ -108,32 +108,16 @@ export function SearchResults() {
   const searchType = parseTypeParam(params.get('type'));
   const [sort, setSort] = useState<SortOption>('relevance');
   const [pageSize, setPageSize] = useState<number>(20);
-  const filterFromParams = parseFilterParam(params.get('filter'));
-  const [filter, setFilter] = useState<FilterType>(filterFromParams);
-  const exactFromParams = parseExactParam(params.get('exact'));
-  const [exact, setExact] = useState<boolean>(exactFromParams);
-  const minifigSortFromParams = parseMinifigSort(params.get('mfSort'));
-  const [minifigSort, setMinifigSort] = useState<MinifigSortOption>(
-    minifigSortFromParams
-  );
 
-  useEffect(() => {
-    setFilter(filterFromParams);
-  }, [filterFromParams]);
-
-  useEffect(() => {
-    setExact(exactFromParams);
-  }, [exactFromParams]);
-
-  useEffect(() => {
-    setMinifigSort(minifigSortFromParams);
-  }, [minifigSortFromParams]);
+  // Derive values directly from URL params - no useEffect sync needed
+  const filter = parseFilterParam(params.get('filter'));
+  const exact = parseExactParam(params.get('exact'));
+  const minifigSort = parseMinifigSort(params.get('mfSort'));
 
   const handleFilterChange = (nextFilter: FilterType) => {
     if (nextFilter === filter) {
       return;
     }
-    setFilter(nextFilter);
     const sp = new URLSearchParams(Array.from(params.entries()));
     sp.set('filter', nextFilter);
     const nextSearch = sp.toString();
@@ -142,7 +126,6 @@ export function SearchResults() {
 
   const handleMinifigSortChange = (nextSort: MinifigSortOption) => {
     if (nextSort === minifigSort) return;
-    setMinifigSort(nextSort);
     const sp = new URLSearchParams(Array.from(params.entries()));
     if (nextSort === 'relevance') {
       sp.delete('mfSort');
@@ -157,7 +140,6 @@ export function SearchResults() {
     if (nextExact === exact) {
       return;
     }
-    setExact(nextExact);
     const sp = new URLSearchParams(Array.from(params.entries()));
     if (nextExact) {
       sp.set('exact', '1');

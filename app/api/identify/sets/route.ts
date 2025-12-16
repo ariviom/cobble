@@ -1,3 +1,4 @@
+import { errorResponse } from '@/app/lib/api/responses';
 import { blGetPartSupersets, type BLSupersetItem } from '@/app/lib/bricklink';
 import { getSetsForPartLocal, getSetSummaryLocal } from '@/app/lib/catalog';
 import {
@@ -16,7 +17,7 @@ import {
   type PartInSet,
 } from '@/app/lib/rebrickable';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
-import { logEvent } from '@/lib/metrics';
+import { logEvent, logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
@@ -26,7 +27,9 @@ export async function GET(req: NextRequest) {
   const blColorIdRaw = searchParams.get('blColorId');
 
   if (!part) {
-    return NextResponse.json({ error: 'missing_part' });
+    return errorResponse('missing_required_field', {
+      message: 'Part parameter is required',
+    });
   }
 
   const looksLikeBricklinkFig = /^[a-z]{3}\d{3,}$/i.test(part.trim());
@@ -36,10 +39,12 @@ export async function GET(req: NextRequest) {
     const tokenRaw = part.startsWith('fig:') ? part.slice(4) : part;
     const token = tokenRaw.trim();
     if (!token) {
-      return NextResponse.json({
-        error: 'missing_minifig_id',
-        part: { partNum: part, name: '', imageUrl: null },
-        sets: [],
+      return errorResponse('missing_required_field', {
+        message: 'Minifig ID is required',
+        details: {
+          part: { partNum: part, name: '', imageUrl: null },
+          sets: [],
+        },
       });
     }
     try {
@@ -170,16 +175,16 @@ export async function GET(req: NextRequest) {
         })),
       });
     } catch (err) {
-      if (process.env.NODE_ENV !== 'production') {
-        logEvent('identify.sets.minifig.failed', {
-          part,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-      return NextResponse.json({
-        error: 'identify_sets_failed',
-        part: { partNum: part, name: '', imageUrl: null },
-        sets: [],
+      logger.warn('identify.sets.minifig.failed', {
+        part,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return errorResponse('identify_sets_failed', {
+        message: 'Failed to identify minifig sets',
+        details: {
+          part: { partNum: part, name: '', imageUrl: null },
+          sets: [],
+        },
       });
     }
   }
@@ -238,7 +243,7 @@ export async function GET(req: NextRequest) {
       }
     } catch (err) {
       // log and fall back
-      console.error('identify/sets local catalog lookup failed', {
+      logger.warn('identify.sets.local_catalog_failed', {
         part: rbPart,
         error: err instanceof Error ? err.message : String(err),
       });
@@ -475,17 +480,13 @@ export async function GET(req: NextRequest) {
       sets: finalSets,
     });
   } catch (err) {
-    if (process.env.NODE_ENV !== 'production') {
-      logEvent('identify.sets.failed', {
-        part,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-    // Always-200: return empty sets with minimal part info
-    return NextResponse.json({
-      error: 'identify_sets_failed',
-      part: { partNum: part, name: '', imageUrl: null },
-      sets: [],
+    logger.warn('identify.sets.failed', {
+      part,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return errorResponse('identify_sets_failed', {
+      message: 'Failed to identify part sets',
+      details: { part: { partNum: part, name: '', imageUrl: null }, sets: [] },
     });
   }
 }

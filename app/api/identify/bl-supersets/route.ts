@@ -1,6 +1,7 @@
+import { errorResponse } from '@/app/lib/api/responses';
 import { blGetPartSupersets, type BLSupersetItem } from '@/app/lib/bricklink';
 import { getSetSummary, type PartInSet } from '@/app/lib/rebrickable';
-import { incrementCounter, logEvent } from '@/lib/metrics';
+import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -15,7 +16,9 @@ export async function GET(req: NextRequest) {
   const blColorIdRaw = searchParams.get('blColorId');
   if (!blPart) {
     incrementCounter('identify_supersets_validation_failed');
-    return NextResponse.json({ error: 'missing_bl_part' });
+    return errorResponse('missing_required_field', {
+      message: 'BrickLink part ID is required',
+    });
   }
   const clientIp = (await getClientIp(req)) ?? 'unknown';
   const ipLimit = await consumeRateLimit(`ip:${clientIp}`, {
@@ -102,15 +105,13 @@ export async function GET(req: NextRequest) {
       part: blPart,
       error: err instanceof Error ? err.message : String(err),
     });
-    if (process.env.NODE_ENV !== 'production') {
-      logEvent('identify.bl_supersets_failed', {
-        part: blPart,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-    return NextResponse.json({
-      error: 'identify_bl_supersets_failed',
-      sets: [],
+    logger.warn('identify.bl_supersets_failed', {
+      part: blPart,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return errorResponse('identify_supersets_failed', {
+      message: 'Failed to fetch BrickLink supersets',
+      details: { sets: [] },
     });
   }
 }

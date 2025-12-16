@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { errorResponse } from '@/app/lib/api/responses';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
+import { logger } from '@/lib/metrics';
 
 // Development-only route for fixing minifig mappings at the set level
 
@@ -16,10 +18,9 @@ const FixMappingSchema = z.object({
 
 export async function POST(request: NextRequest) {
   if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json(
-      { error: 'This endpoint is only available in development' },
-      { status: 403 }
-    );
+    return errorResponse('forbidden', {
+      message: 'This endpoint is only available in development',
+    });
   }
 
   try {
@@ -79,14 +80,13 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (blErr || !blMinifig) {
-        return NextResponse.json(
-          {
-            error: 'BrickLink minifig not found in this set',
+        return errorResponse('not_found', {
+          message: 'BrickLink minifig not found in this set',
+          details: {
             minifig_no: input.new_bl_minifig_no,
             set_num: input.set_num,
           },
-          { status: 404 }
-        );
+        });
       }
 
       // Strategy: Update the target BL minifig to point to the new RB fig
@@ -155,7 +155,9 @@ export async function POST(request: NextRequest) {
         );
 
       if (mappingErr) {
-        console.warn('Failed to update global mapping:', mappingErr);
+        logger.warn('minifig_mapping.global_update_failed', {
+          error: mappingErr.message,
+        });
       }
 
       return NextResponse.json({
@@ -183,7 +185,9 @@ export async function POST(request: NextRequest) {
         .eq('bl_item_id', input.old_bl_minifig_no);
 
       if (approveErr) {
-        console.warn('Failed to approve global mapping:', approveErr);
+        logger.warn('minifig_mapping.approve_failed', {
+          error: approveErr.message,
+        });
       }
 
       return NextResponse.json({
@@ -195,23 +199,26 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    return errorResponse('invalid_format', {
+      message: 'Invalid action specified',
+    });
   } catch (error) {
-    console.error('Failed to fix minifig mapping:', error);
+    logger.error('minifig_mapping.fix_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request', details: error.errors },
-        { status: 400 }
-      );
+      return errorResponse('validation_failed', {
+        message: 'Invalid request',
+        details: { errors: error.errors },
+      });
     }
 
-    return NextResponse.json(
-      {
-        error: 'Failed to fix mapping',
-        details: error instanceof Error ? error.message : String(error),
+    return errorResponse('mapping_fix_failed', {
+      message: 'Failed to fix mapping',
+      details: {
+        error: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
-    );
+    });
   }
 }

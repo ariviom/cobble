@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
+import { errorResponse } from '@/app/lib/api/responses';
 import { upsertSubscriptionFromStripe } from '@/app/lib/services/billing';
 import {
   getStripeClient,
@@ -164,7 +165,9 @@ export async function POST(req: NextRequest) {
     logger.warn('billing.webhook_signature_failed', {
       error: err instanceof Error ? err.message : String(err),
     });
-    return NextResponse.json({ error: 'invalid signature' }, { status: 400 });
+    return errorResponse('webhook_signature_invalid', {
+      message: 'Invalid Stripe signature',
+    });
   }
 
   const supabase = getSupabaseServiceRoleClient();
@@ -174,7 +177,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true });
   }
   if (recorded === 'failed') {
-    return NextResponse.json({ received: false }, { status: 500 });
+    return errorResponse('webhook_processing_failed', {
+      message: 'Failed to record webhook event',
+    });
   }
 
   let status = 'ok';

@@ -22,6 +22,13 @@ export type AppErrorCode =
   | 'search_failed'
   | 'inventory_failed'
   | 'identify_failed'
+  | 'identify_sets_failed'
+  | 'identify_supersets_failed'
+  | 'minifig_meta_failed'
+  | 'catalog_version_failed'
+  | 'mapping_fix_failed'
+  | 'webhook_signature_invalid'
+  | 'webhook_processing_failed'
   | 'unknown_error'
   // Allow future string codes without breaking the type.
   | (string & {});

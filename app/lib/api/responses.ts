@@ -22,6 +22,13 @@ const STATUS_MAP: Partial<Record<AppErrorCode, number>> = {
   search_failed: 500,
   inventory_failed: 500,
   identify_failed: 500,
+  identify_sets_failed: 500,
+  identify_supersets_failed: 500,
+  minifig_meta_failed: 500,
+  catalog_version_failed: 500,
+  mapping_fix_failed: 500,
+  webhook_signature_invalid: 400,
+  webhook_processing_failed: 500,
   unknown_error: 500,
 };
 
