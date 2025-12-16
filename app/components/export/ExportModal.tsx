@@ -1,15 +1,36 @@
 'use client';
 
+import { useAuth } from '@/app/components/providers/auth-provider';
 import { Button } from '@/app/components/ui/Button';
 import { Checkbox } from '@/app/components/ui/Checkbox';
 import { Modal } from '@/app/components/ui/Modal';
 import { Select } from '@/app/components/ui/Select';
-import { useAuth } from '@/app/components/providers/auth-provider';
 import { generateBrickLinkCsv } from '@/app/lib/export/bricklinkCsv';
+import { generatePickABrickCsv } from '@/app/lib/export/pickABrickCsv';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
 import { generateRebrickableCsv } from '@/app/lib/export/rebrickableCsv';
-import { generatePickABrickCsv } from '@/app/lib/export/pickABrickCsv';
 import { useState } from 'react';
+
+/**
+ * Fire-and-forget logging of minifig mapping confidence distribution.
+ * This is for observability and doesn't affect the export flow.
+ */
+async function logExportConfidence(
+  setNumber: string,
+  rbFigIds: string[],
+  exportType: 'bricklink' | 'rebrickable' | 'pickABrick',
+  missingOnly: boolean
+): Promise<void> {
+  try {
+    await fetch('/api/export/log-confidence', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ setNumber, rbFigIds, exportType, missingOnly }),
+    });
+  } catch {
+    // Silently ignore logging failures - this is observability, not critical path
+  }
+}
 
 type Props = {
   open: boolean;
@@ -77,11 +98,25 @@ export function ExportModal({
       ? `${setNumber} — ${setName} — mvp`
       : `${setNumber} — mvp`;
     try {
-      const { csv, unmapped } = await generateBrickLinkCsv(rows, {
-        wantedListName: wantedName,
-        condition: 'U',
-      });
+      const { csv, unmapped, exportedMinifigIds } = await generateBrickLinkCsv(
+        rows,
+        {
+          wantedListName: wantedName,
+          condition: 'U',
+        }
+      );
       downloadCsv(`${setNumber}_${filenameSuffix}_bricklink.csv`, csv);
+
+      // Log confidence distribution for observability (fire-and-forget)
+      if (exportedMinifigIds.length > 0) {
+        void logExportConfidence(
+          setNumber,
+          exportedMinifigIds,
+          'bricklink',
+          missingOnly
+        );
+      }
+
       if (unmapped.length > 0) {
         setError(
           `${unmapped.length} rows could not be mapped to BrickLink colors and were skipped.`

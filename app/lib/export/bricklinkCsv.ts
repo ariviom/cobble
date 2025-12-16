@@ -7,6 +7,13 @@ export type BrickLinkOptions = {
   condition?: 'N' | 'U';
 };
 
+export type BrickLinkExportResult = {
+  csv: string;
+  unmapped: MissingRow[];
+  /** Rebrickable fig IDs (without 'fig:' prefix) for minifigs included in the export */
+  exportedMinifigIds: string[];
+};
+
 // BrickLink wanted list CSV typical headers:
 // Create a typical subset: Item Type,Item No,Color,Quantity,Condition,Description,Comments,Extra,Image,Minimum Price,Maximum Price,Tier Quantity1,Tier Price1, ... (we'll use essentials)
 // We'll include wanted list name in Description for portability if importer doesn't accept a separate name field.
@@ -14,7 +21,7 @@ export type BrickLinkOptions = {
 export async function generateBrickLinkCsv(
   rows: MissingRow[],
   opts: BrickLinkOptions
-): Promise<{ csv: string; unmapped: MissingRow[] }> {
+): Promise<BrickLinkExportResult> {
   const filtered = rows.filter(r => r.quantityMissing > 0);
   const headers = [
     'Item Type',
@@ -26,12 +33,20 @@ export async function generateBrickLinkCsv(
   ];
   const body: Array<Array<string | number>> = [];
   const unmapped: MissingRow[] = [];
+  const exportedMinifigIds: string[] = [];
+
   for (const r of filtered) {
     const mapped = await mapToBrickLink(r.partId, r.colorId);
     if (!mapped) {
       unmapped.push(r);
       continue;
     }
+
+    // Track minifig IDs for confidence logging
+    if (mapped.itemType === 'MINIFIG' && r.partId.startsWith('fig:')) {
+      exportedMinifigIds.push(r.partId.replace(/^fig:/, ''));
+    }
+
     body.push([
       mapped.itemType === 'MINIFIG' ? 'M' : 'P',
       mapped.itemNo,
@@ -41,5 +56,9 @@ export async function generateBrickLinkCsv(
       `${opts.wantedListName}`,
     ]);
   }
-  return { csv: toCsv(headers, body, /* includeBom */ true), unmapped };
+  return {
+    csv: toCsv(headers, body, /* includeBom */ true),
+    unmapped,
+    exportedMinifigIds,
+  };
 }
