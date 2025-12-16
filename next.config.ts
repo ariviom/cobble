@@ -1,4 +1,52 @@
 import type { NextConfig } from 'next';
+import withPWAInit from 'next-pwa';
+
+const withPWA = withPWAInit({
+  dest: 'public',
+  // Disable PWA in development to avoid service worker caching issues
+  disable: process.env.NODE_ENV === 'development',
+  register: true,
+  skipWaiting: true,
+  // Runtime caching for external image CDNs
+  runtimeCaching: [
+    {
+      // Rebrickable images (part photos, set images)
+      urlPattern: /^https:\/\/cdn\.rebrickable\.com\/.*/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'rebrickable-images',
+        expiration: {
+          maxEntries: 500,
+          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+        },
+      },
+    },
+    {
+      // BrickLink images (minifig photos)
+      urlPattern: /^https:\/\/img\.bricklink\.com\/.*/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'bricklink-images',
+        expiration: {
+          maxEntries: 500,
+          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+        },
+      },
+    },
+    {
+      // Google Storage images (set thumbnails)
+      urlPattern: /^https:\/\/storage\.googleapis\.com\/.*/i,
+      handler: 'CacheFirst',
+      options: {
+        cacheName: 'google-storage-images',
+        expiration: {
+          maxEntries: 200,
+          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+        },
+      },
+    },
+  ],
+});
 
 const compiler =
   process.env.NODE_ENV === 'production'
@@ -64,4 +112,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withPWA(nextConfig);

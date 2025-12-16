@@ -136,8 +136,15 @@ export default async function RootLayout({
       className={resolved === 'dark' ? 'dark' : undefined}
     >
       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta
+          name="theme-color"
+          content={resolved === 'dark' ? '#1f2937' : '#3b82f6'}
+        />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Brick Party" />
+        <link rel="apple-touch-icon" href="/logo/brickparty_logo.png" />
         <meta
           name="color-scheme"
           content={resolved === 'dark' ? 'dark light' : 'light'}
