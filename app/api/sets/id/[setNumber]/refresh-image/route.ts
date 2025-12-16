@@ -1,11 +1,12 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
+import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSetSummary } from '@/app/lib/rebrickable';
 import { incrementCounter, logger } from '@/lib/metrics';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-export async function POST(req: NextRequest) {
+export const POST = withCsrfProtection(async (req: NextRequest) => {
   const url = new URL(req.url);
   const segments = url.pathname.split('/').filter(Boolean);
   // Expecting path: /api/sets/id/[setNumber]/refresh-image
@@ -79,4 +80,4 @@ export async function POST(req: NextRequest) {
       message: 'Failed to refresh set image from Rebrickable',
     });
   }
-}
+});

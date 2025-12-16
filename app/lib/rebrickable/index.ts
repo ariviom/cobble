@@ -24,7 +24,12 @@ export type {
 } from './types';
 
 // Client utilities
-export { rbFetch, rbFetchAbsolute, sleep } from './client';
+export {
+  isRebrickableCircuitOpen,
+  rbFetch,
+  rbFetchAbsolute,
+  sleep,
+} from './client';
 
 // Search
 export {

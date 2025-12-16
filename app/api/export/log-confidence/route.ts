@@ -1,5 +1,7 @@
+import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import { logger } from '@/lib/metrics';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 type RequestBody = {
@@ -26,7 +28,7 @@ type ConfidenceDistribution = {
  * Logs the confidence distribution for minifig mappings in an export.
  * This is a fire-and-forget logging endpoint for observability.
  */
-export async function POST(request: Request) {
+export const POST = withCsrfProtection(async (request: NextRequest) => {
   try {
     const body = (await request.json()) as RequestBody;
     const { setNumber, rbFigIds, exportType, missingOnly } = body;
@@ -145,4 +147,4 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ logged: false }, { status: 500 });
   }
-}
+});

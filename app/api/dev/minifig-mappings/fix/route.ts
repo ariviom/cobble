@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { errorResponse } from '@/app/lib/api/responses';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
+import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { logger } from '@/lib/metrics';
 
 // Development-only route for fixing minifig mappings at the set level
@@ -16,7 +17,7 @@ const FixMappingSchema = z.object({
   notes: z.string().optional(),
 });
 
-export async function POST(request: NextRequest) {
+export const POST = withCsrfProtection(async (request: NextRequest) => {
   if (process.env.NODE_ENV === 'production') {
     return errorResponse('forbidden', {
       message: 'This endpoint is only available in development',
@@ -221,4 +222,4 @@ export async function POST(request: NextRequest) {
       },
     });
   }
-}
+});

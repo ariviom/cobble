@@ -3,6 +3,7 @@ import 'server-only';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import type { Database } from '@/supabase/types';
 
 type SupabaseCookie = {
@@ -11,7 +12,7 @@ type SupabaseCookie = {
   options?: CookieOptions;
 };
 
-export async function POST(request: NextRequest) {
+export const POST = withCsrfProtection(async (request: NextRequest) => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -64,4 +65,4 @@ export async function POST(request: NextRequest) {
 
     return response;
   }
-}
+});

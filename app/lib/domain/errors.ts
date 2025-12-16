@@ -17,6 +17,7 @@ export type AppErrorCode =
   | 'external_service_error'
   | 'brickognize_failed'
   | 'rebrickable_failed'
+  | 'rebrickable_circuit_open'
   | 'bricklink_circuit_open'
   // Internal errors
   | 'search_failed'

@@ -1,10 +1,70 @@
 import 'server-only';
 
+import { logger } from '@/lib/metrics';
+
 const BASE = 'https://rebrickable.com/api/v3' as const;
 
 const RB_MAX_ATTEMPTS = 3;
 /** Request timeout in milliseconds (30 seconds) */
 const RB_REQUEST_TIMEOUT_MS = 30_000;
+
+/**
+ * Circuit breaker configuration.
+ * Opens after RB_BREAKER_THRESHOLD consecutive failures.
+ * Stays open for RB_BREAKER_COOLDOWN_MS before allowing a probe request.
+ */
+const RB_BREAKER_THRESHOLD =
+  Number.parseInt(process.env.RB_BREAKER_THRESHOLD ?? '', 10) || 5;
+const RB_BREAKER_COOLDOWN_MS =
+  Number.parseInt(process.env.RB_BREAKER_COOLDOWN_MS ?? '', 10) || 60_000;
+
+// Circuit breaker state
+let consecutiveFailures = 0;
+let breakerOpenUntil = 0;
+
+/**
+ * Check if the circuit breaker is currently open.
+ * Returns true if requests should be blocked.
+ */
+export function isRebrickableCircuitOpen(): boolean {
+  return breakerOpenUntil > Date.now();
+}
+
+/**
+ * Assert the circuit breaker is closed, otherwise throw.
+ */
+function assertBreakerClosed(): void {
+  if (isRebrickableCircuitOpen()) {
+    const retryAfterMs = breakerOpenUntil - Date.now();
+    const err = new Error('rebrickable_circuit_open');
+    (err as Error & { retryAfterMs: number }).retryAfterMs = retryAfterMs;
+    throw err;
+  }
+}
+
+/**
+ * Record a successful request - resets failure counter.
+ */
+function recordSuccess(): void {
+  if (consecutiveFailures > 0) {
+    consecutiveFailures = 0;
+  }
+}
+
+/**
+ * Record a failed request - may open the circuit breaker.
+ */
+function recordFailure(): void {
+  consecutiveFailures += 1;
+  if (consecutiveFailures >= RB_BREAKER_THRESHOLD) {
+    breakerOpenUntil = Date.now() + RB_BREAKER_COOLDOWN_MS;
+    consecutiveFailures = 0;
+    logger.warn('rebrickable.circuit_opened', {
+      cooldownMs: RB_BREAKER_COOLDOWN_MS,
+      threshold: RB_BREAKER_THRESHOLD,
+    });
+  }
+}
 
 export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -36,12 +96,15 @@ function createTimeoutSignal(timeoutMs: number): {
 }
 
 /**
- * Fetch from Rebrickable API with retry/backoff support.
+ * Fetch from Rebrickable API with retry/backoff support and circuit breaker.
  */
 export async function rbFetch<T>(
   path: string,
   searchParams?: Record<string, string | number>
 ): Promise<T> {
+  // Check circuit breaker before attempting request
+  assertBreakerClosed();
+
   const apiKey = getApiKey();
   const url = new URL(`${BASE}${path}`);
   if (searchParams) {
@@ -63,6 +126,7 @@ export async function rbFetch<T>(
       cleanup();
 
       if (res.ok) {
+        recordSuccess();
         return (await res.json()) as T;
       }
 
@@ -142,6 +206,7 @@ export async function rbFetch<T>(
       }
 
       // cleanup() already called after fetch completed
+      recordFailure();
       const err = new Error(
         `Rebrickable error ${status}${bodySnippet ? `: ${bodySnippet}` : ''}`
       );
@@ -149,6 +214,7 @@ export async function rbFetch<T>(
       break;
     } catch (err) {
       cleanup();
+      recordFailure();
       // Check if this is a timeout/abort error
       const isAbort =
         err instanceof Error &&
@@ -176,9 +242,12 @@ export async function rbFetch<T>(
 }
 
 /**
- * Fetch from an absolute URL (for pagination links) with retry/backoff support.
+ * Fetch from an absolute URL (for pagination links) with retry/backoff support and circuit breaker.
  */
 export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
+  // Check circuit breaker before attempting request
+  assertBreakerClosed();
+
   const apiKey = getApiKey();
   let lastError: Error | null = null;
 
@@ -193,6 +262,7 @@ export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
       cleanup();
 
       if (res.ok) {
+        recordSuccess();
         return (await res.json()) as T;
       }
 
@@ -206,6 +276,7 @@ export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
       }
 
       if (status === 429 || status === 503) {
+        recordFailure();
         let delayMs = 0;
         const retryAfter = res.headers.get('Retry-After');
         if (retryAfter) {
@@ -249,6 +320,7 @@ export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
           continue;
         }
       } else if (status >= 500 && status <= 599 && attempt < RB_MAX_ATTEMPTS) {
+        recordFailure();
         const delayMs = Math.min(300 * attempt, 2000);
         if (process.env.NODE_ENV !== 'production') {
           try {
@@ -266,6 +338,7 @@ export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
       }
 
       // cleanup() already called after fetch completed
+      recordFailure();
       const err = new Error(
         `Rebrickable error ${status}${
           bodySnippet ? `: ${bodySnippet}` : ''
@@ -275,6 +348,7 @@ export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
       break;
     } catch (err) {
       cleanup();
+      recordFailure();
       // Check if this is a timeout/abort error
       const isAbort =
         err instanceof Error &&

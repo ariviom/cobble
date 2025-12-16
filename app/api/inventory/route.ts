@@ -85,6 +85,20 @@ export async function GET(req: NextRequest) {
       headers: { 'Cache-Control': CACHE_CONTROL },
     });
   } catch (err) {
+    // Check for circuit breaker open
+    if (err instanceof Error && err.message === 'rebrickable_circuit_open') {
+      const retryAfterMs =
+        (err as Error & { retryAfterMs?: number }).retryAfterMs ?? 60_000;
+      const retryAfterSeconds = Math.ceil(retryAfterMs / 1000);
+      incrementCounter('inventory_circuit_open', { setNumber: set });
+      return errorResponse('rebrickable_circuit_open', {
+        message:
+          'Rebrickable API is temporarily unavailable. Please try again shortly.',
+        status: 503,
+        details: { retryAfterSeconds },
+      });
+    }
+
     incrementCounter('inventory_failed', {
       setNumber: set,
       error: err instanceof Error ? err.message : String(err),

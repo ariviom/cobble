@@ -12,6 +12,7 @@
  * It should wrap the app content but runs only on the client.
  */
 
+import { SYNC_BATCH_SIZE, SYNC_INTERVAL_MS } from '@/app/config/timing';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import {
   getLocalDb,
@@ -26,6 +27,11 @@ import {
   setStoredUserId,
 } from '@/app/lib/localDb';
 import {
+  getTabCoordinator,
+  notifySyncComplete,
+  shouldSync,
+} from '@/app/lib/sync/tabCoordinator';
+import {
   createContext,
   useCallback,
   useContext,
@@ -34,7 +40,6 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
-import { SYNC_BATCH_SIZE, SYNC_INTERVAL_MS } from '@/app/config/timing';
 
 // ============================================================================
 // Context Types
@@ -53,6 +58,8 @@ type DataContextValue = {
   syncNow: () => Promise<void>;
   /** Last sync error, if any */
   lastSyncError: string | null;
+  /** Whether this tab is the sync leader */
+  isLeader: boolean;
 };
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -75,6 +82,7 @@ export function DataProvider({ children }: PropsWithChildren) {
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+  const [isLeader, setIsLeader] = useState(true); // Assume leader until told otherwise
 
   const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isMountedRef = useRef(true);
@@ -173,8 +181,13 @@ export function DataProvider({ children }: PropsWithChildren) {
   // ============================================================================
 
   const performSync = useCallback(
-    async (opts?: { keepalive?: boolean }): Promise<void> => {
+    async (opts?: { keepalive?: boolean; force?: boolean }): Promise<void> => {
       if (!isAvailable || !isReady) return;
+
+      // Only the leader tab should sync (unless forced for flush-on-unload)
+      if (!opts?.force && !shouldSync()) {
+        return;
+      }
 
       const userId = userIdRef.current ?? (await getStoredUserId());
       if (!userId) return;
@@ -263,6 +276,9 @@ export function DataProvider({ children }: PropsWithChildren) {
         if (isMountedRef.current) {
           setPendingSyncCount(newCount);
         }
+
+        // Notify other tabs that sync completed
+        notifySyncComplete(true);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Unknown sync error';
@@ -270,6 +286,7 @@ export function DataProvider({ children }: PropsWithChildren) {
           setLastSyncError(errorMessage);
         }
         console.warn('Sync failed:', errorMessage);
+        notifySyncComplete(false);
       } finally {
         if (isMountedRef.current) {
           setIsSyncing(false);
@@ -335,12 +352,14 @@ export function DataProvider({ children }: PropsWithChildren) {
   }, [isAvailable, isReady, user, performSync]);
 
   // Sync before unload / pagehide (best effort)
+  // Force sync even if not leader - we don't want to lose data on tab close
   useEffect(() => {
     if (!isAvailable || !isReady || !user) return;
 
     const flushBestEffort = () => {
       if (pendingSyncCount > 0) {
-        void performSync({ keepalive: true });
+        // Force: true bypasses leader check - important for tab close
+        void performSync({ keepalive: true, force: true });
       }
     };
 
@@ -351,6 +370,20 @@ export function DataProvider({ children }: PropsWithChildren) {
       window.removeEventListener('pagehide', flushBestEffort);
     };
   }, [isAvailable, isReady, user, pendingSyncCount, performSync]);
+
+  // Track leader status changes
+  useEffect(() => {
+    const coordinator = getTabCoordinator();
+    if (!coordinator) return;
+
+    const unsubscribe = coordinator.onLeaderChange((newIsLeader: boolean) => {
+      if (isMountedRef.current) {
+        setIsLeader(newIsLeader);
+      }
+    });
+
+    return unsubscribe;
+  }, []);
 
   // ============================================================================
   // Context Value
@@ -367,6 +400,7 @@ export function DataProvider({ children }: PropsWithChildren) {
     isSyncing,
     syncNow,
     lastSyncError,
+    isLeader,
   };
 
   return (
