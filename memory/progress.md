@@ -122,6 +122,14 @@
     - Added `/api/catalog/versions` to read `rb_download_versions` (uses `inventory_parts` source).
     - `useInventory` fetches the version first, then validates IndexedDB cache (30d TTL) before network.
     - `/api/inventory` now returns `inventoryVersion`; cached inventories store version in Dexie meta.
+- **Caching strategy review** (December 2025):
+  - Conducted deep analysis of all 20+ caches in the codebase (see `docs/dev/CACHE_ARCHITECTURE_PLAN.md`).
+  - Key finding: Most server caches are external API responses (BrickLink, Rebrickable) that don't need catalog version awareness.
+  - Client-side IndexedDB already had version checking implemented correctly.
+  - Targeted fixes applied:
+    - Reduced `spareCache` TTL from 7 days → 24 hours (more appropriate for live Rebrickable API data).
+    - Added `Cache-Control` header to `/api/catalog/versions` endpoint (60s max-age, 120s stale-while-revalidate).
+  - Documented caching strategy in `memory/system-patterns.md` for future reference.
 
 ## Planned / In Progress
 
@@ -131,7 +139,6 @@
   - Add `/api/minifigs/enrich` batch endpoint with throttling.
   - Create `useMinifigEnrichment` client hook for lazy loading.
   - Ensure subparts always visible for piece counting.
-- Catalog version checking to invalidate stale IndexedDB cache
 - Pull-on-login for multi-device sync (fetch user data from Supabase on new device)
 - Hardening of error states and retries for search and inventory requests; surface normalized `AppError` codes in the UI instead of generic messages.
 - Tests for CSV export generators (Rebrickable + BrickLink) and for Rebrickable client retry/backoff behavior.

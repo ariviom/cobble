@@ -11,14 +11,14 @@
 
 The codebase has a **solid architectural foundation** for an MVP/beta launch. Previous improvement work (documented in `PREVIOUS_IMPROVEMENT_PLANS.md`) addressed many immediate concerns. This plan identifies **architectural patterns that will create compounding problems at scale**.
 
-| Risk Area                     | Severity    | Scaling Impact                  | Effort |
-| ----------------------------- | ----------- | ------------------------------- | ------ |
-| Multi-layer cache incoherence | 🔴 Critical | Data inconsistency, stale reads | High   |
-| Sync queue race conditions    | 🟠 High     | Data loss, conflicts            | Medium |
-| CSRF protection gaps          | 🟠 High     | Security vulnerability          | Low    |
-| External API cascade failures | 🟠 High     | User experience degradation     | Medium |
-| Service role privilege sprawl | 🟡 Medium   | Security surface expansion      | Medium |
-| In-memory state leaks         | 🟡 Medium   | Memory bloat, incorrect counts  | Low    |
+| Risk Area                     | Severity    | Scaling Impact                  | Effort | Status                       |
+| ----------------------------- | ----------- | ------------------------------- | ------ | ---------------------------- |
+| Multi-layer cache incoherence | 🔴 Critical | Data inconsistency, stale reads | High   | ✅ Resolved (targeted fixes) |
+| Sync queue race conditions    | 🟠 High     | Data loss, conflicts            | Medium | ✅ Completed                 |
+| CSRF protection gaps          | 🟠 High     | Security vulnerability          | Low    | ✅ Completed                 |
+| External API cascade failures | 🟠 High     | User experience degradation     | Medium | ✅ Completed                 |
+| Service role privilege sprawl | 🟡 Medium   | Security surface expansion      | Medium | Deferred                     |
+| In-memory state leaks         | 🟡 Medium   | Memory bloat, incorrect counts  | Low    | ✅ Verified OK               |
 
 ---
 
@@ -725,3 +725,25 @@ _Last updated: December 16, 2025_
   - `force: true` option bypasses leader check for tab close
   - Exposes `isLeader` in context for UI feedback
   - Notifies other tabs when sync completes
+
+**Phase 4 Completed (Cache Architecture):**
+
+After deep contextual analysis, determined that the original assessment overestimated the problem scope. Key findings:
+
+- ✅ **Client-side caching already version-aware** - IndexedDB checks `inventoryVersion` before using cached data
+- ✅ **Most server caches are external API responses** - BrickLink, Rebrickable API calls don't depend on catalog version
+- ✅ **Brickognize 24hr cache is correctly designed** - Same image = same recognition result (image hash based)
+
+Targeted fixes applied:
+
+- ✅ Reduced `spareCache` TTL from 7 days → 24 hours (more appropriate for live Rebrickable API data)
+- ✅ Added `Cache-Control: public, max-age=60, stale-while-revalidate=120` to `/api/catalog/versions`
+- ✅ Documented caching strategy in `memory/system-patterns.md` for future reference
+
+What was NOT done (and why):
+
+- ❌ Server-side version manager - Not needed; external API caches don't benefit from version awareness
+- ❌ Version-keyed server caches - Would cause unnecessary cache misses
+- ❌ React Query version integration - Client already handles via IndexedDB
+
+See `docs/dev/CACHE_ARCHITECTURE_PLAN.md` for full analysis.

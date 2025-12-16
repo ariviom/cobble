@@ -42,7 +42,7 @@ export type InventoryResult = {
 /** Spare keys cached per set number */
 type SpareCacheValue = Set<string>;
 
-const SPARE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const SPARE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const SPARE_CACHE_MAX = 200;
 const spareCache = new LRUCache<string, SpareCacheValue>(
   SPARE_CACHE_MAX,

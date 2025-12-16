@@ -112,6 +112,73 @@
   - Collaborative sessions are represented by `group_sessions` and related tables in Supabase.
   - The host's owned state is the single source of truth; participant edits stream via Supabase Realtime channels keyed by `group_sessions.id` and are applied to the host's rows.
 
+## Caching Strategy
+
+The application uses a **context-aware caching strategy** where TTLs and version awareness are tailored to each cache's data source and update characteristics.
+
+### Guiding Principles
+
+1. **Only catalog-derived data needs version awareness** — Caches storing data from our Supabase catalog (ingested from Rebrickable CSVs) benefit from version checking. External API responses do not.
+2. **External API caches use TTL-only** — BrickLink, direct Rebrickable API calls, and Brickognize have their own update cycles independent of our catalog ingestion.
+3. **Same input = same output caches can be long-lived** — Image recognition (Brickognize) results are deterministic; 24-hour TTL is correct.
+4. **Avoid unnecessary database queries** — Don't poll for version changes server-side when client-side version checking already works.
+
+### Cache Categories
+
+| Category | Examples | Version Aware? | Rationale |
+|----------|----------|----------------|-----------|
+| Catalog-derived (client) | IndexedDB `catalogSetParts`, `catalogSetMeta` | ✅ Yes | Data changes on ingestion |
+| External API responses | BrickLink subsets/supersets/colors, Rebrickable API calls | ❌ No | External update cycles |
+| Image recognition | Brickognize results (server + client) | ❌ No | Same image = same result |
+| Session/UI | React Query, recent sets, UI state | ❌ No | User-generated or transient |
+
+### Key TTL Decisions
+
+| Cache | TTL | Rationale |
+|-------|-----|-----------|
+| **Client-side** |
+| IndexedDB inventory | 30 days + version check | Long TTL safe because version mismatch invalidates |
+| React Query staleTime | 5 min | Good balance for UI responsiveness |
+| Identify response cache | 24 hours | Image hash → deterministic results |
+| **Server-side (External APIs)** |
+| BrickLink caches | 1 hour | BL data rarely changes |
+| BrickLink priceGuide | 30 min | Prices need some freshness |
+| resolvedPartCache | 24 hours | Part identity very stable |
+| minifigPartsCache | 1 hour | Minifig compositions stable |
+| spareCache | 24 hours | Rebrickable API data, updates periodically |
+| **Server-side (Session)** |
+| identifyCache (sets for part) | 5 min | Session-scoped, short queries |
+| failedEnrichments | 24 hours | Prevents retry storms |
+
+### Client-Side Version Checking (How It Works)
+
+```
+User visits /sets/75192-1
+    │
+    ├── React Query checks stale time (5 min)
+    │
+    ├── fetchInventory() calls /api/catalog/versions → gets inventory_parts version
+    │
+    ├── Compares version against IndexedDB catalogSetMeta.inventoryVersion
+    │   ├── Match + within TTL → Return cached rows (no network)
+    │   └── Mismatch → Fetch /api/inventory, cache with new version
+    │
+    └── /api/inventory returns rows + inventoryVersion from rb_download_versions
+```
+
+The `/api/catalog/versions` endpoint has a `Cache-Control: public, max-age=60, stale-while-revalidate=120` header so browsers/CDNs cache it, reducing Supabase queries.
+
+### Adding New Caches
+
+When adding a new cache, ask:
+
+1. **What's the data source?** Our catalog (Supabase) or external API?
+2. **How often does the source data change?** Catalog changes on ingestion; external APIs vary.
+3. **Is the output deterministic for the same input?** If yes (like image recognition), longer TTL is safe.
+4. **What's the cost of serving stale data?** User-facing incorrectness vs. minor outdatedness.
+
+Default to TTL-only caching. Add version awareness only for catalog-derived server caches if stale data would cause real problems.
+
 ## SSR vs Client Architecture
 
 - **Supabase auth & SSR**

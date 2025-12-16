@@ -67,7 +67,14 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ versions });
+    return NextResponse.json(
+      { versions },
+      {
+        headers: {
+          'Cache-Control': 'public, max-age=60, stale-while-revalidate=120',
+        },
+      }
+    );
   } catch {
     return errorResponse('catalog_version_failed', {
       message: 'Unexpected error fetching catalog versions',
