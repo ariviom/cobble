@@ -141,7 +141,7 @@ export async function rbFetch<T>(
         continue;
       }
 
-      cleanup();
+      // cleanup() already called after fetch completed
       const err = new Error(
         `Rebrickable error ${status}${bodySnippet ? `: ${bodySnippet}` : ''}`
       );
@@ -265,7 +265,7 @@ export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
         continue;
       }
 
-      cleanup();
+      // cleanup() already called after fetch completed
       const err = new Error(
         `Rebrickable error ${status}${
           bodySnippet ? `: ${bodySnippet}` : ''

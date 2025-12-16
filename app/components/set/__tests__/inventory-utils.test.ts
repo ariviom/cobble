@@ -2,8 +2,10 @@ import {
   clampOwned,
   computeMissing,
   deriveCategory,
+  isMinifigParentRow,
   parseStudAreaFromName,
 } from '@/app/components/set/inventory-utils';
+import type { InventoryRow } from '@/app/components/set/types';
 
 describe('clampOwned', () => {
   it('enforces minimum of 0', () => {
@@ -143,5 +145,54 @@ describe('deriveCategory', () => {
   it('handles mixed case', () => {
     expect(deriveCategory('BRICK 2x4')).toBe('BRICK');
     expect(deriveCategory('BrickArch')).toBe('BrickArch');
+  });
+});
+
+describe('isMinifigParentRow', () => {
+  const createRow = (partId: string, parentCategory?: string): InventoryRow => {
+    const row: InventoryRow = {
+      setNumber: '75192-1',
+      partId,
+      partName: 'Test Part',
+      colorId: 0,
+      colorName: 'Black',
+      quantityRequired: 1,
+      imageUrl: null,
+      inventoryKey: partId,
+    };
+    if (parentCategory !== undefined) {
+      row.parentCategory = parentCategory;
+    }
+    return row;
+  };
+
+  it('returns true for minifig parent rows', () => {
+    const row = createRow('fig:sw0001', 'Minifigure');
+    expect(isMinifigParentRow(row)).toBe(true);
+  });
+
+  it('returns false for regular parts', () => {
+    const row = createRow('3001', 'Brick');
+    expect(isMinifigParentRow(row)).toBe(false);
+  });
+
+  it('returns false for minifig components (subparts)', () => {
+    const row = createRow('973', 'Minifigure');
+    expect(isMinifigParentRow(row)).toBe(false);
+  });
+
+  it('returns false for fig: prefix without Minifigure category', () => {
+    const row = createRow('fig:sw0001', 'Other');
+    expect(isMinifigParentRow(row)).toBe(false);
+  });
+
+  it('returns false for Minifigure category without fig: prefix', () => {
+    const row = createRow('sw0001', 'Minifigure');
+    expect(isMinifigParentRow(row)).toBe(false);
+  });
+
+  it('returns false when parentCategory is undefined', () => {
+    const row = createRow('fig:sw0001');
+    expect(isMinifigParentRow(row)).toBe(false);
   });
 });

@@ -12,8 +12,8 @@ export type BasePriceInfo = {
   minPrice: number | null;
   maxPrice: number | null;
   currency: string | null;
+  /** Source of pricing data */
   pricingSource?: 'real_time' | 'historical' | 'unavailable';
-  pricing_source?: 'real_time' | 'historical' | 'unavailable';
   lastUpdatedAt?: string | null;
   nextRefreshAt?: string | null;
   /**
@@ -201,7 +201,6 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
               maxPrice: null,
               currency: null,
               pricingSource: 'unavailable',
-              pricing_source: 'unavailable',
               lastUpdatedAt: null,
               nextRefreshAt: null,
             } as TPriceInfo;

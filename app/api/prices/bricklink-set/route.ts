@@ -115,7 +115,6 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       reason: 'upgrade_required',
       tier: 'plus',
       pricingSource: 'unavailable',
-      pricing_source: 'unavailable',
     });
   }
 
@@ -129,7 +128,6 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       maxPrice: guide.maxPriceUsed,
       currency: guide.currencyCode,
       pricingSource: 'real_time' as const,
-      pricing_source: 'real_time' as const,
       lastUpdatedAt: null,
       nextRefreshAt: null,
     });

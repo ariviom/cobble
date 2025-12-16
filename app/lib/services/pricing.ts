@@ -2,12 +2,12 @@ import 'server-only';
 
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
 import { mapToBrickLink } from '@/app/lib/mappings/rebrickableToBricklink';
-import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import {
   DEFAULT_PRICING_PREFERENCES,
   formatPricingScopeLabel,
   type PricingPreferences,
 } from '@/app/lib/pricing';
+import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 
 export type PriceRequestItem = {
   key: string;
@@ -23,8 +23,8 @@ export type PriceResponseEntry = {
   bricklinkColorId: number | null;
   itemType: 'PART' | 'MINIFIG';
   scopeLabel: string | null;
+  /** Source of pricing data */
   pricingSource: 'real_time' | 'historical' | 'unavailable';
-  pricing_source: 'real_time' | 'historical' | 'unavailable';
   lastUpdatedAt: string | null;
   nextRefreshAt: string | null;
 };
@@ -82,7 +82,6 @@ export async function fetchBricklinkPrices(
             itemType: mapped.itemType,
             scopeLabel,
             pricingSource: 'real_time',
-            pricing_source: 'real_time',
             lastUpdatedAt: null,
             nextRefreshAt: null,
           };

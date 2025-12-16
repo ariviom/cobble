@@ -1,7 +1,22 @@
+import type { InventoryRow } from './types';
+
 export function clampOwned(value: number, required: number): number {
   const asNumber = Number(value);
   if (!Number.isFinite(asNumber)) return 0;
   return Math.min(required, Math.max(0, asNumber));
+}
+
+/**
+ * Check if a row is a minifigure parent row.
+ * Minifig parent rows have partId starting with "fig:" and are in the Minifigure category.
+ * These rows are UX-only (for grouping subparts) and should be excluded from totals.
+ */
+export function isMinifigParentRow(row: InventoryRow): boolean {
+  return (
+    row.parentCategory === 'Minifigure' &&
+    typeof row.partId === 'string' &&
+    row.partId.startsWith('fig:')
+  );
 }
 
 export function computeMissing(required: number, owned: number): number {

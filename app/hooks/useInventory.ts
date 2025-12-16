@@ -1,5 +1,6 @@
 'use client';
 
+import { isMinifigParentRow } from '@/app/components/set/inventory-utils';
 import type { InventoryRow } from '@/app/components/set/types';
 import { useOwnedSnapshot } from '@/app/hooks/useOwnedSnapshot';
 import { throwAppErrorFromResponse } from '@/app/lib/domain/errors';
@@ -303,11 +304,7 @@ export function useInventory(
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
       const k = keys[i]!;
-      const isMinifigParent =
-        r.parentCategory === 'Minifigure' &&
-        typeof r.partId === 'string' &&
-        r.partId.startsWith('fig:');
-      if (isMinifigParent) {
+      if (isMinifigParentRow(r)) {
         continue; // fig parent rows are UX-only; exclude from totals
       }
       totalRequired += r.quantityRequired;
@@ -326,11 +323,7 @@ export function useInventory(
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
       const k = keys[i]!;
-      const isMinifigParent =
-        r.parentCategory === 'Minifigure' &&
-        typeof r.partId === 'string' &&
-        r.partId.startsWith('fig:');
-      if (isMinifigParent) continue;
+      if (isMinifigParentRow(r)) continue;
       const own = ownedByKey[k] ?? 0;
       const missing = Math.max(0, r.quantityRequired - own);
       if (missing > 0) {

@@ -1,15 +1,15 @@
 'use client';
 
-import { create } from 'zustand';
-import {
-  getOwnedForSet,
-  setOwnedForSet,
-  isIndexedDBAvailable,
-} from '@/app/lib/localDb';
 import {
   OWNED_WRITE_DEBOUNCE_HIDDEN_MS,
   OWNED_WRITE_DEBOUNCE_MS,
 } from '@/app/config/timing';
+import {
+  getOwnedForSet,
+  isIndexedDBAvailable,
+  setOwnedForSet,
+} from '@/app/lib/localDb';
+import { create } from 'zustand';
 
 export type OwnedState = {
   getOwned: (setNumber: string, key: string) => number;
@@ -70,7 +70,9 @@ async function flushWriteToIndexedDB(setNumber: string): Promise<void> {
     await setOwnedForSet(setNumber, data);
     pendingWrites.delete(setNumber);
   } catch (error) {
-    console.warn('Failed to flush owned data to IndexedDB:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[owned] Failed to flush data to IndexedDB:', error);
+    }
     // Keep in pending writes for retry on next flush
   }
 }
@@ -81,7 +83,9 @@ async function flushWriteToIndexedDB(setNumber: string): Promise<void> {
 function flushWriteNow(setNumber: string) {
   // Fire-and-forget async write to IndexedDB
   flushWriteToIndexedDB(setNumber).catch(error => {
-    console.warn('Failed to persist owned data:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[owned] Failed to persist data:', error);
+    }
   });
 }
 
@@ -252,7 +256,9 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
           _hydratedSets: new Set([...state._hydratedSets, setNumber]),
         }));
       } catch (error) {
-        console.warn('Failed to hydrate owned data from IndexedDB:', error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[owned] Failed to hydrate from IndexedDB:', error);
+        }
         // Mark storage as unavailable and hydrated (in-memory only mode)
         storageAvailable = false;
         set(state => ({
