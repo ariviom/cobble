@@ -225,5 +225,75 @@
   - Using incremental updates instead of full recomputation,
   - Or limiting initial work to visible rows and calculating the rest on demand.
 
+## React Best Practices
+
+### useEffect — "You Might Not Need an Effect"
+
+Follow React's guidance at [react.dev/learn/you-might-not-need-an-effect](https://react.dev/learn/you-might-not-need-an-effect). Common anti-patterns to avoid:
+
+**❌ Anti-pattern: Syncing derived state via useEffect**
+```typescript
+// BAD: Setting state based on other state/props
+const [filter, setFilter] = useState(filterFromParams);
+useEffect(() => {
+  setFilter(filterFromParams);
+}, [filterFromParams]);
+```
+
+**✅ Better: Derive directly or use controlled pattern**
+```typescript
+// Option A: Derive directly (no local state needed)
+const filter = filterFromParams;
+
+// Option B: Controlled pattern with explicit reset
+const [filter, setFilter] = useState(filterFromParams);
+// Reset via key prop on parent, or track previous value
+```
+
+**❌ Anti-pattern: Setting visibility state in effect**
+```typescript
+// BAD: Toast visibility derived from other state
+useEffect(() => {
+  if (isLoading === false && error) {
+    setShowToast(true);
+  }
+}, [isLoading, error]);
+```
+
+**✅ Better: Derive visibility, track user dismissal separately**
+```typescript
+// Track dismissal intent, not visibility
+const [dismissed, setDismissed] = useState(false);
+const showToast = (isLoading || !!error) && !dismissed;
+// Reset dismissed when new cycle starts (React pattern for adjusting state on props)
+```
+
+### Shared Hooks
+
+Common patterns have been extracted to shared hooks:
+
+- **`useOrigin()`** — SSR-safe `window.location.origin` access. Returns empty string during SSR, actual origin after hydration. Use instead of the `useState` + `useEffect` pattern.
+
+### When useEffect IS Appropriate
+
+- **External system synchronization**: DOM manipulation, subscriptions, timers, browser APIs
+- **Data fetching**: Though prefer React Query/SWR for most cases
+- **One-time initialization**: Reading from localStorage on mount (not syncing state)
+- **Cleanup logic**: Unsubscribing, clearing timers, aborting fetches
+
+### State Adjustment on Prop Changes
+
+When you need to reset local state when props change, use React's recommended pattern:
+
+```typescript
+// Track previous prop value to detect changes
+const [prevProp, setPrevProp] = useState(prop);
+if (prop !== prevProp) {
+  setPrevProp(prop);
+  setLocalState(initialValue); // Reset local state
+}
+```
+
+This runs during render (not in useEffect) and is the React-approved way to adjust state based on prop changes.
 
 
