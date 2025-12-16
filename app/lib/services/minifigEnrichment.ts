@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { LRUCache } from '@/app/lib/cache/lru';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import {
   getGlobalMinifigMappingsBatch,
@@ -9,6 +10,67 @@ import { rbFetch } from '@/app/lib/rebrickable/client';
 import { getMinifigPartsCached } from '@/app/lib/rebrickable/minifigs';
 import { rebrickableThrottler } from '@/app/lib/utils/throttle';
 import { logger } from '@/lib/metrics';
+
+/**
+ * Tracks failed enrichment attempts for exponential backoff retry scheduling.
+ * Format: { failedAt: timestamp, attempts: number }
+ */
+type FailedEnrichmentEntry = {
+  failedAt: number;
+  attempts: number;
+};
+
+// Track failed enrichments with LRU eviction (1000 entries, 24h TTL)
+const failedEnrichments = new LRUCache<string, FailedEnrichmentEntry>(
+  1000,
+  24 * 60 * 60 * 1000
+);
+
+// Backoff intervals in milliseconds: 1h, 4h, 24h
+const BACKOFF_INTERVALS_MS = [
+  1 * 60 * 60 * 1000, // 1 hour
+  4 * 60 * 60 * 1000, // 4 hours
+  24 * 60 * 60 * 1000, // 24 hours
+];
+
+const MAX_RETRY_ATTEMPTS = BACKOFF_INTERVALS_MS.length;
+
+/**
+ * Check if a minifig should be skipped due to recent failure with backoff.
+ * Returns true if we should skip (still in backoff period).
+ */
+function shouldSkipDueToBackoff(figNum: string): boolean {
+  const entry = failedEnrichments.get(figNum);
+  if (!entry) return false;
+
+  // If max attempts reached, skip permanently (until cache eviction)
+  if (entry.attempts >= MAX_RETRY_ATTEMPTS) {
+    return true;
+  }
+
+  // Check if still within backoff period
+  const backoffMs = BACKOFF_INTERVALS_MS[entry.attempts - 1] ?? 0;
+  const backoffUntil = entry.failedAt + backoffMs;
+  return Date.now() < backoffUntil;
+}
+
+/**
+ * Record a failed enrichment attempt for retry scheduling.
+ */
+function recordFailedEnrichment(figNum: string): void {
+  const existing = failedEnrichments.get(figNum);
+  failedEnrichments.set(figNum, {
+    failedAt: Date.now(),
+    attempts: (existing?.attempts ?? 0) + 1,
+  });
+}
+
+/**
+ * Clear failure tracking for a successfully enriched minifig.
+ */
+function clearFailedEnrichment(figNum: string): void {
+  failedEnrichments.delete(figNum);
+}
 
 export type MinifigSubpart = {
   partId: string;
@@ -283,87 +345,122 @@ export async function enrichMinifigs(
     }
   }
 
-  // Fetch missing images/meta from Rebrickable
-  if (missingImages.length > 0) {
+  // Fetch missing images/meta from Rebrickable (with backoff for previously failed items)
+  const imagesToFetch = missingImages.filter(fig => {
+    if (shouldSkipDueToBackoff(fig)) {
+      logger.debug('minifig_enrich.skipped_backoff', { figNum: fig });
+      return false;
+    }
+    return true;
+  });
+
+  if (imagesToFetch.length > 0) {
     await Promise.all(
-      missingImages.map(figNum =>
+      imagesToFetch.map(figNum =>
         rebrickableThrottler.enqueue(async () => {
-          const data = await rbFetch<RebrickableMinifigResponse>(
-            `/lego/minifigs/${encodeURIComponent(figNum)}/`
-          );
-          const imageUrl =
-            (typeof data.fig_img_url === 'string' && data.fig_img_url) ||
-            (typeof data.set_img_url === 'string' && data.set_img_url) ||
-            null;
-          const name =
-            typeof data.name === 'string' && data.name.trim().length > 0
-              ? data.name.trim()
-              : null;
-          const numParts =
-            typeof data.num_parts === 'number' &&
-            Number.isFinite(data.num_parts)
-              ? data.num_parts
-              : null;
+          try {
+            const data = await rbFetch<RebrickableMinifigResponse>(
+              `/lego/minifigs/${encodeURIComponent(figNum)}/`
+            );
+            const imageUrl =
+              (typeof data.fig_img_url === 'string' && data.fig_img_url) ||
+              (typeof data.set_img_url === 'string' && data.set_img_url) ||
+              null;
+            const name =
+              typeof data.name === 'string' && data.name.trim().length > 0
+                ? data.name.trim()
+                : null;
+            const numParts =
+              typeof data.num_parts === 'number' &&
+              Number.isFinite(data.num_parts)
+                ? data.num_parts
+                : null;
 
-          if (imageUrl || name || numParts != null) {
-            if (imageUrl) {
-              const upsertResult = await supabase
-                .from('rb_minifig_images')
-                .upsert(
-                  { fig_num: figNum, image_url: imageUrl },
-                  { onConflict: 'fig_num' }
-                );
-              if (upsertResult.error) {
-                logger.warn('minifig_enrich.image_upsert_failed', {
-                  figNum,
-                  error: upsertResult.error.message,
-                });
+            if (imageUrl || name || numParts != null) {
+              // Success - clear any failure tracking
+              clearFailedEnrichment(figNum);
+
+              if (imageUrl) {
+                const upsertResult = await supabase
+                  .from('rb_minifig_images')
+                  .upsert(
+                    { fig_num: figNum, image_url: imageUrl },
+                    { onConflict: 'fig_num' }
+                  );
+                if (upsertResult.error) {
+                  logger.warn('minifig_enrich.image_upsert_failed', {
+                    figNum,
+                    error: upsertResult.error.message,
+                  });
+                }
+              }
+              if (name || numParts != null) {
+                const metaPayload: {
+                  fig_num: string;
+                  name: string;
+                  num_parts?: number | null;
+                } = { fig_num: figNum, name: name ?? figNum };
+                if (numParts != null) metaPayload.num_parts = numParts;
+
+                const metaUpsert = await supabase
+                  .from('rb_minifigs')
+                  .upsert(metaPayload, { onConflict: 'fig_num' });
+                if (metaUpsert.error) {
+                  logger.warn('minifig_enrich.meta_upsert_failed', {
+                    figNum,
+                    error: metaUpsert.error.message,
+                  });
+                }
               }
             }
-            if (name || numParts != null) {
-              const metaPayload: {
-                fig_num: string;
-                name: string;
-                num_parts?: number | null;
-              } = { fig_num: figNum, name: name ?? figNum };
-              if (numParts != null) metaPayload.num_parts = numParts;
 
-              const metaUpsert = await supabase
-                .from('rb_minifigs')
-                .upsert(metaPayload, { onConflict: 'fig_num' });
-              if (metaUpsert.error) {
-                logger.warn('minifig_enrich.meta_upsert_failed', {
-                  figNum,
-                  error: metaUpsert.error.message,
-                });
-              }
-            }
+            const prev = results.get(figNum);
+            results.set(figNum, {
+              figNum,
+              imageUrl: imageUrl ?? prev?.imageUrl ?? null,
+              blId: prev?.blId ?? null,
+              name: name ?? prev?.name ?? null,
+              numParts: numParts ?? prev?.numParts ?? null,
+              subparts: prev?.subparts ?? null,
+              enrichedAt: Date.now(),
+            });
+          } catch (err) {
+            // Record failure for exponential backoff
+            recordFailedEnrichment(figNum);
+            logger.warn('minifig_enrich.image_fetch_failed', {
+              figNum,
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
-
-          const prev = results.get(figNum);
-          results.set(figNum, {
-            figNum,
-            imageUrl: imageUrl ?? prev?.imageUrl ?? null,
-            blId: prev?.blId ?? null,
-            name: name ?? prev?.name ?? null,
-            numParts: numParts ?? prev?.numParts ?? null,
-            subparts: prev?.subparts ?? null,
-            enrichedAt: Date.now(),
-          });
         })
       )
     );
   }
 
-  // Fetch missing subparts if requested
-  if (includeSubparts && missingSubparts.length > 0) {
+  // Fetch missing subparts if requested (with backoff for previously failed items)
+  const subpartsToFetch = missingSubparts.filter(fig => {
+    // Use a separate key for subparts to track independently from image enrichment
+    const subpartsKey = `subparts:${fig}`;
+    if (shouldSkipDueToBackoff(subpartsKey)) {
+      logger.debug('minifig_enrich.subparts_skipped_backoff', { figNum: fig });
+      return false;
+    }
+    return true;
+  });
+
+  if (includeSubparts && subpartsToFetch.length > 0) {
     await Promise.all(
-      missingSubparts.map(figNum =>
+      subpartsToFetch.map(figNum =>
         rebrickableThrottler.enqueue(async () => {
+          const subpartsKey = `subparts:${figNum}`;
           let components: RebrickableMinifigComponent[] = [];
           try {
             components = await getMinifigPartsCached(figNum);
+            // Success - clear failure tracking
+            clearFailedEnrichment(subpartsKey);
           } catch (err) {
+            // Record failure for exponential backoff
+            recordFailedEnrichment(subpartsKey);
             logger.warn('minifig_enrich.subparts_fetch_failed', {
               figNum,
               error: err instanceof Error ? err.message : String(err),

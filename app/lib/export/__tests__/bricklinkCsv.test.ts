@@ -1,9 +1,9 @@
-import { vi } from 'vitest';
 import {
   generateBrickLinkCsv,
   type BrickLinkOptions,
 } from '@/app/lib/export/bricklinkCsv';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
+import { vi } from 'vitest';
 
 vi.mock('@/app/lib/mappings/rebrickableToBricklink', () => ({
   mapToBrickLink: vi.fn(async (partId: string, colorId: number) => {
@@ -171,5 +171,50 @@ describe('generateBrickLinkCsv', () => {
 
     // The wanted list name with comma should be quoted
     expect(lines[1]).toBe('P,BL-3001,1,1,N,"List with, comma"');
+  });
+
+  it('returns exported minifig IDs for confidence logging', async () => {
+    const rows: MissingRow[] = [
+      { setNumber: '1234-1', partId: '3001', colorId: 1, quantityMissing: 2 },
+      {
+        setNumber: '1234-1',
+        partId: 'fig:fig-001234',
+        colorId: 0,
+        quantityMissing: 1,
+      },
+      {
+        setNumber: '1234-1',
+        partId: 'fig:fig-005678',
+        colorId: 0,
+        quantityMissing: 1,
+      },
+      {
+        setNumber: '1234-1',
+        partId: 'UNMAPPED',
+        colorId: 5,
+        quantityMissing: 1,
+      },
+    ];
+    const opts: BrickLinkOptions = {
+      wantedListName: 'Test List',
+      condition: 'N',
+    };
+
+    const { exportedMinifigIds } = await generateBrickLinkCsv(rows, opts);
+
+    // Should include fig IDs without the 'fig:' prefix
+    expect(exportedMinifigIds).toEqual(['fig-001234', 'fig-005678']);
+  });
+
+  it('returns empty exportedMinifigIds when no minifigs in export', async () => {
+    const rows: MissingRow[] = [
+      { setNumber: '1234-1', partId: '3001', colorId: 1, quantityMissing: 2 },
+      { setNumber: '1234-1', partId: '3002', colorId: 2, quantityMissing: 1 },
+    ];
+    const opts: BrickLinkOptions = { wantedListName: 'Test' };
+
+    const { exportedMinifigIds } = await generateBrickLinkCsv(rows, opts);
+
+    expect(exportedMinifigIds).toEqual([]);
   });
 });
