@@ -34,9 +34,10 @@ describe('GET /api/search', () => {
   describe('parameter validation', () => {
     it('accepts empty query string', async () => {
       mockSearchSetsPage.mockResolvedValue({
+        results: [],
         slice: [],
+        page: 1,
         nextPage: null,
-        _debugSearch: undefined,
       });
 
       const req = new NextRequest('http://localhost/api/search');
@@ -55,9 +56,10 @@ describe('GET /api/search', () => {
 
     it('parses valid query parameters', async () => {
       mockSearchSetsPage.mockResolvedValue({
+        results: [],
         slice: [],
+        page: 2,
         nextPage: 2,
-        _debugSearch: undefined,
       });
 
       const req = new NextRequest(
@@ -78,9 +80,10 @@ describe('GET /api/search', () => {
 
     it('clamps pageSize to allowed values', async () => {
       mockSearchSetsPage.mockResolvedValue({
+        results: [],
         slice: [],
+        page: 1,
         nextPage: null,
-        _debugSearch: undefined,
       });
 
       const req = new NextRequest(
@@ -96,9 +99,10 @@ describe('GET /api/search', () => {
 
     it('defaults invalid filter to "all"', async () => {
       mockSearchSetsPage.mockResolvedValue({
+        results: [],
         slice: [],
+        page: 1,
         nextPage: null,
-        _debugSearch: undefined,
       });
 
       const req = new NextRequest(
@@ -114,9 +118,10 @@ describe('GET /api/search', () => {
 
     it('handles page as minimum 1', async () => {
       mockSearchSetsPage.mockResolvedValue({
+        results: [],
         slice: [],
+        page: 1,
         nextPage: null,
-        _debugSearch: undefined,
       });
 
       const req = new NextRequest('http://localhost/api/search?q=test&page=-5');
@@ -142,9 +147,10 @@ describe('GET /api/search', () => {
       ];
 
       mockSearchSetsPage.mockResolvedValue({
+        results: mockResults,
         slice: mockResults,
+        page: 1,
         nextPage: 2,
-        _debugSearch: undefined,
       });
 
       const req = new NextRequest(
@@ -160,9 +166,10 @@ describe('GET /api/search', () => {
 
     it('sets no-store cache control header', async () => {
       mockSearchSetsPage.mockResolvedValue({
+        results: [],
         slice: [],
+        page: 1,
         nextPage: null,
-        _debugSearch: undefined,
       });
 
       const req = new NextRequest('http://localhost/api/search?q=test');
@@ -173,9 +180,10 @@ describe('GET /api/search', () => {
 
     it('returns null nextPage when no more results', async () => {
       mockSearchSetsPage.mockResolvedValue({
+        results: [],
         slice: [],
+        page: 1,
         nextPage: null,
-        _debugSearch: undefined,
       });
 
       const req = new NextRequest('http://localhost/api/search?q=test');

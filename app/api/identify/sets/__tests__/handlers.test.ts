@@ -192,8 +192,22 @@ describe('handlePartIdentify', () => {
 
     // Multiple colors so no auto-selection happens
     mockGetPartColors.mockResolvedValue([
-      { id: 1, name: 'White', rbColorId: 1 },
-      { id: 4, name: 'Red', rbColorId: 4 },
+      {
+        id: 1,
+        name: 'White',
+        rgb: 'FFFFFF',
+        isTrans: false,
+        numSets: 100,
+        numSetParts: 1000,
+      },
+      {
+        id: 4,
+        name: 'Red',
+        rgb: 'FF0000',
+        isTrans: false,
+        numSets: 80,
+        numSetParts: 800,
+      },
     ]);
     mockGetSetsForPartLocal.mockResolvedValue(localSets);
 
@@ -244,8 +258,22 @@ describe('handlePartIdentify', () => {
     } as ReturnType<typeof getPart> extends Promise<infer T> ? T : never);
 
     mockGetPartColors.mockResolvedValue([
-      { id: 1, name: 'White', rbColorId: 1 },
-      { id: 4, name: 'Red', rbColorId: 4 },
+      {
+        id: 1,
+        name: 'White',
+        rgb: 'FFFFFF',
+        isTrans: false,
+        numSets: 100,
+        numSetParts: 1000,
+      },
+      {
+        id: 4,
+        name: 'Red',
+        rgb: 'FF0000',
+        isTrans: false,
+        numSets: 80,
+        numSetParts: 800,
+      },
     ]);
     mockGetSetsForPartLocal.mockResolvedValue([]);
     mockGetSetsForPart.mockResolvedValue([]);
@@ -264,7 +292,14 @@ describe('handlePartIdentify', () => {
     } as ReturnType<typeof getPart> extends Promise<infer T> ? T : never);
 
     mockGetPartColors.mockResolvedValue([
-      { id: 15, name: 'White', rbColorId: 15 },
+      {
+        id: 15,
+        name: 'White',
+        rgb: 'FFFFFF',
+        isTrans: false,
+        numSets: 100,
+        numSetParts: 1000,
+      },
     ]);
     mockGetSetsForPartLocal.mockResolvedValue([]);
     mockGetSetsForPart.mockResolvedValue([]);
@@ -276,9 +311,30 @@ describe('handlePartIdentify', () => {
 
   it('returns available colors', async () => {
     const colors = [
-      { id: 1, name: 'White', rbColorId: 1 },
-      { id: 4, name: 'Red', rbColorId: 4 },
-      { id: 14, name: 'Yellow', rbColorId: 14 },
+      {
+        id: 1,
+        name: 'White',
+        rgb: 'FFFFFF',
+        isTrans: false,
+        numSets: 100,
+        numSetParts: 1000,
+      },
+      {
+        id: 4,
+        name: 'Red',
+        rgb: 'FF0000',
+        isTrans: false,
+        numSets: 80,
+        numSetParts: 800,
+      },
+      {
+        id: 14,
+        name: 'Yellow',
+        rgb: 'FFFF00',
+        isTrans: false,
+        numSets: 60,
+        numSetParts: 600,
+      },
     ];
 
     mockGetPart.mockResolvedValue({

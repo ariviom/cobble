@@ -38,6 +38,19 @@ import { GET } from '../route';
 
 const mockGetSetInventory = vi.mocked(getSetInventoryRowsWithMeta);
 
+// Helper to create minimal valid InventoryRow
+const createMockRow = (overrides = {}) => ({
+  setNumber: '75192-1',
+  partId: '3001',
+  partName: '2x4 Brick',
+  colorId: 1,
+  colorName: 'White',
+  quantityRequired: 10,
+  imageUrl: null,
+  inventoryKey: '3001:1',
+  ...overrides,
+});
+
 describe('GET /api/inventory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -81,9 +94,6 @@ describe('GET /api/inventory', () => {
     it('accepts valid set numbers', async () => {
       mockGetSetInventory.mockResolvedValue({
         rows: [],
-        minifigMappingMeta: undefined,
-        minifigEnrichmentNeeded: undefined,
-        spares: undefined,
       });
 
       const req = new NextRequest('http://localhost/api/inventory?set=75192-1');
@@ -96,21 +106,10 @@ describe('GET /api/inventory', () => {
 
   describe('successful responses', () => {
     it('returns inventory rows with version', async () => {
-      const mockRows = [
-        {
-          partNum: '3001',
-          name: '2x4 Brick',
-          quantity: 10,
-          colorId: 1,
-          colorName: 'White',
-        },
-      ];
+      const mockRows = [createMockRow()];
 
       mockGetSetInventory.mockResolvedValue({
         rows: mockRows,
-        minifigMappingMeta: undefined,
-        minifigEnrichmentNeeded: undefined,
-        spares: undefined,
       });
 
       const req = new NextRequest('http://localhost/api/inventory?set=75192-1');
@@ -124,16 +123,16 @@ describe('GET /api/inventory', () => {
 
     it('includes meta when includeMeta=true', async () => {
       const mockMeta = {
+        totalMinifigs: 6,
         mappedCount: 5,
-        unmappedCount: 1,
+        syncStatus: 'ok' as const,
         syncTriggered: false,
+        unmappedFigIds: ['fig-001'],
       };
 
       mockGetSetInventory.mockResolvedValue({
         rows: [],
         minifigMappingMeta: mockMeta,
-        minifigEnrichmentNeeded: undefined,
-        spares: undefined,
       });
 
       const req = new NextRequest(
@@ -150,12 +149,12 @@ describe('GET /api/inventory', () => {
       mockGetSetInventory.mockResolvedValue({
         rows: [],
         minifigMappingMeta: {
+          totalMinifigs: 6,
           mappedCount: 5,
-          unmappedCount: 1,
+          syncStatus: 'ok' as const,
           syncTriggered: false,
+          unmappedFigIds: [],
         },
-        minifigEnrichmentNeeded: undefined,
-        spares: undefined,
       });
 
       const req = new NextRequest(
@@ -169,12 +168,14 @@ describe('GET /api/inventory', () => {
     });
 
     it('includes spares when available', async () => {
-      const mockSpares = [{ partNum: '3003', quantity: 2, colorId: 1 }];
+      const mockSpares = {
+        status: 'ok' as const,
+        spareCount: 5,
+        lastChecked: '2024-01-15T00:00:00Z',
+      };
 
       mockGetSetInventory.mockResolvedValue({
         rows: [],
-        minifigMappingMeta: undefined,
-        minifigEnrichmentNeeded: undefined,
         spares: mockSpares,
       });
 
@@ -189,9 +190,6 @@ describe('GET /api/inventory', () => {
     it('sets cache control headers', async () => {
       mockGetSetInventory.mockResolvedValue({
         rows: [],
-        minifigMappingMeta: undefined,
-        minifigEnrichmentNeeded: undefined,
-        spares: undefined,
       });
 
       const req = new NextRequest('http://localhost/api/inventory?set=75192-1');
@@ -206,9 +204,6 @@ describe('GET /api/inventory', () => {
       mockMaybeSingle.mockResolvedValue({ data: null, error: null });
       mockGetSetInventory.mockResolvedValue({
         rows: [],
-        minifigMappingMeta: undefined,
-        minifigEnrichmentNeeded: undefined,
-        spares: undefined,
       });
 
       const req = new NextRequest('http://localhost/api/inventory?set=75192-1');
