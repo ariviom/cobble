@@ -6,7 +6,7 @@ import { useInventoryViewModel } from '@/app/hooks/useInventoryViewModel';
 import { useSupabaseOwned } from '@/app/hooks/useSupabaseOwned';
 import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InventoryTableView, type PriceInfo } from './InventoryTableView';
 import type { InventoryRow } from './types';
 
@@ -81,15 +81,29 @@ export function InventoryTable({
   });
 
   const [exportOpen, setExportOpen] = useState(false);
-  const [showEnrichmentToast, setShowEnrichmentToast] = useState(false);
   const clearAllOwned = useOwnedStore(state => state.clearAll);
 
-  // Show toast when minifig enrichment fails
-  useEffect(() => {
-    if (!isMinifigEnriching && minifigEnrichmentError) {
-      setShowEnrichmentToast(true);
-    }
-  }, [isMinifigEnriching, minifigEnrichmentError]);
+  // Enrichment toast: derive visibility from state instead of syncing via useEffect
+  // Track if user has manually dismissed the toast for the current enrichment cycle
+  const [toastDismissedForCycle, setToastDismissedForCycle] = useState(false);
+
+  // Reset dismissal when a new enrichment cycle starts (React-recommended pattern
+  // for adjusting state based on prop changes - see react.dev/learn/you-might-not-need-an-effect)
+  const [prevIsEnriching, setPrevIsEnriching] = useState(false);
+  if (isMinifigEnriching && !prevIsEnriching) {
+    setPrevIsEnriching(true);
+    setToastDismissedForCycle(false);
+  } else if (!isMinifigEnriching && prevIsEnriching) {
+    setPrevIsEnriching(false);
+  }
+
+  // Derive toast visibility: show when enriching or error exists, unless manually dismissed
+  const showEnrichmentToast =
+    (isMinifigEnriching || !!minifigEnrichmentError) && !toastDismissedForCycle;
+
+  const handleDismissEnrichmentToast = useCallback(() => {
+    setToastDismissedForCycle(true);
+  }, []);
 
   const { pricesByKey, pendingKeys, requestPricesForKeys } =
     useInventoryPrices<PriceInfo>({
@@ -250,7 +264,7 @@ export function InventoryTable({
       gridSizes={gridSizes}
       exportOpen={exportOpen}
       showEnrichmentToast={showEnrichmentToast}
-      setShowEnrichmentToast={setShowEnrichmentToast}
+      onDismissEnrichmentToast={handleDismissEnrichmentToast}
       handleExportOpen={handleExportOpen}
       pricesByKey={pricesByKey}
       pendingPriceKeys={pendingKeys}

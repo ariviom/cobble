@@ -8,7 +8,7 @@ import { Modal } from '@/app/components/ui/Modal';
 import { Spinner } from '@/app/components/ui/Spinner';
 import { Toast } from '@/app/components/ui/Toast';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
 import { InventoryControls } from './InventoryControls';
 import { InventoryItem } from './items/InventoryItem';
@@ -93,7 +93,7 @@ type InventoryTableViewProps = {
   gridSizes: string;
   exportOpen: boolean;
   showEnrichmentToast: boolean;
-  setShowEnrichmentToast: (show: boolean) => void;
+  onDismissEnrichmentToast: () => void;
   handleExportOpen: { open: () => void; close: () => void };
   pricesByKey: Record<string, PriceInfo> | null;
   pendingPriceKeys: Set<string> | null;
@@ -152,7 +152,7 @@ export function InventoryTableView({
   gridSizes,
   exportOpen,
   showEnrichmentToast,
-  setShowEnrichmentToast,
+  onDismissEnrichmentToast,
   handleExportOpen,
   pricesByKey,
   pendingPriceKeys,
@@ -169,12 +169,6 @@ export function InventoryTableView({
   isInGroupSession,
 }: InventoryTableViewProps) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (isMinifigEnriching) {
-      setShowEnrichmentToast(true);
-    }
-  }, [isMinifigEnriching, setShowEnrichmentToast]);
 
   const renderInventoryItem = useCallback(
     (rowIndex: number, key: string) => {
@@ -405,7 +399,7 @@ export function InventoryTableView({
             title="Enriching minifigs…"
             description="Fetching images and subparts."
             variant="info"
-            onClose={() => setShowEnrichmentToast(false)}
+            onClose={onDismissEnrichmentToast}
           />
         ) : null}
         {showEnrichmentToast && minifigEnrichmentError ? (
@@ -416,7 +410,7 @@ export function InventoryTableView({
             {...(retryMinifigEnrichment
               ? { actionLabel: 'Retry', onAction: retryMinifigEnrichment }
               : {})}
-            onClose={() => setShowEnrichmentToast(false)}
+            onClose={onDismissEnrichmentToast}
           />
         ) : null}
       </div>
