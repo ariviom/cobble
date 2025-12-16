@@ -75,13 +75,18 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
         featureKey: 'search_party_host:monthly',
         windowKind: 'monthly',
         limit: 2,
-        supabase,
+        // Don't pass the user's supabase client - let it use service role by default
       });
       if (!usage.allowed) {
+        logger.warn('group_sessions.create.quota_exceeded', {
+          userId: user.id,
+          limit: usage.limit,
+          resetAt: usage.resetAt,
+        });
         return NextResponse.json(
           {
-            error: 'feature_unavailable',
-            reason: 'quota_exceeded',
+            error: 'quota_exceeded',
+            message: `You've reached your limit of ${usage.limit} Search Party sessions this month. Upgrade to Plus for unlimited sessions or wait until ${new Date(usage.resetAt).toLocaleDateString()}.`,
             limit: usage.limit,
             remaining: usage.remaining,
             resetAt: usage.resetAt,

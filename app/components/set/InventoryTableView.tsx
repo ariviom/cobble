@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
 import { InventoryControls } from './InventoryControls';
 import { InventoryItem } from './items/InventoryItem';
+import { SearchPartyBanner } from './SearchPartyBanner';
 import type {
   GroupBy,
   InventoryFilter,
@@ -115,6 +116,9 @@ type InventoryTableViewProps = {
     delta: number;
     newOwned: number;
   }) => void;
+  connectionState?: 'disconnected' | 'connecting' | 'connected';
+  hasConnectedOnce?: boolean;
+  isInGroupSession?: boolean;
 };
 
 export function InventoryTableView({
@@ -160,6 +164,9 @@ export function InventoryTableView({
   confirmMigration,
   keepCloudData,
   broadcastPieceDelta,
+  connectionState,
+  hasConnectedOnce,
+  isInGroupSession,
 }: InventoryTableViewProps) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
@@ -283,6 +290,20 @@ export function InventoryTableView({
     [rows, keys, ownedByKey]
   );
 
+  const getAllRows = useMemo(
+    () => (): MissingRow[] =>
+      rows.map(row => {
+        return {
+          setNumber: row.setNumber,
+          partId: row.partId,
+          colorId: row.colorId,
+          elementId: row.elementId ?? null,
+          quantityMissing: row.quantityRequired ?? 0,
+        };
+      }),
+    [rows]
+  );
+
   return (
     <div className="flex h-full flex-col">
       <InventoryControls
@@ -315,6 +336,19 @@ export function InventoryTableView({
         }}
         onOpenExportModal={handleExportOpen.open}
       />
+
+      {/* Search Party Experimental Banner */}
+      {isInGroupSession && <SearchPartyBanner />}
+
+      {/* Connection Status for Search Party - only show after first successful connection */}
+      {isInGroupSession &&
+        hasConnectedOnce &&
+        connectionState !== 'connected' && (
+          <div className="flex items-center gap-2 border-b border-subtle bg-amber-50 px-4 py-2 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+            <span className="animate-pulse">●</span>
+            <span>Reconnecting to Search Party...</span>
+          </div>
+        )}
 
       {error ? (
         <ErrorBanner
@@ -364,7 +398,9 @@ export function InventoryTableView({
       )}
 
       <div className="flex items-center gap-3">
-        {showEnrichmentToast && isMinifigEnriching ? (
+        {showEnrichmentToast &&
+        isMinifigEnriching &&
+        !minifigEnrichmentError ? (
           <Toast
             title="Enriching minifigs…"
             description="Fetching images and subparts."
@@ -372,11 +408,11 @@ export function InventoryTableView({
             onClose={() => setShowEnrichmentToast(false)}
           />
         ) : null}
-        {minifigEnrichmentError ? (
+        {showEnrichmentToast && minifigEnrichmentError ? (
           <Toast
             title="Minifig enrichment failed"
-            description="Retry to fetch missing images or subparts."
-            variant="error"
+            description="Some minifigure images could not be loaded."
+            variant="warning"
             {...(retryMinifigEnrichment
               ? { actionLabel: 'Retry', onAction: retryMinifigEnrichment }
               : {})}
@@ -391,6 +427,7 @@ export function InventoryTableView({
         {...(setName ? { setName } : {})}
         setNumber={setNumber}
         getMissingRows={getMissingRows}
+        getAllRows={getAllRows}
       />
 
       <Modal

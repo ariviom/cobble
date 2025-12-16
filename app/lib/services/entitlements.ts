@@ -108,7 +108,14 @@ export async function getEntitlements(
   userId: string,
   options?: Options
 ): Promise<Entitlements> {
-  const cacheKey = `${userId}:${options?.betaOverride ?? false}`;
+  // Check beta status first so we can include it in the cache key
+  const betaOn =
+    options?.betaOverride === true ||
+    process.env.BETA_ALL_ACCESS === 'true' ||
+    process.env.NEXT_PUBLIC_BETA_ALL_ACCESS === 'true';
+
+  // Include beta status in cache key so cache is invalidated when beta changes
+  const cacheKey = `${userId}:${options?.betaOverride ?? false}:${betaOn}`;
   if (entitlementsCache.has(cacheKey)) {
     return entitlementsCache.get(cacheKey)!;
   }
@@ -119,15 +126,13 @@ export async function getEntitlements(
     supabase,
   });
 
-  const betaOn =
-    options?.betaOverride === true ||
-    process.env.BETA_ALL_ACCESS === 'true' ||
-    process.env.NEXT_PUBLIC_BETA_ALL_ACCESS === 'true';
-
   const tier: Entitlements['tier'] = betaOn ? 'plus' : base.tier;
 
-  const flags = await loadFlags(supabase);
-  const overrides = await loadOverrides(supabase, userId);
+  // Use service role client for reading feature flags and overrides
+  // because these tables have restrictive RLS policies
+  const serviceClient = getSupabaseServiceRoleClient();
+  const flags = await loadFlags(serviceClient);
+  const overrides = await loadOverrides(serviceClient, userId);
 
   const features: string[] = [];
 

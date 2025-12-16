@@ -2,6 +2,7 @@
 
 import { SetTopBar } from '@/app/components/nav/SetTopBar';
 import { InventoryTable } from '@/app/components/set/InventoryTable';
+import { Toast } from '@/app/components/ui/Toast';
 import { cn } from '@/app/components/ui/utils';
 import type { InventoryRow } from '@/app/components/set/types';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
@@ -51,6 +52,7 @@ export function SetPageClient({
   const [participants, setParticipants] = useState<GroupParticipant[]>([]);
   const [isSearchTogetherLoading, setIsSearchTogetherLoading] = useState(false);
   const [origin, setOrigin] = useState('');
+  const [searchPartyError, setSearchPartyError] = useState<string | null>(null);
 
   const { user } = useSupabaseUser();
   const clientId = useGroupClientId();
@@ -116,6 +118,10 @@ export function SetPageClient({
           isActive: boolean;
         };
         error?: string;
+        message?: string;
+        limit?: number;
+        remaining?: number;
+        resetAt?: string;
       };
 
       if (!res.ok || !data.session) {
@@ -124,6 +130,18 @@ export function SetPageClient({
             status: res.status,
             body: data,
           });
+        }
+
+        // Handle quota exceeded error
+        if (res.status === 429 && data.error === 'quota_exceeded') {
+          setSearchPartyError(
+            data.message ||
+              `You've reached your limit of ${data.limit || 2} Search Party sessions this month. Upgrade to Plus for unlimited sessions.`
+          );
+        } else {
+          setSearchPartyError(
+            'Failed to start Search Party. Please try again.'
+          );
         }
         return;
       }
@@ -346,6 +364,13 @@ export function SetPageClient({
         groupClientId={clientId}
         onParticipantPiecesDelta={handleParticipantPiecesDelta}
       />
+      {searchPartyError && (
+        <Toast
+          variant="error"
+          description={searchPartyError}
+          onClose={() => setSearchPartyError(null)}
+        />
+      )}
     </div>
   );
 }

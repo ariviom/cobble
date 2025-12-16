@@ -64,6 +64,15 @@ export function SetTopBar({
   );
   const [hasTriedRefresh, setHasTriedRefresh] = useState(false);
   const [searchPartyModalOpen, setSearchTogetherModalOpen] = useState(false);
+  const [quotaInfo, setQuotaInfo] = useState<{
+    canHost: boolean;
+    unlimited?: boolean;
+    limit?: number;
+    used?: number;
+    remaining?: number;
+    resetDateFormatted?: string;
+    loading: boolean;
+  }>({ canHost: true, loading: false });
   const [setQuantity, setSetQuantity] = useState<number>(1);
   const { isLoading, ownedTotal } = useInventory(setNumber);
   const ownership = useSetOwnershipState({
@@ -128,6 +137,28 @@ export function SetTopBar({
       }
     }
   };
+
+  // Fetch quota info when modal opens
+  useEffect(() => {
+    if (!searchPartyModalOpen || !user || searchParty?.active) return;
+
+    const fetchQuota = async () => {
+      setQuotaInfo(prev => ({ ...prev, loading: true }));
+      try {
+        const res = await fetch('/api/group-sessions/quota');
+        if (res.ok) {
+          const data = await res.json();
+          setQuotaInfo({ ...data, loading: false });
+        } else {
+          setQuotaInfo({ canHost: false, loading: false });
+        }
+      } catch {
+        setQuotaInfo({ canHost: false, loading: false });
+      }
+    };
+
+    void fetchQuota();
+  }, [searchPartyModalOpen, user, searchParty?.active]);
 
   const handleImageError = async () => {
     if (hasTriedRefresh) {
@@ -344,18 +375,77 @@ export function SetTopBar({
                     set.
                   </CardDescription>
                 </CardHeader>
+                <CardContent>
+                  {/* Show quota info for free users */}
+                  {!quotaInfo.loading &&
+                    !quotaInfo.unlimited &&
+                    searchParty.canHost && (
+                      <div className="rounded-lg bg-subtle/50 px-3 py-2 text-center text-xs text-foreground-muted">
+                        {quotaInfo.canHost ? (
+                          <>
+                            <span className="font-medium text-foreground">
+                              {quotaInfo.remaining} of {quotaInfo.limit}
+                            </span>{' '}
+                            sessions remaining this month
+                          </>
+                        ) : (
+                          <div className="space-y-2">
+                            <p className="font-medium text-amber-600 dark:text-amber-400">
+                              You&apos;ve used all {quotaInfo.limit} Search
+                              Party sessions this month
+                            </p>
+                            <p>
+                              Your limit resets on{' '}
+                              {quotaInfo.resetDateFormatted}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                </CardContent>
                 <CardFooter className="mt-4">
                   {searchParty.canHost ? (
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="lg"
-                      className="w-full"
-                      onClick={() => void handleStartSearchTogether()}
-                      disabled={searchParty.loading}
-                    >
-                      {searchParty.loading ? 'Starting…' : 'Start New Session'}
-                    </Button>
+                    quotaInfo.loading ? (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="lg"
+                        className="w-full"
+                        disabled
+                      >
+                        Checking availability…
+                      </Button>
+                    ) : quotaInfo.canHost ? (
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="lg"
+                        className="w-full"
+                        onClick={() => void handleStartSearchTogether()}
+                        disabled={searchParty.loading}
+                      >
+                        {searchParty.loading
+                          ? 'Starting…'
+                          : 'Start New Session'}
+                      </Button>
+                    ) : (
+                      <div className="flex w-full flex-col gap-2">
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="lg"
+                          className="w-full"
+                          onClick={() => {
+                            window.location.href = '/pricing';
+                          }}
+                        >
+                          Upgrade to Plus
+                        </Button>
+                        <p className="text-center text-[11px] text-foreground-muted">
+                          Get unlimited Search Party sessions with Plus
+                        </p>
+                      </div>
+                    )
                   ) : (
                     <p className="text-foreground-muted">
                       Only the session host can start a Search Party session.

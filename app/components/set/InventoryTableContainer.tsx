@@ -84,6 +84,13 @@ export function InventoryTable({
   const [showEnrichmentToast, setShowEnrichmentToast] = useState(false);
   const clearAllOwned = useOwnedStore(state => state.clearAll);
 
+  // Show toast when minifig enrichment fails
+  useEffect(() => {
+    if (!isMinifigEnriching && minifigEnrichmentError) {
+      setShowEnrichmentToast(true);
+    }
+  }, [isMinifigEnriching, minifigEnrichmentError]);
+
   const { pricesByKey, pendingKeys, requestPricesForKeys } =
     useInventoryPrices<PriceInfo>({
       setNumber,
@@ -108,28 +115,32 @@ export function InventoryTable({
     enableCloudSync,
   });
 
-  const { broadcastPieceDelta, broadcastOwnedSnapshot } =
-    useGroupSessionChannel({
-      enabled:
-        Boolean(groupSessionId) &&
-        Boolean(groupParticipantId) &&
-        Boolean(groupClientId),
-      sessionId: groupSessionId ?? null,
-      setNumber,
-      participantId: groupParticipantId ?? null,
-      clientId: groupClientId ?? '',
-      onRemoteDelta: payload => {
-        handleOwnedChange(payload.key, payload.newOwned);
-      },
-      onRemoteSnapshot: snapshot => {
-        if (!snapshot || typeof snapshot !== 'object') return;
-        Object.entries(snapshot).forEach(([key, value]) => {
-          if (typeof value !== 'number' || !Number.isFinite(value)) return;
-          handleOwnedChange(key, value);
-        });
-      },
-      ...(onParticipantPiecesDelta ? { onParticipantPiecesDelta } : {}),
-    });
+  const {
+    broadcastPieceDelta,
+    broadcastOwnedSnapshot,
+    connectionState,
+    hasConnectedOnce,
+  } = useGroupSessionChannel({
+    enabled:
+      Boolean(groupSessionId) &&
+      Boolean(groupParticipantId) &&
+      Boolean(groupClientId),
+    sessionId: groupSessionId ?? null,
+    setNumber,
+    participantId: groupParticipantId ?? null,
+    clientId: groupClientId ?? '',
+    onRemoteDelta: payload => {
+      handleOwnedChange(payload.key, payload.newOwned);
+    },
+    onRemoteSnapshot: snapshot => {
+      if (!snapshot || typeof snapshot !== 'object') return;
+      Object.entries(snapshot).forEach(([key, value]) => {
+        if (typeof value !== 'number' || !Number.isFinite(value)) return;
+        handleOwnedChange(key, value);
+      });
+    },
+    ...(onParticipantPiecesDelta ? { onParticipantPiecesDelta } : {}),
+  });
   const hasBroadcastSnapshotRef = useRef(false);
   const hasClearedLocalForJoinerRef = useRef(false);
 
@@ -253,6 +264,9 @@ export function InventoryTable({
       confirmMigration={confirmMigration}
       keepCloudData={keepCloudData}
       broadcastPieceDelta={broadcastPieceDelta}
+      connectionState={connectionState}
+      hasConnectedOnce={hasConnectedOnce}
+      isInGroupSession={Boolean(groupSessionId)}
     />
   );
 }

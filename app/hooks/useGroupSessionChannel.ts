@@ -46,6 +46,7 @@ type UseGroupSessionChannelResult = {
   }) => void;
   broadcastOwnedSnapshot: (ownedByKey: Record<string, number>) => void;
   connectionState: 'disconnected' | 'connecting' | 'connected';
+  hasConnectedOnce: boolean;
 };
 
 export function useGroupSessionChannel({
@@ -62,8 +63,12 @@ export function useGroupSessionChannel({
   const [connectionState, setConnectionState] = useState<
     'disconnected' | 'connecting' | 'connected'
   >('disconnected');
+  // Track if we've ever connected successfully - only show reconnecting banner after first connection
+  const hasConnectedOnceRef = useRef(false);
+  const [hasConnectedOnce, setHasConnectedOnce] = useState(false);
   const reconnectAttemptRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const disconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!enabled || !sessionId) {
@@ -112,14 +117,33 @@ export function useGroupSessionChannel({
       channel.subscribe(status => {
         // Update connection state based on Realtime status
         if (status === 'SUBSCRIBED') {
+          // Clear any pending disconnect timeout
+          if (disconnectTimeoutRef.current) {
+            clearTimeout(disconnectTimeoutRef.current);
+            disconnectTimeoutRef.current = null;
+          }
           setConnectionState('connected');
+          // Mark that we've connected at least once (for UI purposes)
+          if (!hasConnectedOnceRef.current) {
+            hasConnectedOnceRef.current = true;
+            setHasConnectedOnce(true);
+          }
           reconnectAttemptRef.current = 0; // Reset on successful connection
           if (reconnectTimeoutRef.current) {
             clearTimeout(reconnectTimeoutRef.current);
             reconnectTimeoutRef.current = null;
           }
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          setConnectionState('disconnected');
+          // Debounce disconnected state to avoid flickering
+          // Only show disconnected after 2 seconds of being disconnected
+          if (disconnectTimeoutRef.current) {
+            clearTimeout(disconnectTimeoutRef.current);
+          }
+          disconnectTimeoutRef.current = setTimeout(() => {
+            setConnectionState('disconnected');
+            disconnectTimeoutRef.current = null;
+          }, 2000); // Wait 2 seconds before showing disconnected banner
+
           // Attempt reconnect with exponential backoff
           const delay = Math.min(
             1000 * Math.pow(2, reconnectAttemptRef.current),
@@ -140,7 +164,10 @@ export function useGroupSessionChannel({
           }
         } else {
           // Handle other states like SUBSCRIBING, TIMED_OUT
-          setConnectionState('connecting');
+          // Only set to connecting if we're not already connected to avoid flickering
+          setConnectionState(prev =>
+            prev === 'connected' ? 'connected' : 'connecting'
+          );
         }
 
         if (process.env.NODE_ENV !== 'production') {
@@ -168,10 +195,17 @@ export function useGroupSessionChannel({
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
+      if (disconnectTimeoutRef.current) {
+        clearTimeout(disconnectTimeoutRef.current);
+        disconnectTimeoutRef.current = null;
+      }
       if (channelRef.current) {
         void channelRef.current.unsubscribe();
         channelRef.current = null;
       }
+      // Reset connection state and tracking when cleaning up
+      hasConnectedOnceRef.current = false;
+      setHasConnectedOnce(false);
       setConnectionState('disconnected');
     };
     // Note: connectionState is intentionally not in deps to avoid re-subscribing on every state change
@@ -263,5 +297,10 @@ export function useGroupSessionChannel({
     [enabled, sessionId, setNumber, clientId]
   );
 
-  return { broadcastPieceDelta, broadcastOwnedSnapshot, connectionState };
+  return {
+    broadcastPieceDelta,
+    broadcastOwnedSnapshot,
+    connectionState,
+    hasConnectedOnce,
+  };
 }
