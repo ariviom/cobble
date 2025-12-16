@@ -21,8 +21,8 @@
 | Phase 3 | Split identify/sets/route.ts       | ✅ Complete (492→106 lines)         |
 | Phase 3 | Add API route tests (top 5)        | ✅ Complete (+38 tests)             |
 | Phase 4 | Fix remaining type safety issues   | ✅ Verified (strict mode, no `any`) |
-| Phase 4 | Complete API test coverage         | ⏳ Pending                          |
-| Phase 4 | Split remaining large components   | ⏳ Pending                          |
+| Phase 4 | Complete API test coverage         | ✅ Complete (+22 more, 60 total)    |
+| Phase 4 | Split remaining large components   | ⏳ Deferred (post-beta)             |
 
 ---
 
@@ -39,14 +39,14 @@ The codebase has a **solid architectural foundation** with good patterns for:
 
 **Update:** Most critical issues have been addressed. Remaining work is optimization and extended coverage.
 
-| Category       | Issues Found                                       | Risk Level  | Status                                |
-| -------------- | -------------------------------------------------- | ----------- | ------------------------------------- |
-| Component Size | 4 files > 800 lines                                | 🔴 Critical | ✅ Fixed (2 of 4)                     |
-| Error Handling | Inconsistent patterns across 30+ routes            | 🔴 Critical | ✅ Fixed                              |
-| Logging        | 131 raw console.\* calls vs structured logger      | 🔴 Critical | ✅ Fixed (104→server-only guarded)    |
-| Test Coverage  | API routes excluded, 25 test files for 200+ source | 🟠 High     | ✅ Improved (+38 tests)               |
-| React Patterns | useEffect anti-patterns in key components          | 🟠 High     | ✅ Fixed                              |
-| Type Safety    | 25+ explicit `any` types                           | 🟡 Medium   | ✅ Verified (no explicit `any` found) |
+| Category       | Issues Found                                       | Risk Level  | Status                                     |
+| -------------- | -------------------------------------------------- | ----------- | ------------------------------------------ |
+| Component Size | 4 files > 800 lines                                | 🔴 Critical | ✅ Fixed (2 of 4); 2 deferred to post-beta |
+| Error Handling | Inconsistent patterns across 30+ routes            | 🔴 Critical | ✅ Fixed                                   |
+| Logging        | 131 raw console.\* calls vs structured logger      | 🔴 Critical | ✅ Fixed (104→server-only guarded)         |
+| Test Coverage  | API routes excluded, 25 test files for 200+ source | 🟠 High     | ✅ Improved (+38 tests)                    |
+| React Patterns | useEffect anti-patterns in key components          | 🟠 High     | ✅ Fixed                                   |
+| Type Safety    | 25+ explicit `any` types                           | 🟡 Medium   | ✅ Verified (no explicit `any` found)      |
 
 ---
 
@@ -979,11 +979,11 @@ export function errorResponse(code: AppErrorCode, options?: {...}): NextResponse
 
 ### Phase 4: Post-Beta
 
-| Task                             | Priority | Effort | Status                                    |
-| -------------------------------- | -------- | ------ | ----------------------------------------- |
-| Fix remaining type safety issues | 🟡 P2    | 1d     | ✅ Verified (strict mode, no `any` types) |
-| Complete API test coverage       | 🟠 P1    | 1w     | ⏳ Pending                                |
-| Split remaining large components | 🟡 P2    | 1w     | ⏳ Pending                                |
+| Task                             | Priority | Effort | Status                                                               |
+| -------------------------------- | -------- | ------ | -------------------------------------------------------------------- |
+| Fix remaining type safety issues | 🟡 P2    | 1d     | ✅ Verified (strict mode, no `any` types)                            |
+| Complete API test coverage       | 🟠 P1    | 1w     | ✅ Done (+22 tests for themes, colors, entitlements, sync)           |
+| Split remaining large components | 🟡 P2    | 1w     | ⏳ Deferred (IdentifyClient + MinifigReviewClient; risk during beta) |
 
 ---
 
@@ -996,7 +996,7 @@ Before closing each issue:
 - [x] **useEffect**: No derived-state-in-effect patterns ✅ (SearchResults fixed)
 - [x] **Catch blocks**: All have appropriate logging ✅
 - [x] **Tests**: API routes included in coverage, top 5 routes tested ✅ (+38 tests for search, inventory, catalog/versions, identify/sets)
-- [x] **Components**: AccountPageClient split (1,375→145), identify/sets/route split (492→106) ✅
+- [x] **Components**: AccountPageClient split (1,375→145), identify/sets/route split (492→106) ✅; IdentifyClient + MinifigReviewClient deferred (lower risk, dev-only tool)
 - [x] **Type safety**: Zero explicit `any` types in app/ ✅ (tsconfig has strict: true, exactOptionalPropertyTypes: true)
 - [x] **Tracing**: Request IDs in all error responses and logs ✅
 
