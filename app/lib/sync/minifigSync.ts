@@ -102,7 +102,7 @@ export async function checkSetSyncStatus(
     .maybeSingle();
 
   if (error) {
-    console.error('[minifigSync] Failed to check sync status', {
+    logger.error('minifig_sync.check_status_failed', {
       setNumber,
       error: error.message,
     });
@@ -328,7 +328,7 @@ export async function checkMultipleSetsStatus(
   }
 
   if (error) {
-    console.error('[minifigSync] Failed to check multiple sets', {
+    logger.error('minifig_sync.check_multiple_sets_failed', {
       count: setNumbers.length,
       error: error.message,
     });

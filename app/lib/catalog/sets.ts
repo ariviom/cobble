@@ -11,6 +11,7 @@ import {
 import { filterExactMatches } from '@/app/lib/searchExactMatch';
 import { dedup } from '@/app/lib/utils/dedup';
 import type { MatchType } from '@/app/types/search';
+import { logger } from '@/lib/metrics';
 import type { Json } from '@/supabase/types';
 
 import {
@@ -171,10 +172,9 @@ export async function searchSetsLocal(
         .limit(500);
 
       if (byThemeError) {
-        console.error(
-          'Supabase searchSetsLocal theme search failed',
-          byThemeError.message
-        );
+        logger.error('catalog.search_by_theme_failed', {
+          error: byThemeError.message,
+        });
       } else {
         for (const row of byTheme ?? []) {
           const matchTypeForTheme = getMatchTypeForTheme(

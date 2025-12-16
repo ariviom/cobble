@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { logger } from '@/lib/metrics';
+import { getRequestIdFromHeaders, logger } from '@/lib/metrics';
 
 import {
   toApiError,
@@ -32,22 +32,78 @@ const STATUS_MAP: Partial<Record<AppErrorCode, number>> = {
   unknown_error: 500,
 };
 
+export type ErrorResponseOptions = {
+  message?: string;
+  status?: number;
+  details?: Record<string, unknown>;
+  headers?: HeadersInit;
+  /** Request ID for distributed tracing. Extracted from request headers if provided. */
+  requestId?: string;
+};
+
+/**
+ * Create a standardized error response with proper status code and logging.
+ *
+ * @example
+ * // Basic usage
+ * return errorResponse('validation_failed');
+ *
+ * // With request ID for tracing
+ * const requestId = request.headers.get('x-request-id');
+ * return errorResponse('not_found', { requestId, message: 'Set not found' });
+ */
 export function errorResponse(
   code: AppErrorCode,
-  options?: {
-    message?: string;
-    status?: number;
-    details?: Record<string, unknown>;
-    headers?: HeadersInit;
-  }
+  options?: ErrorResponseOptions
 ): NextResponse<ApiErrorResponse> {
   const status = options?.status ?? STATUS_MAP[code] ?? 500;
-  logger.warn('api.error', { code, status, details: options?.details });
-  return NextResponse.json(
-    toApiError(code, options?.message, options?.details),
-    {
-      status,
-      ...(options?.headers ? { headers: options.headers } : {}),
-    }
-  );
+  const requestId = options?.requestId ?? undefined;
+
+  logger.warn('api.error', {
+    code,
+    status,
+    requestId,
+    details: options?.details,
+  });
+
+  const errorBody = toApiError(code, options?.message, options?.details);
+
+  // Include requestId in response body if available
+  const responseBody: ApiErrorResponse = requestId
+    ? { ...errorBody, requestId }
+    : errorBody;
+
+  // Build response headers, always including request ID if available
+  const responseHeaders: Record<string, string> = {};
+  if (requestId) {
+    responseHeaders['x-request-id'] = requestId;
+  }
+
+  // Merge with any additional headers from options
+  const finalHeaders =
+    options?.headers || Object.keys(responseHeaders).length > 0
+      ? { ...responseHeaders, ...(options?.headers ?? {}) }
+      : undefined;
+
+  return NextResponse.json(responseBody, {
+    status,
+    ...(finalHeaders ? { headers: finalHeaders } : {}),
+  });
+}
+
+/**
+ * Helper to extract request ID from a NextRequest for use with errorResponse.
+ *
+ * @example
+ * export async function GET(req: NextRequest) {
+ *   const requestId = getRequestId(req);
+ *   // ...
+ *   return errorResponse('not_found', { requestId });
+ * }
+ */
+export function getRequestId(
+  request: { headers: Headers } | Headers
+): string | undefined {
+  const headers = 'headers' in request ? request.headers : request;
+  return getRequestIdFromHeaders(headers) ?? undefined;
 }

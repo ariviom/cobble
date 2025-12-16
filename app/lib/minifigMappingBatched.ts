@@ -130,14 +130,14 @@ export async function getMinifigMappingsForSetBatched(
   ]);
 
   if (mappingsResult.error) {
-    console.error('[minifigMapping:batched] Failed to load mappings', {
+    logger.error('minifig_mapping.batched.load_mappings_failed', {
       setNumber,
       error: mappingsResult.error.message,
     });
   }
 
   if (syncStatusResult.error) {
-    console.error('[minifigMapping:batched] Failed to load sync status', {
+    logger.error('minifig_mapping.batched.load_sync_status_failed', {
       setNumber,
       error: syncStatusResult.error.message,
     });
@@ -202,13 +202,10 @@ export async function getMinifigMappingsForSetBatched(
     .in('rb_fig_id', cleanIds);
 
   if (updateErr) {
-    console.error(
-      '[minifigMapping:batched] Failed to reload mappings after sync',
-      {
-        setNumber,
-        error: updateErr.message,
-      }
-    );
+    logger.error('minifig_mapping.batched.reload_mappings_failed', {
+      setNumber,
+      error: updateErr.message,
+    });
   }
 
   // Merge updated mappings
@@ -267,7 +264,7 @@ export async function getGlobalMinifigMapping(
     .maybeSingle();
 
   if (explicitErr) {
-    console.error('[minifigMapping:batched] Global mapping lookup failed', {
+    logger.error('minifig_mapping.batched.global_lookup_failed', {
       figId,
       error: explicitErr.message,
     });
@@ -288,7 +285,7 @@ export async function getGlobalMinifigMapping(
     .maybeSingle();
 
   if (setErr) {
-    console.error('[minifigMapping:batched] Set mapping fallback failed', {
+    logger.error('minifig_mapping.batched.set_fallback_failed', {
       figId,
       error: setErr.message,
     });
