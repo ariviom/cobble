@@ -9,10 +9,26 @@ export type LogPayload = Record<string, unknown>;
 
 const counters = new Map<string, CounterRecord>();
 
-function log(level: LogLevel, event: string, data?: LogPayload): void {
+/**
+ * Extract request ID from headers for logging context.
+ * Works with both Headers object and NextRequest.
+ */
+export function getRequestIdFromHeaders(
+  headers: Headers | { get: (key: string) => string | null }
+): string | null {
+  return headers.get('x-request-id');
+}
+
+function log(
+  level: LogLevel,
+  event: string,
+  data?: LogPayload,
+  requestId?: string | null
+): void {
   const payload = {
     level,
     event,
+    ...(requestId ? { requestId } : {}),
     data: data ?? {},
     timestamp: new Date().toISOString(),
   };
@@ -60,3 +76,23 @@ export const logger = {
   warn: (event: string, data?: LogPayload) => log('warn', event, data),
   error: (event: string, data?: LogPayload) => log('error', event, data),
 };
+
+/**
+ * Create a logger bound to a specific request ID for consistent tracing.
+ * Use in route handlers: `const log = createRequestLogger(request.headers);`
+ */
+export function createRequestLogger(
+  headers: Headers | { get: (key: string) => string | null }
+) {
+  const requestId = getRequestIdFromHeaders(headers);
+  return {
+    debug: (event: string, data?: LogPayload) =>
+      log('debug', event, data, requestId),
+    info: (event: string, data?: LogPayload) =>
+      log('info', event, data, requestId),
+    warn: (event: string, data?: LogPayload) =>
+      log('warn', event, data, requestId),
+    error: (event: string, data?: LogPayload) =>
+      log('error', event, data, requestId),
+  };
+}

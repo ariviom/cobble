@@ -1,4 +1,5 @@
 import type { InventoryRow } from '@/app/components/set/types';
+import { LRUCache } from '@/app/lib/cache/lru';
 import { getSetInventoryLocal } from '@/app/lib/catalog';
 import {
   getGlobalMinifigMappingsBatch,
@@ -38,15 +39,16 @@ export type InventoryResult = {
   };
 };
 
-type SpareCacheEntry = {
-  keys: Set<string>;
-  fetchedAt: number;
-};
+/** Spare keys cached per set number */
+type SpareCacheValue = Set<string>;
 
 const SPARE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const SPARE_CACHE_MAX = 200;
-const spareCache = new Map<string, SpareCacheEntry>();
-const inFlightSpares = new Map<string, Promise<SpareCacheEntry>>();
+const spareCache = new LRUCache<string, SpareCacheValue>(
+  SPARE_CACHE_MAX,
+  SPARE_CACHE_TTL_MS
+);
+const inFlightSpares = new Map<string, Promise<SpareCacheValue>>();
 
 type RebrickableSparePage = {
   results: Array<{
@@ -57,9 +59,7 @@ type RebrickableSparePage = {
   next: string | null;
 };
 
-function buildSpareCacheEntry(
-  results: RebrickableSparePage['results']
-): SpareCacheEntry {
+function buildSpareKeys(results: RebrickableSparePage['results']): Set<string> {
   const keys = new Set<string>();
   for (const row of results) {
     if (!row?.is_spare) continue;
@@ -69,12 +69,12 @@ function buildSpareCacheEntry(
       keys.add(`${partNum}:${colorId}`);
     }
   }
-  return { keys, fetchedAt: Date.now() };
+  return keys;
 }
 
 async function fetchSparesFromRebrickable(
   setNumber: string
-): Promise<SpareCacheEntry> {
+): Promise<SpareCacheValue> {
   const first = await rbFetch<RebrickableSparePage>(
     `/lego/sets/${encodeURIComponent(setNumber)}/parts/`,
     { page_size: 1000, inc_part_details: 1 }
@@ -88,35 +88,23 @@ async function fetchSparesFromRebrickable(
     }
     next = page.next;
   }
-  return buildSpareCacheEntry(all);
-}
-
-function setSpareCache(key: string, entry: SpareCacheEntry) {
-  spareCache.set(key, entry);
-  if (spareCache.size > SPARE_CACHE_MAX) {
-    const oldest = [...spareCache.entries()].sort(
-      (a, b) => a[1].fetchedAt - b[1].fetchedAt
-    )[0]?.[0];
-    if (oldest) {
-      spareCache.delete(oldest);
-    }
-  }
+  return buildSpareKeys(all);
 }
 
 async function getSpareCacheEntry(
   setNumber: string
-): Promise<SpareCacheEntry | null> {
+): Promise<SpareCacheValue | null> {
   const cached = spareCache.get(setNumber);
-  if (cached && Date.now() - cached.fetchedAt < SPARE_CACHE_TTL_MS) {
+  if (cached) {
     return cached;
   }
   if (inFlightSpares.has(setNumber)) {
     return inFlightSpares.get(setNumber)!;
   }
   const promise = fetchSparesFromRebrickable(setNumber)
-    .then(entry => {
-      setSpareCache(setNumber, entry);
-      return entry;
+    .then(keys => {
+      spareCache.set(setNumber, keys);
+      return keys;
     })
     .catch(err => {
       logger.warn('inventory.spares.fetch_failed', {
@@ -314,9 +302,8 @@ export async function getSetInventoryRowsWithMeta(
 
   // Spare-part filtering with cached live fetch (best-effort)
   try {
-    const spareEntry = await getSpareCacheEntry(setNumber);
-    if (spareEntry) {
-      const spareKeys = spareEntry.keys;
+    const spareKeys = await getSpareCacheEntry(setNumber);
+    if (spareKeys) {
       if (spareKeys.size > 0) {
         const filteredRows = result.rows.filter(row => {
           const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
@@ -327,7 +314,7 @@ export async function getSetInventoryRowsWithMeta(
       result.spares = {
         status: 'ok',
         spareCount: spareKeys.size,
-        lastChecked: new Date(spareEntry.fetchedAt).toISOString(),
+        lastChecked: new Date().toISOString(),
       };
     } else {
       result.spares = {

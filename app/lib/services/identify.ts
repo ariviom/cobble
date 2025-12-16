@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { LRUCache } from '@/app/lib/cache/lru';
 import { getSetsForPartLocal, getSetSummaryLocal } from '@/app/lib/catalog';
 import { EXTERNAL } from '@/app/lib/constants';
 import { fetchBLSupersetsFallback } from '@/app/lib/identify/blFallback';
@@ -18,11 +19,12 @@ import {
 } from '@/app/lib/rebrickable';
 import { logger } from '@/lib/metrics';
 
-type CacheKey = string;
-type CacheEntry = { sets: PartInSet[]; fetchedAt: number };
 const IDENTIFY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const IDENTIFY_CACHE_MAX = 200;
-const identifyCache = new Map<CacheKey, CacheEntry>();
+const identifyCache = new LRUCache<string, PartInSet[]>(
+  IDENTIFY_CACHE_MAX,
+  IDENTIFY_CACHE_TTL_MS
+);
 
 function cacheKey(partNum: string, colorId?: number) {
   return `${partNum}::${typeof colorId === 'number' ? colorId : 'any'}`;
@@ -30,13 +32,7 @@ function cacheKey(partNum: string, colorId?: number) {
 
 function getCachedSets(partNum: string, colorId?: number): PartInSet[] | null {
   const key = cacheKey(partNum, colorId);
-  const entry = identifyCache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.fetchedAt > IDENTIFY_CACHE_TTL_MS) {
-    identifyCache.delete(key);
-    return null;
-  }
-  return entry.sets;
+  return identifyCache.get(key) ?? null;
 }
 
 function setCachedSets(
@@ -45,13 +41,7 @@ function setCachedSets(
   sets: PartInSet[]
 ) {
   const key = cacheKey(partNum, colorId);
-  identifyCache.set(key, { sets, fetchedAt: Date.now() });
-  if (identifyCache.size > IDENTIFY_CACHE_MAX) {
-    const oldest = [...identifyCache.entries()].sort(
-      (a, b) => a[1].fetchedAt - b[1].fetchedAt
-    )[0]?.[0];
-    if (oldest) identifyCache.delete(oldest);
-  }
+  identifyCache.set(key, sets);
 }
 
 export type IdentifyCandidate = {

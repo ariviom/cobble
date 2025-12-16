@@ -24,6 +24,22 @@ function getNonce(request: NextRequest): string {
   return `nonce-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+/**
+ * Generate or forward a request ID for distributed tracing.
+ * Accepts incoming x-request-id header or generates a new UUID.
+ */
+function getRequestId(request: NextRequest): string {
+  const existing = request.headers.get('x-request-id');
+  if (existing) return existing;
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
+    return crypto.randomUUID();
+  }
+  return `req-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 // Enforced (permissive) CSP to keep the app unblocked today.
 function buildRelaxedCsp(): string {
   const directives = [
@@ -104,16 +120,26 @@ function buildStrictReportOnlyCsp(nonce: string): string {
 }
 
 /**
- * Apply CSP headers. Supabase session refresh is intentionally skipped here to
+ * Apply CSP headers and request ID for distributed tracing.
+ * Supabase session refresh is intentionally skipped here to
  * keep middleware compatible with the Edge runtime (avoids supabase-js Node
  * APIs that trigger warnings).
  */
 export async function updateSession(request: NextRequest) {
+  const requestId = getRequestId(request);
+
+  // Clone headers and add request ID so route handlers can access it
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-request-id', requestId);
+
   const response = NextResponse.next({
     request: {
-      headers: request.headers,
+      headers: requestHeaders,
     },
   });
+
+  // Also set on response for client visibility
+  response.headers.set('x-request-id', requestId);
 
   // Refresh Supabase auth cookies when configuration is available. This uses
   // the SSR client, which is safe in middleware/Edge and keeps cookies
