@@ -3,27 +3,6 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
-// Allowlist specific inline script hashes that Next.js/hosting may inject and
-// cannot be easily nonced. Add hashes here as needed to satisfy CSP without
-// relaxing to unsafe-inline.
-const INLINE_SCRIPT_HASHES: string[] = [
-  // Reported from blocked inline script on account page.
-  "'sha256-LYOkJ1qGEDu9pdqTOdqu9G86xq3oisQLByhnl/fcz/A='",
-];
-
-function getNonce(request: NextRequest): string {
-  // Use web crypto in Edge; fall back to a time/random string if unavailable.
-  const headerNonce = request.headers.get('x-nonce');
-  if (headerNonce) return headerNonce;
-  if (
-    typeof crypto !== 'undefined' &&
-    typeof crypto.randomUUID === 'function'
-  ) {
-    return crypto.randomUUID();
-  }
-  return `nonce-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
 /**
  * Generate or forward a request ID for distributed tracing.
  * Accepts incoming x-request-id header or generates a new UUID.
@@ -65,49 +44,6 @@ function buildRelaxedCsp(): string {
       'blob:',
     ].join(' '),
     // Next.js inlines critical CSS; keep inline styles allowed.
-    "style-src 'self' 'unsafe-inline'",
-    ['font-src', "'self'", 'https://fonts.gstatic.com', 'data:'].join(' '),
-    "frame-ancestors 'none'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ];
-
-  return directives.join('; ');
-}
-
-// Report-only (strict) CSP to surface remaining inline/eval usage without
-// breaking the app. This is the target policy once inline offenders are fixed.
-function buildStrictReportOnlyCsp(nonce: string): string {
-  const directives = [
-    "default-src 'self'",
-    [
-      'script-src',
-      `'self'`,
-      `'nonce-${nonce}'`,
-      "'strict-dynamic'",
-      isDev ? "'unsafe-eval'" : null,
-      ...INLINE_SCRIPT_HASHES,
-    ]
-      .filter(Boolean)
-      .join(' '),
-    [
-      'connect-src',
-      "'self'",
-      'https://*.supabase.co',
-      'https://api.brickognize.com',
-      'ws:',
-      'wss:',
-    ].join(' '),
-    [
-      'img-src',
-      "'self'",
-      'https://cdn.rebrickable.com',
-      'https://img.bricklink.com',
-      'https://storage.googleapis.com',
-      'data:',
-      'blob:',
-    ].join(' '),
     "style-src 'self' 'unsafe-inline'",
     ['font-src', "'self'", 'https://fonts.gstatic.com', 'data:'].join(' '),
     "frame-ancestors 'none'",
@@ -165,15 +101,7 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  const nonce = getNonce(request);
-  const relaxedCsp = buildRelaxedCsp();
-  const strictReportOnlyCsp = buildStrictReportOnlyCsp(nonce);
-
-  response.headers.set('Content-Security-Policy', relaxedCsp);
-  response.headers.set(
-    'Content-Security-Policy-Report-Only',
-    strictReportOnlyCsp
-  );
+  response.headers.set('Content-Security-Policy', buildRelaxedCsp());
 
   return response;
 }
