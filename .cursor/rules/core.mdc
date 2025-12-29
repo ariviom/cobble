@@ -34,14 +34,6 @@ Act mode - You will make changes to the codebase based on the plan.
 
 ## Code Quality Standards
 
-### ProseMirror-First Architecture
-
-- **Always follow ProseMirror best practices**: "React to each change as it comes in"
-- **Process immediately in plugin apply() methods** - no debouncing that fights the framework
-- **Use transaction metadata** for plugin coordination, not external state management
-- **Work with browser input** - let ProseMirror handle typing, process after transaction creation
-- **Single source of truth** - store state in document marks, not external stores
-
 ### Pure Functions & DRY Code
 
 - **Extract shared utilities** - eliminate code duplication between components
