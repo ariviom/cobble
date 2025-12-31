@@ -30,7 +30,7 @@ export function RecentlyViewedSets() {
     removeRecentSet(setNumber);
   };
   return (
-    <section className="mb-8">
+    <section className="mb-8 min-h-screen">
       <div className="mx-auto w-full max-w-7xl">
         {items.length > 0 ? (
           <div className="my-4 flex items-center justify-between">
