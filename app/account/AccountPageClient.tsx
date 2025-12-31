@@ -7,7 +7,7 @@ import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { AccountTab, DisplayTab, SetsTab } from './components';
+import { AccountTab, DisplayTab, FeedbackTab, SetsTab } from './components';
 import { useAccountData } from './hooks/useAccountData';
 
 type UserProfileRow = Tables<'user_profiles'>;
@@ -20,12 +20,13 @@ type AccountPageClientProps = {
   initialSyncOwnedMinifigsFromSets: boolean;
 };
 
-type TabId = 'account' | 'display' | 'sets';
+type TabId = 'account' | 'display' | 'sets' | 'feedback';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'account', label: 'Account' },
   { id: 'display', label: 'Display & behavior' },
   { id: 'sets', label: 'Your sets' },
+  { id: 'feedback', label: 'Feedback' },
 ];
 
 export default function AccountPageClient({
@@ -140,6 +141,8 @@ export default function AccountPageClient({
           initialSyncOwnedMinifigsFromSets={initialSyncOwnedMinifigsFromSets}
         />
       )}
+
+      {activeTab === 'feedback' && <FeedbackTab user={user} />}
     </div>
   );
 }
