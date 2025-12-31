@@ -298,12 +298,10 @@ export function SetTopBar({
               >
                 {() => (
                   <div className="min-w-min rounded-md border border-subtle bg-card py-1 text-xs shadow-lg">
-                    <MoreDropdownButton
-                      icon={<ExternalLink className="size-4" />}
-                      label="View on BrickLink"
-                      href={bricklinkSetUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
+                    <SetOwnershipAndCollectionsRow
+                      ownership={ownership}
+                      variant="dropdown"
+                      bricklinkUrl={bricklinkSetUrl}
                     />
                   </div>
                 )}
@@ -313,11 +311,7 @@ export function SetTopBar({
               {isLoading ? 'Computing…' : `${ownedTotal} / ${numParts} parts`}
             </div>
             <div className="mt-2 flex w-full flex-wrap items-center gap-2">
-              <SetOwnershipAndCollectionsRow
-                ownership={ownership}
-                variant="inline"
-                className="mt-0 flex-shrink-0 gap-2"
-              />
+              {/* Quantity dropdown hidden for now - moved to kebab menu in future iteration
               <div className="flex items-center gap-1 text-xs text-foreground-muted">
                 <span>Copies</span>
                 <QuantityDropdown
@@ -327,6 +321,7 @@ export function SetTopBar({
                   aria-label="Set quantity"
                 />
               </div>
+              */}
               {searchParty && (
                 <button
                   type="button"
