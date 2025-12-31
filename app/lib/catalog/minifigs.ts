@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
+import { getBlMinifigImageUrl } from '@/app/lib/bricklink/minifigs';
 import { normalizeText } from '@/app/lib/rebrickable';
 import type { MinifigMatchSource, MinifigSortOption } from '@/app/types/search';
 
@@ -10,10 +11,15 @@ import {
   type ThemeMeta,
 } from './themes';
 
-type MinifigRow = {
-  fig_num: string;
-  name: string;
-  num_parts: number | null;
+type BlMinifigRow = {
+  minifig_no: string;
+  name: string | null;
+  image_url: string | null;
+};
+
+type BlCatalogRow = {
+  item_id: string;
+  name: string | null;
 };
 
 export type MinifigCatalogResult = {
@@ -28,7 +34,7 @@ export type MinifigCatalogResult = {
 
 const MATCH_SOURCE_PRIORITY: Record<MinifigMatchSource, number> = {
   'bricklink-id': 4,
-  'rebrickable-id': 3,
+  'rebrickable-id': 3, // Legacy, not used in BL-only mode
   name: 2,
   theme: 1,
 };
@@ -55,6 +61,15 @@ function isLikelyBricklinkFigId(raw: string): boolean {
   return /^[a-z0-9:-]+$/i.test(withoutPrefix);
 }
 
+/**
+ * Search minifigs using BrickLink data as the exclusive source.
+ *
+ * Sources:
+ * - bricklink_minifigs: Full BL catalog
+ * - bl_set_minifigs: Minifigs from synced sets (with images)
+ *
+ * Returns BL minifig IDs (e.g., sw0001, cty1234) - NO Rebrickable IDs.
+ */
 export async function searchMinifigsLocal(
   query: string,
   options?: {
@@ -84,108 +99,149 @@ export async function searchMinifigsLocal(
     ? new Set<number>()
     : matchesTheme(normalizedQuery, compactQuery);
 
-  const [byName, byId] = await Promise.all([
-    supabase
-      .from('rb_minifigs')
-      .select('fig_num, name, num_parts')
-      .ilike('name', `%${trimmed}%`)
-      .limit(300),
-    supabase
-      .from('rb_minifigs')
-      .select('fig_num, name, num_parts')
-      .ilike('fig_num', `${trimmed}%`)
-      .limit(150),
-  ]);
+  // Search BL catalog and set minifigs
+  const [catalogByName, catalogById, setMinifigsByName, setMinifigsById] =
+    await Promise.all([
+      // BL catalog by name
+      supabase
+        .from('bricklink_minifigs')
+        .select('item_id, name')
+        .ilike('name', `%${trimmed}%`)
+        .limit(200),
+      // BL catalog by ID
+      supabase
+        .from('bricklink_minifigs')
+        .select('item_id, name')
+        .ilike('item_id', `${trimmed}%`)
+        .limit(100),
+      // Set minifigs by name
+      supabase
+        .from('bl_set_minifigs')
+        .select('minifig_no, name, image_url')
+        .ilike('name', `%${trimmed}%`)
+        .limit(200),
+      // Set minifigs by ID
+      supabase
+        .from('bl_set_minifigs')
+        .select('minifig_no, name, image_url')
+        .ilike('minifig_no', `${trimmed}%`)
+        .limit(100),
+    ]);
 
   const seen = new Map<string, MinifigCatalogResult>();
   const candidateFigNums = new Set<string>();
 
   function addFig(
-    row: MinifigRow,
+    blMinifigNo: string,
+    name: string | null,
+    imageUrl: string | null,
     themeMeta?: ThemeMeta,
     options?: { matchSource?: MinifigMatchSource }
   ) {
-    const numParts =
-      typeof row.num_parts === 'number' && Number.isFinite(row.num_parts)
-        ? row.num_parts
-        : null;
-    const existing = seen.get(row.fig_num);
+    const existing = seen.get(blMinifigNo);
     const preferredSource = chooseMatchSource(
       existing?.matchSource,
       options?.matchSource
     );
     const next: MinifigCatalogResult = {
-      figNum: row.fig_num,
-      name: row.name || row.fig_num,
-      imageUrl: existing?.imageUrl ?? null,
-      numParts,
+      figNum: blMinifigNo,
+      name: name || blMinifigNo,
+      imageUrl:
+        imageUrl ?? existing?.imageUrl ?? getBlMinifigImageUrl(blMinifigNo),
+      numParts: existing?.numParts ?? null,
       themeName: themeMeta?.themeName ?? existing?.themeName ?? null,
       themePath: themeMeta?.themePath ?? existing?.themePath ?? null,
     };
     if (preferredSource) {
       next.matchSource = preferredSource;
     }
-    seen.set(row.fig_num, next);
-    candidateFigNums.add(row.fig_num);
+    seen.set(blMinifigNo, next);
+    candidateFigNums.add(blMinifigNo);
   }
 
-  if (byName.error) {
+  // Process catalog results
+  if (catalogByName.error) {
     throw new Error(
-      `Supabase minifig search by name failed: ${byName.error.message}`
+      `Supabase BL catalog search by name failed: ${catalogByName.error.message}`
     );
   }
-  if (byId.error) {
+  if (catalogById.error) {
     throw new Error(
-      `Supabase minifig search by id failed: ${byId.error.message}`
+      `Supabase BL catalog search by id failed: ${catalogById.error.message}`
     );
   }
-  for (const row of byName.data ?? []) {
-    addFig(row as MinifigRow, undefined, { matchSource: 'name' });
+  for (const row of catalogByName.data ?? []) {
+    const r = row as BlCatalogRow;
+    addFig(r.item_id, r.name, null, undefined, { matchSource: 'name' });
   }
-  for (const row of byId.data ?? []) {
-    addFig(row as MinifigRow, undefined, { matchSource: 'rebrickable-id' });
+  for (const row of catalogById.data ?? []) {
+    const r = row as BlCatalogRow;
+    addFig(r.item_id, r.name, null, undefined, { matchSource: 'bricklink-id' });
   }
 
-  // Direct ID resolution: try exact RB fig_num, then BrickLink -> RB mapping.
-  async function addByExactFigNum(
-    figNum: string,
+  // Process set minifig results
+  if (setMinifigsByName.error) {
+    throw new Error(
+      `Supabase BL set minifigs search by name failed: ${setMinifigsByName.error.message}`
+    );
+  }
+  if (setMinifigsById.error) {
+    throw new Error(
+      `Supabase BL set minifigs search by id failed: ${setMinifigsById.error.message}`
+    );
+  }
+  for (const row of setMinifigsByName.data ?? []) {
+    const r = row as BlMinifigRow;
+    addFig(r.minifig_no, r.name, r.image_url, undefined, {
+      matchSource: 'name',
+    });
+  }
+  for (const row of setMinifigsById.data ?? []) {
+    const r = row as BlMinifigRow;
+    addFig(r.minifig_no, r.name, r.image_url, undefined, {
+      matchSource: 'bricklink-id',
+    });
+  }
+
+  // Direct ID resolution: try exact BL minifig_no
+  async function addByExactMinifigNo(
+    minifigNo: string,
     options?: { matchSource?: MinifigMatchSource }
   ) {
-    if (!figNum) return;
-    if (candidateFigNums.has(figNum)) return;
-    const { data, error } = await supabase
-      .from('rb_minifigs')
-      .select('fig_num, name, num_parts')
-      .eq('fig_num', figNum)
+    if (!minifigNo) return;
+    if (candidateFigNums.has(minifigNo)) return;
+
+    // Try catalog first
+    const { data: catalogData } = await supabase
+      .from('bricklink_minifigs')
+      .select('item_id, name')
+      .eq('item_id', minifigNo)
       .limit(1)
       .maybeSingle();
-    if (!error && data) {
-      addFig(data as MinifigRow, undefined, options);
+
+    if (catalogData) {
+      const r = catalogData as BlCatalogRow;
+      addFig(r.item_id, r.name, null, undefined, options);
+      return;
+    }
+
+    // Try set minifigs
+    const { data: setData } = await supabase
+      .from('bl_set_minifigs')
+      .select('minifig_no, name, image_url')
+      .eq('minifig_no', minifigNo)
+      .limit(1)
+      .maybeSingle();
+
+    if (setData) {
+      const r = setData as BlMinifigRow;
+      addFig(r.minifig_no, r.name, r.image_url, undefined, options);
     }
   }
 
-  const trimmedLower = trimmed.toLowerCase();
-  await addByExactFigNum(trimmed, { matchSource: 'rebrickable-id' });
+  await addByExactMinifigNo(trimmed, { matchSource: 'bricklink-id' });
 
-  try {
-    const { data: blMappings } = await supabase
-      .from('bricklink_minifig_mappings')
-      .select('rb_fig_id')
-      .ilike('bl_item_id', `%${trimmedLower}%`)
-      .limit(100);
-    if (Array.isArray(blMappings)) {
-      for (const row of blMappings) {
-        if (row?.rb_fig_id) {
-          await addByExactFigNum(row.rb_fig_id, {
-            matchSource: 'bricklink-id',
-          });
-        }
-      }
-    }
-  } catch {
-    // ignore mapping errors
-  }
-
+  // Theme-based search (if query matches a theme)
   const figThemeIds = new Map<string, Set<number>>();
 
   if (themeIds.size > 0) {
@@ -209,72 +265,36 @@ export async function searchMinifigsLocal(
 
     const setNums = Array.from(themeBySet.keys());
     if (setNums.length > 0) {
-      const { data: inventories, error: inventoriesError } = await supabase
-        .from('rb_inventories')
-        .select('id, set_num')
+      // Get minifigs from bl_set_minifigs for these sets
+      const { data: setMinifigs, error: setMinifigsError } = await supabase
+        .from('bl_set_minifigs')
+        .select('set_num, minifig_no, name, image_url')
         .in('set_num', setNums)
-        .limit(4000);
-      if (inventoriesError) {
+        .limit(6000);
+      if (setMinifigsError) {
         throw new Error(
-          `Supabase inventories lookup failed: ${inventoriesError.message}`
+          `Supabase BL set minifigs lookup failed: ${setMinifigsError.message}`
         );
       }
-      const invToSet = new Map<number, string>();
-      for (const inv of inventories ?? []) {
-        if (typeof inv.id === 'number' && typeof inv.set_num === 'string') {
-          invToSet.set(inv.id, inv.set_num);
-        }
-      }
+      for (const row of setMinifigs ?? []) {
+        const themeId = themeBySet.get(row.set_num);
+        if (themeId == null) continue;
+        const current = figThemeIds.get(row.minifig_no) ?? new Set<number>();
+        current.add(themeId);
+        figThemeIds.set(row.minifig_no, current);
 
-      const inventoryIds = Array.from(invToSet.keys());
-      if (inventoryIds.length > 0) {
-        const { data: setMinifigs, error: setMinifigsError } = await supabase
-          .from('rb_inventory_minifigs')
-          .select('inventory_id, fig_num')
-          .in('inventory_id', inventoryIds)
-          .limit(6000);
-        if (setMinifigsError) {
-          throw new Error(
-            `Supabase minifig inventory lookup failed: ${setMinifigsError.message}`
-          );
+        // Add to results if not already present
+        if (!candidateFigNums.has(row.minifig_no)) {
+          const meta = getThemeMeta(themeId);
+          addFig(row.minifig_no, row.name, row.image_url, meta, {
+            matchSource: 'theme',
+          });
         }
-        for (const row of setMinifigs ?? []) {
-          const setNum = invToSet.get(row.inventory_id);
-          const themeId = setNum ? themeBySet.get(setNum) : undefined;
-          if (themeId == null) continue;
-          const current = figThemeIds.get(row.fig_num) ?? new Set<number>();
-          current.add(themeId);
-          figThemeIds.set(row.fig_num, current);
-        }
-      }
-    }
-
-    const figNumsFromThemes = Array.from(figThemeIds.keys());
-    const missingFigNums = figNumsFromThemes.filter(
-      fig => !candidateFigNums.has(fig)
-    );
-    if (missingFigNums.length > 0) {
-      const { data: missingFigs, error: missingFigsError } = await supabase
-        .from('rb_minifigs')
-        .select('fig_num, name, num_parts')
-        .in('fig_num', missingFigNums)
-        .limit(2000);
-      if (missingFigsError) {
-        throw new Error(
-          `Supabase minifig details lookup failed: ${missingFigsError.message}`
-        );
-      }
-      for (const row of missingFigs ?? []) {
-        const themeSet = figThemeIds.get(row.fig_num) ?? new Set<number>();
-        const firstThemeId = Array.from(themeSet)[0];
-        const meta =
-          firstThemeId != null ? getThemeMeta(firstThemeId) : undefined;
-        addFig(row as MinifigRow, meta, { matchSource: 'theme' });
       }
     }
   }
 
-  // Enrich all entries with theme meta when available.
+  // Enrich all entries with theme meta when available
   for (const [figNum, result] of seen.entries()) {
     const themesForFig = figThemeIds.get(figNum);
     if (themesForFig && themesForFig.size > 0) {
@@ -289,21 +309,24 @@ export async function searchMinifigsLocal(
   }
 
   let items = Array.from(seen.values());
+
+  // Fetch part counts from bl_minifig_parts
   if (items.length > 0) {
-    const figNumsForImages = Array.from(
-      new Set(items.map(item => item.figNum))
-    );
-    const { data: images, error: imageError } = await supabase
-      .from('rb_minifig_images')
-      .select('fig_num, image_url')
-      .in('fig_num', figNumsForImages.slice(0, 4000));
-    if (!imageError && images) {
-      const imageByFig = new Map<string, string | null>(
-        images.map(img => [img.fig_num, img.image_url ?? null])
-      );
+    const figNums = Array.from(new Set(items.map(item => item.figNum)));
+    const { data: partCounts } = await supabase
+      .from('bl_minifig_parts')
+      .select('bl_minifig_no')
+      .in('bl_minifig_no', figNums.slice(0, 4000));
+
+    if (partCounts) {
+      const countByFig = new Map<string, number>();
+      for (const row of partCounts) {
+        const current = countByFig.get(row.bl_minifig_no) ?? 0;
+        countByFig.set(row.bl_minifig_no, current + 1);
+      }
       items = items.map(item => ({
         ...item,
-        imageUrl: item.imageUrl ?? imageByFig.get(item.figNum) ?? null,
+        numParts: countByFig.get(item.figNum) ?? item.numParts,
       }));
     }
   }
@@ -367,7 +390,7 @@ export function sortMinifigResults(
           score += 20;
         }
       } else if (item.matchSource === 'rebrickable-id') {
-        score += 10;
+        score += 10; // Legacy, shouldn't happen in BL-only mode
       } else if (item.matchSource === 'name') {
         score += 4;
       } else if (item.matchSource === 'theme' && isBricklinkIdQuery) {
@@ -394,56 +417,43 @@ export type LocalSetMinifig = {
   quantity: number;
 };
 
+/**
+ * Get minifigs for a set using BrickLink data.
+ * Returns BL minifig IDs (e.g., sw0001).
+ */
 export async function getSetMinifigsLocal(
   setNumber: string
 ): Promise<LocalSetMinifig[]> {
   const trimmed = setNumber.trim();
   if (!trimmed) return [];
 
-  // rb_inventories / rb_inventory_minifigs are internal catalog tables
-  // (RLS enabled, no anon/auth read policies) → requires service role
   const supabase = getCatalogWriteClient();
 
-  const { data: inventories, error: invError } = await supabase
-    .from('rb_inventories')
-    .select('id')
+  const { data: setMinifigs, error } = await supabase
+    .from('bl_set_minifigs')
+    .select('minifig_no, quantity')
     .eq('set_num', trimmed);
 
-  if (invError) {
+  if (error) {
     throw new Error(
-      `Supabase getSetMinifigsLocal rb_inventories failed: ${invError.message}`
+      `Supabase getSetMinifigsLocal bl_set_minifigs failed: ${error.message}`
     );
   }
 
-  const inventoryIds = (inventories ?? []).map(row => row.id);
-  if (!inventoryIds.length) {
+  if (!setMinifigs || setMinifigs.length === 0) {
     return [];
   }
 
-  const { data: invMinifigs, error: figsError } = await supabase
-    .from('rb_inventory_minifigs')
-    .select('inventory_id,fig_num,quantity')
-    .in('inventory_id', inventoryIds);
-
-  if (figsError) {
-    throw new Error(
-      `Supabase getSetMinifigsLocal rb_inventory_minifigs failed: ${figsError.message}`
-    );
-  }
-
-  if (!invMinifigs || invMinifigs.length === 0) {
-    return [];
-  }
-
+  // Aggregate by minifig_no (in case of duplicates)
   const byFig = new Map<string, number>();
-  for (const row of invMinifigs) {
-    if (!row.fig_num) continue;
-    const current = byFig.get(row.fig_num) ?? 0;
+  for (const row of setMinifigs) {
+    if (!row.minifig_no) continue;
+    const current = byFig.get(row.minifig_no) ?? 0;
     const q =
       typeof row.quantity === 'number' && Number.isFinite(row.quantity)
         ? row.quantity
         : 0;
-    byFig.set(row.fig_num, current + q);
+    byFig.set(row.minifig_no, current + q);
   }
 
   return Array.from(byFig.entries()).map(([figNum, quantity]) => ({

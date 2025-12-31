@@ -54,6 +54,7 @@ export function InventoryTable({
     error,
     keys,
     ownedByKey,
+    minifigStatusByKey,
     isOwnedHydrated,
     isMinifigEnriching,
     minifigEnrichmentError,
@@ -239,6 +240,7 @@ export function InventoryTable({
       rows={rows}
       keys={keys}
       ownedByKey={ownedByKey}
+      minifigStatusByKey={minifigStatusByKey}
       isLoading={isLoading}
       error={error}
       isMinifigEnriching={isMinifigEnriching}

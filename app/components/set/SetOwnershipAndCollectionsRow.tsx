@@ -65,7 +65,7 @@ export function SetOwnershipAndCollectionsRow({
             ? 'mt-2 border-t border-subtle'
             : variant === 'inline'
               ? 'mt-0 gap-2'
-              : 'mt-0 flex-col gap-1',
+              : 'mt-0 flex-col',
           isAuthenticating && 'opacity-70',
           !isAuthenticated && !isAuthenticating && 'opacity-80',
           className
@@ -79,8 +79,9 @@ export function SetOwnershipAndCollectionsRow({
           aria-busy={isAuthenticating}
           title={controlsDisabled ? 'Sign in to mark sets as owned' : undefined}
           onClick={() => handleToggleStatus('owned')}
-          variant={variant === 'dropdown' ? 'inline' : variant}
+          variant={variant === 'dropdown' ? 'dropdown' : variant}
         />
+        {variant === 'dropdown' && <div className="h-px bg-subtle" />}
         <StatusToggleButton
           icon={<Heart className="size-4" />}
           label="Wishlist"
@@ -93,12 +94,13 @@ export function SetOwnershipAndCollectionsRow({
               : undefined
           }
           onClick={() => handleToggleStatus('wantToBuild')}
-          variant={variant === 'dropdown' ? 'inline' : variant}
+          variant={variant === 'dropdown' ? 'dropdown' : variant}
         />
+        {variant === 'dropdown' && <div className="h-px bg-subtle" />}
         <StatusToggleButton
           icon={<Plus className="size-4" />}
           label="List"
-          className="ml-auto"
+          className={variant !== 'dropdown' ? 'ml-auto' : undefined}
           disabled={controlsDisabled}
           aria-busy={isAuthenticating}
           title={
@@ -107,16 +109,19 @@ export function SetOwnershipAndCollectionsRow({
               : undefined
           }
           onClick={handleOpenCollections}
-          variant={variant === 'dropdown' ? 'inline' : variant}
+          variant={variant === 'dropdown' ? 'dropdown' : variant}
         />
         {variant === 'dropdown' && bricklinkUrl && (
-          <MoreDropdownButton
-            icon={<ExternalLink className="size-4" />}
-            label="View on BrickLink"
-            href={bricklinkUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-          />
+          <>
+            <div className="h-px bg-subtle" />
+            <MoreDropdownButton
+              icon={<ExternalLink className="size-4" />}
+              label="View on BrickLink"
+              href={bricklinkUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+            />
+          </>
         )}
       </div>
       {showAuthHint && (

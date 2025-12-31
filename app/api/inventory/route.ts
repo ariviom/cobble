@@ -58,21 +58,21 @@ export async function GET(req: NextRequest) {
     logEvent('inventory_response', {
       setNumber: set,
       count: result.rows.length,
-      minifigsMapped: result.minifigMappingMeta?.mappedCount,
-      syncTriggered: result.minifigMappingMeta?.syncTriggered,
+      totalMinifigs: result.minifigMeta?.totalMinifigs,
+      syncTriggered: result.minifigMeta?.syncTriggered,
     });
 
     // Return rows and optionally include metadata
     const response: {
       rows: typeof result.rows;
-      meta?: typeof result.minifigMappingMeta;
+      meta?: typeof result.minifigMeta;
       inventoryVersion: string | null;
       minifigEnrichmentNeeded?: typeof result.minifigEnrichmentNeeded;
       spares?: typeof result.spares;
     } = { rows: result.rows, inventoryVersion };
 
-    if (includeMeta && result.minifigMappingMeta) {
-      response.meta = result.minifigMappingMeta;
+    if (includeMeta && result.minifigMeta) {
+      response.meta = result.minifigMeta;
     }
     if (result.minifigEnrichmentNeeded) {
       response.minifigEnrichmentNeeded = result.minifigEnrichmentNeeded;

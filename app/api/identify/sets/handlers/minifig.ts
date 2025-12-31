@@ -1,13 +1,10 @@
-import {
-  mapBrickLinkFigToRebrickable,
-  mapRebrickableFigToBrickLinkOnDemand,
-} from '@/app/lib/minifigMapping';
+import { mapBlToRbFigId } from '@/app/lib/bricklink/minifigs';
+import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import {
   getSetsForMinifig,
   type PartAvailableColor,
   type PartInSet,
 } from '@/app/lib/rebrickable';
-import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import { logEvent } from '@/lib/metrics';
 
 import { enrichSets, ensureSetNames } from './enrichment';
@@ -32,7 +29,10 @@ export type MinifigIdentifyResult = {
 /**
  * Identify a minifigure and find sets containing it.
  *
- * @param part - The original part parameter (may include fig: prefix)
+ * Accepts both BrickLink IDs (e.g., "sw0001") and RB IDs (e.g., "fig-000001").
+ * Uses BrickLink ID as primary; maps to RB ID for set lookups if needed.
+ *
+ * @param part - The minifig ID (may include fig: prefix)
  * @returns Identification result with minifig info and containing sets
  */
 export async function handleMinifigIdentify(
@@ -41,59 +41,91 @@ export async function handleMinifigIdentify(
   const tokenRaw = part.startsWith('fig:') ? part.slice(4) : part;
   const token = tokenRaw.trim();
 
-  let figNum: string | null = null;
-  let bricklinkFigId: string | null = null;
+  const supabase = getCatalogWriteClient();
 
-  // Prefer treating the token as a BrickLink ID first; if that fails,
-  // fall back to using it as a Rebrickable fig id.
-  const mappedRb = await mapBrickLinkFigToRebrickable(token);
-  if (mappedRb) {
-    figNum = mappedRb;
-    bricklinkFigId = token;
-  } else {
-    figNum = token;
-    try {
-      bricklinkFigId = await mapRebrickableFigToBrickLinkOnDemand(figNum);
-    } catch {
-      bricklinkFigId = null;
+  let bricklinkFigId: string | null = null;
+  let rbFigNum: string | null = null;
+
+  // Determine if this is a BL ID or RB ID
+  const looksLikeRbId = token.toLowerCase().startsWith('fig-');
+
+  if (looksLikeRbId) {
+    // Input is RB ID - find BL mapping
+    rbFigNum = token;
+
+    // Check bl_set_minifigs for RB→BL mapping
+    const { data: setMapping } = await supabase
+      .from('bl_set_minifigs')
+      .select('minifig_no')
+      .eq('rb_fig_id', rbFigNum)
+      .not('minifig_no', 'is', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (setMapping?.minifig_no) {
+      bricklinkFigId = setMapping.minifig_no;
+    } else {
+      // Try explicit mappings table
+      const { data: explicitMapping } = await supabase
+        .from('bricklink_minifig_mappings')
+        .select('bl_item_id')
+        .eq('rb_fig_id', rbFigNum)
+        .maybeSingle();
+
+      if (explicitMapping?.bl_item_id) {
+        bricklinkFigId = explicitMapping.bl_item_id;
+      }
     }
+  } else {
+    // Input is BL ID - find RB mapping for set lookups
+    bricklinkFigId = token;
+    rbFigNum = await mapBlToRbFigId(token);
   }
 
+  // Get sets containing this minifig
   let sets: PartInSet[] = [];
-  if (figNum) {
+  const figIdForSets = rbFigNum ?? bricklinkFigId;
+  if (figIdForSets) {
     try {
-      sets = await getSetsForMinifig(figNum);
+      sets = await getSetsForMinifig(figIdForSets);
     } catch {
       sets = [];
     }
   }
 
-  // Resolve a human-friendly minifig name from the catalog when possible.
-  let displayName: string = figNum ?? token;
-  if (figNum) {
-    try {
-      const supabase = getSupabaseServiceRoleClient();
-      const { data, error } = await supabase
-        .from('rb_minifigs')
-        .select('name')
-        .eq('fig_num', figNum)
-        .maybeSingle();
-      if (!error && data && typeof data.name === 'string') {
-        const trimmedName = data.name.trim();
-        if (trimmedName) {
-          displayName = trimmedName;
-        }
-      }
-    } catch {
-      // best-effort only; fall back to figNum/token
+  // Get display name from BL catalog
+  let displayName: string = bricklinkFigId ?? rbFigNum ?? token;
+
+  if (bricklinkFigId) {
+    const { data: blMeta } = await supabase
+      .from('bricklink_minifigs')
+      .select('name')
+      .eq('item_id', bricklinkFigId)
+      .maybeSingle();
+
+    if (blMeta?.name) {
+      displayName = blMeta.name;
+    }
+  }
+
+  // Fallback to RB catalog if no BL name
+  if (displayName === (bricklinkFigId ?? token) && rbFigNum) {
+    const { data: rbMeta } = await supabase
+      .from('rb_minifigs')
+      .select('name')
+      .eq('fig_num', rbFigNum)
+      .maybeSingle();
+
+    if (rbMeta?.name) {
+      displayName = rbMeta.name;
     }
   }
 
   if (process.env.NODE_ENV !== 'production') {
     logEvent('identify.sets.minifig.debug', {
       inputPart: part,
-      figNum: figNum ?? null,
       bricklinkFigId,
+      rbFigNum,
       setsCount: sets.length,
     });
   }
@@ -106,8 +138,8 @@ export async function handleMinifigIdentify(
   if (process.env.NODE_ENV !== 'production') {
     logEvent('identify.sets.minifig.enriched', {
       inputPart: part,
-      figNum: figNum ?? null,
       bricklinkFigId,
+      rbFigNum,
       setsCount: sets.length,
       usedLocal: sets.some(
         s => s.numParts != null || s.themeName != null || s.year !== 0
@@ -117,14 +149,14 @@ export async function handleMinifigIdentify(
 
   return {
     part: {
-      partNum: figNum ?? token,
+      partNum: bricklinkFigId ?? rbFigNum ?? token,
       name: displayName,
       imageUrl: null,
       confidence: 0,
       colorId: null,
       colorName: null,
       isMinifig: true,
-      rebrickableFigId: figNum,
+      rebrickableFigId: rbFigNum,
       bricklinkFigId,
     },
     availableColors: [],
@@ -134,8 +166,8 @@ export async function handleMinifigIdentify(
 }
 
 /**
- * Check if a part ID looks like a BrickLink minifig ID (e.g., "ext014").
+ * Check if a part ID looks like a BrickLink minifig ID (e.g., "sw0001").
  */
 export function looksLikeBricklinkFig(part: string): boolean {
-  return /^[a-z]{3}\d{3,}$/i.test(part.trim());
+  return /^[a-z]{2,3}\d{3,}$/i.test(part.trim());
 }

@@ -1,34 +1,29 @@
 import type { InventoryRow } from '@/app/components/set/types';
+import { getSetMinifigsBl } from '@/app/lib/bricklink/minifigs';
 import { LRUCache } from '@/app/lib/cache/lru';
 import { getSetInventoryLocal } from '@/app/lib/catalog';
-import {
-  getGlobalMinifigMappingsBatch,
-  getMinifigMappingsForSetBatched,
-  normalizeRebrickableFigId,
-} from '@/app/lib/minifigMappingBatched';
 import { getSetInventory } from '@/app/lib/rebrickable';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import { logger } from '@/lib/metrics';
 
 export type InventoryResult = {
   rows: InventoryRow[];
-  /** Metadata about minifig mapping status */
-  minifigMappingMeta?: {
+  /** Metadata about minifig sync status (BL-only, no RB mapping) */
+  minifigMeta?: {
     /** How many minifigs in the set */
     totalMinifigs: number;
-    /** How many have BrickLink IDs */
-    mappedCount: number;
     /** Sync status: 'ok' | 'error' | 'pending' | null */
     syncStatus: 'ok' | 'error' | 'pending' | null;
     /** Whether a sync was triggered during this request */
     syncTriggered: boolean;
-    /** Fig IDs that remain unmapped */
-    unmappedFigIds: string[];
   };
   /** Hints for client-side minifig enrichment */
   minifigEnrichmentNeeded?: {
-    figNums: string[];
+    /** BL minifig IDs that need enrichment */
+    blMinifigNos: string[];
+    /** BL minifig IDs missing images */
     missingImages: string[];
+    /** BL minifig IDs missing subparts */
     missingSubparts: string[];
   };
   /** Spare-part enrichment metadata */
@@ -126,14 +121,13 @@ async function getSpareCacheEntry(
 }
 
 /**
- * Get inventory rows for a set with minifig BrickLink ID enrichment.
+ * Get inventory rows for a set with BrickLink minifig data.
  *
  * This function:
- * 1. Loads inventory from Supabase catalog (falls back to Rebrickable API)
- * 2. Identifies minifig rows and extracts their Rebrickable fig IDs
- * 3. Uses batched lookup to get BrickLink IDs (single query + optional sync)
- * 4. Falls back to global mappings for any remaining unmapped figs
- * 5. Returns enriched rows with mapping metadata
+ * 1. Loads parts inventory from Supabase catalog (falls back to Rebrickable API)
+ * 2. Loads minifigs directly from bl_set_minifigs (BL IDs primary)
+ * 3. Self-heals by triggering BL sync if minifig data is missing
+ * 4. Returns rows with BL minifig IDs as primary identifiers
  */
 export async function getSetInventoryRows(
   setNumber: string
@@ -143,13 +137,13 @@ export async function getSetInventoryRows(
 }
 
 /**
- * Extended version that returns mapping metadata alongside rows.
+ * Extended version that returns minifig metadata alongside rows.
  * Useful for debugging and for UI that wants to show sync status.
  */
 export async function getSetInventoryRowsWithMeta(
   setNumber: string
 ): Promise<InventoryResult> {
-  // Prefer Supabase-backed catalog inventory when available.
+  // Load parts from Supabase catalog (includes RB minifigs as well)
   let rows: InventoryRow[] = [];
   try {
     const localRows = await getSetInventoryLocal(setNumber);
@@ -163,141 +157,124 @@ export async function getSetInventoryRowsWithMeta(
     });
   }
 
-  // Fallback to live Rebrickable inventory when Supabase has no rows or errors.
+  // Fallback to live Rebrickable inventory when Supabase has no rows
   if (!rows.length) {
     rows = await getSetInventory(setNumber);
   }
 
-  // Identify minifigure parent rows; if missing, try live fetch (with upsert in rebrickable.ts)
   let result: InventoryResult = { rows };
 
-  let figRows = rows.filter(
-    row =>
-      row.parentCategory === 'Minifigure' &&
-      typeof row.partId === 'string' &&
-      row.partId.startsWith('fig:')
-  );
+  // Get minifigs directly from BrickLink (self-healing)
+  const blMinifigResult = await getSetMinifigsBl(setNumber);
 
-  if (!figRows.length) {
-    try {
-      const liveRows = await getSetInventory(setNumber);
-      const liveFigRows = liveRows.filter(
-        row =>
-          row.parentCategory === 'Minifigure' &&
-          typeof row.partId === 'string' &&
-          row.partId.startsWith('fig:')
-      );
-      if (liveFigRows.length) {
-        rows = liveRows;
-        figRows = liveFigRows;
-      }
-    } catch (err) {
-      logger.warn('inventory.live_minifig_fetch_failed', {
-        setNumber,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
-  if (figRows.length) {
-    const uniqueFigIds = Array.from(
-      new Set(
-        figRows
-          .map(row => row.partId.replace(/^fig:/, '').trim())
-          .filter(Boolean)
-      )
+  if (blMinifigResult.minifigs.length > 0) {
+    // Build lookup map by BL minifig ID
+    const blMinifigMap = new Map(
+      blMinifigResult.minifigs.map(m => [m.minifigNo, m])
     );
 
-    if (uniqueFigIds.length) {
-      // Use batched lookup - single query for mappings + sync status
-      const batchedResult = await getMinifigMappingsForSetBatched(
-        setNumber,
-        uniqueFigIds,
-        { triggerSyncIfMissing: true }
-      );
-
-      const byFigId = new Map<string, string | null>();
-
-      // Copy per-set mappings
-      for (const [normalized, blId] of batchedResult.mappings.entries()) {
-        // Find original figId that matches this normalized key
-        const originalId = uniqueFigIds.find(
-          id => normalizeRebrickableFigId(id) === normalized
-        );
-        if (originalId) {
-          byFigId.set(originalId, blId);
-        }
+    // Also build reverse lookup by RB fig ID (for matching existing rows)
+    const rbToBlMap = new Map<string, string>();
+    for (const m of blMinifigResult.minifigs) {
+      if (m.rbFigId) {
+        rbToBlMap.set(m.rbFigId.toLowerCase(), m.minifigNo);
       }
-
-      // Get global fallback mappings for any still-unmapped figs
-      const stillMissing = uniqueFigIds.filter(id => !byFigId.has(id));
-
-      if (stillMissing.length > 0) {
-        const globalMappings =
-          await getGlobalMinifigMappingsBatch(stillMissing);
-        for (const figId of stillMissing) {
-          const normalized = normalizeRebrickableFigId(figId);
-          const blId = globalMappings.get(normalized) ?? null;
-          byFigId.set(figId, blId);
-        }
-      }
-
-      // Count mapped vs unmapped
-      let mappedCount = 0;
-      const finalUnmapped: string[] = [];
-      for (const figId of uniqueFigIds) {
-        const blId = byFigId.get(figId);
-        if (blId) {
-          mappedCount++;
-        } else {
-          finalUnmapped.push(figId);
-        }
-      }
-
-      // Enrich rows with BrickLink IDs
-      const enrichedRows = rows.map(row => {
-        if (
-          row.parentCategory === 'Minifigure' &&
-          typeof row.partId === 'string' &&
-          row.partId.startsWith('fig:')
-        ) {
-          const cleanId = row.partId.replace(/^fig:/, '').trim();
-          const blId = cleanId ? (byFigId.get(cleanId) ?? null) : null;
-          return { ...row, bricklinkFigId: blId };
-        }
-        return row;
-      });
-
-      const missingImages = figRows
-        .filter(
-          r =>
-            !r.imageUrl ||
-            (typeof r.imageUrl === 'string' &&
-              r.imageUrl.includes('cdn.rebrickable.com/media/sets/'))
-        )
-        .map(r => r.partId.replace(/^fig:/, '').trim());
-
-      const missingSubparts = figRows
-        .filter(r => !r.componentRelations || r.componentRelations.length === 0)
-        .map(r => r.partId.replace(/^fig:/, '').trim());
-
-      result = {
-        ...result,
-        rows: enrichedRows,
-        minifigMappingMeta: {
-          totalMinifigs: uniqueFigIds.length,
-          mappedCount,
-          syncStatus: batchedResult.syncStatus,
-          syncTriggered: batchedResult.syncTriggered,
-          unmappedFigIds: finalUnmapped,
-        },
-        minifigEnrichmentNeeded: {
-          figNums: uniqueFigIds,
-          missingImages: Array.from(new Set(missingImages)),
-          missingSubparts: Array.from(new Set(missingSubparts)),
-        },
-      };
     }
+
+    const matchedBlIds = new Set<string>();
+
+    // Update existing rows with BL data
+    const enrichedRows = rows.map(row => {
+      if (
+        row.parentCategory === 'Minifigure' &&
+        typeof row.partId === 'string' &&
+        row.partId.startsWith('fig:')
+      ) {
+        const rbFigId = row.partId.replace(/^fig:/, '').trim().toLowerCase();
+        const blMinifigNo = rbToBlMap.get(rbFigId);
+
+        if (blMinifigNo) {
+          matchedBlIds.add(blMinifigNo);
+          const blData = blMinifigMap.get(blMinifigNo);
+
+          // Return row with BL ID as primary, BL data enrichment
+          return {
+            ...row,
+            // Update partId to use BL ID
+            partId: `fig:${blMinifigNo}`,
+            // Use BL name if available
+            partName: blData?.name ?? row.partName,
+            // Use BL image if available
+            imageUrl: blData?.imageUrl ?? row.imageUrl,
+            // Store BL ID for Bricklink links
+            bricklinkFigId: blMinifigNo,
+          };
+        }
+      }
+      return row;
+    });
+
+    // Add any BL minifigs that weren't in RB inventory (rare but possible)
+    const unmatchedBlMinifigs = blMinifigResult.minifigs.filter(
+      m => !matchedBlIds.has(m.minifigNo)
+    );
+
+    for (const blMinifig of unmatchedBlMinifigs) {
+      enrichedRows.push({
+        setNumber,
+        partId: `fig:${blMinifig.minifigNo}`,
+        partName: blMinifig.name ?? blMinifig.minifigNo,
+        colorId: 0,
+        colorName: '—',
+        quantityRequired: blMinifig.quantity,
+        imageUrl: blMinifig.imageUrl,
+        partCategoryName: 'Minifig',
+        parentCategory: 'Minifigure',
+        inventoryKey: `fig:${blMinifig.minifigNo}`,
+        componentRelations: [],
+        bricklinkFigId: blMinifig.minifigNo,
+      });
+    }
+
+    // Identify minifigs needing enrichment
+    const allBlMinifigNos = blMinifigResult.minifigs.map(m => m.minifigNo);
+    const missingImages = blMinifigResult.minifigs
+      .filter(m => !m.imageUrl)
+      .map(m => m.minifigNo);
+
+    // For missing subparts, check if existing rows have componentRelations
+    const rowsByBlId = new Map(
+      enrichedRows
+        .filter(
+          r => r.parentCategory === 'Minifigure' && r.partId.startsWith('fig:')
+        )
+        .map(r => [r.partId.replace(/^fig:/, ''), r])
+    );
+    const missingSubparts = allBlMinifigNos.filter(blId => {
+      const row = rowsByBlId.get(blId);
+      return !row?.componentRelations || row.componentRelations.length === 0;
+    });
+
+    result = {
+      rows: enrichedRows,
+      minifigMeta: {
+        totalMinifigs: blMinifigResult.minifigs.length,
+        syncStatus: blMinifigResult.syncStatus,
+        syncTriggered: blMinifigResult.syncTriggered,
+      },
+      minifigEnrichmentNeeded: {
+        blMinifigNos: allBlMinifigNos,
+        missingImages: Array.from(new Set(missingImages)),
+        missingSubparts: Array.from(new Set(missingSubparts)),
+      },
+    };
+  } else if (blMinifigResult.syncStatus === 'error') {
+    // Sync failed, return what we have from RB with error status
+    result.minifigMeta = {
+      totalMinifigs: 0,
+      syncStatus: 'error',
+      syncTriggered: blMinifigResult.syncTriggered,
+    };
   }
 
   // Spare-part filtering with cached live fetch (best-effort)

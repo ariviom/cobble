@@ -89,11 +89,11 @@ export type CatalogSetMeta = {
 };
 
 /**
- * Cached minifigure metadata and BrickLink mapping for cross-set reuse.
+ * Cached minifigure metadata using BrickLink IDs as the primary key.
+ * BrickLink is the exclusive source of truth for minifigure IDs.
  */
 export type CatalogMinifig = {
-  figNum: string; // Primary key (Rebrickable fig_num)
-  blId: string | null; // BrickLink minifig ID when mapped
+  figNum: string; // Primary key (BrickLink minifig ID, e.g., sw0001)
   name: string;
   imageUrl: string | null;
   numParts: number | null;
@@ -262,9 +262,31 @@ export class BrickPartyDB extends Dexie {
       catalogSetParts:
         '++id, setNumber, partNum, colorId, inventoryKey, [setNumber+inventoryKey], [setNumber+colorId]',
       catalogSetMeta: 'setNumber, inventoryCachedAt, inventoryVersion',
-      catalogMinifigs: 'figNum, blId, cachedAt',
+      catalogMinifigs: 'figNum, blId, cachedAt', // Legacy: had blId field
 
       // localOwned does not have colorId; keep existing compound key only.
+      localOwned:
+        '++id, setNumber, inventoryKey, [setNumber+inventoryKey], updatedAt',
+      localCollections: 'id, userId, type, updatedAt',
+      localCollectionItems: '++id, collectionId, itemType, itemId, addedAt',
+
+      syncQueue: '++id, table, createdAt, retryCount',
+      meta: 'key',
+
+      uiState: 'key',
+      recentSets: 'setNumber, visitedAt',
+    });
+
+    // Version 5: Remove blId from catalogMinifigs (BL IDs are now the primary key)
+    this.version(5).stores({
+      catalogSets: 'setNumber, themeId, year, cachedAt',
+      catalogParts: 'partNum, categoryId, parentCategory, cachedAt',
+      catalogColors: 'id, cachedAt',
+      catalogSetParts:
+        '++id, setNumber, partNum, colorId, inventoryKey, [setNumber+inventoryKey], [setNumber+colorId]',
+      catalogSetMeta: 'setNumber, inventoryCachedAt, inventoryVersion',
+      catalogMinifigs: 'figNum, cachedAt', // figNum is now BL ID (e.g., sw0001)
+
       localOwned:
         '++id, setNumber, inventoryKey, [setNumber+inventoryKey], updatedAt',
       localCollections: 'id, userId, type, updatedAt',

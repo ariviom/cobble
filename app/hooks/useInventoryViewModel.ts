@@ -23,6 +23,7 @@ export type InventoryViewModel = {
   rows: InventoryRow[];
   keys: string[];
   ownedByKey: Record<string, number>;
+  minifigStatusByKey: Map<string, import('./useInventory').MinifigStatus>;
   isLoading: boolean;
   error: Error | null;
 
@@ -77,6 +78,7 @@ export function useInventoryViewModel(
     error,
     keys,
     ownedByKey,
+    minifigStatusByKey,
     isOwnedHydrated,
     isStorageAvailable,
     isMinifigEnriching,
@@ -294,6 +296,7 @@ export function useInventoryViewModel(
     rows,
     keys,
     ownedByKey,
+    minifigStatusByKey,
     isLoading,
     error,
     isOwnedHydrated,

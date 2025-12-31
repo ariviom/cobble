@@ -124,15 +124,13 @@ describe('GET /api/inventory', () => {
     it('includes meta when includeMeta=true', async () => {
       const mockMeta = {
         totalMinifigs: 6,
-        mappedCount: 5,
         syncStatus: 'ok' as const,
         syncTriggered: false,
-        unmappedFigIds: ['fig-001'],
       };
 
       mockGetSetInventory.mockResolvedValue({
         rows: [],
-        minifigMappingMeta: mockMeta,
+        minifigMeta: mockMeta,
       });
 
       const req = new NextRequest(
@@ -148,12 +146,10 @@ describe('GET /api/inventory', () => {
     it('excludes meta when includeMeta=false', async () => {
       mockGetSetInventory.mockResolvedValue({
         rows: [],
-        minifigMappingMeta: {
+        minifigMeta: {
           totalMinifigs: 6,
-          mappedCount: 5,
           syncStatus: 'ok' as const,
           syncTriggered: false,
-          unmappedFigIds: [],
         },
       });
 

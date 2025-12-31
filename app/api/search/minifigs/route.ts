@@ -1,6 +1,5 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { searchMinifigsLocal } from '@/app/lib/catalog';
-import { mapRebrickableFigToBrickLink } from '@/app/lib/minifigMapping';
 import type { MinifigSearchPage, MinifigSortOption } from '@/app/types/search';
 import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
@@ -61,17 +60,14 @@ export async function GET(req: NextRequest) {
       pageSize,
       sort,
     });
-    const withIds = await Promise.all(
-      (results ?? []).map(async result => {
-        let blId: string | null = null;
-        try {
-          blId = await mapRebrickableFigToBrickLink(result.figNum);
-        } catch {
-          blId = null;
-        }
-        return { ...result, blId };
-      })
-    );
+
+    // searchMinifigsLocal now returns BL IDs directly (figNum is BL minifig_no)
+    // Add blId as an alias for backward compatibility
+    const withIds = results.map(result => ({
+      ...result,
+      blId: result.figNum, // figNum is already a BL ID
+    }));
+
     const payload: MinifigSearchPage = { results: withIds, nextPage };
     return NextResponse.json(payload, {
       headers: { 'Cache-Control': CACHE_CONTROL },

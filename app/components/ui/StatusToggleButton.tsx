@@ -8,7 +8,7 @@ export type StatusToggleButtonProps =
     icon: ReactNode;
     label: string;
     active?: boolean;
-    variant?: 'default' | 'inline';
+    variant?: 'default' | 'inline' | 'dropdown';
   };
 
 const baseStyles =
@@ -18,6 +18,8 @@ const defaultStyles =
   'w-full border-r border-subtle last:border-r-0 group-[.status-row]:flex-col';
 
 const inlineStyles = 'w-auto border border-subtle flex-row';
+
+const dropdownStyles = 'w-36 min-w-max flex-row border-r-0 py-2';
 
 const activeStyles = 'bg-theme-primary/10 text-theme-primary';
 
@@ -40,6 +42,7 @@ export function StatusToggleButton({
         baseStyles,
         variant === 'default' && defaultStyles,
         variant === 'inline' && inlineStyles,
+        variant === 'dropdown' && dropdownStyles,
         active && !disabled && activeStyles,
         disabled && disabledStyles,
         className

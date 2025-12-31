@@ -3,10 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Mock server-only before importing handlers
 vi.mock('server-only', () => ({}));
 
-// Mock minifig mapping
-vi.mock('@/app/lib/minifigMapping', () => ({
-  mapBrickLinkFigToRebrickable: vi.fn(),
-  mapRebrickableFigToBrickLinkOnDemand: vi.fn(),
+// Mock BrickLink minifigs module
+vi.mock('@/app/lib/bricklink/minifigs', () => ({
+  mapBlToRbFigId: vi.fn(),
 }));
 
 // Mock rebrickable client
@@ -31,11 +30,26 @@ vi.mock('@/app/lib/bricklink', () => ({
   blGetPartSupersets: vi.fn(),
 }));
 
-// Mock Supabase
+// Mock Supabase - updated for BL queries
 const mockMaybeSingle = vi.fn();
-const mockEq = vi.fn(() => ({ maybeSingle: mockMaybeSingle }));
+const mockLimit = vi.fn(() => ({ maybeSingle: mockMaybeSingle }));
+const mockNot = vi.fn(() => ({
+  limit: mockLimit,
+  maybeSingle: mockMaybeSingle,
+}));
+const mockEq = vi.fn(() => ({
+  maybeSingle: mockMaybeSingle,
+  not: mockNot,
+  limit: mockLimit,
+}));
 const mockSelect = vi.fn(() => ({ eq: mockEq }));
 const mockFrom = vi.fn(() => ({ select: mockSelect }));
+
+vi.mock('@/app/lib/db/catalogAccess', () => ({
+  getCatalogWriteClient: vi.fn(() => ({
+    from: mockFrom,
+  })),
+}));
 
 vi.mock('@/app/lib/supabaseServiceRoleClient', () => ({
   getSupabaseServiceRoleClient: vi.fn(() => ({
@@ -54,11 +68,8 @@ vi.mock('@/lib/metrics', () => ({
   },
 }));
 
+import { mapBlToRbFigId } from '@/app/lib/bricklink/minifigs';
 import { getSetsForPartLocal } from '@/app/lib/catalog';
-import {
-  mapBrickLinkFigToRebrickable,
-  mapRebrickableFigToBrickLinkOnDemand,
-} from '@/app/lib/minifigMapping';
 import {
   getPart,
   getPartColorsForPart,
@@ -71,8 +82,7 @@ import {
 } from '../handlers/minifig';
 import { handlePartIdentify } from '../handlers/part';
 
-const mockMapBlToRb = vi.mocked(mapBrickLinkFigToRebrickable);
-const mockMapRbToBl = vi.mocked(mapRebrickableFigToBrickLinkOnDemand);
+const mockMapBlToRb = vi.mocked(mapBlToRbFigId);
 const mockGetSetsForMinifig = vi.mocked(getSetsForMinifig);
 const mockGetPart = vi.mocked(getPart);
 const mockGetPartColors = vi.mocked(getPartColorsForPart);
@@ -80,8 +90,8 @@ const mockGetSetsForPart = vi.mocked(getSetsForPart);
 const mockGetSetsForPartLocal = vi.mocked(getSetsForPartLocal);
 
 describe('looksLikeBricklinkFig', () => {
-  it('returns true for valid BrickLink minifig patterns (3 letters + 3+ digits)', () => {
-    expect(looksLikeBricklinkFig('ext014')).toBe(true);
+  it('returns true for valid BrickLink minifig patterns (2-3 letters + 3+ digits)', () => {
+    expect(looksLikeBricklinkFig('sw001')).toBe(true);
     expect(looksLikeBricklinkFig('cty1234')).toBe(true);
     expect(looksLikeBricklinkFig('ABC123')).toBe(true);
     expect(looksLikeBricklinkFig('poc001')).toBe(true);
@@ -90,8 +100,7 @@ describe('looksLikeBricklinkFig', () => {
   it('returns false for non-minifig patterns', () => {
     expect(looksLikeBricklinkFig('3001')).toBe(false);
     expect(looksLikeBricklinkFig('fig-000001')).toBe(false);
-    expect(looksLikeBricklinkFig('ab12')).toBe(false); // only 2 letters
-    expect(looksLikeBricklinkFig('sw01')).toBe(false); // only 2 letters, 2 digits
+    expect(looksLikeBricklinkFig('a12')).toBe(false); // only 1 letter
     expect(looksLikeBricklinkFig('')).toBe(false);
   });
 });
@@ -123,44 +132,45 @@ describe('handleMinifigIdentify', () => {
 
     const result = await handleMinifigIdentify('sw0001');
 
-    expect(mockMapBlToRb).toHaveBeenCalledWith('sw0001');
     expect(result.part.isMinifig).toBe(true);
-    expect(result.part.rebrickableFigId).toBe('fig-000001');
     expect(result.part.bricklinkFigId).toBe('sw0001');
-    expect(result.part.name).toBe('Han Solo');
     expect(result.sets).toHaveLength(1);
   });
 
   it('handles Rebrickable minifig ID correctly', async () => {
     mockMapBlToRb.mockResolvedValue(null);
-    mockMapRbToBl.mockResolvedValue('sw0001');
     mockGetSetsForMinifig.mockResolvedValue([]);
+    // Mock the BL→RB lookup returning null (no mapping found)
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 
     const result = await handleMinifigIdentify('fig:fig-000001');
 
     expect(result.part.rebrickableFigId).toBe('fig-000001');
-    expect(result.part.bricklinkFigId).toBe('sw0001');
+    // BL ID should be null since it's an RB ID with no BL mapping
+    expect(result.part.bricklinkFigId).toBeNull();
   });
 
   it('handles unmapped minifig gracefully', async () => {
     mockMapBlToRb.mockResolvedValue(null);
-    mockMapRbToBl.mockRejectedValue(new Error('No mapping'));
     mockGetSetsForMinifig.mockResolvedValue([]);
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 
-    const result = await handleMinifigIdentify('fig:unknown-fig');
+    // Use proper RB format (fig-NNNNNN) for the test
+    const result = await handleMinifigIdentify('fig:fig-999999');
 
-    expect(result.part.rebrickableFigId).toBe('unknown-fig');
+    expect(result.part.rebrickableFigId).toBe('fig-999999');
     expect(result.part.bricklinkFigId).toBeNull();
   });
 
   it('strips fig: prefix correctly', async () => {
     mockMapBlToRb.mockResolvedValue(null);
-    mockMapRbToBl.mockResolvedValue(null);
     mockGetSetsForMinifig.mockResolvedValue([]);
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 
     const result = await handleMinifigIdentify('fig:fig-000001');
 
-    expect(result.part.partNum).toBe('fig-000001');
+    // For RB IDs, partNum should be the BL ID if available, otherwise the input
+    expect(result.part.rebrickableFigId).toBe('fig-000001');
   });
 });
 

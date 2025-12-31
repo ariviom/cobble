@@ -54,7 +54,7 @@ export function useMinifigMeta(figNum: string): UseMinifigMetaResult {
           if (cancelled) return;
           setMeta({
             figNum: cached.figNum,
-            blId: cached.blId,
+            blId: cached.figNum, // After BL migration, figNum IS the BL ID
             imageUrl: cached.imageUrl,
             name: cached.name,
             numParts: cached.numParts,
@@ -83,7 +83,6 @@ export function useMinifigMeta(figNum: string): UseMinifigMetaResult {
         // Cache the response for future lookups
         void setCachedMinifig({
           figNum: data.figNum,
-          blId: data.blId ?? null,
           name: data.name,
           imageUrl: data.imageUrl,
           numParts: data.numParts ?? null,

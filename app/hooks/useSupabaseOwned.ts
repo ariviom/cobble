@@ -22,6 +22,14 @@ type UseSupabaseOwnedArgs = {
   enableCloudSync?: boolean;
 };
 
+type HandleOwnedChangeOptions = {
+  /**
+   * Skip cascade to children. Used when programmatically updating children
+   * to avoid infinite loops.
+   */
+  skipCascade?: boolean;
+};
+
 type MigrationState = {
   open: boolean;
   localTotal: number;
@@ -29,7 +37,11 @@ type MigrationState = {
 };
 
 type UseSupabaseOwnedResult = {
-  handleOwnedChange: (key: string, nextOwned: number) => void;
+  handleOwnedChange: (
+    key: string,
+    nextOwned: number,
+    options?: HandleOwnedChangeOptions
+  ) => void;
   migration: MigrationState | null;
   isMigrating: boolean;
   confirmMigration: () => Promise<void>;
@@ -106,9 +118,68 @@ export function useSupabaseOwned({
     [enableCloudSync, setNumber, userId]
   );
 
+  // Memoized map for O(1) row lookups (performance optimization)
+  const rowByKey = useMemo(() => {
+    const map = new Map<string, InventoryRow>();
+    for (const row of rows) {
+      const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
+      map.set(key, row);
+    }
+    return map;
+  }, [rows]);
+
   const handleOwnedChange = useCallback(
-    (key: string, nextOwned: number) => {
-      // Update local store immediately (IndexedDB + in-memory cache)
+    (key: string, nextOwned: number, options?: HandleOwnedChangeOptions) => {
+      // CASCADE DOWN: If this is a parent minifig, update its children
+      // (Must calculate BEFORE updating parent owned value)
+      if (!options?.skipCascade) {
+        const row = rowByKey.get(key);
+
+        // Check if this row is a minifig parent with component relations
+        if (row?.componentRelations && row.componentRelations.length > 0) {
+          const isMinifigParent =
+            row.parentCategory === 'Minifigure' &&
+            typeof row.partId === 'string' &&
+            row.partId.startsWith('fig:');
+
+          if (isMinifigParent) {
+            // Get current parent owned BEFORE updating
+            const previousParentOwned = getOwned(setNumber, key);
+            const parentDelta = nextOwned - previousParentOwned;
+
+            for (const child of row.componentRelations) {
+              const childRow = rowByKey.get(child.key);
+              if (!childRow) continue;
+
+              // How many does THIS parent need?
+              const parentContribution = child.quantity;
+
+              // Current child owned
+              const currentChildOwned = getOwned(setNumber, child.key);
+
+              // Calculate contribution-based delta
+              const childDelta = parentDelta * parentContribution;
+              const newChildOwned = Math.max(
+                0,
+                Math.min(
+                  childRow.quantityRequired,
+                  currentChildOwned + childDelta
+                )
+              );
+
+              // Update child (skip cascade to avoid infinite loop)
+              setOwned(setNumber, child.key, newChildOwned);
+
+              // Enqueue child for sync if cloud sync enabled
+              if (enableCloudSync && userId) {
+                enqueueChange(child.key, newChildOwned);
+              }
+            }
+          }
+        }
+      }
+
+      // Update local store (IndexedDB + in-memory cache)
       setOwned(setNumber, key, nextOwned);
 
       if (!enableCloudSync || !userId) {
@@ -120,7 +191,15 @@ export function useSupabaseOwned({
       // Enqueue change for sync to Supabase via the sync worker
       enqueueChange(key, nextOwned);
     },
-    [enableCloudSync, setOwned, setNumber, userId, enqueueChange]
+    [
+      enableCloudSync,
+      setOwned,
+      getOwned,
+      setNumber,
+      userId,
+      enqueueChange,
+      rowByKey,
+    ]
   );
 
   // Initial hydration + migration prompt detection.

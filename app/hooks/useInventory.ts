@@ -14,6 +14,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useMinifigEnrichment } from './useMinifigEnrichment';
 
+export type MinifigStatus = {
+  state: 'complete' | 'missing' | 'unknown';
+  missingCount: number;
+};
+
 export type UseInventoryResult = {
   rows: InventoryRow[];
   isLoading: boolean;
@@ -24,6 +29,8 @@ export type UseInventoryResult = {
   totalMissing: number;
   ownedTotal: number;
   ownedByKey: Record<string, number>;
+  /** Computed status for parent minifigs based on their subparts */
+  minifigStatusByKey: Map<string, MinifigStatus>;
   computeMissingRows: () => MissingRow[];
   /** Whether owned data has been hydrated from IndexedDB */
   isOwnedHydrated: boolean;
@@ -253,6 +260,9 @@ export function useInventory(
               rel => rel.parentKey === parentKey
             );
             if (!alreadyLinked) {
+              // This is a new parent for this child (shared part)
+              // Aggregate the quantity required
+              child.quantityRequired += sp.quantity;
               child.parentRelations.push({
                 parentKey,
                 quantity: sp.quantity,
@@ -318,6 +328,53 @@ export function useInventory(
     };
   }, [rows, keys, ownedByKey]);
 
+  // Compute minifig status based on subparts (Children → Parent display)
+  const minifigStatusByKey = useMemo(() => {
+    const result = new Map<string, MinifigStatus>();
+
+    // Build lookup map for O(1) access (performance optimization)
+    const rowByKey = new Map<string, InventoryRow>();
+    for (const row of rows) {
+      const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
+      rowByKey.set(key, row);
+    }
+
+    for (const row of rows) {
+      if (!isMinifigParentRow(row)) continue;
+
+      const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
+      const relations = row.componentRelations ?? [];
+
+      if (relations.length === 0) {
+        result.set(key, { state: 'unknown', missingCount: 0 });
+        continue;
+      }
+
+      let missingCount = 0;
+      for (const rel of relations) {
+        const childOwned = ownedByKey[rel.key] ?? 0;
+        const childRow = rowByKey.get(rel.key);
+
+        // For shared parts, check if total owned meets total required
+        // (quantityRequired is now aggregated for shared parts)
+        const totalChildRequired = childRow?.quantityRequired ?? rel.quantity;
+
+        if (childOwned < totalChildRequired) {
+          // Not enough to satisfy ALL parents (including this one)
+          // This parent's portion is considered missing
+          missingCount += rel.quantity;
+        }
+      }
+
+      result.set(key, {
+        state: missingCount === 0 ? 'complete' : 'missing',
+        missingCount,
+      });
+    }
+
+    return result;
+  }, [rows, ownedByKey]);
+
   const computeMissingRows = () => {
     const result: MissingRow[] = [];
     for (let i = 0; i < rows.length; i++) {
@@ -349,6 +406,7 @@ export function useInventory(
     totalMissing: totals.totalMissing,
     ownedTotal: totals.ownedTotal,
     ownedByKey,
+    minifigStatusByKey,
     computeMissingRows,
     isOwnedHydrated,
     isStorageAvailable,

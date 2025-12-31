@@ -9,41 +9,40 @@
   - `app/api/inventory/route.ts` (set inventory).
 - `lib/rebrickable.ts` wrapper with `searchSets`, `getSetInventory`, `getSetSummary` using server-only env and caching.
 - Set search UI with debounce and result linking (`app/components/search`).
-- Search bar label moved above input; inline clear “x” appears when text is entered, with a touch-friendly target.
+- Search bar label moved above input; inline clear "x" appears when text is entered, with a touch-friendly target.
 - Set page `app/sets/[setNumber]/page.tsx` renders inventory for a set using `SetPageClient`.
 - Virtualized inventory table with images, per-row owned input, bulk actions, missing totals, and a refactored `useInventoryViewModel` hook that centralizes sorting/filtering/grouping.
 - Inventory controls support sorting by name/color/size/category, grouping, and filters for All/Missing/Owned, parent categories, and colors.
 - Owned-quantity persistence via `app/store/owned.ts` with in-memory cache, versioned `localStorage` key, and debounced writes.
 - Export modal (`ExportModal`) supports Rebrickable CSV and BrickLink wanted list CSV generation, including basic unmapped-row reporting.
 - Optional BrickLink pricing via `/api/prices/bricklink`, `/api/prices/bricklink-set`, and `useInventoryPrices`, triggered per-row and at the set level, with per-part BrickLink links and aggregate totals/ranges.
-- Minifig RB↔BL integration:
-  - `scripts/minifig-mapping-core.ts` centralizes RB↔BL minifig matching logic, using:
-    - Normalized-name equality within a set.
-    - Jaccard similarity with tuned thresholds.
-    - A greedy fallback pass when RB/BL naming diverges but counts match.
-  - Bulk mapping scripts:
-    - `npm run build:minifig-mappings:user` for sets in `user_sets`, capped by `MINIFIG_MAPPING_MAX_SETS` (default 2500).
-    - `npm run build:minifig-mappings:all` for `rb_sets`, same cap.
-  - Supabase tables:
-    - `bl_set_minifigs` now stores `set_num`, BrickLink `minifig_no`, RB `rb_fig_id`, and sync timestamps.
-    - `bl_sets.minifig_sync_status` tracks whether a set’s minifigs have been successfully synced from BrickLink.
-    - `bricklink_minifig_mappings` holds optional global RB→BL mappings as a secondary cache.
-  - Runtime mapping:
-    - `app/lib/minifigMapping.ts` exposes:
-      - `mapSetRebrickableFigsToBrickLink` (per-set lookup from `bl_set_minifigs`).
-      - `mapSetRebrickableFigsToBrickLinkOnDemand` (per-set lookup that, when mappings are missing and `minifig_sync_status` ≠ 'ok', invokes `processSetForMinifigMapping` and re-reads the table).
-      - `mapRebrickableFigToBrickLink` as a global fallback.
-    - `app/lib/services/inventory.ts`:
-      - Enriches minifig parent rows with `bricklinkFigId` using the on-demand per-set mapping first, then the global mapping.
-      - Ensures all minifigs in user sets (except a small number of heuristic edge cases) have BrickLink IDs in the UI.
-    - `InventoryItem.tsx`:
-      - Displays BrickLink ID when available and uses it to construct BrickLink URLs for minifigs.
-      - Falls back to Rebrickable ID when mapping is genuinely missing.
+- **BrickLink as Source of Truth for Minifigs (December 2025)**:
+  - Migrated from Rebrickable to BrickLink as the exclusive source of truth for minifigure data.
+  - New BL-only data access module: `app/lib/bricklink/minifigs.ts`
+    - `getSetMinifigsBl()` - Fetch minifigs for a set from `bl_set_minifigs`
+    - `getMinifigPartsBl()` - Fetch component parts from `bl_minifig_parts`
+    - `getMinifigMetaBl()` - Fetch catalog metadata from `bricklink_minifigs`
+    - `mapBlToRbFigId()` - Reverse lookup for RB compatibility
+  - Self-healing system: APIs automatically trigger BrickLink sync when data is missing
+  - Updated services:
+    - `app/lib/services/inventory.ts` - Uses BL IDs directly, no RB→BL mapping needed
+    - `app/lib/services/minifigEnrichment.ts` - BL-only enrichment
+    - `app/api/minifigs/[figNum]/route.ts` - Accepts BL minifig_no as primary ID
+    - `app/api/identify/sets/handlers/minifig.ts` - BL-first identification
+    - `app/api/user/minifigs/sync-from-sets/route.ts` - Uses BL IDs for user minifigs
+  - Deleted old RB→BL mapping logic:
+    - Removed `app/lib/minifigMapping.ts`
+    - Removed `app/lib/minifigMappingBatched.ts`
+    - Removed dev tooling: `app/api/dev/minifig-mappings/*`, `app/dev/minifig-review/`
+  - Added database migration for BL indexes (`20251229100047_bricklink_minifig_primary.sql`)
+  - User data migration scripts:
+    - `scripts/export-user-set-ids.ts` - Backup user sets before migration
+    - `scripts/nuke-user-minifigs.ts` - Clear user minifig data for re-sync
 - Supabase SSR & auth-aware surfaces:
   - `@supabase/ssr` wired for both browser (`getSupabaseBrowserClient`) and server (`getSupabaseAuthServerClient`) clients.
   - Root `middleware.ts` + `utils/supabase/middleware.ts` keep Supabase auth cookies synchronized for SSR.
 - `app/layout.tsx` now uses Supabase SSR to load `user_preferences.theme` and passes an `initialTheme` into `ThemeProvider` (via next-themes) to avoid theme flicker between Supabase and local state.
-  - `/api/user-sets` uses the SSR server client and cookies instead of manual Bearer tokens; `useHydrateUserSets` calls it with `credentials: 'same-origin'` and no longer logs “no access token available”.
+  - `/api/user-sets` uses the SSR server client and cookies instead of manual Bearer tokens; `useHydrateUserSets` calls it with `credentials: 'same-origin'` and no longer logs "no access token available".
   - `/api/prices/bricklink` and `/api/prices/bricklink-set` use Supabase SSR to load per-user pricing preferences when authenticated; `useInventoryPrices` calls `/api/prices/bricklink` without embedding Supabase tokens.
   - `app/account/page.tsx` is now an async Server Component that preloads user + profile + pricing preferences and delegates interactive behavior to `AccountPageClient`.
   - Group-session APIs:
@@ -97,11 +96,6 @@
     - Sync worker in DataProvider handles batched sync to `/api/sync`
   - New `/api/sync` endpoint for batched owned quantity sync
 - **Data fetching architecture improvements** (2025-12-06):
-  - **Batched minifig mapping** (`app/lib/minifigMappingBatched.ts`):
-    - `getMinifigMappingsForSetBatched()` reduces DB calls from 6-8 sequential queries to 1-2 parallel queries.
-    - Built-in request deduplication via `inFlightSyncs` Map prevents duplicate BrickLink API calls.
-    - `getGlobalMinifigMappingsBatch()` efficiently looks up multiple fig IDs at once.
-    - Legacy functions re-exported for backward compatibility.
   - **Centralized Supabase client selection** (`app/lib/db/catalogAccess.ts`):
     - Tables classified into `ANON_READABLE_TABLES`, `SERVICE_ROLE_TABLES`, and `USER_TABLES`.
     - `getCatalogReadClient()` and `getCatalogWriteClient()` provide correct client based on table access requirements.
@@ -112,7 +106,7 @@
     - Explicit sync control with deduplication and 60-second cooldown.
     - Sync status tracking: `'ok' | 'error' | 'pending' | 'never_synced'`.
   - **Inventory service improvements** (`app/lib/services/inventory.ts`):
-    - `getSetInventoryRowsWithMeta()` returns optional `minifigMappingMeta` with sync status.
+    - `getSetInventoryRowsWithMeta()` returns optional `minifigMeta` with sync status.
     - `/api/inventory` now accepts `includeMeta=true` query param to return mapping metadata.
   - **Local minifig cache (IndexedDB)**:
     - Added `catalogMinifigs` table to Dexie schema with 24h TTL.
@@ -133,12 +127,7 @@
 
 ## Planned / In Progress
 
-- **Minifig data enrichment**:
-  - Fix inconsistencies in minifig images, subparts, and BrickLink links between set page and minifig detail page.
-  - Create shared `minifigEnrichment.ts` service for on-demand fetching.
-  - Add `/api/minifigs/enrich` batch endpoint with throttling.
-  - Create `useMinifigEnrichment` client hook for lazy loading.
-  - Ensure subparts always visible for piece counting.
+- **User minifig migration**: Run export-user-set-ids.ts, nuke-user-minifigs.ts, then re-sync from sets using BL IDs.
 - Pull-on-login for multi-device sync (fetch user data from Supabase on new device)
 - Hardening of error states and retries for search and inventory requests; surface normalized `AppError` codes in the UI instead of generic messages.
 - Tests for CSV export generators (Rebrickable + BrickLink) and for Rebrickable client retry/backoff behavior.
@@ -146,24 +135,23 @@
 ### Improvement backlog (2025-11-26 review)
 
 - Extract sub-pipelines from the Identify backend into smaller pure helpers (RB candidate resolution, BL supersets fallback, BL-only fallback) and add a per-request budget to cap external calls.
-- Improve Identify page UX with clearer sub-states (e.g., “Identifying…”, “Finding sets…”, “Using BrickLink-only data”) and consider debouncing rapid candidate/color changes.
+- Improve Identify page UX with clearer sub-states (e.g., "Identifying…", "Finding sets…", "Using BrickLink-only data") and consider debouncing rapid candidate/color changes.
 - Refactor Supabase-owned state into a lower-level owned-persistence service plus a higher-level migration coordinator hook, and add lightweight telemetry/logging for Supabase write failures.
 - Centralize non-blocking error surfacing (e.g., toasts) for Supabase-backed flows like collection create/toggle and set status updates.
 - Upgrade the modal implementation to full accessibility: focus trap, focus restoration, inert background, and robust `aria-labelledby` / `aria-describedby`.
 - Tighten accessibility and keyboard support across complex controls (inventory filters, color pickers, identify chips): ensure proper roles, key handling, and ARIA labels.
 - Add defensive rate limiting and/or feature flags for Identify and pricing endpoints to prevent overuse of BrickLink/Rebrickable (per-IP and/or per-user limits).
-- Cache “identify → sets” resolutions in Supabase keyed by normalized part/color identifiers to avoid repeating heavy Identify pipelines.
+- Cache "identify → sets" resolutions in Supabase keyed by normalized part/color identifiers to avoid repeating heavy Identify pipelines.
 - Introduce structured logging and basic metrics (per-route latency/error rates, cache hit/miss, external API throttling) to support higher scale and easier debugging.
 - Enhance auth lifecycle handling by subscribing to Supabase `auth.onAuthStateChange` so hooks depending on `useSupabaseUser` react to in-session login/logout.
 - Expand automated tests around Identify and pricing flows (mocked RB/BL/Brickognize) and add end-to-end validation for CSV exports against Rebrickable/BrickLink import rules.
 
 ## Status
 
-Implementation is in progress: core data flow via server proxies and virtualized table is working, and owned persistence, sorting, filters, exports, and manual pricing are implemented. The next major milestone is Supabase auth/persistence and hardening of Identify, exports, and error handling.
+Implementation is in progress: core data flow via server proxies and virtualized table is working, and owned persistence, sorting, filters, exports, and manual pricing are implemented. **BrickLink is now the exclusive source of truth for minifigure data** - all RB→BL mapping logic has been removed and replaced with direct BL table queries with self-healing capabilities.
 
 ## Known Issues / Risks
 
-- **Minifig data inconsistency**: Set page relies on pre-populated catalog data while minifig detail page fetches on-demand. Results in missing images, broken BrickLink links, and incomplete subparts on set pages. Fix planned in `MINIFIG_ENRICHMENT.md`.
 - Rebrickable rate limits or incomplete inventories for very old sets.
 - ID/color mapping mismatches between Rebrickable and BrickLink affecting CSV exports.
   - Mitigated by `part_id_mappings` table with auto-suffix fallback (e.g., `3957a` → `3957`).

@@ -1,20 +1,21 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
 import {
-  mapBrickLinkFigToRebrickable,
-  mapRebrickableFigToBrickLink,
-  mapRebrickableFigToBrickLinkOnDemand,
-} from '@/app/lib/minifigMapping';
+  getBlMinifigImageUrl,
+  getMinifigMetaBl,
+  getMinifigPartsBl,
+  mapBlToRbFigId,
+} from '@/app/lib/bricklink/minifigs';
+import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { getSetSummary, getSetsForMinifig } from '@/app/lib/rebrickable';
-import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
-import { extractBricklinkPartId } from '@/app/lib/rebrickable/utils';
-import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 
 type MinifigMetaLight = {
-  figNum: string;
-  blId: string | null;
+  /** BrickLink minifig ID (primary) */
+  blId: string;
+  /** Rebrickable fig_num (for backwards compatibility, may be null) */
+  figNum: string | null;
   imageUrl: string | null;
   name: string;
   numParts: number | null;
@@ -62,204 +63,6 @@ type MinifigMetaResponse = MinifigMetaLight & {
   subparts?: MinifigSubpart[];
 };
 
-type RebrickableMinifigPart = {
-  part: {
-    part_num: string;
-    name?: string;
-    part_img_url?: string | null;
-    part_cat_id?: number;
-    external_ids?: Record<string, unknown> | null;
-  };
-  color?: {
-    id: number;
-    name: string;
-  };
-  quantity: number;
-};
-
-type Subpart = {
-  partId: string;
-  name: string;
-  colorId: number;
-  colorName: string;
-  quantity: number;
-  imageUrl: string | null;
-  bricklinkPartId: string | null;
-};
-
-async function loadSubpartsFromDb(
-  supabase: ReturnType<typeof getSupabaseServiceRoleClient>,
-  figNum: string
-): Promise<Subpart[] | null> {
-  try {
-    const { data, error } = await supabase
-      .from('rb_minifig_parts')
-      .select(
-        `
-          part_num,
-          color_id,
-          quantity,
-          rb_parts (
-            name,
-            part_img_url,
-            external_ids
-          ),
-          rb_colors (
-            name
-          )
-        `
-      )
-      .eq('fig_num', figNum);
-
-    if (error) {
-      logger.warn('minifig.subparts.db_read_failed', {
-        figNum,
-        error: error.message,
-      });
-      return null;
-    }
-
-    if (!data || data.length === 0) {
-      return null;
-    }
-
-    return data.map(row => {
-      const partId = row.part_num;
-      const name =
-        (row.rb_parts as { name?: string | null } | null)?.name ?? partId;
-      const img =
-        (row.rb_parts as { part_img_url?: string | null } | null)
-          ?.part_img_url ?? null;
-      const externalIds =
-        (
-          row.rb_parts as {
-            external_ids?: Record<string, unknown> | null;
-          } | null
-        )?.external_ids ?? null;
-      const bricklinkPartId = extractBricklinkPartId(externalIds);
-      const colorName =
-        (row.rb_colors as { name?: string | null } | null)?.name ?? '—';
-
-      return {
-        partId,
-        name,
-        colorId: row.color_id ?? 0,
-        colorName,
-        quantity: Math.max(1, Math.floor(row.quantity ?? 1)),
-        imageUrl: img,
-        bricklinkPartId:
-          bricklinkPartId && bricklinkPartId !== partId
-            ? bricklinkPartId
-            : null,
-      };
-    });
-  } catch (err) {
-    logger.warn('minifig.subparts.db_load_error', {
-      figNum,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return null;
-  }
-}
-
-async function fetchAndPersistSubparts(
-  supabase: ReturnType<typeof getSupabaseServiceRoleClient>,
-  figNum: string
-): Promise<Subpart[]> {
-  try {
-    const parts: RebrickableMinifigPart[] = [];
-    let nextUrl: string | null = null;
-    let firstPage = true;
-    while (firstPage || nextUrl) {
-      let response:
-        | {
-            results: RebrickableMinifigPart[];
-            next: string | null;
-          }
-        | undefined;
-      if (firstPage) {
-        response = await rbFetch<{
-          results: RebrickableMinifigPart[];
-          next: string | null;
-        }>(`/lego/minifigs/${encodeURIComponent(figNum)}/parts/`, {
-          page_size: 1000,
-          inc_part_details: 1,
-        });
-      } else if (nextUrl) {
-        response = await rbFetchAbsolute<{
-          results: RebrickableMinifigPart[];
-          next: string | null;
-        }>(nextUrl);
-      }
-      if (!response) break;
-      parts.push(...response.results);
-      nextUrl = response.next;
-      firstPage = false;
-    }
-
-    const mapped: Subpart[] = parts.map(item => {
-      const partId = item.part.part_num;
-      const bricklinkPartId = extractBricklinkPartId(item.part.external_ids);
-      return {
-        partId,
-        name: item.part.name ?? partId,
-        colorId: item.color?.id ?? 0,
-        colorName: item.color?.name ?? '—',
-        quantity: Math.max(1, Math.floor(item.quantity ?? 1)),
-        imageUrl: item.part.part_img_url ?? null,
-        bricklinkPartId:
-          bricklinkPartId && bricklinkPartId !== partId
-            ? bricklinkPartId
-            : null,
-      };
-    });
-
-    if (mapped.length > 0) {
-      const rows = mapped.map(sp => ({
-        fig_num: figNum,
-        part_num: sp.partId,
-        color_id: sp.colorId,
-        quantity: sp.quantity,
-      }));
-      const { error } = await supabase.from('rb_minifig_parts').upsert(rows);
-      if (error) {
-        logger.warn('minifig.subparts.upsert_failed', {
-          figNum,
-          error: error.message,
-        });
-      }
-
-      // Persist RB→BL part mappings when available.
-      const mappingRows = mapped
-        .filter(sp => sp.bricklinkPartId && sp.bricklinkPartId !== sp.partId)
-        .map(sp => ({
-          rb_part_id: sp.partId,
-          bl_part_id: sp.bricklinkPartId!,
-          source: 'minifig-component',
-        }));
-      if (mappingRows.length > 0) {
-        const { error: mapErr } = await supabase
-          .from('part_id_mappings')
-          .upsert(mappingRows, { onConflict: 'rb_part_id' });
-        if (mapErr) {
-          logger.warn('minifig.part_mappings.upsert_failed', {
-            figNum,
-            error: mapErr.message,
-          });
-        }
-      }
-    }
-
-    return mapped;
-  } catch (err) {
-    logger.warn('minifig.subparts.fetch_failed', {
-      figNum,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return [];
-  }
-}
-
 export async function GET(
   req: NextRequest,
   context: unknown
@@ -285,199 +88,139 @@ export async function GET(
     });
   }
 
-  // Accept BrickLink IDs in the path; map to RB fig_num for lookups.
-  let figNum = inputId;
-  if (!figNum.toLowerCase().startsWith('fig-')) {
-    const mapped = await mapBrickLinkFigToRebrickable(figNum);
-    if (mapped) {
-      figNum = mapped;
-    }
-  }
+  // The input is expected to be a BrickLink minifig ID (e.g., "sw0001")
+  // If it looks like an RB ID (starts with "fig-"), we reject it
+  // The UI should have been updated to use BL IDs
+  const blMinifigNo = inputId;
 
   try {
-    const supabase = getSupabaseServiceRoleClient();
+    const supabase = getCatalogWriteClient();
 
-    // Load Rebrickable minifig metadata (name, num_parts, year) from catalog.
-    let rbName = figNum;
-    let rbNumParts: number | null = null;
-    let rbYear: number | null = null;
-    let themeName: string | null = null;
-    try {
-      const { data: rbRow, error: rbError } = await supabase
-        .from('rb_minifigs')
-        .select('fig_num,name,num_parts,year_from')
-        .eq('fig_num', figNum)
-        .maybeSingle();
-      if (!rbError && rbRow) {
-        const row = rbRow as {
-          name?: string | null;
-          num_parts?: number | null;
-          year_from?: number | null;
-        };
-        if (typeof row.name === 'string' && row.name.trim()) {
-          rbName = row.name;
-        }
-        if (
-          typeof row.num_parts === 'number' &&
-          Number.isFinite(row.num_parts)
-        ) {
-          rbNumParts = row.num_parts;
-        }
-        if (
-          typeof row.year_from === 'number' &&
-          Number.isFinite(row.year_from)
-        ) {
-          rbYear = row.year_from;
-        }
-      }
-    } catch (err) {
-      logger.warn('minifig.catalog_lookup_failed', {
-        figNum,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
+    // Get BL minifig metadata from bricklink_minifigs catalog
+    const blMeta = await getMinifigMetaBl(blMinifigNo);
 
-    // Fallback: fetch name from Rebrickable API if catalog name is missing.
-    if (rbName === figNum) {
-      try {
-        const d = await rbFetch<{ name?: string | null }>(
-          `/lego/minifigs/${encodeURIComponent(figNum)}/`,
-          { page_size: 1 }
-        );
-        if (typeof d.name === 'string' && d.name.trim()) {
-          rbName = d.name;
-        }
-      } catch (err) {
-        logger.warn('minifig.name_fallback_failed', {
-          figNum,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-
-    let blId: string | null = null;
-    try {
-      blId = await mapRebrickableFigToBrickLink(figNum);
-    } catch (err) {
-      logger.warn('minifig.bl_mapping_failed', {
-        figNum,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      blId = null;
-    }
-    if (includeSubparts && blId == null) {
-      try {
-        blId = await mapRebrickableFigToBrickLinkOnDemand(figNum);
-      } catch (err) {
-        logger.warn('minifig.bl_mapping_ondemand_failed', {
-          figNum,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-    // If the caller provided a BL ID in the path, prefer to echo it back.
-    if (!blId && !inputId.toLowerCase().startsWith('fig-')) {
-      blId = inputId;
-    }
-
+    let name = blMinifigNo;
+    let year: number | null = null;
     let imageUrl: string | null = null;
 
-    // 1) Check cached image in rb_minifig_images first.
-    try {
-      const { data: cached, error: cachedError } = await supabase
-        .from('rb_minifig_images')
-        .select('image_url')
-        .eq('fig_num', figNum)
-        .maybeSingle();
-      if (!cachedError && cached && typeof cached.image_url === 'string') {
-        imageUrl = cached.image_url;
-      }
-    } catch (err) {
-      logger.warn('minifig.image_cache_lookup_failed', {
-        figNum,
-        error: err instanceof Error ? err.message : String(err),
-      });
+    if (blMeta) {
+      name = blMeta.name || blMinifigNo;
+      year = blMeta.itemYear;
     }
 
-    // 2) Fallback to Rebrickable minifig image when cache doesn't have one
-    //    and cache the result into rb_minifig_images.
+    // Try to get image from bl_set_minifigs (most recent source)
+    const { data: blSetMinifig } = await supabase
+      .from('bl_set_minifigs')
+      .select('image_url, name')
+      .eq('minifig_no', blMinifigNo)
+      .not('image_url', 'is', null)
+      .limit(1)
+      .maybeSingle();
+
+    if (blSetMinifig?.image_url) {
+      imageUrl = blSetMinifig.image_url;
+    }
+    // Fallback to constructed BrickLink image URL
     if (!imageUrl) {
-      try {
-        const d = await rbFetch<{
-          set_img_url?: string | null;
-          fig_img_url?: string | null;
-        }>(`/lego/minifigs/${encodeURIComponent(figNum)}/`);
-        let candidate: string | null = null;
-        if (typeof d.fig_img_url === 'string' && d.fig_img_url) {
-          candidate = d.fig_img_url;
-        } else if (typeof d.set_img_url === 'string' && d.set_img_url) {
-          candidate = d.set_img_url;
-        }
-        if (candidate) {
-          imageUrl = candidate;
+      imageUrl = getBlMinifigImageUrl(blMinifigNo);
+    }
+    if (!name || name === blMinifigNo) {
+      name = blSetMinifig?.name || blMinifigNo;
+    }
+
+    // Get the RB fig_num for backwards compatibility (inventory lookups)
+    const rbFigNum = await mapBlToRbFigId(blMinifigNo);
+
+    // Get sets that contain this minifig
+    let sets: MinifigMetaResponse['sets'] = { count: 0, items: [] };
+    let themeName: string | null = null;
+
+    // Try to get sets from bl_set_minifigs first
+    const { data: blSets } = await supabase
+      .from('bl_set_minifigs')
+      .select('set_num')
+      .eq('minifig_no', blMinifigNo)
+      .limit(10);
+
+    if (blSets && blSets.length > 0) {
+      const setNums = blSets.map(s => s.set_num);
+      const { data: setSummaries } = await supabase
+        .from('rb_sets')
+        .select('set_num, name, year, image_url')
+        .in('set_num', setNums);
+
+      if (setSummaries) {
+        sets = {
+          count: setSummaries.length,
+          items: setSummaries.slice(0, 5).map(s => ({
+            setNumber: s.set_num,
+            name: s.name,
+            year: s.year ?? 0,
+            quantity: 1,
+            imageUrl: s.image_url,
+          })),
+        };
+
+        // Get theme from first set
+        const firstSet = setSummaries[0];
+        if (firstSet && (year == null || themeName == null)) {
           try {
-            await supabase.from('rb_minifig_images').upsert(
-              {
-                fig_num: figNum,
-                image_url: candidate,
-                last_fetched_at: new Date().toISOString(),
-              },
-              { onConflict: 'fig_num' }
-            );
+            const summary = await getSetSummary(firstSet.set_num);
+            if (year == null && typeof summary.year === 'number') {
+              year = summary.year;
+            }
+            if (themeName == null && summary.themeName) {
+              themeName = summary.themeName;
+            }
           } catch (err) {
-            logger.warn('minifig.image_cache_write_failed', {
-              figNum,
+            logger.warn('minifig.set_summary_fallback_failed', {
+              blMinifigNo,
+              setNumber: firstSet.set_num,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+    } else if (rbFigNum) {
+      // Fallback to RB sets lookup if we have the RB ID
+      try {
+        const list = await getSetsForMinifig(rbFigNum);
+        sets = {
+          count: list.length,
+          items: list.slice(0, 5),
+        };
+        const firstSet = list[0];
+        if (firstSet?.setNumber && (year == null || themeName == null)) {
+          try {
+            const summary = await getSetSummary(firstSet.setNumber);
+            if (year == null && typeof summary.year === 'number') {
+              year = summary.year;
+            }
+            if (themeName == null && summary.themeName) {
+              themeName = summary.themeName;
+            }
+          } catch (err) {
+            logger.warn('minifig.set_summary_fallback_failed', {
+              blMinifigNo,
+              setNumber: firstSet?.setNumber,
               error: err instanceof Error ? err.message : String(err),
             });
           }
         }
       } catch (err) {
-        logger.warn('minifig.rb_image_lookup_failed', {
-          figNum,
+        logger.warn('minifig.get_sets_failed', {
+          blMinifigNo,
+          rbFigNum,
           error: err instanceof Error ? err.message : String(err),
         });
       }
     }
 
-    // Gather sets that contain this minifig (for linking to identify).
-    // For the light response, keep this small. If omitted in light mode, keep empty.
-    let sets: MinifigMetaResponse['sets'] = { count: 0, items: [] };
-    try {
-      const list = await getSetsForMinifig(figNum);
-      sets = {
-        count: list.length,
-        items: list.slice(0, 5), // keep payload small; show up to 5
-      };
-      // Use the first set to fill in theme/year when missing.
-      const firstSet = list[0];
-      if (firstSet?.setNumber && (rbYear == null || themeName == null)) {
-        try {
-          const summary = await getSetSummary(firstSet.setNumber);
-          if (rbYear == null && typeof summary.year === 'number') {
-            rbYear = summary.year;
-          }
-          if (themeName == null && summary.themeName) {
-            themeName = summary.themeName;
-          }
-        } catch (err) {
-          logger.warn('minifig.set_summary_fallback_failed', {
-            figNum,
-            setNumber: firstSet?.setNumber,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
-    } catch (err) {
-      logger.warn('minifig.get_sets_failed', {
-        figNum,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-
+    // Get price guide if requested
     let priceGuide: MinifigMetaResponse['priceGuide'] | undefined = undefined;
-    if (includePricing && blId) {
+    if (includePricing) {
       try {
-        const pg = await blGetPartPriceGuide(blId, null, 'MINIFIG');
+        const pg = await blGetPartPriceGuide(blMinifigNo, null, 'MINIFIG');
         priceGuide = {
           used: {
             unitPrice: pg.unitPriceUsed,
@@ -493,30 +236,63 @@ export async function GET(
           },
         };
       } catch (err) {
-        console.error('[minifig-meta] price guide fetch failed', {
-          figNum,
-          blId,
+        logger.warn('minifig.price_guide_failed', {
+          blMinifigNo,
           error: err instanceof Error ? err.message : String(err),
         });
       }
     }
 
+    // Get subparts if requested (from BL data, self-healing)
     let subparts: MinifigSubpart[] | undefined = undefined;
+    let partsCount: number | null = null;
     if (includeSubparts) {
-      const subpartsFromDb = await loadSubpartsFromDb(supabase, figNum);
-      subparts =
-        subpartsFromDb && subpartsFromDb.length > 0
-          ? subpartsFromDb
-          : await fetchAndPersistSubparts(supabase, figNum);
+      const blParts = await getMinifigPartsBl(blMinifigNo);
+      partsCount = blParts.length;
+
+      if (blParts.length > 0) {
+        // Get color names from rb_colors
+        const colorIds = Array.from(new Set(blParts.map(p => p.blColorId)));
+        const { data: colors } = await supabase
+          .from('rb_colors')
+          .select('id, name')
+          .in('id', colorIds);
+
+        const colorMap = new Map(colors?.map(c => [c.id, c.name]) ?? []);
+
+        subparts = blParts.map(p => ({
+          partId: p.blPartId, // Use BL part ID as primary
+          name: p.name ?? p.blPartId,
+          colorId: p.blColorId,
+          colorName: colorMap.get(p.blColorId) ?? `Color ${p.blColorId}`,
+          quantity: p.quantity,
+          imageUrl: null, // BL parts don't have cached images in our schema yet
+          bricklinkPartId: p.blPartId, // Already BL ID
+        }));
+      }
+    }
+
+    // Count parts for numParts if not available
+    let numParts: number | null = partsCount;
+    if ((numParts === null || numParts === 0) && rbFigNum) {
+      // Try to get from RB catalog as fallback
+      const { data: rbMinifig } = await supabase
+        .from('rb_minifigs')
+        .select('num_parts')
+        .eq('fig_num', rbFigNum)
+        .maybeSingle();
+      if (rbMinifig?.num_parts) {
+        numParts = rbMinifig.num_parts;
+      }
     }
 
     const payload: MinifigMetaResponse = {
-      figNum,
-      blId,
+      blId: blMinifigNo,
+      figNum: rbFigNum,
       imageUrl,
-      name: rbName,
-      numParts: rbNumParts,
-      year: rbYear,
+      name,
+      numParts,
+      year,
       themeName,
       sets,
       ...(subparts ? { subparts } : {}),
@@ -528,7 +304,7 @@ export async function GET(
     return NextResponse.json(payload);
   } catch (err) {
     logger.error('minifig.unexpected_error', {
-      figNum,
+      blMinifigNo,
       error: err instanceof Error ? err.message : String(err),
     });
     return errorResponse('minifig_meta_failed', {

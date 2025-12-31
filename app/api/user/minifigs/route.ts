@@ -36,7 +36,6 @@ export async function GET(): Promise<
     const minifigs = await getUserMinifigs({
       userId: user.id,
       supabase,
-      onDemandLimit: 5,
     });
 
     return NextResponse.json({ minifigs });

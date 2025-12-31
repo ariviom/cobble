@@ -1077,7 +1077,7 @@ async function isMinifigPartsSynced(
  * Fetch and cache BL minifig component parts.
  * Returns the list of parts, or null if already synced or on error.
  */
-async function fetchAndCacheMinifigParts(
+export async function fetchAndCacheMinifigParts(
   supabase: SupabaseClient<Database>,
   blMinifigNo: string,
   logPrefix: string

@@ -185,7 +185,6 @@ export async function setCachedInventory(
         if (figNum && !minifigsMap.has(figNum)) {
           minifigsMap.set(figNum, {
             figNum,
-            blId: row.bricklinkFigId ?? null,
             name: row.partName,
             imageUrl: row.imageUrl ?? null,
             numParts: null, // numParts not available in inventory rows
@@ -194,11 +193,8 @@ export async function setCachedInventory(
             cachedAt: now,
           });
         } else if (figNum) {
-          // Merge in BrickLink ID when it becomes available
-          const existing = minifigsMap.get(figNum);
-          if (existing && !existing.blId && row.bricklinkFigId) {
-            minifigsMap.set(figNum, { ...existing, blId: row.bricklinkFigId });
-          }
+          // After BL migration, figNum IS the BL ID, no need to merge
+          // (This block is kept for clarity but is now a no-op)
         }
       }
     }

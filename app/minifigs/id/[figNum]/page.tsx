@@ -1,7 +1,6 @@
 import { PageLayout } from '@/app/components/layout/PageLayout';
 import { MinifigPageClient } from '@/app/components/minifig/MinifigPageClient';
-import { mapBrickLinkFigToRebrickable } from '@/app/lib/minifigMapping';
-import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
+import { getMinifigMetaBl } from '@/app/lib/bricklink/minifigs';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
@@ -19,39 +18,26 @@ export async function generateMetadata({
   params: Promise<RouteParams>;
 }): Promise<Metadata> {
   const resolved = await params;
-  const raw = resolved?.figNum?.trim();
-  const figNum =
-    raw && !raw.toLowerCase().startsWith('fig-')
-      ? ((await mapBrickLinkFigToRebrickable(raw)) ?? raw)
-      : raw;
+  const blMinifigNo = resolved?.figNum?.trim();
 
-  if (!figNum) {
+  if (!blMinifigNo) {
     return {
       title: 'Minifig',
     };
   }
 
+  // Get name from BrickLink catalog
   let name: string | null = null;
-
   try {
-    const supabase = getSupabaseServiceRoleClient();
-    const { data, error } = await supabase
-      .from('rb_minifigs')
-      .select('name')
-      .eq('fig_num', figNum)
-      .maybeSingle();
-
-    if (!error && data && typeof data.name === 'string') {
-      const trimmed = data.name.trim();
-      if (trimmed) {
-        name = trimmed;
-      }
+    const meta = await getMinifigMetaBl(blMinifigNo);
+    if (meta?.name) {
+      name = meta.name;
     }
   } catch {
-    // Best-effort only; fall back to figNum
+    // Best-effort only
   }
 
-  const baseTitle = name ?? figNum;
+  const baseTitle = name ?? blMinifigNo;
 
   return {
     title: `${baseTitle} – Minifig`,
@@ -65,6 +51,7 @@ export default async function MinifigPage({ params }: MinifigPageProps) {
     notFound();
   }
 
+  // figNum is now expected to be a BrickLink minifig ID
   return (
     <PageLayout>
       <MinifigPageClient figNum={figNum} />

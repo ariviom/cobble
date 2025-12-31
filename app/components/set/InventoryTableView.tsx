@@ -68,6 +68,10 @@ type InventoryTableViewProps = {
   rows: InventoryRow[];
   keys: string[];
   ownedByKey: Record<string, number>;
+  minifigStatusByKey: Map<
+    string,
+    import('@/app/hooks/useInventory').MinifigStatus
+  >;
   isLoading: boolean;
   error: Error | string | null;
   isMinifigEnriching: boolean;
@@ -127,6 +131,7 @@ export function InventoryTableView({
   rows,
   keys,
   ownedByKey,
+  minifigStatusByKey,
   isLoading,
   error,
   isMinifigEnriching,
@@ -174,9 +179,23 @@ export function InventoryTableView({
     (rowIndex: number, key: string) => {
       const row = rows[rowIndex]!;
       const priceInfo = pricesByKey ? pricesByKey[key] : null;
+
+      // Compute displayOwned: use derived status for parent minifigs
+      const isMinifigParent =
+        row.parentCategory === 'Minifigure' &&
+        typeof row.partId === 'string' &&
+        row.partId.startsWith('fig:');
+      const derivedStatus = isMinifigParent
+        ? minifigStatusByKey.get(key)
+        : null;
+      const displayOwned =
+        derivedStatus?.state === 'complete'
+          ? row.quantityRequired
+          : (ownedByKey[key] ?? 0);
+
       const missingQty = computeMissing(
         row.quantityRequired ?? 0,
-        ownedByKey[key] ?? 0
+        displayOwned
       );
 
       return (
@@ -184,7 +203,7 @@ export function InventoryTableView({
           key={key}
           setNumber={setNumber}
           row={row}
-          owned={ownedByKey[key] ?? 0}
+          owned={displayOwned}
           missing={missingQty}
           unitPrice={priceInfo?.unitPrice ?? null}
           minPrice={priceInfo?.minPrice ?? null}
@@ -223,6 +242,7 @@ export function InventoryTableView({
       rows,
       pricesByKey,
       ownedByKey,
+      minifigStatusByKey,
       setNumber,
       pendingPriceKeys,
       requestPricesForKeys,

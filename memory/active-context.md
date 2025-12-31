@@ -5,12 +5,15 @@
 - Keep the MVP flows (search, inventory, owned vs missing, CSV exports, optional pricing) stable on top of the Supabase-backed catalog.
 - Introduce simple Supabase-backed accounts and persistence without regressing the anonymous/local-only experience.
 - Exercise and harden Identify and pricing flows against real-world sets and parts.
-- Harden and extend the **minifig RB↔BL mapping** pipeline so that:
-  - All minifigs in **user sets** have a deterministic per-set BrickLink ID mapping stored in Supabase.
-  - The UI shows BrickLink IDs (and builds BL URLs/pricing requests) even for sets that weren’t pre-synced, by performing on-demand mapping.
+- **BrickLink is now the exclusive source of truth for minifigure data** - the migration from Rebrickable has been completed.
 
 ## This Iteration
 
+- **BrickLink Minifig Migration Complete** (December 2025):
+  - All minifig data now comes from BrickLink tables directly (`bl_set_minifigs`, `bricklink_minifigs`, `bl_minifig_parts`).
+  - Self-healing system triggers BrickLink API sync on-demand when data is missing.
+  - Old RB→BL mapping logic has been completely removed.
+  - Dev tooling for manual review has been deleted (no longer needed).
 - Implement and wire Supabase auth and basic user data (profiles, preferences, user sets, owned parts).
 - Connect owned/pinned state to Supabase for signed-in users while preserving `localStorage` fallback for anonymous usage.
 - Validate CSV exports and Identify responses against Rebrickable/BrickLink import behavior on the target test sets.
@@ -21,28 +24,28 @@
   - User sets hydration (`/api/user-sets` + `useHydrateUserSets`).
   - BrickLink pricing endpoints (`/api/prices/bricklink` and `/api/prices/bricklink-set`) and `useInventoryPrices`.
   - Group-session host actions (`/api/group-sessions`, `/api/group-sessions/[slug]/end`) and group participant join (`/api/group-sessions/[slug]/join`).
-- Build and refine a shared minifig mapping module (`scripts/minifig-mapping-core.ts`) plus:
-  - CLI entrypoints for bulk mapping:
-    - `npm run build:minifig-mappings:user` (user sets, respects `MINIFIG_MAPPING_MAX_SETS`, default 500).
-    - `npm run build:minifig-mappings:all` (all `rb_sets`, same cap).
-  - A server-only adapter (`app/lib/minifigMapping.ts`) that uses the same core logic for:
-    - Per-request, per-set lookups.
-    - On-demand mapping when a set is loaded that hasn't been synced yet.
-- Enable RLS on internal BrickLink/Rebrickable catalog tables (`bricklink_minifigs`, `bricklink_minifig_mappings`, `bl_sets`, `bl_set_minifigs`, `rb_minifig_parts`, `bl_minifig_parts`, `part_id_mappings`) via Supabase CLI migrations so the database linter stays clean.
-- **Part ID mapping** infrastructure for RB→BL part mapping:
-  - `part_id_mappings` table stores manual and auto-generated mappings (e.g., suffix stripping `3957a` → `3957`).
-  - `/api/parts/bricklink` route checks `part_id_mappings` first, falls back to Rebrickable `external_ids`, and auto-persists successful suffix fallbacks.
-- **Minifig component part mapping** extends the minifig mapping pipeline:
-  - `bl_minifig_parts` caches BrickLink minifig component parts.
-  - Bulk mapping scripts now have a Phase 2 that maps RB minifig parts → BL minifig parts (controlled by `MINIFIG_COMPONENT_API_BUDGET`, default 500).
-  - Mappings are stored in `part_id_mappings` with `source='minifig-component'`.
-- Add client-side minifig caching (Dexie `catalogMinifigs` table) so minifig lookups and RB→BL mappings can be reused offline and across sets.
-- **Minifig data enrichment** to fix inconsistencies between set page and minifig detail page:
-  - Create shared `minifigEnrichment.ts` service for on-demand fetching of images, subparts, and BL mappings.
-  - Add `/api/minifigs/enrich` batch endpoint for client-side lazy loading.
-  - Create `useMinifigEnrichment` hook for lazy enrichment on set pages.
-  - Fix broken image fallback URL in `catalog/sets.ts`.
-  - Ensure minifig subparts are always visible for piece counting toward totals.
+- Add client-side minifig caching (Dexie `catalogMinifigs` table) so minifig lookups can be reused offline and across sets.
+
+## BrickLink Minifig Architecture (New)
+
+### Data Flow
+1. **Set inventory request** → `getSetInventoryRowsWithMeta()` → `getSetMinifigsBl()` 
+2. If minifig data missing → Self-heal: `processSetForMinifigMapping()` triggers BrickLink API
+3. Minifigs returned with BL IDs as primary identifiers
+4. No RB→BL mapping needed - BL is the source of truth
+
+### Key Files
+- `app/lib/bricklink/minifigs.ts` - BL-only data access functions
+- `scripts/minifig-mapping-core.ts` - Bulk sync logic (exports `processSetForMinifigMapping`, `fetchAndCacheMinifigParts`)
+- `app/lib/services/inventory.ts` - Inventory with BL minifig enrichment
+- `app/lib/services/minifigEnrichment.ts` - BL-only minifig enrichment
+
+### Self-Healing
+When a set's minifig data is accessed and found incomplete:
+1. `bl_sets.minifig_sync_status` checked
+2. If not 'ok', trigger `processSetForMinifigMapping()`
+3. Re-fetch from `bl_set_minifigs` after sync
+4. Deduplication via `inFlightSyncs` Map prevents concurrent API calls
 
 ## Notes
 
@@ -53,7 +56,7 @@
   - 40597 — Scary Pirate Island
   - 21322 — Pirates of Barracuda Bay
 - BrickLink pricing requests currently use USD + `country_code=US` by default; exposing currency/country as a user preference is future work.
-- Identify refactor note: current flows are performant, but logic is duplicated across `/api/identify` (image), `/api/identify/sets` (part/minifig), and `/api/identify/bl-supersets`. Consider extracting a shared “part/minifig → sets with normalized metadata” helper that does enrichment (set summary, theme, numParts), consistent name fallback, and is reused by all three routes to avoid divergence.
+- Identify refactor note: current flows are performant, but logic is duplicated across `/api/identify` (image), `/api/identify/sets` (part/minifig), and `/api/identify/bl-supersets`. Consider extracting a shared "part/minifig → sets with normalized metadata" helper that does enrichment (set summary, theme, numParts), consistent name fallback, and is reused by all three routes to avoid divergence.
 
 ### Identify — deterministic BL fallback (updated)
 - BL response shapes (typed in `app/lib/bricklink.ts`):
@@ -70,7 +73,7 @@
 ## Active Decisions
 
 - MVP remains fully usable without auth; Supabase accounts are additive and should not break local-only flows.
-- Rebrickable stays the canonical source for parts/sets; BrickLink is used only for pricing and supersets in Identify.
+- Rebrickable stays the canonical source for parts/sets; **BrickLink is now the canonical source for minifigures**.
 - BrickOwl export and advanced rarity analytics remain out of scope for now.
-- Accessibility is “good enough for MVP” but complex widgets (filters, color pickers, Identify chips, modals) should be revisited as part of the improvements backlog.
-- Once minifig RB↔BL coverage is high and stable, plan to phase out and remove the `bricklink_minifig_mappings` table (and its runtime usage), treating `bl_set_minifigs` as the canonical mapping source and deriving any global RB→BL views from it instead.
+- Accessibility is "good enough for MVP" but complex widgets (filters, color pickers, Identify chips, modals) should be revisited as part of the improvements backlog.
+- The `bricklink_minifig_mappings` table is kept for historical data but no longer actively used for runtime lookups.
