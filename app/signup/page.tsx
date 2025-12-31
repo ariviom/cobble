@@ -18,12 +18,11 @@ import {
 } from '@/app/lib/supabaseClient';
 import { logger } from '@/lib/metrics';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-function LoginForm() {
+export default function SignupPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isEmailLoading, setIsEmailLoading] = useState(false);
@@ -31,6 +30,8 @@ function LoginForm() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [success, setSuccess] = useState(false);
 
   // Redirect authenticated users to account page
   useEffect(() => {
@@ -38,16 +39,6 @@ function LoginForm() {
       router.push('/account');
     }
   }, [authLoading, user, router]);
-
-  // Check for error parameter from auth callback
-  useEffect(() => {
-    const errorParam = searchParams.get('error');
-    if (errorParam === 'auth_callback_error') {
-      setError(
-        'Authentication failed. The link may have expired. Please try again.'
-      );
-    }
-  }, [searchParams]);
 
   // Show loading state while checking auth
   if (authLoading) {
@@ -65,26 +56,20 @@ function LoginForm() {
     return null;
   }
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleSignup = async () => {
     setError(null);
     setIsLoading(true);
     try {
       if (typeof window === 'undefined') {
-        setError('Google sign-in is only available in the browser.');
+        setError('Google sign-up is only available in the browser.');
         setIsLoading(false);
         return;
       }
 
-      // Get redirect URL - automatically uses current origin
-      // In dev: http://localhost:3000/account
-      // In prod: https://brick-party.com/account
-      // IMPORTANT: This exact URL must be configured in Supabase Dashboard > Authentication > URL Configuration
-      // as an allowed redirect URL for OAuth to work.
       const redirectUrl = getAuthRedirectUrl();
 
-      // Log for debugging (remove in production if needed)
       if (process.env.NODE_ENV === 'development') {
-        logger.debug('auth.login.oauth_redirect_url', { redirectUrl });
+        logger.debug('auth.signup.oauth_redirect_url', { redirectUrl });
       }
 
       const supabase = getSupabaseBrowserClient();
@@ -93,7 +78,6 @@ function LoginForm() {
         options: {
           redirectTo: redirectUrl,
           queryParams: {
-            // Ensure we're explicitly setting the redirect
             access_type: 'offline',
             prompt: 'consent',
           },
@@ -101,7 +85,6 @@ function LoginForm() {
       });
 
       if (authError) {
-        // Provide more helpful error messages
         const errorMessage =
           authError.message.includes('redirect_uri') ||
           authError.message.includes('redirect')
@@ -110,29 +93,38 @@ function LoginForm() {
         setError(errorMessage);
         setIsLoading(false);
       } else if (data?.url) {
-        // Supabase returns a URL to redirect to - this should already include our redirectTo
-        // The redirect happens automatically via window.location
+        // Redirect happens automatically
       }
-      // On success, Supabase will redirect; no further state update needed here.
     } catch (err) {
       const errorMessage =
         err instanceof Error
           ? err.message
-          : 'Failed to start Google sign-in. Please try again.';
+          : 'Failed to start Google sign-up. Please try again.';
       setError(errorMessage);
       setIsLoading(false);
     }
   };
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setEmailError(null);
 
     const trimmedEmail = email.trim();
     const trimmedPassword = password.trim();
+    const trimmedConfirm = confirmPassword.trim();
 
-    if (!trimmedEmail || !trimmedPassword) {
-      setEmailError('Please enter both email and password.');
+    if (!trimmedEmail || !trimmedPassword || !trimmedConfirm) {
+      setEmailError('Please fill in all fields.');
+      return;
+    }
+
+    if (trimmedPassword.length < 8) {
+      setEmailError('Password must be at least 8 characters.');
+      return;
+    }
+
+    if (trimmedPassword !== trimmedConfirm) {
+      setEmailError('Passwords do not match.');
       return;
     }
 
@@ -140,54 +132,102 @@ function LoginForm() {
 
     try {
       const supabase = getSupabaseBrowserClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      // Use the auth callback route to handle the email confirmation
+      const callbackUrl =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/auth/callback`
+          : 'http://localhost:3000/auth/callback';
+
+      const { error: signUpError } = await supabase.auth.signUp({
         email: trimmedEmail,
         password: trimmedPassword,
+        options: {
+          emailRedirectTo: callbackUrl,
+        },
       });
 
-      if (signInError) {
-        // Provide user-friendly error messages
-        if (signInError.message.includes('Invalid login credentials')) {
-          setEmailError('Invalid email or password.');
-        } else if (signInError.message.includes('Email not confirmed')) {
+      if (signUpError) {
+        if (signUpError.message.includes('already registered')) {
           setEmailError(
-            'Please check your email and confirm your account before signing in.'
+            'An account with this email already exists. Try signing in instead.'
           );
         } else {
-          setEmailError(signInError.message);
+          setEmailError(signUpError.message);
         }
         return;
       }
 
-      // Success - redirect to account page
-      router.push('/account');
+      // Success - show confirmation message
+      setSuccess(true);
     } catch (err) {
       const errorMessage =
         err instanceof Error
           ? err.message
-          : 'Failed to sign in. Please try again.';
+          : 'Failed to create account. Please try again.';
       setEmailError(errorMessage);
     } finally {
       setIsEmailLoading(false);
     }
   };
 
+  if (success) {
+    return (
+      <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-10 lg:px-6">
+        <header className="text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Check your email
+          </h1>
+          <p className="mt-2 text-sm text-foreground-muted">
+            We sent a confirmation link to <strong>{email}</strong>. Click the
+            link in the email to activate your account.
+          </p>
+        </header>
+
+        <Card elevated>
+          <CardContent className="py-6">
+            <p className="text-center text-sm text-foreground-muted">
+              Didn&apos;t receive the email? Check your spam folder, or{' '}
+              <button
+                type="button"
+                onClick={() => setSuccess(false)}
+                className="font-medium text-theme-primary underline underline-offset-2"
+              >
+                try again
+              </button>
+              .
+            </p>
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-center">
+          <Link
+            href="/login"
+            className="text-xs font-medium text-theme-primary underline underline-offset-2"
+          >
+            Back to login
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-10 lg:px-6">
       <header className="text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Login</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Create account
+        </h1>
         <p className="mt-2 text-sm text-foreground-muted">
-          Sign in to your Brick Party account.
+          Sign up to save your collection and sync across devices.
         </p>
       </header>
 
       <Card elevated>
         <CardHeader>
           <div>
-            <CardTitle>Sign in with Google</CardTitle>
+            <CardTitle>Sign up with Google</CardTitle>
             <CardDescription>
-              Recommended. Brick Party will use your Google account as your
-              primary identity.
+              Quickest way to get started. No password needed.
             </CardDescription>
           </div>
         </CardHeader>
@@ -196,11 +236,11 @@ function LoginForm() {
             type="button"
             variant="google"
             className="flex w-full items-center justify-center gap-2"
-            onClick={handleGoogleLogin}
+            onClick={handleGoogleSignup}
             disabled={isLoading}
           >
             {!isLoading && <GoogleIcon className="h-4 w-4" />}
-            {isLoading ? 'Redirecting…' : 'Sign in with Google'}
+            {isLoading ? 'Redirecting…' : 'Sign up with Google'}
           </Button>
           {error && <ErrorBanner className="mt-3 text-xs" message={error} />}
         </CardContent>
@@ -209,22 +249,22 @@ function LoginForm() {
       <Card elevated>
         <CardHeader>
           <div>
-            <CardTitle>Sign in with email &amp; password</CardTitle>
+            <CardTitle>Sign up with email</CardTitle>
             <CardDescription>
-              Use your email and password to sign in.
+              Create an account with your email and password.
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleEmailLogin} className="flex flex-col gap-2">
+          <form onSubmit={handleEmailSignup} className="flex flex-col gap-2">
             <label
-              htmlFor="login-email"
+              htmlFor="signup-email"
               className="text-[11px] font-medium text-foreground"
             >
               Email
             </label>
             <Input
-              id="login-email"
+              id="signup-email"
               type="email"
               autoComplete="email"
               value={email}
@@ -234,18 +274,34 @@ function LoginForm() {
               disabled={isEmailLoading}
             />
             <label
-              htmlFor="login-password"
+              htmlFor="signup-password"
               className="mt-2 text-[11px] font-medium text-foreground"
             >
               Password
             </label>
             <Input
-              id="login-password"
+              id="signup-password"
               type="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="At least 8 characters"
+              className="w-full text-lg tracking-widest"
+              disabled={isEmailLoading}
+            />
+            <label
+              htmlFor="signup-confirm"
+              className="mt-2 text-[11px] font-medium text-foreground"
+            >
+              Confirm password
+            </label>
+            <Input
+              id="signup-confirm"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              placeholder="Repeat your password"
               className="w-full text-lg tracking-widest"
               disabled={isEmailLoading}
             />
@@ -258,25 +314,23 @@ function LoginForm() {
               className="mt-3 w-full text-sm"
               disabled={isEmailLoading}
             >
-              {isEmailLoading ? 'Signing in…' : 'Sign in with email'}
+              {isEmailLoading ? 'Creating account…' : 'Create account'}
             </Button>
-            <div className="mt-2 flex justify-between text-xs">
-              <Link
-                href="/signup"
-                className="font-medium text-theme-primary underline underline-offset-2"
-              >
-                Create account
-              </Link>
-              <Link
-                href="/forgot-password"
-                className="font-medium text-foreground-muted underline underline-offset-2"
-              >
-                Forgot password?
-              </Link>
-            </div>
           </form>
         </CardContent>
       </Card>
+
+      <div className="flex justify-center">
+        <span className="text-xs text-foreground-muted">
+          Already have an account?{' '}
+          <Link
+            href="/login"
+            className="font-medium text-theme-primary underline underline-offset-2"
+          >
+            Sign in
+          </Link>
+        </span>
+      </div>
 
       <div className="flex justify-center">
         <Link
@@ -287,22 +341,5 @@ function LoginForm() {
         </Link>
       </div>
     </div>
-  );
-}
-
-// Wrap in Suspense because useSearchParams requires it
-export default function LoginPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-10 lg:px-6">
-          <header className="text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">Loading…</h1>
-          </header>
-        </div>
-      }
-    >
-      <LoginForm />
-    </Suspense>
   );
 }
