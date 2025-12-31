@@ -1,4 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
+import { vi } from 'vitest';
 import type { InventoryRow } from '@/app/components/set/types';
 import {
   type BasePriceInfo,

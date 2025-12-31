@@ -14,6 +14,7 @@ function setStatus(setNumber: string, key: SetStatusKey, value: boolean): void {
         year: 0,
         imageUrl: null,
         numParts: 0,
+        themeId: null,
       },
     });
   });

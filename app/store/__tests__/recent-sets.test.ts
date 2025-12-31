@@ -1,5 +1,6 @@
 'use client';
 
+import { describe, expect, it, vi } from 'vitest';
 import { addRecentSet, getRecentSets } from '@/app/store/recent-sets';
 
 vi.mock('@/app/lib/persistence/storage', () => {

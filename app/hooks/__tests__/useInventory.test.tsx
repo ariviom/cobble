@@ -1,6 +1,7 @@
 import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { vi } from 'vitest';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useOwnedStore } from '@/app/store/owned';
 import type { InventoryRow } from '@/app/components/set/types';

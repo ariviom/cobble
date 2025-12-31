@@ -31,9 +31,9 @@ describe('GET /api/themes', () => {
   describe('successful responses', () => {
     it('returns themes with correct structure', async () => {
       const mockThemes = [
-        { id: 1, name: 'City', parentId: null },
-        { id: 158, name: 'Star Wars', parentId: null },
-        { id: 246, name: 'Star Wars Episode 4/5/6', parentId: 158 },
+        { id: 1, name: 'City', parent_id: null },
+        { id: 158, name: 'Star Wars', parent_id: null },
+        { id: 246, name: 'Star Wars Episode 4/5/6', parent_id: 158 },
       ];
 
       mockFetchThemes.mockResolvedValue(mockThemes);

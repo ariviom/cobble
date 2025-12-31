@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolvePublicUser } from '@/app/lib/publicUsers';
 
 const maybeSingleMock = vi.fn();

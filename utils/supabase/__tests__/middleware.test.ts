@@ -7,8 +7,8 @@ vi.mock('@supabase/ssr', () => {
   return {
     createServerClient: vi.fn(
       (
-        url: string,
-        key: string,
+        _url: string,
+        _key: string,
         opts: {
           cookies: {
             setAll: (
@@ -62,14 +62,11 @@ describe('updateSession middleware', () => {
     expect(refreshed?.value).toBe('refreshed');
 
     const { createServerClient } = await import('@supabase/ssr');
-    expect(
-      (createServerClient as unknown as { mock: { calls: unknown[] } }).mock
-        .calls[0]?.[0]
-    ).toBe('http://example.test');
-    expect(
-      (createServerClient as unknown as { mock: { calls: unknown[] } }).mock
-        .calls[0]?.[1]
-    ).toBe('anon_key');
+    const mockCalls = (
+      createServerClient as unknown as { mock: { calls: unknown[][] } }
+    ).mock.calls;
+    expect(mockCalls[0]?.[0]).toBe('http://example.test');
+    expect(mockCalls[0]?.[1]).toBe('anon_key');
   });
 
   it('is a no-op when env vars are missing', async () => {

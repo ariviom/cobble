@@ -31,9 +31,9 @@ describe('GET /api/colors', () => {
   describe('successful responses', () => {
     it('returns colors with id and name only', async () => {
       const fullColors = [
-        { id: 1, name: 'White', rgb: 'FFFFFF', isTrans: false },
-        { id: 4, name: 'Red', rgb: 'CC0000', isTrans: false },
-        { id: 15, name: 'Trans-Clear', rgb: 'FFFFFF', isTrans: true },
+        { id: 1, name: 'White', rgb: 'FFFFFF', is_trans: false },
+        { id: 4, name: 'Red', rgb: 'CC0000', is_trans: false },
+        { id: 15, name: 'Trans-Clear', rgb: 'FFFFFF', is_trans: true },
       ];
 
       mockGetColors.mockResolvedValue(fullColors);

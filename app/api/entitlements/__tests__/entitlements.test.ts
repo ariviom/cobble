@@ -79,6 +79,7 @@ describe('GET /api/entitlements', () => {
       mockGetEntitlements.mockResolvedValue({
         tier: 'free',
         features: [],
+        featureFlagsByKey: {},
       });
 
       const res = await GET();
@@ -99,6 +100,7 @@ describe('GET /api/entitlements', () => {
       mockGetEntitlements.mockResolvedValue({
         tier: 'pro',
         features: ['identify', 'pricing', 'export'],
+        featureFlagsByKey: {},
       });
 
       const res = await GET();

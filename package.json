@@ -18,8 +18,6 @@
     "fetch:minifig-parts": "tsx scripts/fetch-minifig-parts.ts",
     "fetch:minifig-parts:user": "MINIFIG_PARTS_USER_FIRST=true tsx scripts/fetch-minifig-parts.ts",
     "backfill:image-hashes": "tsx scripts/backfill-image-hashes.ts",
-    "backfill:confidence-scores": "tsx scripts/backfill-confidence-scores.ts",
-    "fix:unmapped-minifigs": "tsx scripts/fix-all-unmapped-minifigs.ts",
     "generate-types": "npx supabase gen types typescript --schema public --project-id nrrunazjjrwxaonlvvhh > supabase/types.ts"
   },
   "dependencies": {
