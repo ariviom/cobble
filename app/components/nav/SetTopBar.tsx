@@ -11,17 +11,13 @@ import {
   CardTitle,
 } from '@/app/components/ui/Card';
 import { Modal } from '@/app/components/ui/Modal';
-import {
-  MoreDropdown,
-  MoreDropdownButton,
-} from '@/app/components/ui/MoreDropdown';
-import { QuantityDropdown } from '@/app/components/ui/QuantityDropdown';
+import { MoreDropdown } from '@/app/components/ui/MoreDropdown';
 import { cn } from '@/app/components/ui/utils';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import { Copy, ExternalLink, Trophy, Users } from 'lucide-react';
+import { Copy, Trophy, Users } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import QRCode from 'react-qr-code';
@@ -73,7 +69,7 @@ export function SetTopBar({
     resetDateFormatted?: string;
     loading: boolean;
   }>({ canHost: true, loading: false });
-  const [setQuantity, setSetQuantity] = useState<number>(1);
+  const [, setSetQuantity] = useState<number>(1);
   const { isLoading, ownedTotal } = useInventory(setNumber);
   const ownership = useSetOwnershipState({
     setNumber,
@@ -244,24 +240,6 @@ export function SetTopBar({
     };
   }, [user, setNumber]);
 
-  const handleQuantityChange = (next: number) => {
-    const normalized = Math.max(1, Math.floor(next || 1));
-    setSetQuantity(normalized);
-
-    // Only persist when the user is authenticated and the set is tracked
-    // (Owned or Wishlist). For anonymous users this stays local only.
-    if (!user || (!ownership.status.owned && !ownership.status.wantToBuild)) {
-      return;
-    }
-
-    const supabase = getSupabaseBrowserClient();
-    void supabase
-      .from('user_sets')
-      .update({ quantity: normalized })
-      .eq('user_id', user.id)
-      .eq('set_num', setNumber);
-  };
-
   return (
     <>
       <div
@@ -308,6 +286,9 @@ export function SetTopBar({
               </MoreDropdown>
             </div>
             <div className="mt-0.5 text-xs text-foreground-muted lg:text-sm">
+              {setNumber}
+              {typeof year === 'number' && ` | ${year}`}
+              {' | '}
               {isLoading ? 'Computing…' : `${ownedTotal} / ${numParts} parts`}
             </div>
             <div className="mt-2 flex w-full flex-wrap items-center gap-2">
