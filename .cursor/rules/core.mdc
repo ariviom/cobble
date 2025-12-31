@@ -32,6 +32,8 @@ Act mode - You will make changes to the codebase based on the plan.
 
 - NEVER run "npm run dev" to test. Assume it is already running or ask the user to run "npm run dev" to test.
 
+- **Package manager**: Always use `npm`, not `pnpm` or `yarn`. Netlify builds use npm.
+
 ## Code Quality Standards
 
 ### Pure Functions & DRY Code
