@@ -116,6 +116,11 @@
     - Added `/api/catalog/versions` to read `rb_download_versions` (uses `inventory_parts` source).
     - `useInventory` fetches the version first, then validates IndexedDB cache (30d TTL) before network.
     - `/api/inventory` now returns `inventoryVersion`; cached inventories store version in Dexie meta.
+- **Legal and Compliance Documentation**:
+  - Terms of Service (`app/terms/page.tsx`) updated for subscriptions and beta phase (payment and BYO key sections commented out).
+  - Privacy Policy (`app/privacy/page.tsx`) updated for image identification (Brickognize) and usage tracking (Stripe and API key sections commented out).
+- **UI and Feature Gating**:
+  - Commented out "Bring Your Own API Key" and "Rebrickable account" UI from the Account and Pricing pages.
 - **Caching strategy review** (December 2025):
   - Conducted deep analysis of all 20+ caches in the codebase (see `docs/dev/CACHE_ARCHITECTURE_PLAN.md`).
   - Key finding: Most server caches are external API responses (BrickLink, Rebrickable) that don't need catalog version awareness.

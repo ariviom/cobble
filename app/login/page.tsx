@@ -246,7 +246,7 @@ function LoginForm() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full text-lg tracking-widest"
+              className="w-full text-xs"
               disabled={isEmailLoading}
             />
             {emailError && (
@@ -278,7 +278,25 @@ function LoginForm() {
         </CardContent>
       </Card>
 
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <p className="px-8 text-center text-xs text-foreground-muted">
+          By signing in, you agree to our{' '}
+          <Link
+            href="/terms"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Terms of Service
+          </Link>{' '}
+          and{' '}
+          <Link
+            href="/privacy"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Privacy Policy
+          </Link>
+          .
+        </p>
+
         <Link
           href="/"
           className="text-xs font-medium text-theme-primary underline underline-offset-2"

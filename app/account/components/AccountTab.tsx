@@ -15,6 +15,7 @@ import { Input } from '@/app/components/ui/Input';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { normalizeUsernameCandidate } from '@/app/lib/users';
 import type { User } from '@supabase/supabase-js';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
@@ -232,173 +233,179 @@ export function AccountTab({
   };
 
   return (
-    <Card
-      id="account-auth-section"
-      aria-labelledby="account-auth-heading"
-      className="border-none bg-transparent p-0 shadow-none"
-    >
-      <CardContent className="flex flex-col gap-6">
-        <div>
-          <CardTitle
-            id="account-auth-heading"
-            className="text-xl font-semibold text-foreground"
-          >
-            Sign-in &amp; identity
-          </CardTitle>
-          <CardDescription className="mt-1 text-sm text-foreground-muted">
-            Brick Party supports Google Sign-In. Rebrickable and BrickLink are
-            used only as data sources, not as login providers.
-          </CardDescription>
-        </div>
+    <>
+      <Card
+        id="account-auth-section"
+        aria-labelledby="account-auth-heading"
+        className="border-none bg-transparent p-0 shadow-none"
+      >
+        <CardContent className="flex flex-col gap-6">
+          <div>
+            <CardTitle
+              id="account-auth-heading"
+              className="text-xl font-semibold text-foreground"
+            >
+              Sign-in &amp; identity
+            </CardTitle>
+            <CardDescription className="mt-1 text-sm text-foreground-muted">
+              Brick Party supports Google Sign-In. Rebrickable and BrickLink are
+              used only as data sources, not as login providers.
+            </CardDescription>
+          </div>
 
-        <div className="mt-4 space-y-8">
-          {isLoggedIn && (
-            <div className="flex flex-col gap-2 border-t border-subtle pt-4">
-              <h3 className="text-sm font-semibold text-foreground">
-                Email &amp; password
-              </h3>
-              <p className="text-xs text-foreground-muted">
-                Manage your Brick Party handle and email used for
-                account-related communication.
-              </p>
-              <label className="mt-2 text-[11px] font-medium text-foreground">
-                Username
-              </label>
-              <Input
-                type="text"
-                value={usernameInput}
-                onChange={e => {
-                  setUsernameInput(e.target.value);
-                  setUsernameError(null);
-                }}
-                className="w-full text-xs"
-              />
-              {usernameError && (
-                <p className="mt-1 text-[11px] text-red-600">{usernameError}</p>
-              )}
-              {!usernameError && (
-                <p className="mt-1 text-[11px] text-foreground-muted">
-                  Pick a handle for public links. Lowercase letters, numbers,
-                  and underscores; can be changed later.
+          <div className="mt-4 space-y-8">
+            {isLoggedIn && (
+              <div className="flex flex-col gap-2 border-t border-subtle pt-4">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Email &amp; password
+                </h3>
+                <p className="text-xs text-foreground-muted">
+                  Manage your Brick Party handle and email used for
+                  account-related communication.
                 </p>
-              )}
-              <div className="mt-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => void handleSaveUsername()}
-                  disabled={!isLoggedIn || isSavingUsername}
-                  className="inline-flex items-center px-3 py-1.5 text-[11px]"
-                >
-                  {isSavingUsername ? 'Saving…' : 'Save username'}
-                </Button>
-              </div>
-              <label className="mt-4 text-[11px] font-medium text-foreground">
-                Email
-              </label>
-              <Input
-                type="email"
-                disabled
-                value={googleEmail}
-                className="w-full text-xs text-foreground-muted"
-              />
-            </div>
-          )}
-
-          {isLoggedIn && isEmailAuth && (
-            <div className="flex flex-col gap-2 border-t border-subtle pt-4">
-              <h3 className="text-sm font-semibold text-foreground">
-                Change password
-              </h3>
-              <p className="text-xs text-foreground-muted">
-                Update your Brick Party password. You&apos;ll need your current
-                password to make this change.
-              </p>
-              <label className="mt-2 text-[11px] font-medium text-foreground">
-                Current password
-              </label>
-              <Input
-                type="password"
-                value={currentPassword}
-                onChange={e => setCurrentPassword(e.target.value)}
-                className="w-full text-xs"
-              />
-              <label className="mt-2 text-[11px] font-medium text-foreground">
-                New password
-              </label>
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                className="w-full text-xs"
-              />
-              <label className="mt-2 text-[11px] font-medium text-foreground">
-                Confirm new password
-              </label>
-              <Input
-                type="password"
-                value={confirmNewPassword}
-                onChange={e => setConfirmNewPassword(e.target.value)}
-                className="w-full text-xs"
-              />
-              {passwordError && (
-                <p className="mt-1 text-[11px] text-danger">{passwordError}</p>
-              )}
-              {passwordSuccess && (
-                <p className="mt-1 text-[11px] text-emerald-600">
-                  {passwordSuccess}
-                </p>
-              )}
-              <div className="mt-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => void handleChangePassword()}
-                  disabled={!isLoggedIn || isUpdatingPassword}
-                  className="inline-flex items-center px-3 py-1.5 text-[11px]"
-                >
-                  {isUpdatingPassword
-                    ? 'Updating password…'
-                    : 'Update password'}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {(!isLoggedIn || isGoogleAuth) && (
-            <div className="flex flex-col gap-2 border-t border-subtle pt-4">
-              <h3 className="text-sm font-semibold text-foreground">
-                Google account
-              </h3>
-              <p className="text-xs text-foreground-muted">
-                When you sign in with Google, your Google email will appear
-                here.
-              </p>
-              <label className="mt-1 text-[11px] font-medium text-foreground">
-                Google email
-              </label>
-              <Input
-                type="email"
-                disabled
-                value={googleEmail}
-                className="w-full text-xs text-foreground"
-              />
-              {!isLoggedIn && (
-                <Button
-                  type="button"
-                  onClick={() => {
-                    window.location.href = '/login';
+                <label className="mt-2 text-[11px] font-medium text-foreground">
+                  Username
+                </label>
+                <Input
+                  type="text"
+                  value={usernameInput}
+                  onChange={e => {
+                    setUsernameInput(e.target.value);
+                    setUsernameError(null);
                   }}
-                  size="sm"
-                  className="mt-3 inline-flex items-center px-3 py-1.5 text-xs"
-                >
-                  Connect Google
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
+                  className="w-full text-xs"
+                />
+                {usernameError && (
+                  <p className="mt-1 text-[11px] text-red-600">
+                    {usernameError}
+                  </p>
+                )}
+                {!usernameError && (
+                  <p className="mt-1 text-[11px] text-foreground-muted">
+                    Pick a handle for public links. Lowercase letters, numbers,
+                    and underscores; can be changed later.
+                  </p>
+                )}
+                <div className="mt-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void handleSaveUsername()}
+                    disabled={!isLoggedIn || isSavingUsername}
+                    className="inline-flex items-center px-3 py-1.5 text-[11px]"
+                  >
+                    {isSavingUsername ? 'Saving…' : 'Save username'}
+                  </Button>
+                </div>
+                <label className="mt-4 text-[11px] font-medium text-foreground">
+                  Email
+                </label>
+                <Input
+                  type="email"
+                  disabled
+                  value={googleEmail}
+                  className="w-full text-xs text-foreground-muted"
+                />
+              </div>
+            )}
 
+            {isLoggedIn && isEmailAuth && (
+              <div className="flex flex-col gap-2 border-t border-subtle pt-4">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Change password
+                </h3>
+                <p className="text-xs text-foreground-muted">
+                  Update your Brick Party password. You&apos;ll need your
+                  current password to make this change.
+                </p>
+                <label className="mt-2 text-[11px] font-medium text-foreground">
+                  Current password
+                </label>
+                <Input
+                  type="password"
+                  value={currentPassword}
+                  onChange={e => setCurrentPassword(e.target.value)}
+                  className="w-full text-xs"
+                />
+                <label className="mt-2 text-[11px] font-medium text-foreground">
+                  New password
+                </label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  className="w-full text-xs"
+                />
+                <label className="mt-2 text-[11px] font-medium text-foreground">
+                  Confirm new password
+                </label>
+                <Input
+                  type="password"
+                  value={confirmNewPassword}
+                  onChange={e => setConfirmNewPassword(e.target.value)}
+                  className="w-full text-xs"
+                />
+                {passwordError && (
+                  <p className="mt-1 text-[11px] text-danger">
+                    {passwordError}
+                  </p>
+                )}
+                {passwordSuccess && (
+                  <p className="mt-1 text-[11px] text-emerald-600">
+                    {passwordSuccess}
+                  </p>
+                )}
+                <div className="mt-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void handleChangePassword()}
+                    disabled={!isLoggedIn || isUpdatingPassword}
+                    className="inline-flex items-center px-3 py-1.5 text-[11px]"
+                  >
+                    {isUpdatingPassword
+                      ? 'Updating password…'
+                      : 'Update password'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {(!isLoggedIn || isGoogleAuth) && (
+              <div className="flex flex-col gap-2 border-t border-subtle pt-4">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Google account
+                </h3>
+                <p className="text-xs text-foreground-muted">
+                  When you sign in with Google, your Google email will appear
+                  here.
+                </p>
+                <label className="mt-1 text-[11px] font-medium text-foreground">
+                  Google email
+                </label>
+                <Input
+                  type="email"
+                  disabled
+                  value={googleEmail}
+                  className="w-full text-xs text-foreground"
+                />
+                {!isLoggedIn && (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = '/login';
+                    }}
+                    size="sm"
+                    className="mt-3 inline-flex items-center px-3 py-1.5 text-xs"
+                  >
+                    Connect Google
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 
         <div className="mt-6 border-t border-subtle pt-4">
           <h3 className="text-sm font-semibold text-foreground">
             Rebrickable account (optional)
@@ -432,29 +439,50 @@ export function AccountTab({
             </div>
           </div>
         </div>
+        */}
 
-        {isLoggedIn && (
-          <div className="mt-6 border-t border-subtle pt-4">
-            <h3 className="text-sm font-semibold text-foreground">Sign out</h3>
-            <p className="mt-1 text-xs text-foreground-muted">
-              Log out of Brick Party on this device. You can sign back in with
-              Google or email later.
-            </p>
-            <div className="mt-3">
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                onClick={() => void handleLogout()}
-                disabled={isLoggingOut}
-                className="inline-flex items-center px-3 py-1.5 text-[11px]"
-              >
-                {isLoggingOut ? 'Signing out…' : 'Log out'}
-              </Button>
+          {isLoggedIn && (
+            <div className="mt-6 border-t border-subtle pt-4">
+              <h3 className="text-sm font-semibold text-foreground">
+                Sign out
+              </h3>
+              <p className="mt-1 text-xs text-foreground-muted">
+                Log out of Brick Party on this device. You can sign back in with
+                Google or email later.
+              </p>
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => void handleLogout()}
+                  disabled={isLoggingOut}
+                  className="inline-flex items-center px-3 py-1.5 text-[11px]"
+                >
+                  {isLoggingOut ? 'Signing out…' : 'Log out'}
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Legal links - visible for all users */}
+      <div className="mt-6 flex justify-center gap-3 text-xs text-foreground-muted">
+        <Link
+          href="/privacy"
+          className="underline underline-offset-2 hover:text-foreground"
+        >
+          Privacy Policy
+        </Link>
+        <span>•</span>
+        <Link
+          href="/terms"
+          className="underline underline-offset-2 hover:text-foreground"
+        >
+          Terms of Service
+        </Link>
+      </div>
+    </>
   );
 }

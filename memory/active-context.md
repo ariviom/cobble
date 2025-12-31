@@ -18,6 +18,11 @@
 - Connect owned/pinned state to Supabase for signed-in users while preserving `localStorage` fallback for anonymous usage.
 - Validate CSV exports and Identify responses against Rebrickable/BrickLink import behavior on the target test sets.
 - Tighten pricing UX and performance on the set page and inventory table.
+- **Legal and Compliance Updates (December 2025)**:
+  - Updated Terms of Service to include subscription tiers (Plus/Pro) and beta transition disclosures (currently commented out awaiting Stripe rollout).
+  - Updated Privacy Policy to disclose Brickognize image identification data flow and feature quota tracking (Stripe and API key sections currently commented out).
+- **UI and Feature Gating (December 2025)**:
+  - Commented out "Bring Your Own API Key" and "Rebrickable account" sections from the Terms, Privacy, Account, and Pricing pages as these features are not yet available.
 - Introduce Supabase SSR auth for:
   - Layout + theme bootstrap (SSR-resolved theme passed to `ThemeProvider` via next-themes).
   - Account page (`app/account/page.tsx` + `AccountPageClient`).

@@ -286,7 +286,7 @@ export default function SignupPage() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="At least 8 characters"
-              className="w-full text-lg tracking-widest"
+              className="w-full text-xs"
               disabled={isEmailLoading}
             />
             <label
@@ -302,7 +302,7 @@ export default function SignupPage() {
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               placeholder="Repeat your password"
-              className="w-full text-lg tracking-widest"
+              className="w-full text-xs"
               disabled={isEmailLoading}
             />
             {emailError && (
@@ -320,7 +320,25 @@ export default function SignupPage() {
         </CardContent>
       </Card>
 
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <p className="px-8 text-center text-xs text-foreground-muted">
+          By clicking continue or signing up, you agree to our{' '}
+          <Link
+            href="/terms"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Terms of Service
+          </Link>{' '}
+          and{' '}
+          <Link
+            href="/privacy"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Privacy Policy
+          </Link>
+          .
+        </p>
+
         <span className="text-xs text-foreground-muted">
           Already have an account?{' '}
           <Link
