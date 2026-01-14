@@ -29,12 +29,20 @@ function getAllowedOrigins(): Set<string> {
   return origins;
 }
 
-export function validateOrigin(req: NextRequest): boolean {
+/**
+ * Validate request origin against allowed origins.
+ * Returns 'valid' if origin matches, 'missing' if no origin headers present,
+ * or 'invalid' if origin doesn't match allowed list.
+ */
+export function validateOrigin(
+  req: NextRequest
+): 'valid' | 'missing' | 'invalid' {
   const origin = req.headers.get('origin');
   const referer = req.headers.get('referer');
 
-  // Allow same-origin/fetch without origin/referer (first-party navigation or same-site fetch)
-  if (!origin && !referer) return true;
+  // No origin headers present - caller must decide how to handle
+  // (e.g., require CSRF token for mutations)
+  if (!origin && !referer) return 'missing';
 
   const allowed = getAllowedOrigins();
   let candidate: string | null = origin;
@@ -47,10 +55,10 @@ export function validateOrigin(req: NextRequest): boolean {
     }
   }
 
-  if (candidate && allowed.has(candidate)) return true;
+  if (candidate && allowed.has(candidate)) return 'valid';
 
   // If we had headers but couldn't derive a valid origin (e.g., malformed referer), deny.
-  return false;
+  return 'invalid';
 }
 
 function extractCsrfToken(req: NextRequest): string | null {
@@ -68,16 +76,31 @@ export function withCsrfProtection(
   handler: (req: NextRequest) => Promise<NextResponse> | NextResponse
 ) {
   return async (req: NextRequest) => {
-    if (req.method !== 'GET' && !validateOrigin(req)) {
+    // GET requests are read-only, no CSRF protection needed
+    if (req.method === 'GET') {
+      return handler(req);
+    }
+
+    const originStatus = validateOrigin(req);
+
+    // If origin is explicitly invalid (cross-origin attack), always deny
+    if (originStatus === 'invalid') {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
-    if (req.method !== 'GET') {
-      const token = extractCsrfToken(req);
-      // If a header is provided, require it to match the cookie; otherwise allow origin-only defense.
-      if (req.headers.get('x-csrf-token') && !token) {
-        return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-      }
+
+    const token = extractCsrfToken(req);
+
+    // If origin headers are missing (privacy tools, older browsers), require CSRF token
+    // This prevents attacks where Origin/Referer are intentionally stripped
+    if (originStatus === 'missing' && !token) {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
+
+    // If CSRF header is provided, it must match the cookie (double-submit validation)
+    if (req.headers.get('x-csrf-token') && !token) {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+    }
+
     return handler(req);
   };
 }

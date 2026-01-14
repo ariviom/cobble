@@ -47,6 +47,9 @@ function buildEndpointCandidates(): string[] {
   return Array.from(variants);
 }
 
+// Timeout for Brickognize API calls (matches other API clients)
+const BRICKOGNIZE_TIMEOUT_MS = 30_000;
+
 export async function identifyWithBrickognize(
   image: Blob
 ): Promise<BrickognizeResponse> {
@@ -57,11 +60,20 @@ export async function identifyWithBrickognize(
     const form = new FormData();
     // Per docs: legacy predict expects ONLY "query_image"
     form.append('query_image', image, 'image.jpg');
+
+    // Add timeout to prevent requests hanging indefinitely
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      BRICKOGNIZE_TIMEOUT_MS
+    );
+
     try {
       const res = await fetch(endpoint, {
         method: 'POST',
         body: form,
         cache: 'no-store',
+        signal: controller.signal,
         headers: {
           accept: 'application/json',
         },
@@ -106,6 +118,8 @@ export async function identifyWithBrickognize(
     } catch {
       // Network or parsing errors: try next endpoint
       continue;
+    } finally {
+      clearTimeout(timeout);
     }
   }
   const hint =

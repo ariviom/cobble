@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { LRUCache } from '@/app/lib/cache/lru';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import type { Database } from '@/supabase/types';
 import { logger } from '@/lib/metrics';
@@ -26,7 +27,14 @@ type Options = {
   betaOverride?: boolean;
 };
 
-const entitlementsCache = new Map<string, Entitlements>();
+// Use LRU cache with TTL to prevent unbounded memory growth
+// Max 1000 entries, 5 minute TTL (entitlements can change via billing updates)
+const ENTITLEMENTS_CACHE_MAX = 1000;
+const ENTITLEMENTS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const entitlementsCache = new LRUCache<string, Entitlements>(
+  ENTITLEMENTS_CACHE_MAX,
+  ENTITLEMENTS_CACHE_TTL_MS
+);
 
 const TIER_RANK: Record<Entitlements['tier'], number> = {
   free: 0,

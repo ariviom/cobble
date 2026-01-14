@@ -2,6 +2,15 @@ import crypto from 'crypto';
 
 const BL_STORE_BASE = 'https://api.bricklink.com/api/store/v1';
 
+// Rate limiting: BrickLink allows ~2500 requests/day
+// Add minimum delay between requests to avoid hammering the API
+const MIN_REQUEST_DELAY_MS = 100; // 10 requests/second max
+let lastRequestTime = 0;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function requireEnv(name: string): string {
   const val = process.env[name] ?? '';
   if (!val) throw new Error(`Missing env ${name}`);
@@ -87,6 +96,14 @@ async function blGet<T>(
   path: string,
   params?: Record<string, string | number>
 ): Promise<T> {
+  // Rate limiting: ensure minimum delay between requests
+  const now = Date.now();
+  const elapsed = now - lastRequestTime;
+  if (elapsed < MIN_REQUEST_DELAY_MS) {
+    await sleep(MIN_REQUEST_DELAY_MS - elapsed);
+  }
+  lastRequestTime = Date.now();
+
   const url = new URL(`${BL_STORE_BASE}${path}`);
   if (params) {
     for (const [k, v] of Object.entries(params)) {

@@ -432,7 +432,8 @@ export async function getSetMinifigsLocal(
   const { data: setMinifigs, error } = await supabase
     .from('bl_set_minifigs')
     .select('minifig_no, quantity')
-    .eq('set_num', trimmed);
+    .eq('set_num', trimmed)
+    .order('minifig_no', { ascending: true });
 
   if (error) {
     throw new Error(

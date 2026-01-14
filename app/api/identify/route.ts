@@ -16,7 +16,10 @@ import {
   resolveIdentifyResult,
 } from '@/app/lib/services/identify';
 import { getEntitlements, hasFeature } from '@/app/lib/services/entitlements';
-import { checkAndIncrementUsage } from '@/app/lib/services/usageCounters';
+import {
+  checkAndIncrementUsage,
+  getUsageStatus,
+} from '@/app/lib/services/usageCounters';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
@@ -132,13 +135,38 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     const cacheKey = `${user.id}:${imageHash}`;
 
     const cached = getCachedResponse(cacheKey);
-    const skipQuota = !!cached;
+    const entitlements = await getEntitlements(user.id);
+    const hasUnlimited = hasFeature(entitlements, 'identify.unlimited');
+
+    // For cache hits, we don't increment quota but still verify user has access
     if (cached) {
+      // If user doesn't have unlimited, verify they haven't exceeded quota
+      if (!hasUnlimited) {
+        const usage = await getUsageStatus({
+          userId: user.id,
+          featureKey: 'identify:daily',
+          windowKind: 'daily',
+          limit: 5,
+        });
+        if (usage.remaining === 0) {
+          return NextResponse.json(
+            {
+              error: 'feature_unavailable',
+              reason: 'quota_exceeded',
+              limit: usage.limit,
+              remaining: usage.remaining,
+              resetAt: usage.resetAt,
+              dedupe: true,
+            },
+            { status: 429 }
+          );
+        }
+      }
       return NextResponse.json(cached.body, { status: cached.status });
     }
 
-    const entitlements = await getEntitlements(user.id);
-    if (!skipQuota && !hasFeature(entitlements, 'identify.unlimited')) {
+    // For new requests, check and increment quota
+    if (!hasUnlimited) {
       const usage = await checkAndIncrementUsage({
         userId: user.id,
         featureKey: 'identify:daily',

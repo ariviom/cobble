@@ -287,10 +287,7 @@ async function executeSync(setNumber: string): Promise<boolean> {
     });
     return false;
   } finally {
-    // Remove from in-flight after a short delay to handle race conditions
-    setTimeout(() => {
-      inFlightSyncs.delete(setNumber);
-    }, 100);
+    inFlightSyncs.delete(setNumber);
   }
 }
 

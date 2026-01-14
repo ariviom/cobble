@@ -14,7 +14,11 @@ import 'server-only';
 
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { logger } from '@/lib/metrics';
-import { processSetForMinifigMapping } from '@/scripts/minifig-mapping-core';
+import {
+  triggerMinifigSync,
+  isSyncInProgress,
+  waitForSync,
+} from '@/app/lib/sync/minifigSync';
 
 // =============================================================================
 // IMAGE URL HELPERS
@@ -62,46 +66,27 @@ export type SetMinifigResult = {
 };
 
 // =============================================================================
-// IN-FLIGHT SYNC DEDUPLICATION
+// SET SYNC (delegates to minifigSync.ts for deduplication)
 // =============================================================================
-
-const inFlightSyncs = new Map<string, Promise<boolean>>();
 
 /**
  * Execute a sync for a set, deduplicating concurrent requests.
  * Returns true if sync completed successfully, false otherwise.
+ *
+ * Delegates to minifigSync.ts which is the single source of truth
+ * for in-flight sync tracking. This prevents duplicate BrickLink
+ * API calls when both this module and minifigSync.ts are used.
  */
 async function executeSetSyncDeduplicated(setNumber: string): Promise<boolean> {
-  const existing = inFlightSyncs.get(setNumber);
-  if (existing) {
+  // Check if already in progress (from any caller)
+  if (isSyncInProgress(setNumber)) {
     logger.debug('bricklink.minifigs.join_existing_sync', { setNumber });
-    return existing;
+    return waitForSync(setNumber);
   }
 
-  const syncPromise = (async () => {
-    const supabase = getCatalogWriteClient();
-    try {
-      await processSetForMinifigMapping(
-        supabase,
-        setNumber,
-        '[bricklink:on-demand]'
-      );
-      return true;
-    } catch (err) {
-      logger.error('bricklink.minifigs.sync_failed', {
-        setNumber,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      return false;
-    } finally {
-      setTimeout(() => {
-        inFlightSyncs.delete(setNumber);
-      }, 100);
-    }
-  })();
-
-  inFlightSyncs.set(setNumber, syncPromise);
-  return syncPromise;
+  // Delegate to the canonical sync module (skip cooldown for self-healing)
+  const result = await triggerMinifigSync(setNumber, { skipCooldown: true });
+  return result.success;
 }
 
 // =============================================================================
@@ -154,11 +139,12 @@ export async function getSetMinifigsBl(
     }
   }
 
-  // Fetch minifigs from bl_set_minifigs
+  // Fetch minifigs from bl_set_minifigs (ordered for deterministic results)
   const { data: minifigs, error: minifigErr } = await supabase
     .from('bl_set_minifigs')
     .select('minifig_no, name, quantity, image_url, rb_fig_id')
-    .eq('set_num', setNumber);
+    .eq('set_num', setNumber)
+    .order('minifig_no', { ascending: true });
 
   if (minifigErr) {
     logger.error('bricklink.minifigs.get_set_minifigs_failed', {
@@ -238,9 +224,7 @@ async function syncMinifigParts(blMinifigNo: string): Promise<boolean> {
       });
       return false;
     } finally {
-      setTimeout(() => {
-        inFlightPartsSyncs.delete(blMinifigNo);
-      }, 100);
+      inFlightPartsSyncs.delete(blMinifigNo);
     }
   })();
 
@@ -257,11 +241,13 @@ export async function getMinifigPartsBl(
 ): Promise<BlMinifigPart[]> {
   const supabase = getCatalogWriteClient();
 
-  // First try to get cached parts
+  // First try to get cached parts (ordered for deterministic results)
   const { data: parts, error: partsErr } = await supabase
     .from('bl_minifig_parts')
     .select('bl_part_id, bl_color_id, name, quantity')
-    .eq('bl_minifig_no', blMinifigNo);
+    .eq('bl_minifig_no', blMinifigNo)
+    .order('bl_part_id', { ascending: true })
+    .order('bl_color_id', { ascending: true });
 
   if (partsErr) {
     logger.error('bricklink.minifigs.get_parts_failed', {
@@ -289,11 +275,13 @@ export async function getMinifigPartsBl(
     return [];
   }
 
-  // Re-fetch after sync
+  // Re-fetch after sync (ordered for deterministic results)
   const { data: newParts, error: newErr } = await supabase
     .from('bl_minifig_parts')
     .select('bl_part_id, bl_color_id, name, quantity')
-    .eq('bl_minifig_no', blMinifigNo);
+    .eq('bl_minifig_no', blMinifigNo)
+    .order('bl_part_id', { ascending: true })
+    .order('bl_color_id', { ascending: true });
 
   if (newErr) {
     logger.error('bricklink.minifigs.get_parts_after_sync_failed', {

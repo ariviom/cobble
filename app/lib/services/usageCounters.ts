@@ -57,59 +57,37 @@ export async function checkAndIncrementUsage(
   opts: IncrementOptions
 ): Promise<UsageCheckResult> {
   const supabase = opts.supabase ?? getSupabaseServiceRoleClient();
-  const usageCountersTable =
-    'usage_counters' as unknown as keyof Database['public']['Tables'];
   const now = new Date();
   const windowStart = getWindowStart(opts.windowKind, now);
   const resetAt = getResetAt(opts.windowKind, now);
 
-  // Read current count
-  const { data, error } = await supabase
-    .from(usageCountersTable)
-    .select('count')
-    .eq('user_id', opts.userId)
-    .eq('feature_key', opts.featureKey)
-    .eq('window_kind', opts.windowKind)
-    .eq('window_start', windowStart)
-    .maybeSingle();
+  // Use atomic RPC function to prevent race conditions where concurrent requests
+  // could both read the same count and both increment, exceeding the limit
+  const { data, error } = await supabase.rpc('increment_usage_counter', {
+    p_user_id: opts.userId,
+    p_feature_key: opts.featureKey,
+    p_window_kind: opts.windowKind,
+    p_window_start: windowStart,
+    p_limit: opts.limit,
+  });
 
   if (error) {
-    logger.error('usage_counters.read_failed', {
+    logger.error('usage_counters.increment_failed', {
       error: error.message,
       featureKey: opts.featureKey,
     });
     return { allowed: false, limit: opts.limit, remaining: 0, resetAt };
   }
 
-  const current = data?.count ?? 0;
-  if (current >= opts.limit) {
-    return { allowed: false, limit: opts.limit, remaining: 0, resetAt };
-  }
-
-  const nextCount = current + 1;
-  const { error: upsertError } = await supabase
-    .from(usageCountersTable)
-    .upsert({
-      user_id: opts.userId,
-      feature_key: opts.featureKey,
-      window_kind: opts.windowKind,
-      window_start: windowStart,
-      count: nextCount,
-      updated_at: new Date().toISOString(),
-    });
-
-  if (upsertError) {
-    logger.error('usage_counters.upsert_failed', {
-      error: upsertError.message,
-      featureKey: opts.featureKey,
-    });
-    return { allowed: false, limit: opts.limit, remaining: 0, resetAt };
-  }
+  // RPC returns array with single row: { allowed: boolean, new_count: number }
+  const result = Array.isArray(data) ? data[0] : data;
+  const allowed = result?.allowed ?? false;
+  const newCount = result?.new_count ?? opts.limit;
 
   return {
-    allowed: true,
+    allowed,
     limit: opts.limit,
-    remaining: Math.max(opts.limit - nextCount, 0),
+    remaining: Math.max(opts.limit - newCount, 0),
     resetAt,
   };
 }

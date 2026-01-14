@@ -14,8 +14,9 @@ vi.mock('@/lib/rateLimit', () => ({
 
 describe('identify route rate limiting', () => {
   it('returns 429 with Retry-After when rate limited', async () => {
-    const req = new NextRequest('http://localhost/api/identify', {
+    const req = new NextRequest('http://localhost:3000/api/identify', {
       method: 'POST',
+      headers: { origin: 'http://localhost:3000' },
     });
     const res = await POST(req);
 

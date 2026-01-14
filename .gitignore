@@ -54,4 +54,4 @@ node_modules
 *.log
 .vercel
 
-/catalyst-ui
+/catalyst-uisupabase-push.sh

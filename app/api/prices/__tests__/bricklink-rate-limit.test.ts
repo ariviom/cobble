@@ -33,10 +33,13 @@ describe('prices bricklink rate limiting', () => {
     const body = JSON.stringify({
       items: [{ key: 'k1', partId: '3001', colorId: 1 }],
     });
-    const req = new NextRequest('http://localhost/api/prices/bricklink', {
+    const req = new NextRequest('http://localhost:3000/api/prices/bricklink', {
       method: 'POST',
       body,
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        origin: 'http://localhost:3000',
+      },
     });
 
     const res = await PricesPost(req);
@@ -48,11 +51,17 @@ describe('prices bricklink rate limiting', () => {
 
   it('returns 429 with Retry-After for bricklink-set prices', async () => {
     const body = JSON.stringify({ setNumber: '3001-1' });
-    const req = new NextRequest('http://localhost/api/prices/bricklink-set', {
-      method: 'POST',
-      body,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const req = new NextRequest(
+      'http://localhost:3000/api/prices/bricklink-set',
+      {
+        method: 'POST',
+        body,
+        headers: {
+          'Content-Type': 'application/json',
+          origin: 'http://localhost:3000',
+        },
+      }
+    );
 
     const res = await PricesSetPost(req);
     expect(res.status).toBe(429);

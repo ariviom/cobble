@@ -824,7 +824,11 @@ export async function getSetInventoryLocal(
   }
 
   const mergedRows = Array.from(partRowMap.values());
-  return [...mergedRows, ...parentRows];
+  // Sort parent rows by inventoryKey for deterministic ordering
+  const sortedParentRows = [...parentRows].sort((a, b) =>
+    a.inventoryKey.localeCompare(b.inventoryKey)
+  );
+  return [...mergedRows, ...sortedParentRows];
 }
 
 export async function getSetsForPartLocal(

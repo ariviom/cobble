@@ -7,6 +7,8 @@ const BASE = 'https://rebrickable.com/api/v3' as const;
 const RB_MAX_ATTEMPTS = 3;
 /** Request timeout in milliseconds (30 seconds) */
 const RB_REQUEST_TIMEOUT_MS = 30_000;
+/** Maximum retry delay in milliseconds (60 seconds) - caps Retry-After header */
+const RB_MAX_RETRY_DELAY_MS = 60_000;
 
 /**
  * Circuit breaker configuration.
@@ -144,12 +146,12 @@ export async function rbFetch<T>(
       if (status === 429 || status === 503) {
         let delayMs = 0;
 
-        // Honour Retry-After when present.
+        // Honour Retry-After when present, but cap at RB_MAX_RETRY_DELAY_MS.
         const retryAfter = res.headers.get('Retry-After');
         if (retryAfter) {
           const asNumber = Number(retryAfter);
           if (Number.isFinite(asNumber) && asNumber > 0) {
-            delayMs = asNumber * 1000;
+            delayMs = Math.min(asNumber * 1000, RB_MAX_RETRY_DELAY_MS);
           }
         }
 
@@ -160,7 +162,7 @@ export async function rbFetch<T>(
           if (match) {
             const seconds = Number(match[1]);
             if (Number.isFinite(seconds) && seconds > 0) {
-              delayMs = seconds * 1000;
+              delayMs = Math.min(seconds * 1000, RB_MAX_RETRY_DELAY_MS);
             }
           }
         }
@@ -171,16 +173,12 @@ export async function rbFetch<T>(
         }
 
         if (process.env.NODE_ENV !== 'production') {
-          try {
-            console.warn('Rebrickable throttled request', {
-              path,
-              attempt,
-              status,
-              delayMs,
-            });
-          } catch {
-            // ignore logging failures
-          }
+          logger.debug('rebrickable.throttled', {
+            path,
+            attempt,
+            status,
+            delayMs,
+          });
         }
 
         if (attempt < RB_MAX_ATTEMPTS) {
@@ -191,15 +189,11 @@ export async function rbFetch<T>(
         // Generic transient upstream error – brief backoff.
         const delayMs = Math.min(300 * attempt, 2000);
         if (process.env.NODE_ENV !== 'production') {
-          try {
-            console.warn('Rebrickable upstream error, retrying', {
-              path,
-              attempt,
-              status,
-            });
-          } catch {
-            // ignore logging failures
-          }
+          logger.debug('rebrickable.upstream_error', {
+            path,
+            attempt,
+            status,
+          });
         }
         await sleep(delayMs);
         continue;
@@ -282,7 +276,7 @@ export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
         if (retryAfter) {
           const asNumber = Number(retryAfter);
           if (Number.isFinite(asNumber) && asNumber > 0) {
-            delayMs = asNumber * 1000;
+            delayMs = Math.min(asNumber * 1000, RB_MAX_RETRY_DELAY_MS);
           }
         }
 
@@ -293,7 +287,7 @@ export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
           if (match) {
             const seconds = Number(match[1]);
             if (Number.isFinite(seconds) && seconds > 0) {
-              delayMs = seconds * 1000;
+              delayMs = Math.min(seconds * 1000, RB_MAX_RETRY_DELAY_MS);
             }
           }
         }
@@ -303,16 +297,12 @@ export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
         }
 
         if (process.env.NODE_ENV !== 'production') {
-          try {
-            console.warn('Rebrickable throttled absolute request', {
-              url: absoluteUrl,
-              attempt,
-              status,
-              delayMs,
-            });
-          } catch {
-            // ignore
-          }
+          logger.debug('rebrickable.throttled_absolute', {
+            url: absoluteUrl,
+            attempt,
+            status,
+            delayMs,
+          });
         }
 
         if (attempt < RB_MAX_ATTEMPTS) {
@@ -323,15 +313,11 @@ export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
         recordFailure();
         const delayMs = Math.min(300 * attempt, 2000);
         if (process.env.NODE_ENV !== 'production') {
-          try {
-            console.warn('Rebrickable upstream error (absolute), retrying', {
-              url: absoluteUrl,
-              attempt,
-              status,
-            });
-          } catch {
-            // ignore
-          }
+          logger.debug('rebrickable.upstream_error_absolute', {
+            url: absoluteUrl,
+            attempt,
+            status,
+          });
         }
         await sleep(delayMs);
         continue;

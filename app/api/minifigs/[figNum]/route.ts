@@ -88,9 +88,17 @@ export async function GET(
     });
   }
 
+  // Validate minifig ID format: alphanumeric with optional dashes/underscores
+  // Max length 50 chars to prevent abuse, typical IDs are < 15 chars
+  // Examples: sw0001, cty0123, hp001, njo001, fig-000001
+  const MINIFIG_ID_PATTERN = /^[a-zA-Z0-9][\w-]{0,49}$/;
+  if (!MINIFIG_ID_PATTERN.test(inputId)) {
+    return errorResponse('validation_failed', {
+      message: 'Invalid minifig ID format',
+    });
+  }
+
   // The input is expected to be a BrickLink minifig ID (e.g., "sw0001")
-  // If it looks like an RB ID (starts with "fig-"), we reject it
-  // The UI should have been updated to use BL IDs
   const blMinifigNo = inputId;
 
   try {

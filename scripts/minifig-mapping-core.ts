@@ -138,7 +138,12 @@ export async function processSetForMinifigMapping(
             const { generateImageHash } = await getImageHashModule();
             imageHash = await generateImageHash(m.imageUrl);
           } catch (error) {
-            // Silently fail - hash generation is optional
+            // Log but continue - hash generation is optional
+            // eslint-disable-next-line no-console
+            console.warn(
+              `${logPrefix} Image hash failed for ${m.minifigNo}:`,
+              error instanceof Error ? error.message : String(error)
+            );
             imageHash = null;
           }
         }

@@ -685,7 +685,9 @@ async function main() {
 
 // Allow running via `npm run ingest:rebrickable`
 main().catch(error => {
+  // Sanitize error to avoid leaking credentials in logs
+  const message = error instanceof Error ? error.message : String(error);
   // eslint-disable-next-line no-console
-  console.error(error);
+  console.error('Ingestion failed:', message);
   process.exitCode = 1;
 });
