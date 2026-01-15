@@ -89,10 +89,10 @@ export function SidebarCategoryPanel({
           );
         })}
         {(filter.parents?.length || 0) > 0 ? (
-          <div className="flex w-full justify-center border-b border-subtle">
+          <div className="flex w-full justify-center border-t-2 border-subtle">
             <button
               type="button"
-              className="h-full w-full cursor-pointer py-4 hover:bg-card-muted"
+              className="h-full w-full cursor-pointer py-3.5 font-semibold text-foreground-muted transition-colors hover:bg-brand-yellow/10 hover:text-foreground"
               onClick={() =>
                 onChangeFilter({
                   ...filter,
@@ -110,16 +110,16 @@ export function SidebarCategoryPanel({
   ) : (
     <>
       <DropdownSection>
-        <div className="flex items-center gap-2 px-3 py-2">
+        <div className="flex items-center gap-2 border-b-2 border-subtle bg-background-muted/50 px-4 py-3">
           <button
             type="button"
-            className="rounded p-1 hover:bg-card-muted"
+            className="rounded-[var(--radius-sm)] p-1.5 transition-colors hover:bg-brand-yellow/20"
             onClick={() => setActiveParent(null)}
             aria-label="Back to categories"
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={18} />
           </button>
-          <span className="text-sm font-semibold">{activeParent}</span>
+          <span className="text-base font-bold">{activeParent}</span>
         </div>
       </DropdownSection>
       <DropdownSection>
@@ -146,10 +146,10 @@ export function SidebarCategoryPanel({
               </RowButton>
             );
           })}
-          <div className="flex w-full justify-center border-b border-subtle">
+          <div className="flex w-full justify-center border-t-2 border-subtle">
             <button
               type="button"
-              className="h-full w-full cursor-pointer py-4 hover:bg-card-muted"
+              className="h-full w-full cursor-pointer py-3.5 font-semibold text-foreground-muted transition-colors hover:bg-brand-yellow/10 hover:text-foreground"
               onClick={() => {
                 if (!activeParent) return;
                 onChangeFilter(clearParentSubcategories(filter, activeParent));

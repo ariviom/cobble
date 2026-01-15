@@ -146,13 +146,13 @@ function InventoryItemComponent({
   ]);
   return (
     <>
-      <div className="relative flex w-full justify-start gap-6 rounded-lg border border-subtle bg-card p-4 grid:flex-col">
+      <div className="relative flex w-full justify-start gap-6 rounded-[var(--radius-lg)] border-2 border-subtle bg-card p-4 grid:flex-col">
         <MoreDropdown
           ariaLabel="More actions"
           className="absolute top-3 right-3"
         >
           {() => (
-            <div className="min-w-min rounded-md border border-subtle bg-card py-1 text-xs shadow-lg">
+            <div className="min-w-min rounded-[var(--radius-md)] border-2 border-subtle bg-card py-1 text-xs shadow-lg">
               {onTogglePinned && (
                 <MoreDropdownButton
                   icon={<Pin className="size-4" />}
@@ -201,11 +201,11 @@ function InventoryItemComponent({
               alt={row.partName}
               loading="lazy"
               variant="inventoryThumb"
-              className={`mx-auto h-full w-full rounded-lg object-contain grid:item-sm:max-w-24 ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : 'ring-1 ring-foreground-accent'}`}
+              className={`mx-auto h-full w-full rounded-[var(--radius-lg)] object-contain grid:item-sm:max-w-24 ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : 'ring-1 ring-foreground-accent'}`}
               data-knockout="true"
             />
           ) : showImageLoader ? (
-            <div className="h-full w-full animate-pulse rounded-lg bg-card-muted" />
+            <div className="h-full w-full animate-pulse rounded-[var(--radius-lg)] bg-card-muted" />
           ) : (
             <div className="text-xs text-foreground-muted">No Image</div>
           )}
@@ -300,7 +300,7 @@ function InventoryItemComponent({
                 onChange={onOwnedChange}
               />
             ) : (
-              <div className="flex h-12 w-full min-w-min items-center justify-center rounded-lg border border-subtle px-3 text-xs text-foreground-muted">
+              <div className="flex h-12 w-full min-w-min items-center justify-center rounded-[var(--radius-lg)] border-2 border-subtle px-3 text-xs text-foreground-muted">
                 Sign in to track inventory
               </div>
             )}
@@ -394,7 +394,7 @@ function InventoryItemComponent({
           {isMinifig && rebrickableFigId && (
             <Link
               href={`/minifigs/id/${encodeURIComponent(rebrickableFigId)}`}
-              className="inline-flex items-center justify-center rounded-md border border-subtle bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-muted"
+              className="inline-flex items-center justify-center rounded-[var(--radius-md)] border-2 border-subtle bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-muted"
               onClick={event => event.stopPropagation()}
             >
               Open minifig details

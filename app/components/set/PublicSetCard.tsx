@@ -83,7 +83,7 @@ export function PublicSetCard({
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-lg border border-subtle bg-card ${className ?? ''}`}
+      className={`group relative overflow-hidden rounded-[var(--radius-lg)] border-2 border-subtle bg-card ${className ?? ''}`}
     >
       <Link
         href={`/sets/id/${encodeURIComponent(setNumber)}`}
@@ -98,7 +98,7 @@ export function PublicSetCard({
                   alt=""
                   width={512}
                   height={512}
-                  className="aspect-square h-full w-full overflow-hidden rounded-lg object-cover"
+                  className="aspect-square h-full w-full overflow-hidden rounded-[var(--radius-lg)] object-cover"
                   onError={handleImageError}
                 />
               ) : (
