@@ -323,42 +323,11 @@ export function PublicUserCollectionOverview({
   };
 
   return (
-    <section className="mb-8">
+    <section className="mb-8 px-4">
       <div className="mx-auto w-full max-w-7xl">
         <div className="my-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h2 className="text-lg font-semibold">{heading}</h2>
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-xs">Type</span>
-              <div className="inline-flex rounded-md border border-subtle bg-card text-xs">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={collectionType === 'sets' ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'rounded-none px-2 py-1 first:rounded-l-md last:rounded-r-md',
-                    collectionType === 'sets' && 'font-medium'
-                  )}
-                  onClick={() => handleTypeChange('sets')}
-                >
-                  Sets
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={
-                    collectionType === 'minifigs' ? 'secondary' : 'ghost'
-                  }
-                  className={cn(
-                    'rounded-none px-2 py-1 first:rounded-l-md last:rounded-r-md',
-                    collectionType === 'minifigs' && 'font-medium'
-                  )}
-                  onClick={() => handleTypeChange('minifigs')}
-                >
-                  Minifigures
-                </Button>
-              </div>
-            </div>
             {hasAnyItems && (
               <>
                 <div className="flex items-center gap-2">
@@ -421,16 +390,18 @@ export function PublicUserCollectionOverview({
                         ))}
                       </Select>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs">Group by</span>
-                      <div className="inline-flex rounded-md border border-subtle bg-card text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-medium text-foreground-muted">
+                        Group
+                      </span>
+                      <div className="inline-flex rounded-[var(--radius-md)] border-2 border-subtle bg-card">
                         <Button
                           type="button"
-                          size="sm"
+                          size="xs"
                           variant={groupBy === 'status' ? 'secondary' : 'ghost'}
                           className={cn(
-                            'rounded-none px-2 py-1 first:rounded-l-md last:rounded-r-md',
-                            groupBy === 'status' && 'font-medium'
+                            'rounded-none border-0 shadow-none first:rounded-l-[var(--radius-md)] last:rounded-r-[var(--radius-md)] hover:translate-y-0 hover:shadow-none active:translate-y-0 active:shadow-none',
+                            groupBy === 'status' && 'font-bold'
                           )}
                           onClick={() => setGroupBy('status')}
                         >
@@ -438,11 +409,11 @@ export function PublicUserCollectionOverview({
                         </Button>
                         <Button
                           type="button"
-                          size="sm"
+                          size="xs"
                           variant={groupBy === 'theme' ? 'secondary' : 'ghost'}
                           className={cn(
-                            'rounded-none px-2 py-1 first:rounded-l-md last:rounded-r-md',
-                            groupBy === 'theme' && 'font-medium'
+                            'rounded-none border-0 shadow-none first:rounded-l-[var(--radius-md)] last:rounded-r-[var(--radius-md)] hover:translate-y-0 hover:shadow-none active:translate-y-0 active:shadow-none',
+                            groupBy === 'theme' && 'font-bold'
                           )}
                           onClick={() => setGroupBy('theme')}
                         >
@@ -454,6 +425,39 @@ export function PublicUserCollectionOverview({
                 )}
               </>
             )}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-medium text-foreground-muted">
+                Type
+              </span>
+              <div className="inline-flex rounded-[var(--radius-md)] border-2 border-subtle bg-card">
+                <Button
+                  type="button"
+                  size="xs"
+                  variant={collectionType === 'sets' ? 'secondary' : 'ghost'}
+                  className={cn(
+                    'rounded-none border-0 shadow-none first:rounded-l-[var(--radius-md)] last:rounded-r-[var(--radius-md)] hover:translate-y-0 hover:shadow-none active:translate-y-0 active:shadow-none',
+                    collectionType === 'sets' && 'font-bold'
+                  )}
+                  onClick={() => handleTypeChange('sets')}
+                >
+                  Sets
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant={
+                    collectionType === 'minifigs' ? 'secondary' : 'ghost'
+                  }
+                  className={cn(
+                    'rounded-none border-0 shadow-none first:rounded-l-[var(--radius-md)] last:rounded-r-[var(--radius-md)] hover:translate-y-0 hover:shadow-none active:translate-y-0 active:shadow-none',
+                    collectionType === 'minifigs' && 'font-bold'
+                  )}
+                  onClick={() => handleTypeChange('minifigs')}
+                >
+                  Minifigs
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 
