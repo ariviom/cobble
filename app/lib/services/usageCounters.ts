@@ -63,7 +63,13 @@ export async function checkAndIncrementUsage(
 
   // Use atomic RPC function to prevent race conditions where concurrent requests
   // could both read the same count and both increment, exceeding the limit
-  const { data, error } = await supabase.rpc('increment_usage_counter', {
+  // Note: Type assertion needed until migration is pushed to remote and types regenerated
+  const { data, error } = await (
+    supabase.rpc as (
+      fn: string,
+      args: Record<string, unknown>
+    ) => ReturnType<typeof supabase.rpc>
+  )('increment_usage_counter', {
     p_user_id: opts.userId,
     p_feature_key: opts.featureKey,
     p_window_kind: opts.windowKind,
@@ -80,7 +86,10 @@ export async function checkAndIncrementUsage(
   }
 
   // RPC returns array with single row: { allowed: boolean, new_count: number }
-  const result = Array.isArray(data) ? data[0] : data;
+  type RpcResult = { allowed: boolean; new_count: number };
+  const result = (Array.isArray(data)
+    ? data[0]
+    : data) as unknown as RpcResult | null;
   const allowed = result?.allowed ?? false;
   const newCount = result?.new_count ?? opts.limit;
 
