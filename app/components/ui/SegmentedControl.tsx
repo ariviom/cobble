@@ -42,7 +42,7 @@ export function SegmentedControl({
     <div
       ref={containerRef}
       className={cx(
-        'relative inline-flex items-center rounded-md border border-subtle bg-card p-0.5',
+        'relative inline-flex items-center rounded-[var(--radius-md)] border-2 border-subtle bg-card p-0.5',
         size === 'sm' ? 'text-xs' : 'text-sm',
         className
       )}
@@ -63,7 +63,7 @@ export function SegmentedControl({
           role="tab"
           aria-selected={seg.key === value}
           className={cx(
-            'relative z-10 rounded px-3 py-1.5 focus:outline-none',
+            'relative z-10 rounded-[var(--radius-sm)] px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
             seg.key === value
               ? 'text-foreground'
               : 'text-foreground-muted hover:text-foreground'

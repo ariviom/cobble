@@ -4,12 +4,13 @@ import { cn } from '@/app/components/ui/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 const rowButtonVariants = cva(
-  'flex w-full h-full items-center bg-card px-3 text-left text-foreground hover:bg-card-muted data-[selected=true]:bg-theme-primary/10 data-[selected=true]:text-theme-primary cursor-pointer',
+  // Chunky, LEGO-inspired row buttons with bold active states
+  'flex w-full h-full items-center bg-card px-4 text-left font-medium text-foreground transition-all duration-150 hover:bg-brand-yellow/10 cursor-pointer data-[selected=true]:bg-brand-yellow/20 data-[selected=true]:text-neutral-900 data-[selected=true]:font-semibold',
   {
     variants: {
       size: {
-        sm: 'gap-3 py-2 text-sm',
-        md: 'gap-3 py-4 text-base',
+        sm: 'gap-3 py-2.5 text-sm',
+        md: 'gap-3 py-3.5 text-base',
       },
     },
     defaultVariants: {

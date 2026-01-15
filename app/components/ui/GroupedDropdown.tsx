@@ -25,13 +25,14 @@ export type DropdownTriggerProps = {
 };
 
 const triggerVariants = cva(
-  'min-w-max rounded-md border border-subtle bg-card px-3 py-1.5 text-sm cursor-pointer hover:bg-card-muted',
+  // Chunky trigger buttons matching the LEGO theme
+  'min-w-max rounded-[var(--radius-md)] border-2 border-subtle bg-card px-4 py-2 text-sm font-semibold cursor-pointer transition-all duration-150 hover:bg-brand-yellow/10 hover:border-brand-yellow/30',
   {
     variants: {
       variant: {
         default: '',
         sidebar:
-          'lg:sidebar:rounded-none lg:sidebar:border-x-0 lg:sidebar:border-t-0 lg:sidebar:border-b lg:sidebar:border-subtle lg:sidebar:text-base lg:sidebar:w-full lg:sidebar:py-3 lg:sidebar:px-4 text-left',
+          'lg:sidebar:rounded-none lg:sidebar:border-x-0 lg:sidebar:border-t-0 lg:sidebar:border-b-2 lg:sidebar:border-subtle lg:sidebar:text-base lg:sidebar:w-full lg:sidebar:py-3.5 lg:sidebar:px-4 text-left lg:sidebar:hover:bg-brand-yellow/10',
       },
     },
     defaultVariants: {
@@ -71,14 +72,14 @@ export const DropdownTrigger = forwardRef<
 
 // Generic dropdown frame that accepts arbitrary children
 const panelVariants = cva(
-  // base: mobile behaves like a sheet, desktop like a popover
-  'min-w-64 overflow-hidden rounded-md border border-subtle bg-card shadow-lg fixed top-[calc(var(--spacing-topnav-height)+var(--spacing-controls-height))] bottom-0 z-50 overflow-y-auto lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40',
+  // base: mobile behaves like a sheet, desktop like a popover - chunky LEGO styling
+  'min-w-64 overflow-hidden rounded-[var(--radius-lg)] border-2 border-subtle bg-card shadow-[0_4px_0_0] shadow-neutral-200 dark:shadow-neutral-800 fixed top-[calc(var(--spacing-topnav-height)+var(--spacing-controls-height))] bottom-0 z-50 overflow-y-auto lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40',
   {
     variants: {
       variant: {
         default: '',
         sidebar:
-          'inset-x-0 lg:sidebar:static lg:sidebar:inset-auto lg:sidebar:top-auto lg:sidebar:bottom-auto lg:sidebar:z-auto lg:sidebar:max-h-none lg:sidebar:overflow-visible lg:sidebar:shadow-none lg:sidebar:border-none',
+          'inset-x-0 lg:sidebar:static lg:sidebar:inset-auto lg:sidebar:top-auto lg:sidebar:bottom-auto lg:sidebar:z-auto lg:sidebar:max-h-none lg:sidebar:overflow-visible lg:sidebar:shadow-none lg:sidebar:border-none lg:sidebar:rounded-none',
       },
     },
     defaultVariants: {
@@ -144,7 +145,7 @@ export function DropdownSection({
   return (
     <div className={cx('', className)}>
       {label && (
-        <div className="px-3 py-2 text-xs font-semibold tracking-wide text-foreground-muted uppercase">
+        <div className="border-b-2 border-subtle bg-background-muted/50 px-4 py-2.5 text-xs font-bold tracking-wide text-foreground-muted uppercase">
           {label}
         </div>
       )}
@@ -258,7 +259,7 @@ export function DropdownFooter({ className, children }: DropdownFooterProps) {
   return (
     <div
       className={cx(
-        'flex items-center justify-end gap-2 border-t border-subtle bg-card px-3 py-2',
+        'flex items-center justify-end gap-2 border-t-2 border-subtle bg-background-muted/50 px-4 py-3',
         className
       )}
     >

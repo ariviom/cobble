@@ -1,20 +1,68 @@
 'use client';
 
+import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/app/components/ui/utils';
 import type { HTMLAttributes, PropsWithChildren, ReactNode } from 'react';
 
-export type CardProps = PropsWithChildren<
-  HTMLAttributes<HTMLDivElement> & {
-    elevated?: boolean;
+const cardVariants = cva(
+  'rounded-[var(--radius-lg)] border-2 bg-card transition-all duration-150 overflow-hidden',
+  {
+    variants: {
+      variant: {
+        default: 'border-subtle',
+        // Colored top strip variants - like stacked LEGO bricks
+        yellow: 'border-subtle border-t-4 border-t-brand-yellow',
+        red: 'border-subtle border-t-4 border-t-brand-red',
+        blue: 'border-subtle border-t-4 border-t-brand-blue',
+        green: 'border-subtle border-t-4 border-t-brand-green',
+        // Full colored border
+        'outline-yellow': 'border-brand-yellow bg-brand-yellow/5',
+        'outline-blue': 'border-brand-blue bg-brand-blue/5',
+      },
+      elevated: {
+        true: 'shadow-[0_4px_0_0] shadow-neutral-200 dark:shadow-neutral-800',
+        false: '',
+      },
+      interactive: {
+        true: 'cursor-pointer hover:-translate-y-1 hover:shadow-[0_6px_0_0] hover:shadow-neutral-200 dark:hover:shadow-neutral-800 active:translate-y-0 active:shadow-[0_2px_0_0]',
+        false: '',
+      },
+      padding: {
+        none: '',
+        sm: 'p-4',
+        default: 'p-5',
+        lg: 'p-6',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+      elevated: false,
+      interactive: false,
+      padding: 'default',
+    },
   }
+);
+
+// Export variants for use in components that need Card-like styling (e.g., SetDisplayCard)
+export { cardVariants };
+
+export type CardProps = PropsWithChildren<
+  HTMLAttributes<HTMLDivElement> & VariantProps<typeof cardVariants>
 >;
 
-export function Card({ elevated, className, children, ...rest }: CardProps) {
+export function Card({
+  variant,
+  elevated,
+  interactive,
+  padding,
+  className,
+  children,
+  ...rest
+}: CardProps) {
   return (
     <div
       className={cn(
-        'rounded-lg border border-subtle bg-card p-4',
-        elevated && 'shadow-sm',
+        cardVariants({ variant, elevated, interactive, padding }),
         className
       )}
       {...rest}
@@ -52,7 +100,7 @@ export type CardTitleProps = PropsWithChildren<
 export function CardTitle({ className, ...rest }: CardTitleProps) {
   return (
     <h2
-      className={cn('text-sm font-medium text-foreground', className)}
+      className={cn('text-card-title text-foreground', className)}
       {...rest}
     />
   );
@@ -64,7 +112,10 @@ export type CardDescriptionProps = PropsWithChildren<
 
 export function CardDescription({ className, ...rest }: CardDescriptionProps) {
   return (
-    <p className={cn('text-xs text-foreground-muted', className)} {...rest} />
+    <p
+      className={cn('mt-1 text-body text-foreground-muted', className)}
+      {...rest}
+    />
   );
 }
 

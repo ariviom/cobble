@@ -5,12 +5,14 @@ import { forwardRef, InputHTMLAttributes } from 'react';
 import { cn } from './utils';
 
 const inputVariants = cva(
-  'border border-subtle rounded-md bg-card px-2 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60',
+  // Base: Chunky borders, tactile feel matching buttons
+  'w-full border-2 border-subtle rounded-[var(--radius-md)] bg-card px-4 text-foreground font-medium transition-all duration-150 placeholder:text-foreground-muted/50 focus:outline-none focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-background-muted',
   {
     variants: {
       size: {
-        sm: 'h-8 text-xs',
-        md: 'h-9 text-sm',
+        sm: 'h-9 text-sm px-3',
+        md: 'h-11 text-base',
+        lg: 'h-13 text-lg px-5',
       },
     },
     defaultVariants: {

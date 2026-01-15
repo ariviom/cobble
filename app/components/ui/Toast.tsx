@@ -1,9 +1,15 @@
 import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { IconButton } from './IconButton';
+import {
+  getStatusContainerClasses,
+  getStatusIcon,
+  type StatusVariant,
+} from './statusIcons';
 import { cn } from './utils';
 
-type ToastVariant = 'info' | 'warning' | 'error';
+type ToastVariant = 'info' | 'warning' | 'error' | 'success';
 
 export type ToastProps = {
   title?: string;
@@ -16,18 +22,6 @@ export type ToastProps = {
   mobileBottomOffset?: string;
   className?: string;
 };
-
-function getVariantClasses(variant: ToastVariant): string {
-  switch (variant) {
-    case 'warning':
-      return 'border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-100';
-    case 'error':
-      return 'border-red-500/50 bg-red-500/10 text-red-900 dark:text-red-100';
-    case 'info':
-    default:
-      return 'border-blue-500/40 bg-blue-500/10 text-blue-900 dark:text-blue-100';
-  }
-}
 
 export function Toast({
   title,
@@ -55,19 +49,21 @@ export function Toast({
         role={role}
         aria-live="polite"
         className={cn(
-          'pointer-events-auto flex w-full max-w-lg items-start gap-3 rounded-lg border px-4 py-3 shadow-lg backdrop-blur',
-          getVariantClasses(variant)
+          // Chunky left border like Card variants, bold shadow
+          'pointer-events-auto flex w-full max-w-lg items-start gap-3 rounded-[var(--radius-lg)] border-2 border-l-4 border-subtle px-4 py-3 shadow-[0_4px_0_0] shadow-neutral-200 dark:shadow-neutral-800',
+          getStatusContainerClasses(variant as StatusVariant)
         )}
       >
+        <div className="mt-0.5">{getStatusIcon(variant as StatusVariant)}</div>
         <div className="flex-1 space-y-1">
           {title ? (
-            <div className="leading-tight font-semibold">{title}</div>
+            <div className="leading-tight font-bold">{title}</div>
           ) : null}
-          <div className="text-sm leading-snug">{description}</div>
+          <div className="text-sm leading-snug font-medium">{description}</div>
           {actionLabel && onAction ? (
             <button
               type="button"
-              className="text-sm font-semibold text-blue-700 underline underline-offset-4 hover:text-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-blue-200 dark:hover:text-blue-100"
+              className="mt-2 text-sm font-bold underline underline-offset-4 hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary"
               onClick={onAction}
             >
               {actionLabel}
@@ -75,14 +71,13 @@ export function Toast({
           ) : null}
         </div>
         {onClose ? (
-          <button
-            type="button"
+          <IconButton
             aria-label="Close notification"
-            className="rounded p-1 text-sm text-foreground/70 transition hover:bg-foreground/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            icon={<X className="h-5 w-5" />}
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-          >
-            <X className="h-4 w-4" />
-          </button>
+          />
         ) : null}
       </div>
     </div>
