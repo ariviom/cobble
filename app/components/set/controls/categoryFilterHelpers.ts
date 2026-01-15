@@ -59,27 +59,42 @@ export function toggleSubcategory(
 ): InventoryFilter {
   const allSubs = allSubcategoriesByParent[parent] ?? [];
   const parents = new Set(filter.parents || []);
-  if (!parents.has(parent)) {
+  const wasParentSelected = parents.has(parent);
+
+  if (!wasParentSelected) {
     parents.add(parent);
   }
+
   const currentExplicit = filter.subcategoriesByParent?.[parent];
   let nextForParent: string[];
-  if (!currentExplicit || currentExplicit.length === 0) {
-    // Currently implicit "all". Start from all, then toggle off the chosen one.
+
+  if (!wasParentSelected) {
+    // Parent wasn't selected. Clicking a child selects ONLY that child.
+    nextForParent = [sub];
+  } else if (!currentExplicit || currentExplicit.length === 0) {
+    // Parent was selected with implicit "all". Toggle off the clicked one.
     nextForParent = allSubs.filter(s => s !== sub);
   } else {
+    // Explicit list exists. Toggle the clicked item.
     const set = new Set(currentExplicit);
     if (set.has(sub)) set.delete(sub);
     else set.add(sub);
     nextForParent = Array.from(set);
   }
+
   const nextSubs = { ...(filter.subcategoriesByParent || {}) };
-  if (nextForParent.length === allSubs.length || nextForParent.length === 0) {
-    // Collapse back to implicit "all" when full, or if empty revert to "all" to avoid a parent with no subs
+
+  if (nextForParent.length === allSubs.length) {
+    // All selected - collapse to implicit "all"
+    delete nextSubs[parent];
+  } else if (nextForParent.length === 0) {
+    // None selected - deselect the parent entirely
+    parents.delete(parent);
     delete nextSubs[parent];
   } else {
     nextSubs[parent] = nextForParent.sort((a, b) => a.localeCompare(b));
   }
+
   return {
     ...filter,
     parents: Array.from(parents),
