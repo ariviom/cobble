@@ -75,9 +75,6 @@ export default function Home() {
       {/* Footer */}
       <footer className="mt-8 mb-8 border-t border-subtle px-4 pt-8">
         <div className="container-default flex flex-col items-center gap-4">
-          <p className="text-caption">
-            Built for LEGO enthusiasts who love organizing their collections.
-          </p>
           <div className="flex gap-6 text-xs text-foreground-muted">
             <Link
               href="/terms"

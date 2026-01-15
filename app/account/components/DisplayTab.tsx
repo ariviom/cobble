@@ -81,27 +81,27 @@ export function DisplayTab({
       {
         label: 'Blue',
         value: 'blue' as const,
-        swatchClass: 'bg-[var(--color-brand-blue)]',
+        swatchClass: 'bg-brand-blue',
       },
       {
         label: 'Yellow',
         value: 'yellow' as const,
-        swatchClass: 'bg-[var(--color-brand-yellow)]',
+        swatchClass: 'bg-brand-yellow',
       },
       {
         label: 'Purple',
         value: 'purple' as const,
-        swatchClass: 'bg-[var(--color-brand-purple)]',
+        swatchClass: 'bg-brand-purple',
       },
       {
         label: 'Red',
         value: 'red' as const,
-        swatchClass: 'bg-[var(--color-brand-red)]',
+        swatchClass: 'bg-brand-red',
       },
       {
         label: 'Green',
         value: 'green' as const,
-        swatchClass: 'bg-[var(--color-brand-green)]',
+        swatchClass: 'bg-brand-green',
       },
     ],
     []

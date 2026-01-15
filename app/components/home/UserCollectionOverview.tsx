@@ -2,10 +2,10 @@
 
 import { MinifigCard } from '@/app/components/minifig/MinifigCard';
 import { SetDisplayCard } from '@/app/components/set/SetDisplayCard';
-import { Button } from '@/app/components/ui/Button';
 import { CollectionGroupHeading } from '@/app/components/ui/CollectionGroupHeading';
+import { FilterBar } from '@/app/components/ui/FilterBar';
+import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
 import { Select } from '@/app/components/ui/Select';
-import { cn } from '@/app/components/ui/utils';
 import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useUserLists } from '@/app/hooks/useUserLists';
@@ -485,24 +485,20 @@ export function UserCollectionOverview({
       <div className="mx-auto w-full max-w-7xl">
         <div className="my-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h2 className="text-lg font-semibold">{heading}</h2>
-          <div className="flex flex-wrap items-center gap-3 text-sm">
+          <FilterBar>
             {hasAnyItems && (
               <>
-                <div className="flex items-center gap-2">
-                  <label
-                    htmlFor="list-filter"
-                    className="flex items-center gap-2 text-xs"
-                  >
-                    <span>List</span>
+                <div className="flex shrink-0 flex-col gap-1">
+                  <span className="text-xs font-medium text-foreground-muted">
+                    List
                     {listsLoading && lists.length === 0 && (
-                      <span className="text-[10px] text-foreground-muted">
-                        Syncing…
-                      </span>
+                      <span className="ml-1.5 text-[10px]">Syncing…</span>
                     )}
-                  </label>
+                  </span>
                   <Select
                     id="list-filter"
-                    className="px-2 py-1 text-xs"
+                    size="sm"
+                    className="min-w-[100px]"
                     value={listFilter}
                     onChange={event => {
                       const next = event.target.value as ListFilter;
@@ -559,13 +555,14 @@ export function UserCollectionOverview({
                 </div>
                 {collectionType === 'sets' && hasAnySets && (
                   <>
-                    <div className="flex items-center gap-2">
-                      <label htmlFor="theme-filter" className="text-xs">
+                    <div className="flex shrink-0 flex-col gap-1">
+                      <span className="text-xs font-medium text-foreground-muted">
                         Theme
-                      </label>
+                      </span>
                       <Select
                         id="theme-filter"
-                        className="px-2 py-1 text-xs"
+                        size="sm"
+                        className="min-w-[120px]"
                         value={
                           themeFilter === 'all' ? 'all' : String(themeFilter)
                         }
@@ -589,75 +586,41 @@ export function UserCollectionOverview({
                         ))}
                       </Select>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-medium text-foreground-muted">
+                    <div className="flex shrink-0 flex-col gap-1">
+                      <span className="text-xs font-medium text-foreground-muted">
                         Group
                       </span>
-                      <div className="inline-flex rounded-[var(--radius-md)] border-2 border-subtle bg-card">
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant={groupBy === 'status' ? 'secondary' : 'ghost'}
-                          className={cn(
-                            'rounded-none border-0 shadow-none first:rounded-l-[var(--radius-md)] last:rounded-r-[var(--radius-md)] hover:translate-y-0 hover:shadow-none active:translate-y-0 active:shadow-none',
-                            groupBy === 'status' && 'font-bold'
-                          )}
-                          onClick={() => setGroupBy('status')}
-                        >
-                          Collection
-                        </Button>
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant={groupBy === 'theme' ? 'secondary' : 'ghost'}
-                          className={cn(
-                            'rounded-none border-0 shadow-none first:rounded-l-[var(--radius-md)] last:rounded-r-[var(--radius-md)] hover:translate-y-0 hover:shadow-none active:translate-y-0 active:shadow-none',
-                            groupBy === 'theme' && 'font-bold'
-                          )}
-                          onClick={() => setGroupBy('theme')}
-                        >
-                          Theme
-                        </Button>
-                      </div>
+                      <SegmentedControl
+                        size="sm"
+                        segments={[
+                          { key: 'status', label: 'Collection' },
+                          { key: 'theme', label: 'Theme' },
+                        ]}
+                        value={groupBy}
+                        onChange={key => setGroupBy(key as GroupBy)}
+                      />
                     </div>
                   </>
                 )}
               </>
             )}
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-medium text-foreground-muted">
+            <div className="flex shrink-0 flex-col gap-1">
+              <span className="text-xs font-medium text-foreground-muted">
                 Type
               </span>
-              <div className="inline-flex rounded-[var(--radius-md)] border-2 border-subtle bg-card">
-                <Button
-                  type="button"
-                  size="xs"
-                  variant={collectionType === 'sets' ? 'secondary' : 'ghost'}
-                  className={cn(
-                    'rounded-none border-0 shadow-none first:rounded-l-[var(--radius-md)] last:rounded-r-[var(--radius-md)] hover:translate-y-0 hover:shadow-none active:translate-y-0 active:shadow-none',
-                    collectionType === 'sets' && 'font-bold'
-                  )}
-                  onClick={() => handleCollectionTypeChange('sets')}
-                >
-                  Sets
-                </Button>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant={
-                    collectionType === 'minifigs' ? 'secondary' : 'ghost'
-                  }
-                  className={cn(
-                    'rounded-none border-0 shadow-none first:rounded-l-[var(--radius-md)] last:rounded-r-[var(--radius-md)] hover:translate-y-0 hover:shadow-none active:translate-y-0 active:shadow-none',
-                    collectionType === 'minifigs' && 'font-bold'
-                  )}
-                  onClick={() => handleCollectionTypeChange('minifigs')}
-                >
-                  Minifigs
-                </Button>
-              </div>
+              <SegmentedControl
+                size="sm"
+                segments={[
+                  { key: 'sets', label: 'Sets' },
+                  { key: 'minifigs', label: 'Minifigs' },
+                ]}
+                value={collectionType}
+                onChange={key =>
+                  handleCollectionTypeChange(key as CollectionType)
+                }
+              />
             </div>
-          </div>
+          </FilterBar>
         </div>
 
         {!hasAnyItems && (

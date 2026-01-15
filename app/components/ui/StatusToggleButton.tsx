@@ -16,16 +16,15 @@ export type StatusToggleButtonProps =
   };
 
 const baseStyles =
-  'inline-flex items-center gap-1.5 rounded-[var(--radius-md)] px-3 py-2.5 text-sm font-bold text-foreground-muted bg-card transition-all duration-150';
+  'inline-flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm font-bold text-foreground-muted bg-card transition-all duration-150';
 
 const defaultStyles =
-  'flex-1 rounded-[var(--radius-md)] border-2 border-subtle group-[.status-row]:flex-col hover:bg-background-muted';
+  'flex-1 rounded-md border-2 border-subtle group-[.status-row]:flex-col hover:bg-background-muted';
 
 const inlineStyles =
   'w-auto border-2 border-subtle flex-row hover:bg-background-muted hover:-translate-y-0.5 hover:shadow-sm';
 
-const dropdownStyles =
-  'w-full min-w-max flex-row rounded-[var(--radius-md)] py-2.5';
+const dropdownStyles = 'w-full min-w-max flex-row rounded-md py-2.5';
 
 // Dropdown hover styles per color
 const dropdownHoverGreen = 'hover:bg-brand-green/10 hover:text-brand-green';

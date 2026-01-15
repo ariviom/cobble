@@ -75,7 +75,7 @@ export function JoinPageClient() {
                 }}
                 placeholder="ABC123"
                 className={cn(
-                  'w-full rounded-[var(--radius-md)] border-2 bg-card px-4 py-3 text-center font-mono text-2xl font-bold tracking-[0.4em] transition-colors',
+                  'w-full rounded-md border-2 bg-card px-4 py-3 text-center font-mono text-2xl font-bold tracking-[0.4em] transition-colors',
                   error
                     ? 'border-brand-red/50 bg-brand-red/5 text-brand-red focus:border-brand-red focus:outline-none'
                     : 'border-brand-blue/30 bg-brand-blue/5 text-brand-blue focus:border-brand-blue focus:outline-none'

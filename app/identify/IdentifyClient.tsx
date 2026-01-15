@@ -677,7 +677,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         </section>
 
         <section className="py-8">
-          <div className="mx-auto w-full max-w-3xl rounded-[var(--radius-lg)] border-2 border-t-4 border-subtle border-t-brand-green bg-card p-6 text-center shadow-md">
+          <div className="mx-auto w-full max-w-3xl rounded-lg border-2 border-t-4 border-subtle border-t-brand-green bg-card p-6 text-center shadow-md">
             <h2 className="mb-3 text-2xl font-bold">Sign In Required</h2>
             <p className="text-body text-foreground-muted">
               Sign in to use Identify and track your daily quota (5 per day on
@@ -737,7 +737,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             <div className="mb-4 flex items-center justify-center gap-2">
               <button
                 type="button"
-                className={`inline-flex flex-1 items-center justify-center rounded-[var(--radius-md)] border-2 px-4 py-2.5 text-sm font-semibold transition-all duration-150 ${
+                className={`inline-flex flex-1 items-center justify-center rounded-md border-2 px-4 py-2.5 text-sm font-semibold transition-all duration-150 ${
                   mode === 'camera'
                     ? 'border-brand-green bg-brand-green text-white shadow-[0_3px_0_0] shadow-[#008c33]'
                     : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
@@ -748,7 +748,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
               </button>
               <button
                 type="button"
-                className={`inline-flex flex-1 items-center justify-center rounded-[var(--radius-md)] border-2 px-4 py-2.5 text-sm font-semibold transition-all duration-150 ${
+                className={`inline-flex flex-1 items-center justify-center rounded-md border-2 px-4 py-2.5 text-sm font-semibold transition-all duration-150 ${
                   mode === 'part'
                     ? 'border-brand-green bg-brand-green text-white shadow-[0_3px_0_0] shadow-[#008c33]'
                     : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
@@ -908,7 +908,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                 />
               </Suspense>
             ) : (
-              <div className="rounded-[var(--radius-lg)] border-2 border-l-4 border-subtle border-l-brand-green bg-card p-4 text-body text-foreground-muted">
+              <div className="rounded-lg border-2 border-l-4 border-subtle border-l-brand-green bg-card p-4 text-body text-foreground-muted">
                 Upload a photo or enter a part/minifig ID to see results.
               </div>
             )}

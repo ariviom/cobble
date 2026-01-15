@@ -34,7 +34,7 @@ export function MinifigCard({
       href={`/minifigs/id/${encodeURIComponent(routeId || figNum)}`}
       className="block w-full"
     >
-      <div className="rounded-[var(--radius-lg)] border-2 border-subtle bg-card shadow-sm transition-colors hover:border-strong">
+      <div className="rounded-lg border-2 border-subtle bg-card shadow-sm transition-colors hover:border-strong">
         <div className="w-full">
           <div className="relative w-full bg-card-muted">
             <div className="relative mx-auto w-full max-w-full bg-card p-2">
@@ -43,7 +43,7 @@ export function MinifigCard({
                   src={imageUrl}
                   alt={displayName}
                   variant="minifigCard"
-                  className="aspect-square h-full w-full overflow-hidden rounded-[var(--radius-lg)] object-cover"
+                  className="aspect-square h-full w-full overflow-hidden rounded-lg object-cover"
                 />
               ) : (
                 <div className="flex aspect-square items-center justify-center text-xs text-foreground-muted">

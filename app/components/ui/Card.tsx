@@ -5,7 +5,7 @@ import { cn } from '@/app/components/ui/utils';
 import type { HTMLAttributes, PropsWithChildren, ReactNode } from 'react';
 
 const cardVariants = cva(
-  'rounded-[var(--radius-lg)] border-2 bg-card transition-all duration-150 overflow-hidden',
+  'rounded-lg border-2 bg-card transition-all duration-150 overflow-hidden',
   {
     variants: {
       variant: {

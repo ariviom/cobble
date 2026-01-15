@@ -6,7 +6,8 @@ import { cn } from './utils';
 
 const inputVariants = cva(
   // Base: Chunky borders, tactile feel matching buttons
-  'w-full border-2 border-subtle rounded-[var(--radius-md)] bg-card px-4 text-foreground font-medium transition-all duration-150 placeholder:text-foreground-muted/50 focus:outline-none focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-background-muted',
+  // min-w-0 allows shrinking in flex containers on mobile
+  'w-full min-w-0 border-2 border-subtle rounded-md bg-card px-4 text-foreground font-medium transition-all duration-150 placeholder:text-foreground-muted/50 focus:outline-none focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-background-muted',
   {
     variants: {
       size: {

@@ -13,7 +13,7 @@ import { cn } from './utils';
 
 const alertVariants = cva(
   // Base: Chunky left border like Toast, bold styling
-  'relative rounded-[var(--radius-lg)] border-2 border-subtle border-l-4 px-4 py-3 text-sm',
+  'relative rounded-lg border-2 border-subtle border-l-4 px-4 py-3 text-sm',
   {
     variants: {
       variant: {

@@ -5,13 +5,13 @@ import { ButtonHTMLAttributes, forwardRef } from 'react';
 import { cn } from './utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] border-2 cursor-pointer font-semibold transition-all duration-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background select-none',
+  'inline-flex items-center justify-center gap-2 rounded-md border-2 cursor-pointer font-semibold transition-all duration-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background select-none',
   {
     variants: {
       variant: {
         // Yellow primary - LEGO signature, chunky 3D effect
         primary:
-          'bg-brand-yellow text-[var(--color-on-yellow)] border-transparent shadow-[0_4px_0_0] shadow-[#b39700] hover:shadow-[0_3px_0_0] hover:translate-y-[1px] active:shadow-[0_1px_0_0] active:translate-y-[3px] focus-visible:ring-brand-yellow',
+          'bg-brand-yellow text-on-yellow border-transparent shadow-[0_4px_0_0] shadow-[#b39700] hover:shadow-[0_3px_0_0] hover:translate-y-[1px] active:shadow-[0_1px_0_0] active:translate-y-[3px] focus-visible:ring-brand-yellow',
         // Red accent - bold LEGO red
         danger:
           'bg-brand-red text-white border-transparent shadow-[0_4px_0_0] shadow-[#a30008] hover:shadow-[0_3px_0_0] hover:translate-y-[1px] active:shadow-[0_1px_0_0] active:translate-y-[3px] focus-visible:ring-brand-red',

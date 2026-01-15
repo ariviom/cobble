@@ -197,14 +197,14 @@ export function FeedbackTab({ user }: FeedbackTabProps) {
 
               {/* Error message */}
               {error && (
-                <div className="rounded-[var(--radius-md)] border-2 border-danger/30 bg-danger-muted px-3 py-2 text-[11px] font-medium text-danger">
+                <div className="rounded-md border-2 border-danger/30 bg-danger-muted px-3 py-2 text-[11px] font-medium text-danger">
                   {error}
                 </div>
               )}
 
               {/* Success message */}
               {success && (
-                <div className="rounded-[var(--radius-md)] border-2 border-success/30 bg-success-muted px-3 py-2 text-[11px] font-medium text-success">
+                <div className="rounded-md border-2 border-success/30 bg-success-muted px-3 py-2 text-[11px] font-medium text-success">
                   {success}
                 </div>
               )}

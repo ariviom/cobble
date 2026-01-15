@@ -120,17 +120,17 @@ export function SetDisplayCard({
           <div className="relative w-full">
             <div className="relative mx-auto w-full max-w-full p-3">
               {resolvedImageUrl ? (
-                <div className="relative aspect-square w-full overflow-hidden rounded-[var(--radius-md)] bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+                <div className="relative aspect-square w-full overflow-hidden rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
                   <Image
                     src={resolvedImageUrl}
                     alt=""
                     fill
-                    className="rounded-[var(--radius-sm)] object-contain p-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
+                    className="rounded-sm object-contain p-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
                     onError={handleImageError}
                   />
                 </div>
               ) : (
-                <div className="flex aspect-square items-center justify-center rounded-[var(--radius-md)] bg-gradient-to-br from-neutral-100 to-neutral-200 text-sm font-medium text-foreground-muted dark:from-neutral-800 dark:to-neutral-900">
+                <div className="flex aspect-square items-center justify-center rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 text-sm font-medium text-foreground-muted dark:from-neutral-800 dark:to-neutral-900">
                   No Image
                 </div>
               )}

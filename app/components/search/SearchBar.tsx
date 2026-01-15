@@ -88,7 +88,7 @@ export function SearchBar({
           <Input
             id="global-search"
             size="lg"
-            className="h-full w-full shadow-lg"
+            className="w-full shadow-lg"
             value={q}
             onChange={e => setQ(e.target.value)}
             placeholder={

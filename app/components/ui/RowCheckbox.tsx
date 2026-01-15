@@ -38,7 +38,7 @@ export const RowCheckbox = forwardRef<HTMLInputElement, Props>(
         readOnly
         tabIndex={tabIndex ?? -1}
         className={cn(
-          'size-5 cursor-pointer rounded-[var(--radius-sm)] border-2 border-subtle bg-card accent-brand-yellow',
+          'size-5 cursor-pointer rounded-sm border-2 border-subtle bg-card accent-brand-yellow',
           className
         )}
         {...rest}

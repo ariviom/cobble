@@ -2,6 +2,7 @@
 
 import { cn } from '@/app/components/ui/utils';
 import { cva, cx, type VariantProps } from 'class-variance-authority';
+import { Check } from 'lucide-react';
 import { forwardRef } from 'react';
 import { RowButton } from './RowButton';
 
@@ -26,7 +27,7 @@ export type DropdownTriggerProps = {
 
 const triggerVariants = cva(
   // Chunky trigger buttons matching the LEGO theme
-  'min-w-max rounded-[var(--radius-md)] border-2 border-subtle bg-card px-4 py-2 text-sm font-semibold cursor-pointer transition-all duration-150 hover:bg-brand-yellow/10 hover:border-brand-yellow/30',
+  'min-w-max rounded-md border-2 border-subtle bg-card px-4 py-2 text-sm font-semibold cursor-pointer transition-all duration-150 hover:bg-brand-yellow/10 hover:border-brand-yellow/30',
   {
     variants: {
       variant: {
@@ -73,7 +74,7 @@ export const DropdownTrigger = forwardRef<
 // Generic dropdown frame that accepts arbitrary children
 const panelVariants = cva(
   // base: mobile behaves like a sheet, desktop like a popover - chunky LEGO styling
-  'min-w-64 overflow-hidden rounded-[var(--radius-lg)] border-2 border-subtle bg-card shadow-[0_4px_0_0] shadow-neutral-200 dark:shadow-neutral-800 fixed top-[calc(var(--spacing-topnav-height)+var(--spacing-controls-height))] bottom-0 z-50 overflow-y-auto lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40',
+  'min-w-64 overflow-hidden rounded-lg border-2 border-subtle bg-card shadow-[0_4px_0_0] shadow-neutral-200 dark:shadow-neutral-800 fixed top-[calc(var(--spacing-topnav-height)+var(--spacing-controls-height))] bottom-0 z-50 overflow-y-auto lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40',
   {
     variants: {
       variant: {
@@ -178,6 +179,13 @@ export function SingleSelectList({
           >
             {option.icon}
             <span>{option.text}</span>
+            <Check
+              size={16}
+              className={cx(
+                'ml-auto',
+                selected ? 'text-foreground' : 'invisible'
+              )}
+            />
           </RowButton>
         );
       })}

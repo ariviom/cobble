@@ -55,7 +55,7 @@ export function Navigation({
     <nav
       className={cn(
         // Bold yellow nav bar - the LEGO signature color
-        'fixed inset-x-0 bottom-0 z-50 w-full bg-brand-yellow shadow-[0_-4px_0_0] shadow-[#b39700] lg:top-0 lg:bottom-auto lg:shadow-[0_4px_0_0]',
+        'fixed inset-x-0 bottom-0 z-100 w-full bg-brand-yellow shadow-[#b39700] lg:top-0 lg:bottom-auto lg:shadow-[0_4px_0_0]',
         className
       )}
     >
@@ -76,7 +76,7 @@ export function Navigation({
             </div>
             <h1 className="text-xl font-extrabold tracking-tight">
               <span className="text-neutral-900">Brick</span>
-              <span className="text-brand-red">Party</span>
+              <span className="text-[#616161]">Party</span>
             </h1>
           </Link>
           <NavLinkItem

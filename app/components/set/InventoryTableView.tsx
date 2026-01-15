@@ -279,7 +279,12 @@ export function InventoryTableView({
     return sortedIndices.map(rowIndex => {
       const key = keys[rowIndex]!;
       return (
-        <div key={key} data-view="grid" data-item-size={itemSize}>
+        <div
+          key={key}
+          className="h-full"
+          data-view="grid"
+          data-item-size={itemSize}
+        >
           {renderInventoryItem(rowIndex, key)}
         </div>
       );

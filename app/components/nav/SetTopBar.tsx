@@ -248,8 +248,8 @@ export function SetTopBar({
           'lg:relative lg:h-full lg:w-full'
         )}
       >
-        <div className="group set flex h-full w-full items-center gap-3 bg-card px-3 py-2 lg:pr-3">
-          <div className="aspect-square max-h-full overflow-hidden rounded-[var(--radius-md)] border-2 border-subtle bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+        <div className="group set flex h-full w-full items-center gap-3 bg-card px-3 py-2 lg:py-3 lg:pr-3">
+          <div className="aspect-square max-h-full overflow-hidden rounded-md border-2 border-subtle bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
             {resolvedImageUrl ? (
               <Image
                 src={resolvedImageUrl}
@@ -275,7 +275,7 @@ export function SetTopBar({
                 className="absolute top-3 right-3 ml-auto flex-shrink-0"
               >
                 {() => (
-                  <div className="min-w-[160px] rounded-[var(--radius-lg)] border-2 border-subtle bg-card p-2 shadow-lg">
+                  <div className="min-w-[160px] rounded-lg border-2 border-subtle bg-card p-2 shadow-lg">
                     <SetOwnershipAndCollectionsRow
                       ownership={ownership}
                       variant="dropdown"
@@ -308,7 +308,7 @@ export function SetTopBar({
                   type="button"
                   aria-label="Search Party"
                   className={cn(
-                    'relative inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border-2 px-2 py-1 text-[11px] font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                    'relative inline-flex items-center gap-1.5 rounded-md border-2 px-4 py-2 text-[13px] font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                     searchParty.active
                       ? 'border-brand-blue bg-brand-blue text-white shadow-[0_2px_0_0] shadow-brand-blue/40'
                       : 'border-subtle bg-card text-foreground-muted hover:border-foreground/30 hover:bg-card-muted hover:text-foreground'
@@ -351,8 +351,7 @@ export function SetTopBar({
                     Search for pieces together
                   </CardTitle>
                   <CardDescription className="text-sm">
-                    Start a session to collaborate on finding pieces for this
-                    set.
+                    Start a session and invite others to your search party.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -360,7 +359,7 @@ export function SetTopBar({
                   {!quotaInfo.loading &&
                     !quotaInfo.unlimited &&
                     searchParty.canHost && (
-                      <div className="rounded-[var(--radius-md)] border-2 border-subtle bg-card-muted px-4 py-3 text-center text-sm">
+                      <div className="rounded-md border-2 border-subtle bg-card-muted px-4 py-3 text-center text-sm">
                         {quotaInfo.canHost ? (
                           <>
                             <span className="font-bold text-foreground">
@@ -448,7 +447,7 @@ export function SetTopBar({
                   <CardContent className="space-y-4">
                     {searchParty?.joinUrl ? (
                       <div className="flex justify-center">
-                        <div className="rounded-[var(--radius-lg)] border-2 border-subtle bg-white p-4 shadow-[0_4px_0_0] shadow-subtle/50">
+                        <div className="rounded-lg border-2 border-subtle bg-white p-4 shadow-[0_4px_0_0] shadow-subtle/50">
                           <QRCode
                             value={searchParty.joinUrl}
                             size={180}
@@ -460,12 +459,12 @@ export function SetTopBar({
                       </div>
                     ) : null}
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                      <div className="flex flex-1 items-center justify-center rounded-[var(--radius-md)] border-2 border-brand-blue/30 bg-brand-blue/5 px-4 py-3 font-mono text-xl font-bold tracking-[0.4em] text-brand-blue">
+                      <div className="flex flex-1 items-center justify-center rounded-md border-2 border-brand-blue/30 bg-brand-blue/5 px-4 py-3 font-mono text-xl font-bold tracking-[0.4em] text-brand-blue">
                         {sessionCode ?? '———'}
                       </div>
                       <button
                         type="button"
-                        className="flex shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border-2 border-subtle bg-card px-4 font-bold text-foreground-muted transition-colors hover:border-foreground/30 hover:bg-card-muted hover:text-foreground disabled:opacity-50"
+                        className="flex h-14 shrink-0 items-center justify-center gap-2 rounded-md border-2 border-subtle bg-card px-4 font-bold text-foreground-muted transition-colors hover:border-foreground/30 hover:bg-card-muted hover:text-foreground disabled:opacity-50"
                         onClick={handleCopyShareLink}
                         disabled={!searchParty.joinUrl}
                       >
@@ -518,7 +517,7 @@ export function SetTopBar({
                             <li
                               key={participant.id}
                               className={cn(
-                                'flex items-center justify-between gap-3 rounded-[var(--radius-md)] border-2 px-3 py-2',
+                                'flex items-center justify-between gap-3 rounded-md border-2 px-3 py-2',
                                 isFirst
                                   ? 'border-brand-yellow/40 bg-brand-yellow/10'
                                   : 'border-subtle bg-card-muted'

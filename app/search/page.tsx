@@ -36,7 +36,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     <>
       {/* Search Header - Bold blue banner */}
       <section className="relative overflow-hidden">
-        <div className="bg-brand-blue px-4 py-6 lg:py-8">
+        <div className="bg-brand-blue py-6 lg:py-8">
           <div className="container-default">
             <div className="mb-6 text-center">
               <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-white lg:text-4xl">
@@ -62,12 +62,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       </section>
 
       {/* Results */}
-      <section className="px-4 py-6 lg:py-8">
-        <div className="container-default">
-          <Suspense fallback={null}>
-            <SearchResults />
-          </Suspense>
-        </div>
+      <section className="container-wide py-6 lg:py-8">
+        <Suspense fallback={null}>
+          <SearchResults />
+        </Suspense>
       </section>
     </>
   );

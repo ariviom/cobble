@@ -108,6 +108,7 @@
       var(--spacing-nav-height)
   );
   --breakpoint-xs: 23.5rem;
+  --breakpoint-3xl: 120rem;
 }
 
 .text-theme-primary-contrast {

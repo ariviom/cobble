@@ -50,7 +50,7 @@ export function Toast({
         aria-live="polite"
         className={cn(
           // Chunky left border like Card variants, bold shadow
-          'pointer-events-auto flex w-full max-w-lg items-start gap-3 rounded-[var(--radius-lg)] border-2 border-l-4 border-subtle px-4 py-3 shadow-[0_4px_0_0] shadow-neutral-200 dark:shadow-neutral-800',
+          'pointer-events-auto flex w-full max-w-lg items-start gap-3 rounded-lg border-2 border-l-4 border-subtle px-4 py-3 shadow-[0_4px_0_0] shadow-neutral-200 dark:shadow-neutral-800',
           getStatusContainerClasses(variant as StatusVariant)
         )}
       >

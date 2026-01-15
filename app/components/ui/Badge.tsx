@@ -13,7 +13,7 @@ const badgeVariants = cva(
         default:
           'bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-200',
         // Primary yellow uses accessible dark text
-        primary: 'bg-brand-yellow text-[var(--color-on-yellow)]',
+        primary: 'bg-brand-yellow text-on-yellow',
         accent: 'bg-theme-primary text-white',
         // Semantic colors - all use white text on colored backgrounds
         success: 'bg-brand-green text-white',
@@ -26,9 +26,9 @@ const badgeVariants = cva(
           'bg-background-muted text-foreground-muted dark:bg-neutral-800 dark:text-neutral-300',
       },
       size: {
-        sm: 'text-[10px] px-2 py-0.5 rounded-[var(--radius-sm)]',
-        md: 'text-xs px-2.5 py-1 rounded-[var(--radius-sm)]',
-        lg: 'text-sm px-3 py-1.5 rounded-[var(--radius-md)]',
+        sm: 'text-[10px] px-2 py-0.5 rounded-sm',
+        md: 'text-xs px-2.5 py-1 rounded-sm',
+        lg: 'text-sm px-3 py-1.5 rounded-md',
       },
     },
     defaultVariants: {

@@ -149,7 +149,7 @@ export function SetOwnershipAndCollectionsRow({
                     key={collection.id}
                     type="button"
                     className={cn(
-                      'flex items-center justify-between rounded-[var(--radius-md)] border-2 px-4 py-3 text-left text-sm font-bold transition-all duration-150',
+                      'flex items-center justify-between rounded-md border-2 px-4 py-3 text-left text-sm font-bold transition-all duration-150',
                       selected
                         ? 'border-brand-blue bg-brand-blue/10 text-brand-blue shadow-[0_2px_0_0] shadow-brand-blue/20'
                         : 'border-subtle bg-card text-foreground hover:-translate-y-0.5 hover:bg-background-muted hover:shadow-sm'
@@ -205,7 +205,7 @@ export function SetOwnershipAndCollectionsRow({
             </Button>
           </div>
           {listsError && (
-            <div className="rounded-[var(--radius-md)] border-2 border-danger/30 bg-danger-muted px-3 py-2 text-sm font-medium text-danger">
+            <div className="rounded-md border-2 border-danger/30 bg-danger-muted px-3 py-2 text-sm font-medium text-danger">
               {listsError}
             </div>
           )}

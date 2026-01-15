@@ -9,12 +9,12 @@ const skeletonVariants = cva(
   {
     variants: {
       variant: {
-        text: 'h-4 rounded-[var(--radius-sm)]',
-        heading: 'h-8 rounded-[var(--radius-md)]',
+        text: 'h-4 rounded-sm',
+        heading: 'h-8 rounded-md',
         avatar: 'rounded-full',
-        card: 'rounded-[var(--radius-lg)]',
-        image: 'rounded-[var(--radius-md)]',
-        button: 'h-9 rounded-[var(--radius-md)]',
+        card: 'rounded-lg',
+        image: 'rounded-md',
+        button: 'h-9 rounded-md',
       },
       size: {
         sm: '',
@@ -78,7 +78,7 @@ export function SkeletonCard({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'space-y-3 rounded-[var(--radius-lg)] border-2 border-subtle bg-card p-4',
+        'space-y-3 rounded-lg border-2 border-subtle bg-card p-4',
         className
       )}
     >

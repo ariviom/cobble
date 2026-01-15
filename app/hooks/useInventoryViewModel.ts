@@ -15,8 +15,8 @@ import type {
 } from '@/app/components/set/types';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useInventoryControls } from '@/app/hooks/useInventoryControls';
-import { useMemo, type Dispatch, type SetStateAction } from 'react';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
+import { useMemo, type Dispatch, type SetStateAction } from 'react';
 
 export type InventoryViewModel = {
   // Raw data
@@ -256,7 +256,7 @@ export function useInventoryViewModel(
   const gridSizes = useMemo(() => {
     switch (itemSize) {
       case 'sm':
-        return 'grid-cols-2 xs:grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7';
+        return 'grid-cols-2 xs:grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-7';
       case 'md':
         return 'grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6';
       case 'lg':

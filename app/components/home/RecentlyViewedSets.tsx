@@ -33,7 +33,7 @@ export function RecentlyViewedSets() {
   };
   return (
     <section className="py-8">
-      <div className="container-wide px-4">
+      <div className="container-wide">
         {items.length > 0 ? (
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-section-title">
@@ -42,7 +42,7 @@ export function RecentlyViewedSets() {
             </h2>
           </div>
         ) : (
-          <div className="rounded-[var(--radius-xl)] border-2 border-dashed border-subtle bg-card/50 p-8 text-center">
+          <div className="rounded-xl border-2 border-dashed border-subtle bg-card/50 p-8 text-center">
             <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-brand-yellow">
               <span className="text-3xl">🎯</span>
             </div>

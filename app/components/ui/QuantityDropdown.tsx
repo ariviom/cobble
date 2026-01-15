@@ -37,7 +37,7 @@ export function QuantityDropdown({
   return (
     <select
       className={cn(
-        'inline-flex min-w-[3rem] rounded-[var(--radius-md)] border-2 border-subtle bg-card px-2 py-1 text-xs',
+        'inline-flex min-w-[3rem] rounded-md border-2 border-subtle bg-card px-2 py-1 text-xs',
         disabled && 'cursor-not-allowed opacity-60',
         className
       )}

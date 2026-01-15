@@ -42,16 +42,17 @@ export function SegmentedControl({
     <div
       ref={containerRef}
       className={cx(
-        'relative inline-flex items-center rounded-[var(--radius-md)] border-2 border-subtle bg-card p-0.5',
-        size === 'sm' ? 'text-xs' : 'text-sm',
+        'relative inline-flex items-center overflow-hidden rounded-md border-2 border-subtle bg-card-muted',
+        size === 'sm' ? 'h-9 text-sm' : 'h-11 text-base',
         className
       )}
       role="tablist"
     >
+      {/* Sliding thumb - light blue background */}
       {thumbStyle && (
         <div
-          className="pointer-events-none absolute top-0.5 bottom-0.5 rounded bg-card-muted transition-all"
-          style={{ left: thumbStyle.left, width: thumbStyle.width }}
+          className="pointer-events-none absolute top-0 bottom-0 bg-brand-blue/20 transition-all duration-150"
+          style={{ left: thumbStyle.left - 2, width: thumbStyle.width + 4 }}
           aria-hidden="true"
         />
       )}
@@ -63,7 +64,8 @@ export function SegmentedControl({
           role="tab"
           aria-selected={seg.key === value}
           className={cx(
-            'relative z-10 rounded-[var(--radius-sm)] px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            'relative z-10 rounded-sm px-3 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card-muted',
+            size === 'sm' ? 'py-1' : 'py-1.5',
             seg.key === value
               ? 'text-foreground'
               : 'text-foreground-muted hover:text-foreground'

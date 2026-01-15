@@ -1,12 +1,10 @@
 'use client';
 
 import { MinifigSearchResultItem } from '@/app/components/minifig/MinifigSearchResultItem';
-import { Button } from '@/app/components/ui/Button';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Select } from '@/app/components/ui/Select';
 import { Spinner } from '@/app/components/ui/Spinner';
-import { cn } from '@/app/components/ui/utils';
 import { AppError, throwAppErrorFromResponse } from '@/app/lib/domain/errors';
 import type {
   FilterType,
@@ -222,27 +220,31 @@ export function SearchResults() {
     const results = pages.flatMap((p: MinifigSearchPage) => p.results) ?? [];
     return (
       <div className="w-full">
-        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-foreground-muted">
-              Sort
-            </span>
-            <Select
-              className="h-8 min-w-[120px] px-3 pr-7 text-xs"
-              value={minifigSort}
-              onChange={e =>
-                handleMinifigSortChange(e.target.value as MinifigSortOption)
-              }
-            >
-              <option value="relevance">Relevance</option>
-              <option value="theme-asc">Theme A–Z</option>
-              <option value="theme-desc">Theme Z–A</option>
-              <option value="name-asc">Name A–Z</option>
-              <option value="name-desc">Name Z–A</option>
-              <option value="parts-desc">Parts ↓</option>
-              <option value="parts-asc">Parts ↑</option>
-            </Select>
+        <div className="relative -mx-4 mb-3">
+          <div className="flex items-center gap-3 overflow-x-auto px-4 no-scrollbar">
+            <div className="flex shrink-0 items-center gap-1.5">
+              <span className="text-xs font-medium text-foreground-muted">
+                Sort
+              </span>
+              <Select
+                size="sm"
+                className="min-w-[120px]"
+                value={minifigSort}
+                onChange={e =>
+                  handleMinifigSortChange(e.target.value as MinifigSortOption)
+                }
+              >
+                <option value="relevance">Relevance</option>
+                <option value="theme-asc">Theme A–Z</option>
+                <option value="theme-desc">Theme Z–A</option>
+                <option value="name-asc">Name A–Z</option>
+                <option value="name-desc">Name Z–A</option>
+                <option value="parts-desc">Parts ↓</option>
+                <option value="parts-asc">Parts ↑</option>
+              </Select>
+            </div>
           </div>
+          <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background sm:hidden" />
         </div>
         {isMinifigLoading && (
           <Spinner className="mt-2" label="Loading minifigure results…" />
@@ -274,7 +276,7 @@ export function SearchResults() {
                 <button
                   onClick={() => fetchNextMinifigPage()}
                   disabled={isFetchingNextMinifigPage}
-                  className="rounded-[var(--radius-md)] border-2 border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
+                  className="rounded-md border-2 border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
                 >
                   {isFetchingNextMinifigPage ? 'Loading…' : 'Load More'}
                 </button>
@@ -295,98 +297,81 @@ export function SearchResults() {
   const pages = (setData?.pages as SearchPage[] | undefined) ?? [];
   const results = pages.flatMap((p: SearchPage) => p.results) ?? [];
 
-  const toggleBtnClass =
-    'rounded-none first:rounded-l-[var(--radius-md)] last:rounded-r-[var(--radius-md)] border-0 shadow-none hover:shadow-none active:shadow-none hover:translate-y-0 active:translate-y-0 px-3';
-
   return (
     <div className="w-full">
-      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-        {/* Sort */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-foreground-muted">
-            Sort
-          </span>
-          <Select
-            className="h-8 min-w-[120px] px-3 pr-7 text-xs"
-            value={sort}
-            onChange={e => setSort(e.target.value as SortOption)}
-          >
-            <option value="relevance">Relevance</option>
-            <option value="pieces-asc">Pieces ↑</option>
-            <option value="pieces-desc">Pieces ↓</option>
-            <option value="year-asc">Year ↑</option>
-            <option value="year-desc">Year ↓</option>
-          </Select>
-        </div>
-
-        {/* Per page */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-foreground-muted">
-            Show
-          </span>
-          <div className="inline-flex rounded-[var(--radius-md)] border-2 border-subtle bg-card">
-            {[20, 50, 100].map(n => (
-              <Button
-                key={n}
-                type="button"
-                size="sm"
-                variant={pageSize === n ? 'secondary' : 'ghost'}
-                className={cn(toggleBtnClass, pageSize === n && 'font-bold')}
-                onClick={() => setPageSize(n)}
-              >
-                {n}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Filter */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-foreground-muted">
-            Filter
-          </span>
-          <div className="inline-flex rounded-[var(--radius-md)] border-2 border-subtle bg-card">
-            {(['all', 'set', 'theme', 'subtheme'] as const).map(f => (
-              <Button
-                key={f}
-                type="button"
-                size="sm"
-                variant={filter === f ? 'secondary' : 'ghost'}
-                className={cn(toggleBtnClass, filter === f && 'font-bold')}
-                onClick={() => handleFilterChange(f)}
-              >
-                {f.charAt(0).toUpperCase() + f.slice(1)}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Exact match */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-foreground-muted">
-            Exact
-          </span>
-          <div className="inline-flex rounded-[var(--radius-md)] border-2 border-subtle bg-card">
-            <Button
-              type="button"
+      <div className="relative -mx-4 mb-3">
+        <div className="flex items-center gap-3 overflow-x-auto px-4 no-scrollbar">
+          {/* Sort */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="text-xs font-medium text-foreground-muted">
+              Sort
+            </span>
+            <Select
               size="sm"
-              variant={!exact ? 'secondary' : 'ghost'}
-              className={cn(toggleBtnClass, !exact && 'font-bold')}
-              onClick={() => handleExactChange(false)}
+              className="min-w-[120px]"
+              value={sort}
+              onChange={e => setSort(e.target.value as SortOption)}
             >
-              Off
-            </Button>
-            <Button
-              type="button"
+              <option value="relevance">Relevance</option>
+              <option value="pieces-asc">Pieces ↑</option>
+              <option value="pieces-desc">Pieces ↓</option>
+              <option value="year-asc">Year ↑</option>
+              <option value="year-desc">Year ↓</option>
+            </Select>
+          </div>
+
+          {/* Per page */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="text-xs font-medium text-foreground-muted">
+              Show
+            </span>
+            <Select
               size="sm"
-              variant={exact ? 'secondary' : 'ghost'}
-              className={cn(toggleBtnClass, exact && 'font-bold')}
-              onClick={() => handleExactChange(true)}
+              className="min-w-[70px]"
+              value={String(pageSize)}
+              onChange={e => setPageSize(Number(e.target.value))}
             >
-              On
-            </Button>
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </Select>
+          </div>
+
+          {/* Filter */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="text-xs font-medium text-foreground-muted">
+              Filter
+            </span>
+            <Select
+              size="sm"
+              className="min-w-[100px]"
+              value={filter}
+              onChange={e => handleFilterChange(e.target.value as FilterType)}
+            >
+              <option value="all">All</option>
+              <option value="set">Set</option>
+              <option value="theme">Theme</option>
+              <option value="subtheme">Subtheme</option>
+            </Select>
+          </div>
+
+          {/* Exact match */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span className="text-xs font-medium text-foreground-muted">
+              Exact
+            </span>
+            <Select
+              size="sm"
+              className="min-w-[70px]"
+              value={exact ? 'on' : 'off'}
+              onChange={e => handleExactChange(e.target.value === 'on')}
+            >
+              <option value="off">Off</option>
+              <option value="on">On</option>
+            </Select>
           </div>
         </div>
+        <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background sm:hidden" />
       </div>
       {isSetLoading && (
         <Spinner className="mt-2" label="Loading search results…" />
@@ -415,7 +400,7 @@ export function SearchResults() {
               <button
                 onClick={() => fetchNextSetPage()}
                 disabled={isFetchingNextSetPage}
-                className="rounded-[var(--radius-md)] border-2 border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
+                className="rounded-md border-2 border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
               >
                 {isFetchingNextSetPage ? 'Loading…' : 'Load More'}
               </button>

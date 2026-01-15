@@ -1,14 +1,14 @@
 'use client';
 
+import { useAuth } from '@/app/components/providers/auth-provider';
 import { Modal } from '@/app/components/ui/Modal';
 import {
   MoreDropdown,
   MoreDropdownButton,
 } from '@/app/components/ui/MoreDropdown';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
-import { formatMinifigId } from '@/app/lib/minifigIds';
-import { useAuth } from '@/app/components/providers/auth-provider';
 import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
+import { formatMinifigId } from '@/app/lib/minifigIds';
 import { ExternalLink, Info, Pin, Search } from 'lucide-react';
 import Link from 'next/link';
 import { memo, useEffect, useState } from 'react';
@@ -146,13 +146,13 @@ function InventoryItemComponent({
   ]);
   return (
     <>
-      <div className="relative flex w-full justify-start gap-6 rounded-[var(--radius-lg)] border-2 border-subtle bg-card p-4 grid:flex-col">
+      <div className="relative flex h-full w-full justify-start gap-6 rounded-lg border-2 border-subtle bg-card p-3 grid:flex-col grid:justify-between">
         <MoreDropdown
           ariaLabel="More actions"
-          className="absolute top-3 right-3"
+          className="absolute top-3 right-3 rounded-full grid:z-10 grid:border grid:border-subtle grid:bg-white grid:shadow"
         >
           {() => (
-            <div className="min-w-min rounded-[var(--radius-md)] border-2 border-subtle bg-card py-1 text-xs shadow-lg">
+            <div className="min-w-min rounded-md border-2 border-subtle bg-card p-2 text-xs shadow-lg">
               {onTogglePinned && (
                 <MoreDropdownButton
                   icon={<Pin className="size-4" />}
@@ -184,7 +184,7 @@ function InventoryItemComponent({
           )}
         </MoreDropdown>
         <button
-          className={`relative cursor-pointer list:grow-0 list:items-center grid:w-full list:item-sm:size-16 list:item-md:size-20 list:item-lg:size-32`}
+          className={`grid:aspect-squarelist:items-center relative cursor-pointer list:grow-0 grid:w-full list:item-sm:size-16 list:item-md:size-20 list:item-lg:size-32`}
           role="button"
           tabIndex={0}
           onClick={handleOpenMoreInfo}
@@ -201,13 +201,15 @@ function InventoryItemComponent({
               alt={row.partName}
               loading="lazy"
               variant="inventoryThumb"
-              className={`mx-auto h-full w-full rounded-[var(--radius-lg)] object-contain grid:item-sm:max-w-24 ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : 'ring-1 ring-foreground-accent'}`}
+              className={`mx-auto aspect-square h-full w-full rounded-sm object-contain ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : 'ring-1 ring-foreground-accent'}`}
               data-knockout="true"
             />
           ) : showImageLoader ? (
-            <div className="h-full w-full animate-pulse rounded-[var(--radius-lg)] bg-card-muted" />
+            <div className="h-full w-full animate-pulse rounded-lg bg-card-muted" />
           ) : (
-            <div className="text-xs text-foreground-muted">No Image</div>
+            <div className="flex aspect-square h-full w-full items-center justify-center text-xs text-foreground-muted">
+              No Image
+            </div>
           )}
           <div
             className={`absolute right-0 bottom-0 flex h-6 min-w-6 translate-x-3 translate-y-1/2 items-center justify-center rounded-full grid:h-8 grid:min-w-8 ${owned === row.quantityRequired ? 'border-2 border-brand-green bg-background text-brand-green' : ''}`}
@@ -237,7 +239,7 @@ function InventoryItemComponent({
             )}
           </div>
         </button>
-        <div className="flex h-full max-h-min w-full flex-1 flex-col justify-between gap-x-6 gap-y-3 sm:flex-row grid:flex-col sm:grid:items-center">
+        <div className="flex h-full max-h-min w-full flex-1 flex-col justify-between gap-x-6 gap-y-3 sm:flex-row grid:max-h-full grid:flex-col sm:grid:items-center">
           <div className="h-full w-full list:pr-12 lg:list:pr-0">
             <p className="line-clamp-1 w-full overflow-hidden font-medium lg:line-clamp-2">
               {row.partName}
@@ -300,7 +302,7 @@ function InventoryItemComponent({
                 onChange={onOwnedChange}
               />
             ) : (
-              <div className="flex h-12 w-full min-w-min items-center justify-center rounded-[var(--radius-lg)] border-2 border-subtle px-3 text-xs text-foreground-muted">
+              <div className="flex h-12 w-full min-w-min items-center justify-center rounded-lg border-2 border-subtle px-3 text-xs text-foreground-muted">
                 Sign in to track inventory
               </div>
             )}
@@ -394,7 +396,7 @@ function InventoryItemComponent({
           {isMinifig && rebrickableFigId && (
             <Link
               href={`/minifigs/id/${encodeURIComponent(rebrickableFigId)}`}
-              className="inline-flex items-center justify-center rounded-[var(--radius-md)] border-2 border-subtle bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-muted"
+              className="inline-flex items-center justify-center rounded-md border-2 border-subtle bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-muted"
               onClick={event => event.stopPropagation()}
             >
               Open minifig details

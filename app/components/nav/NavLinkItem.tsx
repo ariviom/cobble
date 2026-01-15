@@ -27,7 +27,7 @@ export function NavLinkItem({
 }: NavLinkItemProps) {
   const classes = cn(
     // Base styles - chunky nav items on yellow background
-    'relative flex flex-col items-center gap-0.5 rounded-[var(--radius-md)] px-3 py-2 transition-all duration-150 select-none lg:flex-row lg:gap-2 lg:px-4 lg:py-2.5',
+    'relative flex flex-col items-center gap-0.5 rounded-md px-3 py-2 transition-all duration-150 select-none lg:flex-row lg:gap-2 lg:px-4 lg:py-2.5',
     active
       ? // Active: White pill with warm shadow on yellow nav
         'bg-white font-bold text-neutral-900 shadow-[inset_0_-2px_0_0_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.1)]'

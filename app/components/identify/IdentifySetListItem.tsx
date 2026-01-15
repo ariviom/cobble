@@ -15,7 +15,7 @@ export function IdentifySetListItem({ item, onRemove }: Props) {
       {onRemove && (
         <button
           type="button"
-          className="absolute top-2 right-2 z-10 flex size-7 cursor-pointer items-center justify-center rounded-[var(--radius-sm)] border-2 border-subtle bg-card text-foreground-muted shadow-sm transition-all duration-150 hover:scale-105 hover:border-danger hover:bg-danger hover:text-white"
+          className="absolute top-2 right-2 z-10 flex size-7 cursor-pointer items-center justify-center rounded-sm border-2 border-subtle bg-card text-foreground-muted shadow-sm transition-all duration-150 hover:scale-105 hover:border-danger hover:bg-danger hover:text-white"
           onClick={event => {
             event.preventDefault();
             event.stopPropagation();

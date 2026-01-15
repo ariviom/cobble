@@ -34,7 +34,7 @@ export type MoreDropdownButtonProps =
 export function MoreDropdownButton(props: MoreDropdownButtonProps) {
   const { icon, label, className } = props;
   const sharedClassName = cn(
-    'inline-flex w-full min-w-max flex-row items-center gap-2 rounded-[var(--radius-md)] bg-card px-3 py-2.5 text-sm font-bold text-foreground-muted transition-colors hover:bg-foreground/5 hover:text-foreground',
+    'inline-flex w-full min-w-max flex-row items-center gap-2 rounded-md bg-card px-3 py-2.5 text-sm font-bold text-foreground-muted transition-colors hover:bg-foreground/5 hover:text-foreground',
     className
   );
 

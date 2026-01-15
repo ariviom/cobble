@@ -19,9 +19,9 @@ const iconButtonVariants = cva(
           'border-2 border-subtle text-foreground-muted hover:border-foreground/30 hover:text-foreground',
       },
       size: {
-        sm: 'h-7 w-7 rounded-[var(--radius-sm)]',
-        md: 'h-9 w-9 rounded-[var(--radius-md)]',
-        lg: 'h-11 w-11 rounded-[var(--radius-md)]',
+        sm: 'h-7 w-7 rounded-sm',
+        md: 'h-9 w-9 rounded-md',
+        lg: 'h-11 w-11 rounded-md',
       },
     },
     defaultVariants: {
