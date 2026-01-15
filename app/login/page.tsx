@@ -173,15 +173,28 @@ function LoginForm() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-10 lg:px-6">
-      <header className="text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Login</h1>
-        <p className="mt-2 text-sm text-foreground-muted">
-          Sign in to your Brick Party account.
+    <div className="relative mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-10 lg:px-6">
+      {/* Decorative LEGO-inspired background */}
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        {/* Large colored circles */}
+        <div className="absolute -top-20 -left-20 h-48 w-48 rounded-full bg-brand-purple/15" />
+        <div className="absolute -right-16 -bottom-16 h-40 w-40 rounded-full bg-brand-blue/15" />
+        <div className="absolute top-1/3 -right-8 h-24 w-24 rounded-full bg-brand-yellow/20" />
+        <div className="absolute bottom-1/4 -left-12 h-20 w-20 rounded-full bg-brand-green/15" />
+      </div>
+
+      <header className="relative text-center">
+        {/* LEGO brick icon - bolder */}
+        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-[var(--radius-lg)] bg-brand-yellow shadow-[0_3px_0_0] shadow-[#b39700]">
+          <span className="text-3xl">🧱</span>
+        </div>
+        <h1 className="text-3xl font-extrabold tracking-tight">Welcome back</h1>
+        <p className="mt-2 text-base text-foreground-muted">
+          Sign in to your Brick Party account
         </p>
       </header>
 
-      <Card elevated>
+      <Card elevated variant="yellow">
         <CardHeader>
           <div>
             <CardTitle>Sign in with Google</CardTitle>
