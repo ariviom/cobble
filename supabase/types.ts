@@ -971,9 +971,37 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_feedback: {
+        Row: {
+          created_at: string;
+          email: string;
+          id: string;
+          message: string;
+          name: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          email: string;
+          id?: string;
+          message: string;
+          name: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          email?: string;
+          id?: string;
+          message?: string;
+          name?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       user_list_items: {
         Row: {
           created_at: string;
+          id: string;
           item_type: Database['public']['Enums']['collection_item_type'];
           list_id: string;
           minifig_id: string | null;
@@ -983,6 +1011,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          id?: string;
           item_type: Database['public']['Enums']['collection_item_type'];
           list_id: string;
           minifig_id?: string | null;
@@ -992,6 +1021,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          id?: string;
           item_type?: Database['public']['Enums']['collection_item_type'];
           list_id?: string;
           minifig_id?: string | null;
@@ -1013,13 +1043,6 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'user_lists';
             referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'user_list_items_minifig_id_fkey';
-            columns: ['minifig_id'];
-            isOneToOne: false;
-            referencedRelation: 'rb_minifigs';
-            referencedColumns: ['fig_num'];
           },
           {
             foreignKeyName: 'user_list_items_set_num_fkey';
@@ -1085,15 +1108,7 @@ export type Database = {
           updated_at?: string;
           user_id?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: 'user_minifigs_fig_num_fkey';
-            columns: ['fig_num'];
-            isOneToOne: false;
-            referencedRelation: 'rb_minifigs';
-            referencedColumns: ['fig_num'];
-          },
-        ];
+        Relationships: [];
       };
       user_parts_inventory: {
         Row: {
@@ -1133,33 +1148,6 @@ export type Database = {
             referencedColumns: ['part_num'];
           },
         ];
-      };
-      user_feedback: {
-        Row: {
-          created_at: string;
-          email: string;
-          id: string;
-          message: string;
-          name: string;
-          user_id: string;
-        };
-        Insert: {
-          created_at?: string;
-          email: string;
-          id?: string;
-          message: string;
-          name: string;
-          user_id: string;
-        };
-        Update: {
-          created_at?: string;
-          email?: string;
-          id?: string;
-          message?: string;
-          name?: string;
-          user_id?: string;
-        };
-        Relationships: [];
       };
       user_preferences: {
         Row: {
@@ -1343,13 +1331,6 @@ export type Database = {
             referencedColumns: ['id'];
           },
           {
-            foreignKeyName: 'user_list_items_minifig_id_fkey';
-            columns: ['minifig_id'];
-            isOneToOne: false;
-            referencedRelation: 'rb_minifigs';
-            referencedColumns: ['fig_num'];
-          },
-          {
             foreignKeyName: 'user_list_items_set_num_fkey';
             columns: ['set_num'];
             isOneToOne: false;
@@ -1373,15 +1354,7 @@ export type Database = {
           status: Database['public']['Enums']['set_status'] | null;
           user_id: string | null;
         };
-        Relationships: [
-          {
-            foreignKeyName: 'user_minifigs_fig_num_fkey';
-            columns: ['fig_num'];
-            isOneToOne: false;
-            referencedRelation: 'rb_minifigs';
-            referencedColumns: ['fig_num'];
-          },
-        ];
+        Relationships: [];
       };
       public_user_profiles_view: {
         Row: {
@@ -1495,8 +1468,6 @@ export type Database = {
           set_num: string;
         }[];
       };
-      show_limit: { Args: never; Returns: number };
-      show_trgm: { Args: { '': string }; Returns: string[] };
     };
     Enums: {
       collection_item_type: 'set' | 'minifig';
