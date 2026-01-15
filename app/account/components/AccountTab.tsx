@@ -276,7 +276,7 @@ export function AccountTab({
                   className="w-full text-xs"
                 />
                 {usernameError && (
-                  <p className="mt-1 text-[11px] text-red-600">
+                  <p className="mt-1 text-[11px] font-medium text-danger">
                     {usernameError}
                   </p>
                 )}

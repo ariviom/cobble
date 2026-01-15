@@ -8,6 +8,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/app/components/ui/Card';
+import { cn } from '@/app/components/ui/utils';
+import { Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
@@ -30,9 +32,7 @@ export function JoinPageClient() {
   const router = useRouter();
   const [value, setValue] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  const helperText =
-    error ?? 'Enter the 6-character Search Party code (letters/numbers).';
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -42,50 +42,67 @@ export function JoinPageClient() {
       return;
     }
     setError(null);
+    setIsSubmitting(true);
     router.push(`/group/${code}`);
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-6 py-10">
-      <Card>
-        <CardHeader>
-          <CardTitle>Join a Search Party</CardTitle>
-          <CardDescription>Enter the 6-character session code.</CardDescription>
+    <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-12">
+      <Card elevated>
+        <CardHeader className="flex flex-col items-center justify-center gap-3 text-center">
+          <div className="flex size-16 items-center justify-center rounded-full bg-brand-blue/10">
+            <Users className="size-8 text-brand-blue" />
+          </div>
+          <div>
+            <CardTitle className="text-xl">Join a Search Party</CardTitle>
+            <CardDescription className="mt-1 text-sm">
+              Enter the 6-character session code to join.
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
-            <label className="block text-xs font-medium text-foreground">
-              Session code
-            </label>
-            <input
-              type="text"
-              value={value}
-              onChange={event => {
-                setValue(event.target.value);
-                if (error) setError(null);
-              }}
-              placeholder="e.g., 3kd7xp"
-              className="mt-1 w-full rounded-md border border-subtle bg-background px-3 py-2 font-mono text-sm tracking-[0.2em] uppercase"
-              inputMode="text"
-              autoCapitalize="characters"
-              autoComplete="off"
-              spellCheck="false"
-              maxLength={64}
-            />
-            <p
-              className={`text-[11px] ${
-                error ? 'text-destructive' : 'text-foreground-muted'
-              }`}
-            >
-              {helperText}
-            </p>
+            <div>
+              <label className="mb-2 block text-xs font-bold tracking-wide text-foreground-muted uppercase">
+                Session code
+              </label>
+              <input
+                type="text"
+                value={value}
+                onChange={event => {
+                  setValue(event.target.value.toUpperCase());
+                  if (error) setError(null);
+                }}
+                placeholder="ABC123"
+                className={cn(
+                  'w-full rounded-[var(--radius-md)] border-2 bg-card px-4 py-3 text-center font-mono text-2xl font-bold tracking-[0.4em] transition-colors',
+                  error
+                    ? 'border-brand-red/50 bg-brand-red/5 text-brand-red focus:border-brand-red focus:outline-none'
+                    : 'border-brand-blue/30 bg-brand-blue/5 text-brand-blue focus:border-brand-blue focus:outline-none'
+                )}
+                inputMode="text"
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck="false"
+                maxLength={6}
+              />
+              <p
+                className={cn(
+                  'mt-2 text-center text-xs',
+                  error ? 'font-medium text-brand-red' : 'text-foreground-muted'
+                )}
+              >
+                {error ?? 'Letters and numbers only (2-9, a-z)'}
+              </p>
+            </div>
             <Button
               type="submit"
               variant="primary"
               size="lg"
               className="w-full"
+              disabled={isSubmitting || value.length < 6}
             >
-              Continue
+              {isSubmitting ? 'Joining…' : 'Join Session'}
             </Button>
           </form>
         </CardContent>

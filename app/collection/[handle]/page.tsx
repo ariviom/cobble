@@ -442,7 +442,7 @@ export default async function CollectionHandlePage({
 
   return (
     <PageLayout>
-      <section className="mb-8">
+      <section className="mb-8 px-4">
         <div className="mx-auto w-full max-w-7xl">
           <h2 className="my-4 w-full text-center text-2xl font-semibold">
             {title}

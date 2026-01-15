@@ -263,7 +263,7 @@ export function GroupSessionPageClient({
       />
       {!hasJoined ? (
         <div className="flex flex-1 items-center justify-center px-4 py-8">
-          <div className="w-full max-w-sm rounded-md border border-subtle bg-card p-4 text-xs">
+          <div className="w-full max-w-sm rounded-[var(--radius-md)] border-2 border-subtle bg-card p-4 text-xs">
             <h1 className="text-sm font-semibold text-foreground">
               Join this Search Party session
             </h1>
@@ -279,12 +279,12 @@ export function GroupSessionPageClient({
               type="text"
               value={displayNameInput}
               onChange={event => setDisplayNameInput(event.target.value)}
-              className="mt-1 w-full rounded-md border border-subtle bg-background px-2 py-1 text-xs"
+              className="mt-1 w-full rounded-[var(--radius-md)] border-2 border-subtle bg-background px-2 py-1 text-xs"
               placeholder="e.g., Alice, Living room, iPad"
             />
             <button
               type="button"
-              className="mt-4 inline-flex h-8 w-full items-center justify-center rounded-md bg-theme-primary px-3 text-[11px] font-medium text-white hover:bg-theme-primary/90 disabled:opacity-60"
+              className="mt-4 inline-flex h-8 w-full items-center justify-center rounded-[var(--radius-md)] bg-theme-primary px-3 text-[11px] font-medium text-white hover:bg-theme-primary/90 disabled:opacity-60"
               onClick={() => void handleJoin()}
               disabled={isJoining || !displayNameInput.trim() || !clientId}
             >

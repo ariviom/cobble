@@ -182,7 +182,9 @@ export function ExportModal({
             Sign in to export your parts list.
           </div>
         )}
-        {error && <div className="text-xs text-red-600">{error}</div>}
+        {error && (
+          <div className="text-xs font-medium text-danger">{error}</div>
+        )}
         <div className="mt-2 flex justify-end gap-2">
           <Button onClick={onClose} variant="ghost">
             Cancel

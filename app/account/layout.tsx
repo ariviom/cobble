@@ -4,5 +4,5 @@ import type { PropsWithChildren } from 'react';
 export default function AccountLayout({
   children,
 }: PropsWithChildren<{ children?: React.ReactNode }>) {
-  return <PageLayout noPadding>{children}</PageLayout>;
+  return <PageLayout>{children}</PageLayout>;
 }
