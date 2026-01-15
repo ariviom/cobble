@@ -32,7 +32,7 @@ export function MinifigSearchResultItem({
   });
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-lg border border-subtle bg-card">
+    <div className="group relative flex flex-col overflow-hidden rounded-[var(--radius-lg)] border-2 border-subtle bg-card">
       <Link
         href={`/minifigs/id/${encodeURIComponent(routeId || figNum)}`}
         className="block w-full"
@@ -45,7 +45,7 @@ export function MinifigSearchResultItem({
                   src={imageUrl}
                   alt={name}
                   variant="minifigSearch"
-                  className="aspect-square h-full w-full overflow-hidden rounded-lg object-cover"
+                  className="aspect-square h-full w-full overflow-hidden rounded-[var(--radius-lg)] object-cover"
                 />
               ) : (
                 <div className="flex aspect-square items-center justify-center text-xs text-foreground-muted">

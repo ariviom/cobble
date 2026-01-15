@@ -652,43 +652,94 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
 
   if (!isAuthenticated) {
     return (
-      <section className="mt-8 mb-4">
-        <div className="mx-auto w-full max-w-3xl rounded-lg border border-subtle bg-card p-6 text-center shadow-sm">
-          <h1 className="mb-3 text-3xl font-semibold">Identify</h1>
-          <p className="text-sm text-foreground-muted">
-            Sign in to use Identify and track your daily quota (5 per day on
-            Free).
-          </p>
-          <div className="mt-4 flex justify-center gap-3">
-            <Link href="/login">
-              <Button variant="primary">Sign in</Button>
-            </Link>
-            <a
-              href="https://brickognize.com/"
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm text-foreground-muted underline underline-offset-2"
-            >
-              Powered by Brickognize
-            </a>
+      <>
+        {/* Green Hero Banner */}
+        <section className="relative overflow-hidden">
+          <div className="bg-brand-green py-6 lg:py-8">
+            <div className="container-default">
+              <div className="text-center">
+                <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-white lg:text-4xl">
+                  Identify Parts & Minifigs
+                </h1>
+                <p className="text-base text-white/80 lg:text-lg">
+                  Upload a photo or enter a part number to find sets
+                </p>
+              </div>
+            </div>
+            {/* Decorative stud pattern */}
+            <div className="pointer-events-none absolute top-3 right-0 left-0 flex justify-center gap-6 opacity-10">
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className="h-3 w-3 rounded-full bg-white" />
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+          <div className="h-1.5 bg-brand-yellow" />
+        </section>
+
+        <section className="py-8">
+          <div className="mx-auto w-full max-w-3xl rounded-[var(--radius-lg)] border-2 border-t-4 border-subtle border-t-brand-green bg-card p-6 text-center shadow-md">
+            <h2 className="mb-3 text-2xl font-bold">Sign In Required</h2>
+            <p className="text-body text-foreground-muted">
+              Sign in to use Identify and track your daily quota (5 per day on
+              Free).
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <Link href="/login">
+                <Button variant="primary" size="lg">
+                  Sign in
+                </Button>
+              </Link>
+            </div>
+            <div className="mt-4">
+              <a
+                href="https://brickognize.com/"
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-foreground-muted underline underline-offset-2 hover:text-foreground"
+              >
+                Powered by Brickognize
+              </a>
+            </div>
+          </div>
+        </section>
+      </>
     );
   }
 
   return (
     <>
-      <section className="mt-8 mb-4">
-        <div className="mx-auto w-full max-w-7xl">
-          <h1 className="mb-4 text-center text-4xl font-semibold">Identify</h1>
+      {/* Green Hero Banner */}
+      <section className="relative overflow-hidden">
+        <div className="bg-brand-green py-6 lg:py-8">
+          <div className="container-default">
+            <div className="text-center">
+              <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-white lg:text-4xl">
+                Identify Parts & Minifigs
+              </h1>
+              <p className="text-base text-white/80 lg:text-lg">
+                Upload a photo or enter a part number to find sets
+              </p>
+            </div>
+          </div>
+          {/* Decorative stud pattern */}
+          <div className="pointer-events-none absolute top-3 right-0 left-0 flex justify-center gap-6 opacity-10">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="h-3 w-3 rounded-full bg-white" />
+            ))}
+          </div>
+        </div>
+        <div className="h-1.5 bg-brand-yellow" />
+      </section>
+
+      <section className="py-6">
+        <div className="mx-auto w-full max-w-7xl px-4">
           <div className="mx-auto w-full max-w-xs">
-            <div className="mb-4 flex items-center justify-center gap-2 text-xs">
+            <div className="mb-4 flex items-center justify-center gap-2">
               <button
                 type="button"
-                className={`inline-flex flex-1 items-center justify-center rounded-full border px-3 py-1 ${
+                className={`inline-flex flex-1 items-center justify-center rounded-[var(--radius-md)] border-2 px-4 py-2.5 text-sm font-semibold transition-all duration-150 ${
                   mode === 'camera'
-                    ? 'border-theme-primary bg-theme-primary/10 text-theme-primary'
+                    ? 'border-brand-green bg-brand-green text-white shadow-[0_3px_0_0] shadow-[#008c33]'
                     : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
                 }`}
                 onClick={() => setMode('camera')}
@@ -697,9 +748,9 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
               </button>
               <button
                 type="button"
-                className={`inline-flex flex-1 items-center justify-center rounded-full border px-3 py-1 ${
+                className={`inline-flex flex-1 items-center justify-center rounded-[var(--radius-md)] border-2 px-4 py-2.5 text-sm font-semibold transition-all duration-150 ${
                   mode === 'part'
-                    ? 'border-theme-primary bg-theme-primary/10 text-theme-primary'
+                    ? 'border-brand-green bg-brand-green text-white shadow-[0_3px_0_0] shadow-[#008c33]'
                     : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
                 }`}
                 onClick={() => setMode('part')}
@@ -857,7 +908,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                 />
               </Suspense>
             ) : (
-              <div className="rounded-lg border border-subtle bg-card p-4 text-sm text-foreground-muted">
+              <div className="rounded-[var(--radius-lg)] border-2 border-l-4 border-subtle border-l-brand-green bg-card p-4 text-body text-foreground-muted">
                 Upload a photo or enter a part/minifig ID to see results.
               </div>
             )}

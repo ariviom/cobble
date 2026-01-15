@@ -163,10 +163,10 @@ export function MinifigPageClient({ figNum }: MinifigPageClientProps) {
         </Link>
       </div>
 
-      <section className="rounded-lg border border-subtle bg-card p-4 sm:p-5">
+      <section className="rounded-[var(--radius-lg)] border-2 border-subtle bg-card p-4 sm:p-5">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
           <div className="w-full sm:w-auto sm:flex-shrink-0">
-            <div className="relative mx-auto h-48 w-full max-w-xs overflow-hidden rounded-lg border border-subtle bg-card-muted sm:h-56 sm:w-56">
+            <div className="relative mx-auto h-48 w-full max-w-xs overflow-hidden rounded-[var(--radius-lg)] border-2 border-subtle bg-card-muted sm:h-56 sm:w-56">
               {imageUrl ? (
                 <Image
                   src={imageUrl}
