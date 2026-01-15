@@ -29,18 +29,66 @@
   --color-foreground-accent: var(--color-neutral-300);
   --color-foreground-muted: var(--color-neutral-700);
 
-  /* Brand + theme accent */
-  --color-brand-yellow: #ffd503;
-  --color-brand-blue: #006fe5;
-  --color-brand-purple: #9937fd;
-  --color-brand-red: #fb2e36;
-  --color-brand-green: #009348;
+  /* Brand colors - aligned with LEGO 2024 palette */
+  --color-brand-yellow: #f2d300;
+  --color-brand-red: #e3000b;
+  --color-brand-blue: #016cb8;
+  --color-brand-green: #00b242;
+  --color-brand-orange: #fe7000;
+  --color-brand-purple: #4d2f93;
   --color-theme-primary: var(--color-brand-blue);
-  --color-theme-accent: mix(var(--color-theme-primary), white, 10%);
+  --color-theme-accent: color-mix(
+    in oklch,
+    var(--color-theme-primary) 90%,
+    white
+  );
 
-  /* Status / danger */
+  /* Status / semantic colors */
   --color-danger: var(--color-brand-red);
-  --color-danger-muted: mix(var(--color-brand-red), white, 92%);
+  --color-danger-muted: color-mix(in oklch, var(--color-brand-red) 12%, white);
+  --color-success: var(--color-brand-green);
+  --color-success-muted: color-mix(
+    in oklch,
+    var(--color-brand-green) 12%,
+    white
+  );
+  --color-warning: var(--color-brand-orange);
+  --color-warning-muted: color-mix(
+    in oklch,
+    var(--color-brand-orange) 12%,
+    white
+  );
+  --color-info: var(--color-brand-blue);
+  --color-info-muted: color-mix(in oklch, var(--color-brand-blue) 10%, white);
+
+  /* Radius scale - CHUNKY like LEGO bricks */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* Shadow scale - BOLD and tactile */
+  --shadow-sm: 0 2px 0 rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 3px 0 rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 0 rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 6px 0 rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.12);
+
+  /* Brick depth - the "3D pressed" effect */
+  --brick-depth: 0 4px 0;
+  --brick-depth-sm: 0 3px 0;
+  --brick-depth-pressed: 0 1px 0;
+
+  /* Accessible text colors for brand backgrounds */
+  --color-on-yellow: #1a1600;
+  --color-on-red: #ffffff;
+  --color-on-blue: #ffffff;
+  --color-on-green: #ffffff;
+
+  /* Container widths */
+  --container-narrow: 32rem;
+  --container-default: 64rem;
+  --container-wide: 80rem;
 
   --font-sans: var(--font-cera-pro);
   --spacing-nav-height: 4rem;
@@ -209,4 +257,95 @@ body {
 
 @utility set-grid-top-expanded {
   --set-grid-top-row: 12rem;
+}
+
+/* Typography utilities - BOLD and playful */
+@utility text-page-title {
+  font-size: 2.5rem;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+@utility text-section-title {
+  font-size: 1.75rem;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+@utility text-card-title {
+  font-size: 1.125rem;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+@utility text-body {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+@utility text-caption {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-foreground-muted);
+}
+
+/* LEGO brick-like effects */
+@utility brick-shadow {
+  box-shadow: var(--brick-depth) var(--color-neutral-900);
+}
+
+@utility brick-shadow-yellow {
+  box-shadow: var(--brick-depth)
+    color-mix(in oklch, var(--color-brand-yellow) 70%, black);
+}
+
+@utility brick-shadow-red {
+  box-shadow: var(--brick-depth)
+    color-mix(in oklch, var(--color-brand-red) 70%, black);
+}
+
+@utility brick-shadow-blue {
+  box-shadow: var(--brick-depth)
+    color-mix(in oklch, var(--color-brand-blue) 70%, black);
+}
+
+@utility brick-shadow-green {
+  box-shadow: var(--brick-depth)
+    color-mix(in oklch, var(--color-brand-green) 70%, black);
+}
+
+/* Color strip decorations */
+@utility color-strip-top {
+  position: relative;
+}
+.color-strip-top::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--strip-color, var(--color-brand-yellow));
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+/* Container utilities */
+@utility container-narrow {
+  max-width: var(--container-narrow);
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+@utility container-default {
+  max-width: var(--container-default);
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+@utility container-wide {
+  max-width: var(--container-wide);
+  margin-inline: auto;
+  padding-inline: 1rem;
 }
