@@ -248,19 +248,19 @@ export function SetTopBar({
           'lg:relative lg:h-full lg:w-full'
         )}
       >
-        <div className="group set flex h-full w-full items-center gap-3 bg-card px-2 py-2 lg:pr-2">
-          <div className="aspect-square max-h-full overflow-hidden rounded-sm border border-foreground-accent">
+        <div className="group set flex h-full w-full items-center gap-3 bg-card px-3 py-2 lg:pr-3">
+          <div className="aspect-square max-h-full overflow-hidden rounded-[var(--radius-md)] border-2 border-subtle bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
             {resolvedImageUrl ? (
               <Image
                 src={resolvedImageUrl}
                 alt="Set thumbnail"
                 width={240}
                 height={240}
-                className="h-full w-auto object-cover transition-transform"
+                className="h-full w-auto object-contain p-1 drop-shadow-sm transition-transform"
                 onError={handleImageError}
               />
             ) : (
-              <div className="flex size-[calc(var(--spacing-topnav-height)-1rem)] flex-shrink-0 items-center justify-center rounded-sm border border-subtle bg-card-muted">
+              <div className="flex size-[calc(var(--spacing-topnav-height)-1rem)] flex-shrink-0 items-center justify-center text-xs font-medium text-foreground-muted">
                 No Image
               </div>
             )}
@@ -275,7 +275,7 @@ export function SetTopBar({
                 className="absolute top-3 right-3 ml-auto flex-shrink-0"
               >
                 {() => (
-                  <div className="min-w-min rounded-md border border-subtle bg-card py-1 text-xs shadow-lg">
+                  <div className="min-w-[160px] rounded-[var(--radius-lg)] border-2 border-subtle bg-card p-2 shadow-lg">
                     <SetOwnershipAndCollectionsRow
                       ownership={ownership}
                       variant="dropdown"
@@ -308,10 +308,10 @@ export function SetTopBar({
                   type="button"
                   aria-label="Search Party"
                   className={cn(
-                    'relative inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                    'relative inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border-2 px-2 py-1 text-[11px] font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                     searchParty.active
-                      ? 'text-theme-primary-contrast border-theme-primary bg-theme-primary'
-                      : 'hover:text-theme-primary-contrast border-foreground text-foreground hover:border-theme-primary hover:bg-theme-primary'
+                      ? 'border-brand-blue bg-brand-blue text-white shadow-[0_2px_0_0] shadow-brand-blue/40'
+                      : 'border-subtle bg-card text-foreground-muted hover:border-foreground/30 hover:bg-card-muted hover:text-foreground'
                   )}
                   disabled={!searchParty}
                   onClick={() => {
@@ -319,10 +319,10 @@ export function SetTopBar({
                     setSearchTogetherModalOpen(true);
                   }}
                 >
-                  <Users className="size-4" />
+                  <Users className="size-3.5" />
                   Search Party
                   {searchParty.active && (
-                    <div className="text-theme-primary-contrast absolute -right-2 -bottom-3 flex size-5 items-center justify-center rounded-full border-2 border-background bg-theme-primary text-sm">
+                    <div className="absolute -top-2.5 right-[-14px] flex size-6 items-center justify-center rounded-full border-2 border-white bg-brand-yellow text-[11px] font-extrabold text-neutral-900 shadow-sm">
                       {participantCount.toLocaleString()}
                     </div>
                   )}
@@ -340,13 +340,17 @@ export function SetTopBar({
         title="Search Party"
       >
         {searchParty ? (
-          <div className="flex flex-col gap-4 text-xs">
+          <div className="flex flex-col gap-4 text-sm">
             {!searchParty.active ? (
-              <Card elevated>
-                <CardHeader className="flex flex-col items-center justify-center gap-1 text-center">
-                  <Users className="mb-2 size-6 text-theme-primary" />
-                  <CardTitle>Search for pieces together</CardTitle>
-                  <CardDescription>
+              <Card>
+                <CardHeader className="flex flex-col items-center justify-center gap-2 text-center">
+                  <div className="flex size-14 items-center justify-center rounded-full bg-brand-blue/10">
+                    <Users className="size-7 text-brand-blue" />
+                  </div>
+                  <CardTitle className="text-lg">
+                    Search for pieces together
+                  </CardTitle>
+                  <CardDescription className="text-sm">
                     Start a session to collaborate on finding pieces for this
                     set.
                   </CardDescription>
@@ -356,21 +360,23 @@ export function SetTopBar({
                   {!quotaInfo.loading &&
                     !quotaInfo.unlimited &&
                     searchParty.canHost && (
-                      <div className="rounded-lg bg-subtle/50 px-3 py-2 text-center text-xs text-foreground-muted">
+                      <div className="rounded-[var(--radius-md)] border-2 border-subtle bg-card-muted px-4 py-3 text-center text-sm">
                         {quotaInfo.canHost ? (
                           <>
-                            <span className="font-medium text-foreground">
+                            <span className="font-bold text-foreground">
                               {quotaInfo.remaining} of {quotaInfo.limit}
                             </span>{' '}
-                            sessions remaining this month
+                            <span className="text-foreground-muted">
+                              sessions remaining this month
+                            </span>
                           </>
                         ) : (
                           <div className="space-y-2">
-                            <p className="font-medium text-amber-600 dark:text-amber-400">
+                            <p className="font-bold text-brand-orange">
                               You&apos;ve used all {quotaInfo.limit} Search
                               Party sessions this month
                             </p>
-                            <p>
+                            <p className="text-foreground-muted">
                               Your limit resets on{' '}
                               {quotaInfo.resetDateFormatted}
                             </p>
@@ -417,7 +423,7 @@ export function SetTopBar({
                         >
                           Upgrade to Plus
                         </Button>
-                        <p className="text-center text-[11px] text-foreground-muted">
+                        <p className="text-center text-xs text-foreground-muted">
                           Get unlimited Search Party sessions with Plus
                         </p>
                       </div>
@@ -431,10 +437,10 @@ export function SetTopBar({
               </Card>
             ) : (
               <>
-                <Card elevated>
+                <Card>
                   <CardHeader className="flex flex-col gap-1">
-                    <CardTitle>Session code</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-lg">Session code</CardTitle>
+                    <CardDescription className="text-sm">
                       Share this session so others can search for pieces with
                       you.
                     </CardDescription>
@@ -442,84 +448,106 @@ export function SetTopBar({
                   <CardContent className="space-y-4">
                     {searchParty?.joinUrl ? (
                       <div className="flex justify-center">
-                        <div className="rounded-md bg-white p-4 shadow-sm">
+                        <div className="rounded-[var(--radius-lg)] border-2 border-subtle bg-white p-4 shadow-[0_4px_0_0] shadow-subtle/50">
                           <QRCode
                             value={searchParty.joinUrl}
-                            size={200}
-                            className="h-auto w-[200px]"
+                            size={180}
+                            className="h-auto w-[180px]"
                             fgColor="#0a0a0a"
                             bgColor="#ffffff"
                           />
                         </div>
                       </div>
                     ) : null}
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                      <div className="flex-1 rounded-md border border-subtle bg-background px-3 py-2 text-center font-mono text-lg tracking-[0.35em]">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                      <div className="flex flex-1 items-center justify-center rounded-[var(--radius-md)] border-2 border-brand-blue/30 bg-brand-blue/5 px-4 py-3 font-mono text-xl font-bold tracking-[0.4em] text-brand-blue">
                         {sessionCode ?? '———'}
                       </div>
-                      <div className="mt-1 flex items-center justify-end gap-2 sm:mt-0">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="md"
-                          className="p-3.5"
-                          onClick={handleCopyShareLink}
-                          disabled={!searchParty.joinUrl}
-                          aria-label="Copy session link"
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <button
+                        type="button"
+                        className="flex shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border-2 border-subtle bg-card px-4 font-bold text-foreground-muted transition-colors hover:border-foreground/30 hover:bg-card-muted hover:text-foreground disabled:opacity-50"
+                        onClick={handleCopyShareLink}
+                        disabled={!searchParty.joinUrl}
+                      >
+                        <Copy className="size-4" />
+                        Copy Link
+                      </button>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-foreground-muted">
-                      <span>
-                        {participantCount.toLocaleString()} participants
-                      </span>
-                      <span>·</span>
-                      <span>
-                        {totalPiecesFound.toLocaleString()} pieces found
-                      </span>
+                    <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Users className="size-4 text-brand-blue" />
+                        <span className="font-bold">
+                          {participantCount.toLocaleString()}
+                        </span>
+                        <span className="text-foreground-muted">
+                          participants
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Trophy className="size-4 text-brand-yellow" />
+                        <span className="font-bold">
+                          {totalPiecesFound.toLocaleString()}
+                        </span>
+                        <span className="text-foreground-muted">
+                          pieces found
+                        </span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
-                <Card elevated>
+                <Card>
                   <CardHeader>
-                    <CardTitle>Leaderboard</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-lg">Leaderboard</CardTitle>
+                    <CardDescription className="text-sm">
                       Participants ranked by pieces found.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     {rankedParticipants.length === 0 ? (
-                      <p className="text-[11px] text-foreground-muted">
+                      <p className="text-sm text-foreground-muted">
                         No participants yet.
                       </p>
                     ) : (
-                      <ol className="space-y-1">
+                      <ol className="space-y-1.5">
                         {rankedParticipants.map((participant, index) => {
                           const isCurrent =
                             searchParty.currentParticipantId &&
                             participant.id === searchParty.currentParticipantId;
+                          const isFirst = index === 0;
                           return (
                             <li
                               key={participant.id}
-                              className="flex items-center justify-between gap-3 rounded-md bg-background px-2 py-1.5"
+                              className={cn(
+                                'flex items-center justify-between gap-3 rounded-[var(--radius-md)] border-2 px-3 py-2',
+                                isFirst
+                                  ? 'border-brand-yellow/40 bg-brand-yellow/10'
+                                  : 'border-subtle bg-card-muted'
+                              )}
                             >
-                              <div className="flex min-w-0 items-center gap-2">
-                                <span className="w-6 font-semibold text-foreground-muted">
-                                  #{index + 1}
+                              <div className="flex min-w-0 items-center gap-3">
+                                <span
+                                  className={cn(
+                                    'flex size-6 items-center justify-center rounded-full text-xs font-bold',
+                                    isFirst
+                                      ? 'bg-brand-yellow text-neutral-900'
+                                      : 'bg-foreground/10 text-foreground-muted'
+                                  )}
+                                >
+                                  {index + 1}
                                 </span>
                                 <span
                                   className={cn(
-                                    'text truncate',
-                                    isCurrent && 'font-semibold'
+                                    'truncate text-sm',
+                                    isCurrent ? 'font-bold' : 'font-medium'
                                   )}
                                 >
                                   {isCurrent ? 'You' : participant.displayName}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2 font-medium">
-                                <Trophy className="size-3 text-brand-yellow" />
+                              <div className="flex items-center gap-1.5 text-sm font-bold">
+                                {isFirst && (
+                                  <Trophy className="size-4 text-brand-yellow" />
+                                )}
                                 <span>
                                   {(
                                     participant.piecesFound ?? 0
@@ -545,7 +573,7 @@ export function SetTopBar({
                         {searchParty.loading ? 'Ending…' : 'End session'}
                       </Button>
                     ) : (
-                      <p className="text-[11px] text-foreground-muted">
+                      <p className="text-xs text-foreground-muted">
                         Only the session host can end this Search Party session.
                       </p>
                     )}

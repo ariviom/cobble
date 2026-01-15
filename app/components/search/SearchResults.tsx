@@ -1,9 +1,12 @@
 'use client';
 
 import { MinifigSearchResultItem } from '@/app/components/minifig/MinifigSearchResultItem';
+import { Button } from '@/app/components/ui/Button';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
+import { Select } from '@/app/components/ui/Select';
 import { Spinner } from '@/app/components/ui/Spinner';
+import { cn } from '@/app/components/ui/utils';
 import { AppError, throwAppErrorFromResponse } from '@/app/lib/domain/errors';
 import type {
   FilterType,
@@ -219,29 +222,28 @@ export function SearchResults() {
     const results = pages.flatMap((p: MinifigSearchPage) => p.results) ?? [];
     return (
       <div className="w-full">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <label className="text-xs font-medium">Sort</label>
-          <select
-            className="rounded-md border border-subtle bg-card px-2 py-1 text-xs"
-            value={minifigSort}
-            onChange={e =>
-              handleMinifigSortChange(e.target.value as MinifigSortOption)
-            }
-          >
-            <option value="relevance">Relevance</option>
-            <option value="theme-asc">Theme (A–Z)</option>
-            <option value="theme-desc">Theme (Z–A)</option>
-            <option value="name-asc">Name (A–Z)</option>
-            <option value="name-desc">Name (Z–A)</option>
-            <option value="parts-desc">Parts (desc)</option>
-            <option value="parts-asc">Parts (asc)</option>
-          </select>
+        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-foreground-muted">
+              Sort
+            </span>
+            <Select
+              className="h-8 min-w-[120px] px-3 pr-7 text-xs"
+              value={minifigSort}
+              onChange={e =>
+                handleMinifigSortChange(e.target.value as MinifigSortOption)
+              }
+            >
+              <option value="relevance">Relevance</option>
+              <option value="theme-asc">Theme A–Z</option>
+              <option value="theme-desc">Theme Z–A</option>
+              <option value="name-asc">Name A–Z</option>
+              <option value="name-desc">Name Z–A</option>
+              <option value="parts-desc">Parts ↓</option>
+              <option value="parts-asc">Parts ↑</option>
+            </Select>
+          </div>
         </div>
-        <p className="mb-3 text-[11px] text-foreground-muted">
-          Minifigure search looks up Rebrickable minifigs by ID or name. You can
-          search by theme names too. Add results to your Owned / Wishlist
-          minifig collection and to shared lists.
-        </p>
         {isMinifigLoading && (
           <Spinner className="mt-2" label="Loading minifigure results…" />
         )}
@@ -272,7 +274,7 @@ export function SearchResults() {
                 <button
                   onClick={() => fetchNextMinifigPage()}
                   disabled={isFetchingNextMinifigPage}
-                  className="rounded-md border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
+                  className="rounded-[var(--radius-md)] border-2 border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
                 >
                   {isFetchingNextMinifigPage ? 'Loading…' : 'Load More'}
                 </button>
@@ -292,64 +294,100 @@ export function SearchResults() {
 
   const pages = (setData?.pages as SearchPage[] | undefined) ?? [];
   const results = pages.flatMap((p: SearchPage) => p.results) ?? [];
+
+  const toggleBtnClass =
+    'rounded-none first:rounded-l-[var(--radius-md)] last:rounded-r-[var(--radius-md)] border-0 shadow-none hover:shadow-none active:shadow-none hover:translate-y-0 active:translate-y-0 px-3';
+
   return (
     <div className="w-full">
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        <label className="text-xs font-medium">Sort</label>
-        <select
-          className="rounded-md border border-subtle bg-card px-2 py-1 text-xs"
-          value={sort}
-          onChange={e => setSort(e.target.value as SortOption)}
-        >
-          <option value="relevance">Relevance</option>
-          <option value="pieces-asc">Pieces (asc)</option>
-          <option value="pieces-desc">Pieces (desc)</option>
-          <option value="year-asc">Year (asc)</option>
-          <option value="year-desc">Year (desc)</option>
-        </select>
-        <span className="bg-border-subtle mx-1 h-4 w-px" />
-        <label className="text-xs font-medium">Per page</label>
-        <select
-          className="rounded-md border border-subtle bg-card px-2 py-1 text-xs"
-          value={pageSize}
-          onChange={e => setPageSize(Number(e.target.value))}
-        >
-          <option value={20}>20</option>
-          <option value={40}>40</option>
-          <option value={60}>60</option>
-          <option value={80}>80</option>
-          <option value={100}>100</option>
-        </select>
-        <span className="bg-border-subtle mx-1 h-4 w-px" />
-        <label className="text-xs font-medium">Filter</label>
-        <select
-          className="rounded-md border border-subtle bg-card px-2 py-1 text-xs"
-          value={filter}
-          onChange={e => handleFilterChange(e.target.value as FilterType)}
-        >
-          <option value="all">All</option>
-          <option value="set">Set</option>
-          <option value="theme">Theme</option>
-          <option value="subtheme">Subtheme</option>
-        </select>
-        <span className="bg-border-subtle mx-1 h-4 w-px" />
-        <label className="inline-flex items-center gap-1 text-xs font-medium">
-          <input
-            type="checkbox"
-            className="h-3 w-3 accent-theme-primary"
-            checked={exact}
-            onChange={e => handleExactChange(e.target.checked)}
-          />
-          <span>Exact match</span>
-        </label>
+      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+        {/* Sort */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-medium text-foreground-muted">
+            Sort
+          </span>
+          <Select
+            className="h-8 min-w-[120px] px-3 pr-7 text-xs"
+            value={sort}
+            onChange={e => setSort(e.target.value as SortOption)}
+          >
+            <option value="relevance">Relevance</option>
+            <option value="pieces-asc">Pieces ↑</option>
+            <option value="pieces-desc">Pieces ↓</option>
+            <option value="year-asc">Year ↑</option>
+            <option value="year-desc">Year ↓</option>
+          </Select>
+        </div>
+
+        {/* Per page */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-medium text-foreground-muted">
+            Show
+          </span>
+          <div className="inline-flex rounded-[var(--radius-md)] border-2 border-subtle bg-card">
+            {[20, 50, 100].map(n => (
+              <Button
+                key={n}
+                type="button"
+                size="sm"
+                variant={pageSize === n ? 'secondary' : 'ghost'}
+                className={cn(toggleBtnClass, pageSize === n && 'font-bold')}
+                onClick={() => setPageSize(n)}
+              >
+                {n}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Filter */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-medium text-foreground-muted">
+            Filter
+          </span>
+          <div className="inline-flex rounded-[var(--radius-md)] border-2 border-subtle bg-card">
+            {(['all', 'set', 'theme', 'subtheme'] as const).map(f => (
+              <Button
+                key={f}
+                type="button"
+                size="sm"
+                variant={filter === f ? 'secondary' : 'ghost'}
+                className={cn(toggleBtnClass, filter === f && 'font-bold')}
+                onClick={() => handleFilterChange(f)}
+              >
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Exact match */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-medium text-foreground-muted">
+            Exact
+          </span>
+          <div className="inline-flex rounded-[var(--radius-md)] border-2 border-subtle bg-card">
+            <Button
+              type="button"
+              size="sm"
+              variant={!exact ? 'secondary' : 'ghost'}
+              className={cn(toggleBtnClass, !exact && 'font-bold')}
+              onClick={() => handleExactChange(false)}
+            >
+              Off
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={exact ? 'secondary' : 'ghost'}
+              className={cn(toggleBtnClass, exact && 'font-bold')}
+              onClick={() => handleExactChange(true)}
+            >
+              On
+            </Button>
+          </div>
+        </div>
       </div>
-      <p className="mb-3 text-[11px] text-foreground-muted">
-        All shows every result, Set limits to direct matches on set number or
-        name, Theme shows sets whose top-level theme matches your query, and
-        Subtheme restricts to child/subtheme matches only. Exact match confines
-        results to sets/themes that match your query exactly (set numbers may
-        include standard &ldquo;-1&rdquo; style suffixes).
-      </p>
       {isSetLoading && (
         <Spinner className="mt-2" label="Loading search results…" />
       )}
@@ -377,7 +415,7 @@ export function SearchResults() {
               <button
                 onClick={() => fetchNextSetPage()}
                 disabled={isFetchingNextSetPage}
-                className="rounded-md border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
+                className="rounded-[var(--radius-md)] border-2 border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
               >
                 {isFetchingNextSetPage ? 'Loading…' : 'Load More'}
               </button>

@@ -54,26 +54,30 @@ export function Navigation({
   return (
     <nav
       className={cn(
-        'fixed inset-x-0 bottom-0 z-50 h-nav-height w-full border-t border-subtle bg-card lg:top-0 lg:bottom-auto lg:border-b',
+        // Bold yellow nav bar - the LEGO signature color
+        'fixed inset-x-0 bottom-0 z-50 w-full bg-brand-yellow shadow-[0_-4px_0_0] shadow-[#b39700] lg:top-0 lg:bottom-auto lg:shadow-[0_4px_0_0]',
         className
       )}
     >
-      <div className="relative flex h-nav-height w-full items-center px-2">
-        <div className="relative flex w-full items-center justify-around gap-x-2 lg:justify-center">
-          {/* Desktop brand (hidden on mobile) */}
+      <div className="relative flex h-nav-height w-full items-center px-4 lg:px-6">
+        <div className="relative flex w-full items-center justify-around gap-x-1 lg:justify-center lg:gap-x-3">
+          {/* Desktop brand - clean, minimal treatment on yellow */}
           <Link
             href="/"
-            className="hidden items-center gap-1 lg:absolute lg:top-1/2 lg:left-0 lg:flex lg:-translate-y-1/2"
+            className="group hidden items-center gap-2 transition-all duration-150 hover:scale-[1.02] lg:absolute lg:top-1/2 lg:left-6 lg:flex lg:-translate-y-1/2"
           >
-            <div className="flex h-10 w-10 items-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#fffef0] shadow-[inset_0_-2px_0_0_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.1)] transition-transform duration-150 group-hover:rotate-6">
               <Image
                 src="/logo/brickparty_logo_sm.png"
                 alt="Brick Party"
-                width={40}
-                height={40}
+                width={32}
+                height={32}
               />
             </div>
-            <h1 className="text-lg font-bold">Brick Party</h1>
+            <h1 className="text-xl font-extrabold tracking-tight">
+              <span className="text-neutral-900">Brick</span>
+              <span className="text-brand-red">Party</span>
+            </h1>
           </Link>
           <NavLinkItem
             className="lg:hidden"
@@ -118,7 +122,7 @@ export function Navigation({
             href={isLoggedIn ? '/account' : '/login'}
             active={currentTab === 'profile'}
             onClick={handleTabClick('profile')}
-            className="lg:absolute lg:top-1/2 lg:right-0 lg:-translate-y-1/2"
+            className="lg:absolute lg:top-1/2 lg:right-6 lg:-translate-y-1/2"
           />
         </div>
       </div>

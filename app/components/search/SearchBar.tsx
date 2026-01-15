@@ -2,6 +2,7 @@
 
 import { Button } from '@/app/components/ui/Button';
 import { Input } from '@/app/components/ui/Input';
+import { Select } from '@/app/components/ui/Select';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { SearchType } from '@/app/types/search';
@@ -79,25 +80,28 @@ export function SearchBar({
 
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <label
-        className="mb-2 block text-sm font-medium text-foreground"
-        htmlFor="global-search"
+      <form
+        onSubmit={onSubmit}
+        className="flex flex-col gap-3 sm:flex-row sm:items-stretch"
       >
-        {type === 'minifig' ? 'Search minifigure' : 'Search set'}
-      </label>
-      <form onSubmit={onSubmit} className="flex items-center gap-2">
         <div className="relative flex-1">
           <Input
             id="global-search"
-            className="w-full"
+            size="lg"
+            className="h-full w-full shadow-lg"
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="e.g. 1788, pirate, castle, ninjago"
+            placeholder={
+              type === 'minifig' ? 'Search minifigures...' : 'Search sets...'
+            }
+            aria-label={
+              type === 'minifig' ? 'Search minifigures' : 'Search sets'
+            }
           />
           {q && (
             <button
               type="button"
-              className="absolute top-1/2 right-2 h-6 w-6 -translate-y-1/2 cursor-pointer rounded-full bg-card-muted text-foreground-muted hover:bg-background-muted"
+              className="absolute top-1/2 right-3 flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-neutral-200 text-foreground-muted hover:bg-neutral-300"
               onClick={onClear}
               aria-label="Clear search"
             >
@@ -109,27 +113,28 @@ export function SearchBar({
             </button>
           )}
         </div>
-        <Button type="submit" variant="primary" className="px-3 py-2">
-          Search
-        </Button>
-        <div className="flex items-center">
-          <label
-            htmlFor="search-type"
-            className="mr-1 text-xs font-medium text-foreground-muted"
-          >
-            Type
-          </label>
-          <select
+        <div className="flex items-stretch gap-3">
+          <Select
             id="search-type"
-            className="rounded-md border border-subtle bg-card px-2 py-1 text-xs"
+            size="lg"
+            className="flex-1 shadow-lg sm:w-auto sm:flex-none"
             value={type}
             onChange={event =>
               setType(event.target.value === 'minifig' ? 'minifig' : 'set')
             }
+            aria-label="Search type"
           >
             <option value="set">Sets</option>
             <option value="minifig">Minifigures</option>
-          </select>
+          </Select>
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            className="px-8 shadow-lg"
+          >
+            Search
+          </Button>
         </div>
       </form>
     </div>
