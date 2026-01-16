@@ -223,13 +223,8 @@ export function DataProvider({ children }: PropsWithChildren) {
           if (!sent) {
             throw new Error('sendBeacon failed');
           }
-          // Assume success for best-effort delivery; the server will drop bad payloads.
-          const successIds = operations
-            .map(op => op.id)
-            .filter((id): id is number => id !== undefined);
-          if (successIds.length > 0) {
-            await removeSyncOperations(successIds);
-          }
+          // Best-effort delivery: keep queue entries until a confirmed sync
+          // (sendBeacon has no response so we cannot safely delete operations).
         } else {
           const response = await fetch('/api/sync', {
             method: 'POST',
