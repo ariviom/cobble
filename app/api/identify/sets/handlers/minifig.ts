@@ -1,10 +1,10 @@
-import { mapBlToRbFigId } from '@/app/lib/bricklink/minifigs';
-import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import {
-  getSetsForMinifig,
-  type PartAvailableColor,
-  type PartInSet,
-} from '@/app/lib/rebrickable';
+  getSetsForMinifigBl,
+  mapBlToRbFigId,
+  type MinifigSetInfo,
+} from '@/app/lib/bricklink/minifigs';
+import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
+import { type PartAvailableColor, type PartInSet } from '@/app/lib/rebrickable';
 import { logEvent } from '@/lib/metrics';
 
 import { enrichSets, ensureSetNames } from './enrichment';
@@ -82,12 +82,21 @@ export async function handleMinifigIdentify(
     rbFigNum = await mapBlToRbFigId(token);
   }
 
-  // Get sets containing this minifig
+  // Get sets containing this minifig (using BL data)
   let sets: PartInSet[] = [];
-  const figIdForSets = rbFigNum ?? bricklinkFigId;
-  if (figIdForSets) {
+  if (bricklinkFigId) {
     try {
-      sets = await getSetsForMinifig(figIdForSets);
+      const blSets = await getSetsForMinifigBl(bricklinkFigId);
+      // Map MinifigSetInfo to PartInSet for compatibility
+      sets = blSets.map(
+        (s: MinifigSetInfo): PartInSet => ({
+          setNumber: s.setNumber,
+          name: s.name,
+          year: s.year,
+          imageUrl: s.imageUrl,
+          quantity: s.quantity,
+        })
+      );
     } catch {
       sets = [];
     }

@@ -18,6 +18,9 @@ export async function GET(): Promise<
           numParts: number | null;
           imageUrl: string | null;
           blId: string | null;
+          year: number | null;
+          categoryId: number | null;
+          categoryName: string | null;
         }>;
       }
     | ApiErrorResponse

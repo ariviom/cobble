@@ -9,6 +9,8 @@ type PublicMinifigCardProps = {
   status?: 'owned' | 'want' | null;
   imageUrl?: string | null;
   blId?: string | null;
+  year?: number | null;
+  themeName?: string | null;
 };
 
 /**
@@ -22,6 +24,8 @@ export function PublicMinifigCard({
   numParts,
   imageUrl,
   blId,
+  year,
+  themeName,
 }: PublicMinifigCardProps) {
   return (
     <MinifigCard
@@ -30,6 +34,8 @@ export function PublicMinifigCard({
       imageUrl={imageUrl ?? null}
       blId={blId ?? null}
       numParts={numParts ?? null}
+      year={year ?? null}
+      themeName={themeName ?? null}
     />
   );
 }

@@ -1,8 +1,10 @@
 'use client';
 
 import { MinifigOwnershipAndCollectionsRow } from '@/app/components/minifig/MinifigOwnershipAndCollectionsRow';
-import { Button } from '@/app/components/ui/Button';
+import { Badge } from '@/app/components/ui/Badge';
+import { Card } from '@/app/components/ui/Card';
 import { QuantityDropdown } from '@/app/components/ui/QuantityDropdown';
+import { cn } from '@/app/components/ui/utils';
 import { useMinifigDetails } from '@/app/hooks/useMinifigDetails';
 import { useMinifigOwnershipState } from '@/app/hooks/useMinifigOwnershipState';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
@@ -11,7 +13,15 @@ import { formatMinifigId, pickMinifigRouteId } from '@/app/lib/minifigIds';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { MinifigSearchPage } from '@/app/types/search';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
-import { ChevronDown, ExternalLink } from 'lucide-react';
+import {
+  ArrowLeft,
+  Box,
+  Calendar,
+  ChevronDown,
+  ExternalLink,
+  Layers,
+  Tag,
+} from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -148,242 +158,293 @@ export function MinifigPageClient({ figNum }: MinifigPageClientProps) {
       .eq('fig_num', trimmedFigNum);
   };
 
+  const subparts = subpartsDetails?.subparts ?? details?.subparts ?? [];
+
   return (
-    <section className="mx-auto w-full max-w-4xl px-4 py-6 lg:py-8">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-            {displayName}
-          </h1>
-        </div>
-        <Link href="/search?type=minifig" className="hidden sm:inline-flex">
-          <Button type="button" size="sm" variant="ghost">
-            Back to search
-          </Button>
-        </Link>
-      </div>
+    <section className="mx-auto w-full max-w-3xl px-4 py-6 lg:py-10">
+      {/* Back navigation */}
+      <Link
+        href="/search?type=minifig"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm text-foreground-muted transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+        <span>Back to search</span>
+      </Link>
 
-      <section className="rounded-lg border-2 border-subtle bg-card p-4 sm:p-5">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-          <div className="w-full sm:w-auto sm:flex-shrink-0">
-            <div className="relative mx-auto h-48 w-full max-w-xs overflow-hidden rounded-lg border-2 border-subtle bg-card-muted sm:h-56 sm:w-56">
-              {imageUrl ? (
-                <Image
-                  src={imageUrl}
-                  alt={displayName}
-                  fill
-                  sizes="320px"
-                  className="object-contain"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-xs text-foreground-muted">
-                  No image
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="space-y-2">
-              <div className="flex flex-col gap-1">
-                <div className="text-lg leading-snug font-semibold text-foreground">
-                  {displayName}
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-foreground-muted">
-                  <span className="rounded-full bg-card-muted px-2 py-0.5 text-[11px]">
-                    {idDisplay.label}
-                  </span>
-                  {typeof partsCount === 'number' && partsCount > 0 && (
-                    <span className="rounded-full bg-card-muted px-2 py-0.5 text-[11px]">
-                      {partsCount} parts
-                    </span>
-                  )}
-                </div>
+      {/* Hero Section - Collectible showcase */}
+      <Card variant="theme" elevated padding="none" className="overflow-hidden">
+        {/* Image hero with subtle gradient backdrop */}
+        <div className="relative flex items-center justify-center bg-gradient-to-b from-card-muted to-card px-6 py-8 sm:py-12">
+          <div className="relative size-48 sm:size-64">
+            {imageUrl ? (
+              <Image
+                src={imageUrl}
+                alt={displayName}
+                fill
+                sizes="(min-width: 640px) 256px, 192px"
+                className="object-contain drop-shadow-lg"
+                priority
+              />
+            ) : (
+              <div className="flex size-full items-center justify-center rounded-lg border-2 border-dashed border-subtle text-sm text-foreground-muted">
+                No image
               </div>
-
-              {isLoading && (
-                <p className="text-xs text-foreground-muted">
-                  Loading details…
-                </p>
-              )}
-              {error && !isLoading && (
-                <p className="text-xs text-brand-red">
-                  Failed to load minifig details.
-                </p>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col items-start gap-2 text-sm">
-          {themeName && (
-            <span className="text-foreground-muted">Theme: {themeName}</span>
-          )}
-          {year && <span className="text-foreground-muted">Year: {year}</span>}
-          {typeof setsCount === 'number' && setsCount > 0 && (
-            <Link
-              href={{
-                pathname: '/identify',
-                query: {
-                  mode: 'part',
-                  part: routeId ? `fig:${routeId}` : `fig:${trimmedFigNum}`,
-                },
-              }}
-              className="inline-flex items-center gap-1 text-foreground underline decoration-dotted underline-offset-4 hover:text-theme-primary"
-            >
-              Included in Sets: {setsCount}
-            </Link>
-          )}
-          {details?.priceGuide &&
-            bricklinkId &&
-            details.priceGuide.used.minPrice != null &&
-            details.priceGuide.used.maxPrice != null && (
+        {/* Identity section */}
+        <div className="border-t-2 border-subtle px-5 py-4 sm:px-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-section-title text-foreground">
+                {displayName}
+              </h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Badge variant="muted" size="sm">
+                  {idDisplay.label}
+                </Badge>
+                {typeof partsCount === 'number' && partsCount > 0 && (
+                  <Badge variant="muted" size="sm">
+                    {partsCount} parts
+                  </Badge>
+                )}
+              </div>
+            </div>
+            {bricklinkId && (
               <Link
-                href={`https://www.bricklink.com/v2/catalog/catalogitem.page?M=${encodeURIComponent(
-                  bricklinkId
-                )}`}
+                href={`https://www.bricklink.com/v2/catalog/catalogitem.page?M=${encodeURIComponent(bricklinkId)}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-foreground underline decoration-dotted underline-offset-4 hover:text-theme-primary"
+                className="inline-flex shrink-0 items-center gap-1 text-xs text-foreground-muted transition-colors hover:text-theme-text"
               >
-                Used range: {details.priceGuide.used.minPrice.toFixed(2)} –{' '}
-                {details.priceGuide.used.maxPrice.toFixed(2)}{' '}
-                {details.priceGuide.used.currency ?? 'USD'}
-                <ExternalLink className="h-3 w-3" />
+                BrickLink
+                <ExternalLink className="size-3" />
               </Link>
             )}
-          {details?.priceGuide && !bricklinkId && (
-            <span className="text-xs text-foreground-muted">
-              No BrickLink ID mapped.
-            </span>
+          </div>
+
+          {isLoading && (
+            <p className="mt-3 text-sm text-foreground-muted">
+              Loading details…
+            </p>
+          )}
+          {error && !isLoading && (
+            <p className="mt-3 text-sm text-danger">
+              Failed to load minifig details.
+            </p>
           )}
         </div>
 
-        <div className="mt-5">
-          <button
-            type="button"
-            className="flex w-full items-center justify-between bg-transparent px-0 py-2 text-left text-sm"
-            onClick={() => setShowSubparts(open => !open)}
-          >
-            <span className="font-medium">
-              Subparts{' '}
-              {typeof partsCount === 'number' && partsCount > 0
-                ? `(${partsCount})`
-                : details?.subparts
-                  ? `(${details.subparts.length})`
-                  : ''}
-            </span>
-            <ChevronDown
-              className={`h-4 w-4 transition-transform ${
-                showSubparts ? 'rotate-180' : ''
-              }`}
+        {/* Stats grid */}
+        {(themeName || year || setsCount > 0) && (
+          <div className="grid grid-cols-2 gap-px border-t-2 border-subtle bg-subtle sm:grid-cols-3">
+            {themeName && (
+              <div className="flex items-center gap-2.5 bg-card px-4 py-3">
+                <Tag className="size-4 shrink-0 text-foreground-muted" />
+                <div className="min-w-0">
+                  <div className="text-xs text-foreground-muted">Theme</div>
+                  <div className="truncate text-sm font-medium">
+                    {themeName}
+                  </div>
+                </div>
+              </div>
+            )}
+            {year && (
+              <div className="flex items-center gap-2.5 bg-card px-4 py-3">
+                <Calendar className="size-4 shrink-0 text-foreground-muted" />
+                <div>
+                  <div className="text-xs text-foreground-muted">Year</div>
+                  <div className="text-sm font-medium">{year}</div>
+                </div>
+              </div>
+            )}
+            {typeof setsCount === 'number' && setsCount > 0 && (
+              <Link
+                href={{
+                  pathname: '/identify',
+                  query: {
+                    mode: 'part',
+                    part: routeId ? `fig:${routeId}` : `fig:${trimmedFigNum}`,
+                  },
+                }}
+                className="col-span-2 flex items-center gap-2.5 bg-card px-4 py-3 transition-colors hover:bg-card-muted sm:col-span-1"
+              >
+                <Layers className="size-4 shrink-0 text-foreground-muted" />
+                <div>
+                  <div className="text-xs text-foreground-muted">
+                    Appears in
+                  </div>
+                  <div className="text-sm font-medium text-theme-text">
+                    {setsCount} {setsCount === 1 ? 'set' : 'sets'} →
+                  </div>
+                </div>
+              </Link>
+            )}
+          </div>
+        )}
+
+        {/* Ownership section */}
+        <div className="border-t-2 border-subtle bg-card-muted/30 px-5 py-4 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <MinifigOwnershipAndCollectionsRow
+              ownership={ownership}
+              className="!mt-0"
             />
-          </button>
-          {showSubparts && (
-            <div className="mt-3 space-y-2 rounded border border-subtle bg-card-muted/40 p-3">
-              {isLoadingSubparts && (
-                <p className="text-xs text-foreground-muted">
-                  Loading subparts…
-                </p>
-              )}
-              {!isLoadingSubparts &&
-                !(
-                  subpartsDetails?.subparts?.length || details?.subparts?.length
-                ) && (
-                  <p className="text-xs text-foreground-muted">
-                    No subparts listed.
-                  </p>
-                )}
-              {(subpartsDetails?.subparts ?? details?.subparts ?? []).map(
-                item => {
-                  const bricklinkUrl = item.bricklinkPartId
-                    ? `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(
-                        item.bricklinkPartId
-                      )}`
-                    : null;
-                  return (
-                    <div
-                      key={`${item.partId}-${item.colorId}`}
-                      className="flex items-center gap-3 rounded border border-subtle bg-card p-2 text-xs"
-                    >
-                      <div className="h-12 w-12 overflow-hidden rounded border border-subtle bg-card-muted">
-                        {item.imageUrl ? (
-                          <OptimizedImage
-                            src={item.imageUrl}
-                            alt={item.name}
-                            variant="identifyCandidate"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[10px] text-foreground-muted">
-                            No image
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1 space-y-0.5">
-                        <div className="truncate font-medium">{item.name}</div>
-                        <div className="flex flex-wrap items-center gap-2 text-foreground-muted">
-                          <span className="font-mono text-[11px]">
-                            {item.partId}
-                          </span>
-                          <span className="text-[11px]">
-                            Color: {item.colorName}
-                          </span>
-                          <span className="text-[11px]">
-                            Qty: {item.quantity}
-                          </span>
-                          {bricklinkUrl && (
-                            <Link
-                              href={bricklinkUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[11px] underline"
-                            >
-                              BrickLink <ExternalLink className="h-3 w-3" />
-                            </Link>
-                          )}
-                          {!bricklinkUrl && (
-                            <span className="text-[11px] text-foreground-muted">
-                              No BrickLink mapping
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="mt-6 space-y-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <MinifigOwnershipAndCollectionsRow ownership={ownership} />
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-foreground-muted">Quantity</span>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-foreground-muted">Qty</span>
               <QuantityDropdown
                 value={quantity}
                 onChange={handleQuantityChange}
                 max={20}
+                size="md"
                 disabled={!canEditQuantity}
                 aria-label="Minifigure quantity"
               />
-              {!ownership.isAuthenticated && !ownership.isAuthenticating && (
-                <span className="text-[11px] text-foreground-muted">
-                  Sign in to track quantity.
+            </div>
+          </div>
+          {!ownership.isAuthenticated && !ownership.isAuthenticating && (
+            <p className="mt-2 text-xs text-foreground-muted">
+              Sign in to track ownership and quantity.
+            </p>
+          )}
+          {ownership.isAuthenticated &&
+            ownership.status === null &&
+            !ownership.isAuthenticating && (
+              <p className="mt-2 text-xs text-foreground-muted">
+                Mark as Owned or Wishlist to edit quantity.
+              </p>
+            )}
+        </div>
+
+        {/* Price guide if available */}
+        {details?.priceGuide &&
+          bricklinkId &&
+          details.priceGuide.used.minPrice != null &&
+          details.priceGuide.used.maxPrice != null && (
+            <div className="border-t-2 border-subtle px-5 py-3 sm:px-6">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-foreground-muted">Used price range</span>
+                <span className="font-medium">
+                  ${details.priceGuide.used.minPrice.toFixed(2)} – $
+                  {details.priceGuide.used.maxPrice.toFixed(2)}{' '}
+                  <span className="text-foreground-muted">
+                    {details.priceGuide.used.currency ?? 'USD'}
+                  </span>
+                </span>
+              </div>
+            </div>
+          )}
+      </Card>
+
+      {/* Subparts section */}
+      <Card elevated className="mt-6" padding="none">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-card-muted/50 sm:px-6"
+          onClick={() => setShowSubparts(prev => !prev)}
+          aria-expanded={showSubparts}
+        >
+          <div className="flex items-center gap-2.5">
+            <Box className="size-5 text-foreground-muted" />
+            <span className="font-semibold">
+              Component Parts
+              {typeof partsCount === 'number' && partsCount > 0 && (
+                <span className="ml-1.5 text-foreground-muted">
+                  ({partsCount})
                 </span>
               )}
-              {ownership.isAuthenticated &&
-                ownership.status === null &&
-                !ownership.isAuthenticating && (
-                  <span className="text-[11px] text-foreground-muted">
-                    Set Owned or Wishlist before editing quantity.
-                  </span>
-                )}
+            </span>
+          </div>
+          <ChevronDown
+            className={cn(
+              'size-5 text-foreground-muted transition-transform duration-200',
+              showSubparts && 'rotate-180'
+            )}
+          />
+        </button>
+
+        <div
+          className={cn(
+            'grid transition-all duration-200 ease-out',
+            showSubparts
+              ? 'grid-rows-[1fr] opacity-100'
+              : 'grid-rows-[0fr] opacity-0'
+          )}
+        >
+          <div className="overflow-hidden">
+            <div className="border-t-2 border-subtle px-5 py-4 sm:px-6">
+              {isLoadingSubparts && (
+                <p className="text-sm text-foreground-muted">
+                  Loading component parts…
+                </p>
+              )}
+              {!isLoadingSubparts && subparts.length === 0 && (
+                <p className="text-sm text-foreground-muted">
+                  No component parts listed.
+                </p>
+              )}
+              {subparts.length > 0 && (
+                <div className="space-y-2">
+                  {subparts.map(item => {
+                    const bricklinkUrl = item.bricklinkPartId
+                      ? `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(item.bricklinkPartId)}`
+                      : null;
+                    return (
+                      <div
+                        key={`${item.partId}-${item.colorId}`}
+                        className="flex items-center gap-3 rounded-md border-2 border-subtle bg-card-muted/40 p-2.5"
+                      >
+                        <div className="size-12 shrink-0 overflow-hidden rounded-md border border-subtle bg-card">
+                          {item.imageUrl ? (
+                            <OptimizedImage
+                              src={item.imageUrl}
+                              alt={item.name}
+                              variant="identifyCandidate"
+                              className="size-full object-contain"
+                            />
+                          ) : (
+                            <div className="flex size-full items-center justify-center text-xs text-foreground-muted">
+                              —
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium">
+                            {item.name}
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-foreground-muted">
+                            <span className="font-mono">{item.partId}</span>
+                            <span>•</span>
+                            <span>{item.colorName}</span>
+                            <span>•</span>
+                            <span>×{item.quantity}</span>
+                            {bricklinkUrl && (
+                              <>
+                                <span>•</span>
+                                <Link
+                                  href={bricklinkUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-0.5 text-theme-text hover:underline"
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  BrickLink
+                                  <ExternalLink className="size-3" />
+                                </Link>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
-      </section>
+      </Card>
     </section>
   );
 }

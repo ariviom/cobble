@@ -10,6 +10,9 @@ export type UserMinifig = {
   blId: string | null;
   status: 'owned' | 'want' | null;
   quantity: number | null;
+  year: number | null;
+  categoryId: number | null;
+  categoryName: string | null;
 };
 
 type UseUserMinifigsResult = {

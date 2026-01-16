@@ -345,6 +345,117 @@ export async function getMinifigMetaBl(
 }
 
 // =============================================================================
+// SELF-HEALING: FETCH FROM BRICKLINK API
+// =============================================================================
+
+export type FetchedMinifigMeta = {
+  name: string | null;
+  year: number | null;
+};
+
+/**
+ * Fetch minifig metadata from BrickLink API and cache in bricklink_minifigs.
+ * Used for self-healing when catalog doesn't have the minifig.
+ */
+export async function fetchMinifigMetaBl(
+  minifigNo: string
+): Promise<FetchedMinifigMeta | null> {
+  try {
+    // Dynamic import to avoid circular dependency
+    const { blGetMinifig } = await import('@/app/lib/bricklink');
+    const response = await blGetMinifig(minifigNo);
+
+    if (!response?.name) {
+      logger.debug('bricklink.minifigs.fetch_meta_no_name', { minifigNo });
+      return null;
+    }
+
+    // Cache in bricklink_minifigs for future lookups
+    const supabase = getCatalogWriteClient();
+    const { error: upsertErr } = await supabase
+      .from('bricklink_minifigs')
+      .upsert(
+        {
+          item_id: minifigNo,
+          name: response.name,
+          category_id: response.category_id ?? null,
+          item_year: response.year_released ?? null,
+        },
+        { onConflict: 'item_id' }
+      );
+
+    if (upsertErr) {
+      logger.warn('bricklink.minifigs.fetch_meta_cache_failed', {
+        minifigNo,
+        error: upsertErr.message,
+      });
+    } else {
+      logger.debug('bricklink.minifigs.fetch_meta_cached', {
+        minifigNo,
+        name: response.name,
+      });
+    }
+
+    return {
+      name: response.name,
+      year: response.year_released ?? null,
+    };
+  } catch (err) {
+    logger.warn('bricklink.minifigs.fetch_meta_failed', {
+      minifigNo,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+}
+
+/**
+ * Fetch metadata for multiple minifigs from BrickLink API, with rate limiting.
+ * Returns map of minifig_no -> { name, year }
+ *
+ * Self-heals by caching results in bricklink_minifigs for future loads.
+ */
+export async function fetchMinifigMetaBatch(
+  minifigNos: string[],
+  maxCalls = 100
+): Promise<Map<string, FetchedMinifigMeta>> {
+  const results = new Map<string, FetchedMinifigMeta>();
+
+  if (minifigNos.length === 0) {
+    return results;
+  }
+
+  const toFetch = minifigNos.slice(0, maxCalls);
+
+  logger.debug('bricklink.minifigs.batch_fetch_start', {
+    total: minifigNos.length,
+    fetching: toFetch.length,
+    capped: minifigNos.length > maxCalls,
+  });
+
+  // Fetch in parallel
+  const fetchResults = await Promise.allSettled(
+    toFetch.map(async no => {
+      const meta = await fetchMinifigMetaBl(no);
+      return { no, meta };
+    })
+  );
+
+  for (const result of fetchResults) {
+    if (result.status === 'fulfilled' && result.value.meta) {
+      results.set(result.value.no, result.value.meta);
+    }
+  }
+
+  logger.debug('bricklink.minifigs.batch_fetch_complete', {
+    requested: toFetch.length,
+    succeeded: results.size,
+  });
+
+  return results;
+}
+
+// =============================================================================
 // REVERSE LOOKUP (BL → RB, for inventory compatibility)
 // =============================================================================
 
@@ -398,4 +509,198 @@ export async function mapBlToRbFigId(
 
   blToRbCache.set(cacheKey, null);
   return null;
+}
+
+// =============================================================================
+// SET LOOKUP (BL-based replacement for RB API)
+// =============================================================================
+
+export type MinifigSetInfo = {
+  setNumber: string;
+  name: string;
+  year: number;
+  imageUrl: string | null;
+  quantity: number;
+};
+
+// In-flight deduplication for minifig supersets API calls
+const inFlightMinifigSupersets = new Map<string, Promise<MinifigSetInfo[]>>();
+
+/**
+ * Get sets containing a minifig using BrickLink data.
+ * Self-heals by calling BrickLink API if no cached data exists.
+ *
+ * Flow:
+ * 1. Check bl_set_minifigs cache for this minifig
+ * 2. If empty, call BrickLink /items/MINIFIG/{no}/supersets API
+ * 3. Cache results to bl_set_minifigs for future lookups
+ * 4. Enrich with set details from rb_sets
+ */
+export async function getSetsForMinifigBl(
+  blMinifigNo: string
+): Promise<MinifigSetInfo[]> {
+  const trimmed = blMinifigNo.trim();
+  if (!trimmed) return [];
+
+  // Check for in-flight request
+  const inFlight = inFlightMinifigSupersets.get(trimmed.toLowerCase());
+  if (inFlight) {
+    logger.debug('bricklink.minifigs.supersets_join_inflight', {
+      blMinifigNo: trimmed,
+    });
+    return inFlight;
+  }
+
+  const promise = getSetsForMinifigBlInternal(trimmed);
+  inFlightMinifigSupersets.set(trimmed.toLowerCase(), promise);
+
+  try {
+    return await promise;
+  } finally {
+    inFlightMinifigSupersets.delete(trimmed.toLowerCase());
+  }
+}
+
+async function getSetsForMinifigBlInternal(
+  blMinifigNo: string
+): Promise<MinifigSetInfo[]> {
+  const supabase = getCatalogWriteClient();
+
+  // Query bl_set_minifigs for sets containing this minifig
+  const { data: setMinifigs, error: setErr } = await supabase
+    .from('bl_set_minifigs')
+    .select('set_num, quantity')
+    .eq('minifig_no', blMinifigNo);
+
+  if (setErr) {
+    logger.error('bricklink.minifigs.get_sets_for_minifig_failed', {
+      blMinifigNo,
+      error: setErr.message,
+    });
+    return [];
+  }
+
+  // If no cached data, self-heal by calling BrickLink API
+  if (!setMinifigs || setMinifigs.length === 0) {
+    logger.debug('bricklink.minifigs.supersets_self_heal', { blMinifigNo });
+
+    try {
+      // Dynamic import to avoid circular dependency
+      const { blGetMinifigSupersets } = await import('@/app/lib/bricklink');
+      const supersets = await blGetMinifigSupersets(blMinifigNo);
+
+      if (supersets.length > 0) {
+        // Cache to bl_set_minifigs for future lookups
+        const rows = supersets.map(s => ({
+          set_num: s.setNumber,
+          minifig_no: blMinifigNo,
+          quantity: s.quantity,
+          // Note: name and image_url are for the minifig, not the set
+          // We leave them null here; they get populated when the set is synced
+          name: null as string | null,
+          image_url: null as string | null,
+          last_refreshed_at: new Date().toISOString(),
+        }));
+
+        const { error: upsertErr } = await supabase
+          .from('bl_set_minifigs')
+          .upsert(rows, { onConflict: 'set_num,minifig_no' });
+
+        if (upsertErr) {
+          logger.warn('bricklink.minifigs.supersets_cache_failed', {
+            blMinifigNo,
+            error: upsertErr.message,
+          });
+        } else {
+          logger.debug('bricklink.minifigs.supersets_cached', {
+            blMinifigNo,
+            count: supersets.length,
+          });
+        }
+
+        // Return enriched results directly from API response
+        return enrichSetsWithDetails(supabase, supersets);
+      }
+
+      // API returned empty - minifig might not exist or has no sets
+      return [];
+    } catch (err) {
+      logger.error('bricklink.minifigs.supersets_api_failed', {
+        blMinifigNo,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return [];
+    }
+  }
+
+  // Have cached data - enrich with set details
+  return enrichSetsWithDetails(
+    supabase,
+    setMinifigs.map(s => ({
+      setNumber: s.set_num,
+      name: s.set_num, // Placeholder, will be enriched
+      imageUrl: null,
+      quantity: s.quantity ?? 1,
+    }))
+  );
+}
+
+/**
+ * Enrich set results with details from rb_sets catalog.
+ */
+async function enrichSetsWithDetails(
+  supabase: ReturnType<typeof getCatalogWriteClient>,
+  sets: Array<{
+    setNumber: string;
+    quantity: number;
+    name?: string;
+    imageUrl?: string | null;
+  }>
+): Promise<MinifigSetInfo[]> {
+  if (sets.length === 0) return [];
+
+  const setNums = sets.map(s => s.setNumber);
+  const { data: setDetails, error: detailErr } = await supabase
+    .from('rb_sets')
+    .select('set_num, name, year, image_url')
+    .in('set_num', setNums);
+
+  if (detailErr) {
+    logger.warn('bricklink.minifigs.get_set_details_failed', {
+      error: detailErr.message,
+    });
+  }
+
+  // Build lookup map for set details
+  const detailsBySetNum = new Map<
+    string,
+    { name: string; year: number; image_url: string | null }
+  >();
+  for (const set of setDetails ?? []) {
+    detailsBySetNum.set(set.set_num, {
+      name: set.name,
+      year: set.year ?? 0,
+      image_url: set.image_url,
+    });
+  }
+
+  // Map and enrich results
+  const results: MinifigSetInfo[] = sets.map(s => {
+    const details = detailsBySetNum.get(s.setNumber);
+    return {
+      setNumber: s.setNumber,
+      name: details?.name ?? s.setNumber,
+      year: details?.year ?? 0,
+      imageUrl: details?.image_url ?? null,
+      quantity: s.quantity ?? 1,
+    };
+  });
+
+  // Sort: highest quantity first, then newest year
+  results.sort((a, b) => {
+    if (b.quantity !== a.quantity) return b.quantity - a.quantity;
+    return b.year - a.year;
+  });
+
+  return results;
 }

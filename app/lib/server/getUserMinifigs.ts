@@ -11,6 +11,12 @@ type UserMinifig = {
   imageUrl: string | null;
   /** BrickLink ID (same as figNum for BL-based data) */
   blId: string | null;
+  /** Release year from BrickLink catalog */
+  year: number | null;
+  /** BrickLink category ID */
+  categoryId: number | null;
+  /** Category/theme name from bricklink_categories */
+  categoryName: string | null;
 };
 
 type Args = {
@@ -50,16 +56,38 @@ export async function getUserMinifigs({
     return [];
   }
 
-  // Get names from bricklink_minifigs catalog
+  // Get names, years, and category IDs from bricklink_minifigs catalog
   const { data: blCatalog } = await supabase
     .from('bricklink_minifigs')
-    .select('item_id, name')
+    .select('item_id, name, item_year, category_id')
     .in('item_id', blMinifigNos);
 
   const nameByBlId = new Map<string, string>();
+  const yearByBlId = new Map<string, number>();
+  const categoryIdByBlId = new Map<string, number>();
   for (const row of blCatalog ?? []) {
     if (row.name) {
       nameByBlId.set(row.item_id, row.name);
+    }
+    if (typeof row.item_year === 'number' && row.item_year > 0) {
+      yearByBlId.set(row.item_id, row.item_year);
+    }
+    if (typeof row.category_id === 'number') {
+      categoryIdByBlId.set(row.item_id, row.category_id);
+    }
+  }
+
+  // Get category names from bricklink_categories
+  const categoryIds = [...new Set(categoryIdByBlId.values())];
+  const categoryNameById = new Map<number, string>();
+  if (categoryIds.length > 0) {
+    const { data: categories } = await supabase
+      .from('bricklink_categories')
+      .select('category_id, category_name')
+      .in('category_id', categoryIds);
+
+    for (const cat of categories ?? []) {
+      categoryNameById.set(cat.category_id, cat.category_name);
     }
   }
 
@@ -93,16 +121,24 @@ export async function getUserMinifigs({
     partsCountByBlId.set(row.bl_minifig_no, current + 1);
   }
 
-  return rows.map(row => ({
-    figNum: row.fig_num,
-    status: row.status ?? null,
-    quantity:
-      typeof row.quantity === 'number' && Number.isFinite(row.quantity)
-        ? row.quantity
+  return rows.map(row => {
+    const categoryId = categoryIdByBlId.get(row.fig_num) ?? null;
+    return {
+      figNum: row.fig_num,
+      status: row.status ?? null,
+      quantity:
+        typeof row.quantity === 'number' && Number.isFinite(row.quantity)
+          ? row.quantity
+          : null,
+      name: nameByBlId.get(row.fig_num) ?? row.fig_num,
+      numParts: partsCountByBlId.get(row.fig_num) ?? null,
+      imageUrl: imageByBlId.get(row.fig_num) ?? null,
+      blId: row.fig_num, // BL ID is the primary ID after migration
+      year: yearByBlId.get(row.fig_num) ?? null,
+      categoryId,
+      categoryName: categoryId
+        ? (categoryNameById.get(categoryId) ?? null)
         : null,
-    name: nameByBlId.get(row.fig_num) ?? row.fig_num,
-    numParts: partsCountByBlId.get(row.fig_num) ?? null,
-    imageUrl: imageByBlId.get(row.fig_num) ?? null,
-    blId: row.fig_num, // BL ID is the primary ID after migration
-  }));
+    };
+  });
 }

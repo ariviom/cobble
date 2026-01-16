@@ -1,6 +1,8 @@
 import { UserCollectionOverview } from '@/app/components/home/UserCollectionOverview';
 import { PageLayout } from '@/app/components/layout/PageLayout';
 import { PublicUserCollectionOverview } from '@/app/components/user/PublicUserCollectionOverview';
+import { fetchMinifigMetaBatch } from '@/app/lib/bricklink/minifigs';
+import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { resolvePublicUser } from '@/app/lib/publicUsers';
 import { fetchThemes } from '@/app/lib/services/themes';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
@@ -45,6 +47,9 @@ type PublicMinifigSummary = {
   status: 'owned' | 'want' | null;
   image_url: string | null;
   bl_id: string | null;
+  year: number | null;
+  categoryId: number | null;
+  categoryName: string | null;
 };
 
 type PublicList = {
@@ -366,6 +371,9 @@ export default async function CollectionHandlePage({
     new Set([...minifigStatusMap.keys(), ...listMinifigIds])
   ).filter(Boolean);
 
+  // Category name lookup - populated during minifig meta fetch
+  const categoryNameById = new Map<number, string>();
+
   const minifigMeta: Record<
     string,
     {
@@ -373,14 +381,19 @@ export default async function CollectionHandlePage({
       num_parts: number | null;
       image_url?: string | null;
       bl_id?: string | null;
+      year?: number | null;
+      categoryId?: number | null;
     }
   > = {};
 
   if (allMinifigIds.length > 0) {
-    // Query bricklink_minifigs catalog first for names (most complete source)
-    const { data: blCatalog } = await supabase
+    // Use catalog client for RLS-protected tables
+    const catalogClient = getCatalogWriteClient();
+
+    // Query bricklink_minifigs catalog first for names, years, and category IDs (most complete source)
+    const { data: blCatalog } = await catalogClient
       .from('bricklink_minifigs')
-      .select('item_id,name')
+      .select('item_id,name,item_year,category_id')
       .in('item_id', allMinifigIds);
 
     for (const fig of blCatalog ?? []) {
@@ -390,11 +403,37 @@ export default async function CollectionHandlePage({
         num_parts: null,
         image_url: null,
         bl_id: fig.item_id,
+        year:
+          typeof fig.item_year === 'number' && fig.item_year > 0
+            ? fig.item_year
+            : null,
+        categoryId:
+          typeof fig.category_id === 'number' ? fig.category_id : null,
       };
     }
 
+    // Get unique category IDs and fetch category names
+    const categoryIds = [
+      ...new Set(
+        Object.values(minifigMeta)
+          .map(m => m.categoryId)
+          .filter((id): id is number => typeof id === 'number')
+      ),
+    ];
+
+    if (categoryIds.length > 0) {
+      const { data: categories } = await catalogClient
+        .from('bricklink_categories')
+        .select('category_id,category_name')
+        .in('category_id', categoryIds);
+
+      for (const cat of categories ?? []) {
+        categoryNameById.set(cat.category_id, cat.category_name);
+      }
+    }
+
     // Query bl_set_minifigs for images (and supplementary names)
-    const { data: blSetMinifigs } = await supabase
+    const { data: blSetMinifigs } = await catalogClient
       .from('bl_set_minifigs')
       .select('minifig_no,name,image_url')
       .in('minifig_no', allMinifigIds);
@@ -407,19 +446,49 @@ export default async function CollectionHandlePage({
         num_parts: existing?.num_parts ?? null,
         image_url: fig.image_url ?? existing?.image_url ?? null,
         bl_id: fig.minifig_no,
+        year: existing?.year ?? null,
       };
+    }
+
+    // Self-heal: fetch names from BrickLink API for minifigs still missing names
+    const stillMissingNames = allMinifigIds.filter(
+      id => !minifigMeta[id]?.name || minifigMeta[id]?.name === id
+    );
+
+    if (stillMissingNames.length > 0) {
+      const fetched = await fetchMinifigMetaBatch(stillMissingNames, 100);
+
+      for (const [figNum, meta] of fetched) {
+        const existing = minifigMeta[figNum];
+        minifigMeta[figNum] = {
+          name: meta.name ?? existing?.name ?? null,
+          num_parts: existing?.num_parts ?? null,
+          image_url: existing?.image_url ?? null,
+          bl_id: figNum,
+          year: meta.year ?? existing?.year ?? null,
+        };
+      }
     }
   }
 
-  const allMinifigs: PublicMinifigSummary[] = allMinifigIds.map(figNum => ({
-    fig_num: figNum,
-    name: minifigMeta[figNum]?.name ?? figNum,
-    num_parts: minifigMeta[figNum]?.num_parts ?? null,
-    status: minifigStatusMap.get(figNum) ?? null,
-    // Use stored image_url or construct BrickLink URL as fallback
-    image_url: minifigMeta[figNum]?.image_url ?? getBlMinifigImageUrl(figNum),
-    bl_id: minifigMeta[figNum]?.bl_id ?? figNum,
-  }));
+  const allMinifigs: PublicMinifigSummary[] = allMinifigIds.map(figNum => {
+    const meta = minifigMeta[figNum];
+    const categoryId = meta?.categoryId ?? null;
+    return {
+      fig_num: figNum,
+      name: meta?.name ?? figNum,
+      num_parts: meta?.num_parts ?? null,
+      status: minifigStatusMap.get(figNum) ?? null,
+      // Use stored image_url or construct BrickLink URL as fallback
+      image_url: meta?.image_url ?? getBlMinifigImageUrl(figNum),
+      bl_id: meta?.bl_id ?? figNum,
+      year: meta?.year ?? null,
+      categoryId,
+      categoryName: categoryId
+        ? (categoryNameById.get(categoryId) ?? null)
+        : null,
+    };
+  });
 
   const themes = await fetchThemes().catch(() => []);
   const title = publicProfile.username || 'Brick Party - User Collection';

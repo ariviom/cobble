@@ -4,10 +4,11 @@ import {
   getBlMinifigImageUrl,
   getMinifigMetaBl,
   getMinifigPartsBl,
+  getSetsForMinifigBl,
   mapBlToRbFigId,
 } from '@/app/lib/bricklink/minifigs';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
-import { getSetSummary, getSetsForMinifig } from '@/app/lib/rebrickable';
+import { getSetSummary } from '@/app/lib/rebrickable';
 import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -139,66 +140,27 @@ export async function GET(
     // Get the RB fig_num for backwards compatibility (inventory lookups)
     const rbFigNum = await mapBlToRbFigId(blMinifigNo);
 
-    // Get sets that contain this minifig
+    // Get sets that contain this minifig (using BL data)
     let sets: MinifigMetaResponse['sets'] = { count: 0, items: [] };
     let themeName: string | null = null;
 
-    // Try to get sets from bl_set_minifigs first
-    const { data: blSets } = await supabase
-      .from('bl_set_minifigs')
-      .select('set_num')
-      .eq('minifig_no', blMinifigNo)
-      .limit(10);
-
-    if (blSets && blSets.length > 0) {
-      const setNums = blSets.map(s => s.set_num);
-      const { data: setSummaries } = await supabase
-        .from('rb_sets')
-        .select('set_num, name, year, image_url')
-        .in('set_num', setNums);
-
-      if (setSummaries) {
+    try {
+      const blSets = await getSetsForMinifigBl(blMinifigNo);
+      if (blSets.length > 0) {
         sets = {
-          count: setSummaries.length,
-          items: setSummaries.slice(0, 5).map(s => ({
-            setNumber: s.set_num,
+          count: blSets.length,
+          items: blSets.slice(0, 5).map(s => ({
+            setNumber: s.setNumber,
             name: s.name,
-            year: s.year ?? 0,
-            quantity: 1,
-            imageUrl: s.image_url,
+            year: s.year,
+            quantity: s.quantity,
+            imageUrl: s.imageUrl,
           })),
         };
 
-        // Get theme from first set
-        const firstSet = setSummaries[0];
+        // Get theme from first set if needed
+        const firstSet = blSets[0];
         if (firstSet && (year == null || themeName == null)) {
-          try {
-            const summary = await getSetSummary(firstSet.set_num);
-            if (year == null && typeof summary.year === 'number') {
-              year = summary.year;
-            }
-            if (themeName == null && summary.themeName) {
-              themeName = summary.themeName;
-            }
-          } catch (err) {
-            logger.warn('minifig.set_summary_fallback_failed', {
-              blMinifigNo,
-              setNumber: firstSet.set_num,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-        }
-      }
-    } else if (rbFigNum) {
-      // Fallback to RB sets lookup if we have the RB ID
-      try {
-        const list = await getSetsForMinifig(rbFigNum);
-        sets = {
-          count: list.length,
-          items: list.slice(0, 5),
-        };
-        const firstSet = list[0];
-        if (firstSet?.setNumber && (year == null || themeName == null)) {
           try {
             const summary = await getSetSummary(firstSet.setNumber);
             if (year == null && typeof summary.year === 'number') {
@@ -210,18 +172,17 @@ export async function GET(
           } catch (err) {
             logger.warn('minifig.set_summary_fallback_failed', {
               blMinifigNo,
-              setNumber: firstSet?.setNumber,
+              setNumber: firstSet.setNumber,
               error: err instanceof Error ? err.message : String(err),
             });
           }
         }
-      } catch (err) {
-        logger.warn('minifig.get_sets_failed', {
-          blMinifigNo,
-          rbFigNum,
-          error: err instanceof Error ? err.message : String(err),
-        });
       }
+    } catch (err) {
+      logger.warn('minifig.get_sets_failed', {
+        blMinifigNo,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     // Get price guide if requested
