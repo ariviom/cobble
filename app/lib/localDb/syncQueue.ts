@@ -7,6 +7,7 @@
  */
 
 import { getLocalDb, isIndexedDBAvailable, type SyncQueueItem } from './schema';
+import { getStoredUserId } from './metaStore';
 
 // Maximum retries before an operation is considered failed
 const MAX_RETRY_COUNT = 5;
@@ -46,6 +47,7 @@ export async function enqueueSyncOperation(
  * Returns operations ordered by creation time (oldest first).
  */
 export async function getPendingSyncOperations(
+  userId: string,
   limit?: number
 ): Promise<SyncQueueItem[]> {
   if (!isIndexedDBAvailable()) return [];
@@ -57,7 +59,26 @@ export async function getPendingSyncOperations(
       .below(MAX_RETRY_COUNT)
       .sortBy('createdAt');
 
-    return limit ? results.slice(0, limit) : results;
+    const storedUserId = await getStoredUserId();
+    const matched: SyncQueueItem[] = [];
+
+    for (const op of results) {
+      if (op.userId === userId) {
+        matched.push(op);
+        continue;
+      }
+
+      // Legacy entries (pre-userId) can be safely claimed when the stored user
+      // matches the current user.
+      if (!op.userId && storedUserId && storedUserId === userId) {
+        if (op.id !== undefined) {
+          await db.syncQueue.update(op.id, { userId });
+        }
+        matched.push({ ...op, userId });
+      }
+    }
+
+    return limit ? matched.slice(0, limit) : matched;
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
       console.warn('Failed to get pending sync operations:', error);
@@ -111,7 +132,7 @@ export async function markSyncOperationFailed(
 /**
  * Get the count of pending sync operations.
  */
-export async function getSyncQueueCount(): Promise<number> {
+export async function getSyncQueueCount(userId: string): Promise<number> {
   if (!isIndexedDBAvailable()) return 0;
 
   try {
@@ -119,6 +140,7 @@ export async function getSyncQueueCount(): Promise<number> {
     return await db.syncQueue
       .where('retryCount')
       .below(MAX_RETRY_COUNT)
+      .and(op => op.userId === userId)
       .count();
   } catch {
     return 0;
@@ -184,6 +206,7 @@ export async function clearSyncQueue(): Promise<void> {
  * Consolidates multiple changes to the same key into a single operation.
  */
 export async function enqueueOwnedChange(
+  userId: string,
   clientId: string,
   setNumber: string,
   partNum: string,
@@ -204,6 +227,7 @@ export async function enqueueOwnedChange(
       .filter(
         op =>
           op.retryCount < MAX_RETRY_COUNT &&
+          op.userId === userId &&
           (op.payload as Record<string, unknown>).set_num === setNumber &&
           (op.payload as Record<string, unknown>).part_num === partNum &&
           (op.payload as Record<string, unknown>).color_id === colorId &&
@@ -225,6 +249,7 @@ export async function enqueueOwnedChange(
       const mostRecent = existingOps[existingOps.length - 1]!;
       await db.syncQueue.update(mostRecent.id!, {
         payload,
+        userId,
         createdAt: now,
         retryCount: 0, // Reset retry count since this is a new value
         lastError: null,
@@ -236,6 +261,7 @@ export async function enqueueOwnedChange(
         operation: quantity > 0 ? 'upsert' : 'delete',
         payload,
         clientId,
+        userId,
         createdAt: now,
         retryCount: 0,
         lastError: null,

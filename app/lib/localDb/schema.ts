@@ -158,6 +158,7 @@ export type SyncQueueItem = {
   operation: 'upsert' | 'delete';
   payload: Record<string, unknown>;
   clientId: string;
+  userId: string | null;
   createdAt: number;
   retryCount: number;
   lastError: string | null;
@@ -293,6 +294,28 @@ export class BrickPartyDB extends Dexie {
       localCollectionItems: '++id, collectionId, itemType, itemId, addedAt',
 
       syncQueue: '++id, table, createdAt, retryCount',
+      meta: 'key',
+
+      uiState: 'key',
+      recentSets: 'setNumber, visitedAt',
+    });
+
+    // Version 6: Add userId to syncQueue for multi-user safety.
+    this.version(6).stores({
+      catalogSets: 'setNumber, themeId, year, cachedAt',
+      catalogParts: 'partNum, categoryId, parentCategory, cachedAt',
+      catalogColors: 'id, cachedAt',
+      catalogSetParts:
+        '++id, setNumber, partNum, colorId, inventoryKey, [setNumber+inventoryKey], [setNumber+colorId]',
+      catalogSetMeta: 'setNumber, inventoryCachedAt, inventoryVersion',
+      catalogMinifigs: 'figNum, cachedAt',
+
+      localOwned:
+        '++id, setNumber, inventoryKey, [setNumber+inventoryKey], updatedAt',
+      localCollections: 'id, userId, type, updatedAt',
+      localCollectionItems: '++id, collectionId, itemType, itemId, addedAt',
+
+      syncQueue: '++id, userId, table, createdAt, retryCount',
       meta: 'key',
 
       uiState: 'key',

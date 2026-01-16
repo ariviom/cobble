@@ -197,7 +197,10 @@ export function DataProvider({ children }: PropsWithChildren) {
       setLastSyncError(null);
 
       try {
-        const operations = await getPendingSyncOperations(SYNC_BATCH_SIZE);
+        const operations = await getPendingSyncOperations(
+          userId,
+          SYNC_BATCH_SIZE
+        );
         if (operations.length === 0) return;
 
         const payload = {
@@ -267,7 +270,7 @@ export function DataProvider({ children }: PropsWithChildren) {
           }
         }
 
-        const newCount = await getSyncQueueCount();
+        const newCount = await getSyncQueueCount(userId);
         if (isMountedRef.current) {
           setPendingSyncCount(newCount);
         }
@@ -307,7 +310,7 @@ export function DataProvider({ children }: PropsWithChildren) {
 
     // Update pending count periodically
     const updateCount = async () => {
-      const count = await getSyncQueueCount();
+      const count = await getSyncQueueCount(user.id);
       if (isMountedRef.current) {
         setPendingSyncCount(count);
       }

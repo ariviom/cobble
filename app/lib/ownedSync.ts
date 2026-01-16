@@ -32,6 +32,7 @@ export async function enqueueOwnedChangeIfPossible(options: {
   if (!parsed) return;
 
   await enqueueOwnedChange(
+    userId,
     clientId,
     setNumber,
     parsed.partNum,
