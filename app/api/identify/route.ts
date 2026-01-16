@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { errorResponse } from '@/app/lib/api/responses';
+import { LRUCache } from '@/app/lib/cache/lru';
 import {
   extractCandidatePartNumbers,
   identifyWithBrickognize,
@@ -26,6 +27,7 @@ import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 
 const ALLOWED_IMAGE_TYPES = new Set<string>(IMAGE.ALLOWED_TYPES);
 const IDENTIFY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h local cache
+const IDENTIFY_CACHE_MAX = 500;
 
 type CachedIdentifyResponse = {
   status: number;
@@ -33,15 +35,14 @@ type CachedIdentifyResponse = {
   cachedAt: number;
 };
 
-const localIdentifyCache = new Map<string, CachedIdentifyResponse>();
+const localIdentifyCache = new LRUCache<string, CachedIdentifyResponse>(
+  IDENTIFY_CACHE_MAX,
+  IDENTIFY_CACHE_TTL_MS
+);
 
 function getCachedResponse(cacheKey: string): CachedIdentifyResponse | null {
   const entry = localIdentifyCache.get(cacheKey);
   if (!entry) return null;
-  if (Date.now() - entry.cachedAt > IDENTIFY_CACHE_TTL_MS) {
-    localIdentifyCache.delete(cacheKey);
-    return null;
-  }
   return entry;
 }
 
