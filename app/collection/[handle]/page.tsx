@@ -11,6 +11,14 @@ import { Lock } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
+/**
+ * Construct a BrickLink minifig image URL from the minifig ID.
+ * Used as fallback when bl_set_minifigs doesn't have image_url.
+ */
+function getBlMinifigImageUrl(minifigNo: string): string {
+  return `https://img.bricklink.com/ItemImage/MN/0/${encodeURIComponent(minifigNo)}.png`;
+}
+
 type RouteParams = {
   handle?: string | string[];
 };
@@ -411,8 +419,9 @@ export default async function CollectionHandlePage({
     name: minifigMeta[figNum]?.name ?? figNum,
     num_parts: minifigMeta[figNum]?.num_parts ?? null,
     status: minifigStatusMap.get(figNum) ?? null,
-    image_url: minifigMeta[figNum]?.image_url ?? null,
-    bl_id: minifigMeta[figNum]?.bl_id ?? null,
+    // Use stored image_url or construct BrickLink URL as fallback
+    image_url: minifigMeta[figNum]?.image_url ?? getBlMinifigImageUrl(figNum),
+    bl_id: minifigMeta[figNum]?.bl_id ?? figNum,
   }));
 
   const themes = await fetchThemes().catch(() => []);
