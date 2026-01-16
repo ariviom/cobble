@@ -123,6 +123,9 @@ export async function getUserMinifigs({
 
   return rows.map(row => {
     const categoryId = categoryIdByBlId.get(row.fig_num) ?? null;
+    // Use cached image from bl_set_minifigs, or construct BrickLink URL as fallback
+    const cachedImage = imageByBlId.get(row.fig_num);
+    const fallbackImage = `https://img.bricklink.com/ItemImage/MN/0/${encodeURIComponent(row.fig_num)}.png`;
     return {
       figNum: row.fig_num,
       status: row.status ?? null,
@@ -132,7 +135,7 @@ export async function getUserMinifigs({
           : null,
       name: nameByBlId.get(row.fig_num) ?? row.fig_num,
       numParts: partsCountByBlId.get(row.fig_num) ?? null,
-      imageUrl: imageByBlId.get(row.fig_num) ?? null,
+      imageUrl: cachedImage ?? fallbackImage,
       blId: row.fig_num, // BL ID is the primary ID after migration
       year: yearByBlId.get(row.fig_num) ?? null,
       categoryId,

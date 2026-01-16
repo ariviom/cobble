@@ -61,7 +61,7 @@ export function MinifigCard({
     Number.isFinite(quantity) &&
     quantity > 0
   ) {
-    metadataParts.push(`${quantity} ${quantity === 1 ? 'copy' : 'copies'}`);
+    metadataParts.push(`${quantity}x`);
   }
 
   return (
@@ -106,7 +106,7 @@ export function MinifigCard({
           <div className="flex items-start gap-2 px-4 py-3">
             <div className="min-w-0 flex-1">
               {themeName && (
-                <div className="mb-1 w-full truncate text-xs font-bold tracking-wide text-brand-orange uppercase">
+                <div className="mb-1 w-full truncate text-xs font-bold tracking-wide text-theme-primary uppercase">
                   {themeName}
                 </div>
               )}

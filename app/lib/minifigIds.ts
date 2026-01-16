@@ -11,7 +11,7 @@ type MinifigDisplay = {
 
 /**
  * Prefer BrickLink IDs for display; fall back to the Rebrickable fig-num.
- * - When BL exists: label as "Part #<id>"
+ * - When BL exists: label as "#<id>"
  * - When only RB exists: label as "Rebrickable ID: <id>"
  */
 export function formatMinifigId({
@@ -22,7 +22,7 @@ export function formatMinifigId({
   if (bl) {
     return {
       displayId: bl,
-      label: `Part #${bl}`,
+      label: `#${bl}`,
       isBricklink: true,
     };
   }

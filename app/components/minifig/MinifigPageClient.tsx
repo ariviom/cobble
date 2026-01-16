@@ -28,9 +28,23 @@ import { useEffect, useMemo, useState } from 'react';
 
 type MinifigPageClientProps = {
   figNum: string;
+  /** Server-side resolved name for immediate display */
+  initialName?: string | null;
+  /** Server-side resolved image URL for immediate display */
+  initialImageUrl?: string | null;
+  /** Server-side resolved year */
+  initialYear?: number | null;
+  /** Server-side resolved theme/category name */
+  initialThemeName?: string | null;
 };
 
-export function MinifigPageClient({ figNum }: MinifigPageClientProps) {
+export function MinifigPageClient({
+  figNum,
+  initialName,
+  initialImageUrl,
+  initialYear,
+  initialThemeName,
+}: MinifigPageClientProps) {
   const trimmedFigNum = figNum.trim();
   const { details, isLoading, error } = useMinifigDetails(trimmedFigNum, {
     includeSubparts: false,
@@ -48,7 +62,10 @@ export function MinifigPageClient({ figNum }: MinifigPageClientProps) {
       cache: 'no-store',
       enabled: showSubparts,
     });
-  const [resolvedName, setResolvedName] = useState<string | null>(null);
+  // Initialize resolved name with server-provided value for immediate display
+  const [resolvedName, setResolvedName] = useState<string | null>(
+    initialName?.trim() || null
+  );
 
   const current = useMemo(
     () => minifigs.find(fig => fig.figNum === trimmedFigNum) ?? null,
@@ -69,6 +86,7 @@ export function MinifigPageClient({ figNum }: MinifigPageClientProps) {
     (details?.name && details.name.trim()) ||
     (subpartsDetails?.name && subpartsDetails.name.trim()) ||
     (current?.name && current.name.trim()) ||
+    initialName?.trim() ||
     null;
 
   useEffect(() => {
@@ -118,8 +136,13 @@ export function MinifigPageClient({ figNum }: MinifigPageClientProps) {
     candidateName ||
     trimmedFigNum ||
     'Minifigure';
+  // Use server-provided values as fallbacks for immediate display
   const imageUrl =
-    details?.imageUrl ?? subpartsDetails?.imageUrl ?? current?.imageUrl ?? null;
+    details?.imageUrl ??
+    subpartsDetails?.imageUrl ??
+    current?.imageUrl ??
+    initialImageUrl ??
+    null;
   const bricklinkId =
     details?.blId ?? subpartsDetails?.blId ?? current?.blId ?? null;
   const idDisplay = formatMinifigId({
@@ -131,11 +154,13 @@ export function MinifigPageClient({ figNum }: MinifigPageClientProps) {
     typeof details?.numParts === 'number' && Number.isFinite(details.numParts)
       ? details.numParts
       : null;
-  const themeName = details?.themeName ?? null;
+  const themeName = details?.themeName ?? initialThemeName ?? null;
   const year =
     typeof details?.year === 'number' && Number.isFinite(details.year)
       ? details.year
-      : null;
+      : typeof initialYear === 'number' && Number.isFinite(initialYear)
+        ? initialYear
+        : null;
   const setsCount = subpartsDetails?.sets?.count ?? details?.sets?.count ?? 0;
 
   const canEditQuantity =
