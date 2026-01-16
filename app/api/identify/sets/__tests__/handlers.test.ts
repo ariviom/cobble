@@ -6,11 +6,11 @@ vi.mock('server-only', () => ({}));
 // Mock BrickLink minifigs module
 vi.mock('@/app/lib/bricklink/minifigs', () => ({
   mapBlToRbFigId: vi.fn(),
+  getSetsForMinifigBl: vi.fn(),
 }));
 
 // Mock rebrickable client
 vi.mock('@/app/lib/rebrickable', () => ({
-  getSetsForMinifig: vi.fn(),
   getPart: vi.fn(),
   getPartColorsForPart: vi.fn(),
   getSetsForPart: vi.fn(),
@@ -68,12 +68,14 @@ vi.mock('@/lib/metrics', () => ({
   },
 }));
 
-import { mapBlToRbFigId } from '@/app/lib/bricklink/minifigs';
+import {
+  getSetsForMinifigBl,
+  mapBlToRbFigId,
+} from '@/app/lib/bricklink/minifigs';
 import { getSetsForPartLocal } from '@/app/lib/catalog';
 import {
   getPart,
   getPartColorsForPart,
-  getSetsForMinifig,
   getSetsForPart,
 } from '@/app/lib/rebrickable';
 import {
@@ -83,7 +85,7 @@ import {
 import { handlePartIdentify } from '../handlers/part';
 
 const mockMapBlToRb = vi.mocked(mapBlToRbFigId);
-const mockGetSetsForMinifig = vi.mocked(getSetsForMinifig);
+const mockGetSetsForMinifigBl = vi.mocked(getSetsForMinifigBl);
 const mockGetPart = vi.mocked(getPart);
 const mockGetPartColors = vi.mocked(getPartColorsForPart);
 const mockGetSetsForPart = vi.mocked(getSetsForPart);
@@ -113,16 +115,13 @@ describe('handleMinifigIdentify', () => {
 
   it('handles BrickLink minifig ID correctly', async () => {
     mockMapBlToRb.mockResolvedValue('fig-000001');
-    mockGetSetsForMinifig.mockResolvedValue([
+    mockGetSetsForMinifigBl.mockResolvedValue([
       {
         setNumber: '75192-1',
         name: 'Millennium Falcon',
         year: 2017,
         imageUrl: null,
         quantity: 1,
-        numParts: 7541,
-        themeId: 158,
-        themeName: 'Star Wars',
       },
     ]);
     mockMaybeSingle.mockResolvedValue({
@@ -139,7 +138,7 @@ describe('handleMinifigIdentify', () => {
 
   it('handles Rebrickable minifig ID correctly', async () => {
     mockMapBlToRb.mockResolvedValue(null);
-    mockGetSetsForMinifig.mockResolvedValue([]);
+    mockGetSetsForMinifigBl.mockResolvedValue([]);
     // Mock the BL→RB lookup returning null (no mapping found)
     mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 
@@ -152,7 +151,7 @@ describe('handleMinifigIdentify', () => {
 
   it('handles unmapped minifig gracefully', async () => {
     mockMapBlToRb.mockResolvedValue(null);
-    mockGetSetsForMinifig.mockResolvedValue([]);
+    mockGetSetsForMinifigBl.mockResolvedValue([]);
     mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 
     // Use proper RB format (fig-NNNNNN) for the test
@@ -164,7 +163,7 @@ describe('handleMinifigIdentify', () => {
 
   it('strips fig: prefix correctly', async () => {
     mockMapBlToRb.mockResolvedValue(null);
-    mockGetSetsForMinifig.mockResolvedValue([]);
+    mockGetSetsForMinifigBl.mockResolvedValue([]);
     mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 
     const result = await handleMinifigIdentify('fig:fig-000001');

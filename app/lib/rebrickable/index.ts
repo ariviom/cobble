@@ -52,11 +52,7 @@ export {
 } from './parts';
 
 // Minifigs
-export {
-  getMinifigPartsCached,
-  getSetsForMinifig,
-  searchMinifigs,
-} from './minifigs';
+export { getMinifigPartsCached, searchMinifigs } from './minifigs';
 
 // Themes & colors
 export { getColors, mapBrickLinkColorIdToRebrickableColorId } from './colors';

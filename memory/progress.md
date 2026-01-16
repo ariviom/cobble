@@ -38,6 +38,19 @@
   - User data migration scripts:
     - `scripts/export-user-set-ids.ts` - Backup user sets before migration
     - `scripts/nuke-user-minifigs.ts` - Clear user minifig data for re-sync
+- **BrickLink Minifig Simplification (January 2026)**:
+  - **Part deduplication**: `getSetInventoryLocal()` in `app/lib/catalog/sets.ts` now filters minifig component parts from `rb_inventory_parts` using `rb_minifig_parts` (same source = internally consistent counts).
+  - **Simplified matching**: Replaced complex 5-stage fuzzy matching (~300 lines) in `scripts/minifig-mapping-core.ts` with position-based pairing. If RB count == BL count, pairs by position; otherwise matches by quantity first.
+  - **Replaced RB API calls**: Created `getSetsForMinifigBl()` in `app/lib/bricklink/minifigs.ts` to query `bl_set_minifigs` directly instead of calling Rebrickable API.
+  - **Self-healing minifig→sets lookup**: Added `blGetMinifigSupersets()` to call BrickLink `/items/MINIFIG/{no}/supersets` API. `getSetsForMinifigBl()` now self-heals by calling this API when no cached data exists, caching results to `bl_set_minifigs` for future lookups.
+  - Updated routes to use new function:
+    - `app/api/identify/sets/handlers/minifig.ts`
+    - `app/api/minifigs/[figNum]/route.ts`
+  - **Dead code cleanup (January 2026)**:
+    - Removed `getSetsForMinifig()` from `app/lib/rebrickable/minifigs.ts` (~130 lines) - replaced by `getSetsForMinifigBl()`
+    - Removed export from `app/lib/rebrickable/index.ts`
+    - Cleaned up unused mocks in `app/api/identify/sets/__tests__/handlers.test.ts`
+  - All 208 tests pass.
 - Supabase SSR & auth-aware surfaces:
   - `@supabase/ssr` wired for both browser (`getSupabaseBrowserClient`) and server (`getSupabaseAuthServerClient`) clients.
   - Root `middleware.ts` + `utils/supabase/middleware.ts` keep Supabase auth cookies synchronized for SSR.
@@ -132,7 +145,6 @@
 
 ## Planned / In Progress
 
-- **User minifig migration**: Run export-user-set-ids.ts, nuke-user-minifigs.ts, then re-sync from sets using BL IDs.
 - Pull-on-login for multi-device sync (fetch user data from Supabase on new device)
 - Hardening of error states and retries for search and inventory requests; surface normalized `AppError` codes in the UI instead of generic messages.
 - Tests for CSV export generators (Rebrickable + BrickLink) and for Rebrickable client retry/backoff behavior.
