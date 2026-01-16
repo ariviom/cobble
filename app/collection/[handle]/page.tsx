@@ -11,6 +11,14 @@ import { Lock } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
+/**
+ * Check if a minifig ID looks like a BrickLink format (e.g., "sw0001", "cty1234")
+ * vs Rebrickable format (e.g., "fig-000001")
+ */
+function looksLikeBricklinkFig(id: string): boolean {
+  return /^[a-z]{2,3}\d{3,}$/i.test(id.trim());
+}
+
 type RouteParams = {
   handle?: string | string[];
 };
@@ -358,7 +366,7 @@ export default async function CollectionHandlePage({
     new Set([...minifigStatusMap.keys(), ...listMinifigIds])
   ).filter(Boolean);
 
-  let minifigMeta: Record<
+  const minifigMeta: Record<
     string,
     {
       name: string | null;
@@ -369,63 +377,103 @@ export default async function CollectionHandlePage({
   > = {};
 
   if (allMinifigIds.length > 0) {
-    // Load basic metadata from Rebrickable catalog
-    const { data: minifigs } = await supabase
-      .from('rb_minifigs')
-      .select<'fig_num,name,num_parts'>('fig_num,name,num_parts')
-      .in('fig_num', allMinifigIds);
+    // Separate IDs into BrickLink format (sw0001) vs Rebrickable format (fig-000001)
+    const blFormatIds = allMinifigIds.filter(looksLikeBricklinkFig);
+    const rbFormatIds = allMinifigIds.filter(id => !looksLikeBricklinkFig(id));
 
-    minifigMeta = Object.fromEntries(
-      (minifigs ?? []).map(fig => [
-        fig.fig_num,
-        {
+    // Load metadata for BL-format IDs from bl_set_minifigs (has image_url)
+    if (blFormatIds.length > 0) {
+      const { data: blMinifigs } = await supabase
+        .from('bl_set_minifigs')
+        .select('minifig_no,name,image_url')
+        .in('minifig_no', blFormatIds);
+
+      for (const fig of blMinifigs ?? []) {
+        if (!fig.minifig_no) continue;
+        minifigMeta[fig.minifig_no] = {
+          name: fig.name ?? null,
+          num_parts: null,
+          image_url: fig.image_url ?? null,
+          bl_id: fig.minifig_no,
+        };
+      }
+
+      // Also try bricklink_minifigs catalog for any missing metadata
+      const missingMeta = blFormatIds.filter(id => !minifigMeta[id]?.name);
+      if (missingMeta.length > 0) {
+        const { data: blCatalog } = await supabase
+          .from('bricklink_minifigs')
+          .select('item_id,name')
+          .in('item_id', missingMeta);
+
+        for (const fig of blCatalog ?? []) {
+          if (!fig.item_id) continue;
+          const existing = minifigMeta[fig.item_id];
+          minifigMeta[fig.item_id] = {
+            name: fig.name ?? existing?.name ?? null,
+            num_parts: existing?.num_parts ?? null,
+            image_url: existing?.image_url ?? null,
+            bl_id: fig.item_id,
+          };
+        }
+      }
+    }
+
+    // Load metadata for RB-format IDs from rb_minifigs
+    if (rbFormatIds.length > 0) {
+      const { data: rbMinifigs } = await supabase
+        .from('rb_minifigs')
+        .select<'fig_num,name,num_parts'>('fig_num,name,num_parts')
+        .in('fig_num', rbFormatIds);
+
+      for (const fig of rbMinifigs ?? []) {
+        minifigMeta[fig.fig_num] = {
           name: fig.name,
           num_parts: fig.num_parts,
           image_url: null,
           bl_id: null,
-        },
-      ])
-    );
-
-    // Load BrickLink data (BL ID and image URL) from bl_set_minifigs
-    // This table has both the BL minifig_no and image_url from BrickLink API
-    const { data: blSetMinifigs, error: blErr } = await supabase
-      .from('bl_set_minifigs')
-      .select('rb_fig_id,minifig_no,image_url')
-      .in('rb_fig_id', allMinifigIds);
-
-    if (!blErr) {
-      for (const row of blSetMinifigs ?? []) {
-        const rbId = row.rb_fig_id;
-        if (!rbId) continue;
-        const existing = minifigMeta[rbId];
-        minifigMeta[rbId] = {
-          name: existing?.name ?? null,
-          num_parts: existing?.num_parts ?? null,
-          image_url: row.image_url ?? existing?.image_url ?? null,
-          bl_id: row.minifig_no ?? existing?.bl_id ?? null,
         };
       }
-    }
 
-    // Fallback: check global mappings for any still missing BL IDs
-    const missingBlId = allMinifigIds.filter(id => !minifigMeta[id]?.bl_id);
-    if (missingBlId.length > 0) {
-      const { data: mappings, error: mapErr } = await supabase
-        .from('bricklink_minifig_mappings')
-        .select('rb_fig_id,bl_item_id')
-        .in('rb_fig_id', missingBlId);
-      if (!mapErr) {
-        for (const row of mappings ?? []) {
+      // Load BrickLink data (BL ID and image URL) from bl_set_minifigs via rb_fig_id
+      const { data: blSetMinifigs, error: blErr } = await supabase
+        .from('bl_set_minifigs')
+        .select('rb_fig_id,minifig_no,image_url')
+        .in('rb_fig_id', rbFormatIds);
+
+      if (!blErr) {
+        for (const row of blSetMinifigs ?? []) {
           const rbId = row.rb_fig_id;
           if (!rbId) continue;
           const existing = minifigMeta[rbId];
           minifigMeta[rbId] = {
             name: existing?.name ?? null,
             num_parts: existing?.num_parts ?? null,
-            image_url: existing?.image_url ?? null,
-            bl_id: row.bl_item_id ?? null,
+            image_url: row.image_url ?? existing?.image_url ?? null,
+            bl_id: row.minifig_no ?? existing?.bl_id ?? null,
           };
+        }
+      }
+
+      // Fallback: check global mappings for any still missing BL IDs
+      const missingBlId = rbFormatIds.filter(id => !minifigMeta[id]?.bl_id);
+      if (missingBlId.length > 0) {
+        const { data: mappings, error: mapErr } = await supabase
+          .from('bricklink_minifig_mappings')
+          .select('rb_fig_id,bl_item_id')
+          .in('rb_fig_id', missingBlId);
+        if (!mapErr) {
+          for (const row of mappings ?? []) {
+            const rbId = row.rb_fig_id;
+            if (!rbId) continue;
+            const existing = minifigMeta[rbId];
+            minifigMeta[rbId] = {
+              name: existing?.name ?? null,
+              num_parts: existing?.num_parts ?? null,
+              image_url: existing?.image_url ?? null,
+              bl_id: row.bl_item_id ?? null,
+            };
+          }
         }
       }
     }
