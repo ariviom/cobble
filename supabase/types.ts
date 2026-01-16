@@ -192,8 +192,6 @@ export type Database = {
       };
       bl_set_minifigs: {
         Row: {
-          image_hash: string | null;
-          image_hash_algorithm: string | null;
           image_url: string | null;
           last_refreshed_at: string | null;
           minifig_no: string;
@@ -203,8 +201,6 @@ export type Database = {
           set_num: string;
         };
         Insert: {
-          image_hash?: string | null;
-          image_hash_algorithm?: string | null;
           image_url?: string | null;
           last_refreshed_at?: string | null;
           minifig_no: string;
@@ -214,8 +210,6 @@ export type Database = {
           set_num: string;
         };
         Update: {
-          image_hash?: string | null;
-          image_hash_algorithm?: string | null;
           image_url?: string | null;
           last_refreshed_at?: string | null;
           minifig_no?: string;
@@ -261,13 +255,43 @@ export type Database = {
         };
         Relationships: [];
       };
+      bricklink_categories: {
+        Row: {
+          category_id: number;
+          category_name: string;
+          created_at: string;
+          parent_id: number | null;
+          updated_at: string;
+        };
+        Insert: {
+          category_id: number;
+          category_name: string;
+          created_at?: string;
+          parent_id?: number | null;
+          updated_at?: string;
+        };
+        Update: {
+          category_id?: number;
+          category_name?: string;
+          created_at?: string;
+          parent_id?: number | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'bricklink_categories_parent_id_fkey';
+            columns: ['parent_id'];
+            isOneToOne: false;
+            referencedRelation: 'bricklink_categories';
+            referencedColumns: ['category_id'];
+          },
+        ];
+      };
       bricklink_minifig_mappings: {
         Row: {
           bl_item_id: string;
           confidence: number | null;
           created_at: string;
-          image_match_attempted: boolean | null;
-          image_similarity: number | null;
           manual_review: boolean | null;
           manually_approved: boolean | null;
           rb_fig_id: string;
@@ -280,8 +304,6 @@ export type Database = {
           bl_item_id: string;
           confidence?: number | null;
           created_at?: string;
-          image_match_attempted?: boolean | null;
-          image_similarity?: number | null;
           manual_review?: boolean | null;
           manually_approved?: boolean | null;
           rb_fig_id: string;
@@ -294,8 +316,6 @@ export type Database = {
           bl_item_id?: string;
           confidence?: number | null;
           created_at?: string;
-          image_match_attempted?: boolean | null;
-          image_similarity?: number | null;
           manual_review?: boolean | null;
           manually_approved?: boolean | null;
           rb_fig_id?: string;
@@ -690,22 +710,16 @@ export type Database = {
       rb_minifig_images: {
         Row: {
           fig_num: string;
-          image_hash: string | null;
-          image_hash_algorithm: string | null;
           image_url: string;
           last_fetched_at: string;
         };
         Insert: {
           fig_num: string;
-          image_hash?: string | null;
-          image_hash_algorithm?: string | null;
           image_url: string;
           last_fetched_at?: string;
         };
         Update: {
           fig_num?: string;
-          image_hash?: string | null;
-          image_hash_algorithm?: string | null;
           image_url?: string;
           last_fetched_at?: string;
         };
@@ -765,22 +779,16 @@ export type Database = {
       rb_minifigs: {
         Row: {
           fig_num: string;
-          image_hash: string | null;
-          image_hash_algorithm: string | null;
           name: string;
           num_parts: number | null;
         };
         Insert: {
           fig_num: string;
-          image_hash?: string | null;
-          image_hash_algorithm?: string | null;
           name: string;
           num_parts?: number | null;
         };
         Update: {
           fig_num?: string;
-          image_hash?: string | null;
-          image_hash_algorithm?: string | null;
           name?: string;
           num_parts?: number | null;
         };
@@ -1466,6 +1474,19 @@ export type Database = {
         Args: never;
         Returns: {
           set_num: string;
+        }[];
+      };
+      increment_usage_counter: {
+        Args: {
+          p_feature_key: string;
+          p_limit: number;
+          p_user_id: string;
+          p_window_kind: string;
+          p_window_start: string;
+        };
+        Returns: {
+          allowed: boolean;
+          new_count: number;
         }[];
       };
     };
