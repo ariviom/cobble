@@ -377,40 +377,37 @@ export default async function CollectionHandlePage({
   > = {};
 
   if (allMinifigIds.length > 0) {
-    // All minifigs use BrickLink IDs - query directly
-    const { data: blMinifigs } = await supabase
+    // Query bricklink_minifigs catalog first for names (most complete source)
+    const { data: blCatalog } = await supabase
+      .from('bricklink_minifigs')
+      .select('item_id,name')
+      .in('item_id', allMinifigIds);
+
+    for (const fig of blCatalog ?? []) {
+      if (!fig.item_id) continue;
+      minifigMeta[fig.item_id] = {
+        name: fig.name ?? null,
+        num_parts: null,
+        image_url: null,
+        bl_id: fig.item_id,
+      };
+    }
+
+    // Query bl_set_minifigs for images (and supplementary names)
+    const { data: blSetMinifigs } = await supabase
       .from('bl_set_minifigs')
       .select('minifig_no,name,image_url')
       .in('minifig_no', allMinifigIds);
 
-    for (const fig of blMinifigs ?? []) {
+    for (const fig of blSetMinifigs ?? []) {
       if (!fig.minifig_no) continue;
+      const existing = minifigMeta[fig.minifig_no];
       minifigMeta[fig.minifig_no] = {
-        name: fig.name ?? null,
-        num_parts: null,
-        image_url: fig.image_url ?? null,
+        name: existing?.name ?? fig.name ?? null,
+        num_parts: existing?.num_parts ?? null,
+        image_url: fig.image_url ?? existing?.image_url ?? null,
         bl_id: fig.minifig_no,
       };
-    }
-
-    // Fallback to bricklink_minifigs catalog for any missing names
-    const missingNames = allMinifigIds.filter(id => !minifigMeta[id]?.name);
-    if (missingNames.length > 0) {
-      const { data: blCatalog } = await supabase
-        .from('bricklink_minifigs')
-        .select('item_id,name')
-        .in('item_id', missingNames);
-
-      for (const fig of blCatalog ?? []) {
-        if (!fig.item_id) continue;
-        const existing = minifigMeta[fig.item_id];
-        minifigMeta[fig.item_id] = {
-          name: fig.name ?? existing?.name ?? null,
-          num_parts: existing?.num_parts ?? null,
-          image_url: existing?.image_url ?? null,
-          bl_id: fig.item_id,
-        };
-      }
     }
   }
 

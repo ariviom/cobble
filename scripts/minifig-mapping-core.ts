@@ -7,15 +7,6 @@ import {
   ScriptBLMinifigPart,
 } from './bricklink-script-client';
 
-// Dynamically import image hash functions only when needed (avoids WASM issues in Next.js)
-let imageHashModule: typeof import('./lib/imageHash') | null = null;
-async function getImageHashModule() {
-  if (!imageHashModule) {
-    imageHashModule = await import('./lib/imageHash');
-  }
-  return imageHashModule;
-}
-
 export function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -44,7 +35,6 @@ export type BlMinifig = {
   name: string | null;
   quantity: number;
   imageUrl: string | null;
-  imageHash?: string | null;
 };
 
 export type SetMappingResult = {
@@ -127,39 +117,16 @@ export async function processSetForMinifigMapping(
     { onConflict: 'set_num' }
   );
 
-  // Cache BL set minifigs with image hashes.
+  // Cache BL set minifigs.
   if (blMinifigs.length > 0) {
-    // Generate image hashes for BL minifigs with image URLs
-    const blSetRows = await Promise.all(
-      blMinifigs.map(async m => {
-        let imageHash: string | null = null;
-        if (m.imageUrl) {
-          try {
-            const { generateImageHash } = await getImageHashModule();
-            imageHash = await generateImageHash(m.imageUrl);
-          } catch (error) {
-            // Log but continue - hash generation is optional
-            // eslint-disable-next-line no-console
-            console.warn(
-              `${logPrefix} Image hash failed for ${m.minifigNo}:`,
-              error instanceof Error ? error.message : String(error)
-            );
-            imageHash = null;
-          }
-        }
-
-        return {
-          set_num: setNum,
-          minifig_no: m.minifigNo,
-          name: m.name,
-          quantity: m.quantity,
-          image_url: m.imageUrl,
-          image_hash: imageHash,
-          image_hash_algorithm: imageHash ? 'phash' : null,
-          last_refreshed_at: new Date().toISOString(),
-        };
-      })
-    );
+    const blSetRows = blMinifigs.map(m => ({
+      set_num: setNum,
+      minifig_no: m.minifigNo,
+      name: m.name,
+      quantity: m.quantity,
+      image_url: m.imageUrl,
+      last_refreshed_at: new Date().toISOString(),
+    }));
 
     const { error: upsertErr } = await supabase
       .from('bl_set_minifigs')
@@ -172,24 +139,33 @@ export async function processSetForMinifigMapping(
         upsertErr.message
       );
     }
+
+    // Self-heal: populate bricklink_minifigs catalog with names
+    // This ensures minifig names are available for immediate lookup
+    const catalogRows = blMinifigs
+      .filter(m => m.name) // Only insert if we have a name
+      .map(m => ({
+        item_id: m.minifigNo,
+        name: m.name!,
+      }));
+
+    if (catalogRows.length > 0) {
+      const { error: catalogErr } = await supabase
+        .from('bricklink_minifigs')
+        .upsert(catalogRows, { onConflict: 'item_id', ignoreDuplicates: true });
+      if (catalogErr) {
+        // eslint-disable-next-line no-console
+        console.error(
+          `${logPrefix} Failed to upsert bricklink_minifigs for`,
+          setNum,
+          catalogErr.message
+        );
+      }
+    }
   }
 
-  // Fetch BL minifigs with image hashes from database for mapping
-  const { data: blMinifigsWithHashes } = await supabase
-    .from('bl_set_minifigs')
-    .select('minifig_no, name, quantity, image_url, image_hash')
-    .eq('set_num', setNum);
-
-  // Convert to BlMinifig format with hashes
-  const blMinifigsForMapping: (BlMinifig & { imageHash?: string | null })[] = (
-    blMinifigsWithHashes || []
-  ).map(m => ({
-    minifigNo: m.minifig_no,
-    name: m.name,
-    quantity: m.quantity,
-    imageUrl: m.image_url,
-    imageHash: m.image_hash,
-  }));
+  // Use BL minifigs directly for mapping (no need to re-fetch from DB)
+  const blMinifigsForMapping: BlMinifig[] = blMinifigs;
 
   // Map RB minifigs in this set to BL minifigs by normalized name.
   const mappingResult = await createMinifigMappingsForSet(
@@ -243,334 +219,24 @@ type RbCandidate = {
   fig_num: string;
   name: string;
   quantity: number;
-  normName: string;
-  tokens: Set<string>;
-  imageHash?: string | null;
-  imageUrl?: string | null;
 };
 
 type BlCandidate = {
   minifigNo: string;
   name: string;
   quantity: number;
-  normName: string;
-  tokens: Set<string>;
-  imageHash?: string | null;
-  imageUrl?: string | null;
 };
 
-function tokenize(name: string): Set<string> {
-  const norm = normalizeName(name);
-  if (!norm) return new Set();
-  return new Set(norm.split(/\s+/).filter(Boolean));
-}
-
-function jaccardSimilarity(a: Set<string>, b: Set<string>): number {
-  if (!a.size || !b.size) return 0;
-  let intersection = 0;
-  for (const token of a) {
-    if (b.has(token)) intersection += 1;
-  }
-  const union = a.size + b.size - intersection;
-  return union === 0 ? 0 : intersection / union;
-}
-
 /**
- * Find longest common substring between two strings
+ * Create minifig mappings using simplified position-based matching.
+ *
+ * Strategy (simplified from previous 5-stage fuzzy matching):
+ * 1. If RB count == BL count: pair by position (LEGO sets have consistent ordering)
+ * 2. If counts differ: match by quantity first, then position for remaining
+ *
+ * This simpler approach works because LEGO sets have the same minifigs in both
+ * data sources - the complex fuzzy matching was solving for edge cases that rarely matter.
  */
-function longestCommonSubstring(a: string, b: string): string {
-  const m = a.length;
-  const n = b.length;
-  let maxLen = 0;
-  let endIndex = 0;
-
-  // DP table
-  const dp: number[][] = Array(m + 1)
-    .fill(0)
-    .map(() => Array(n + 1).fill(0));
-
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (a[i - 1] === b[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1] + 1;
-        if (dp[i][j] > maxLen) {
-          maxLen = dp[i][j];
-          endIndex = i;
-        }
-      }
-    }
-  }
-
-  return maxLen > 0 ? a.substring(endIndex - maxLen, endIndex) : '';
-}
-
-/**
- * Calculate substring similarity (character-level longest common substring)
- */
-function substringSimilarity(a: string, b: string): number {
-  const aLower = a.toLowerCase();
-  const bLower = b.toLowerCase();
-  const lcs = longestCommonSubstring(aLower, bLower);
-
-  // Require minimum length to avoid spurious matches
-  if (lcs.length < 3) return 0;
-
-  const maxLen = Math.max(a.length, b.length);
-  return maxLen > 0 ? lcs.length / maxLen : 0;
-}
-
-/**
- * Extract key name (primary character/theme identifier)
- * Typically the first significant word before hyphen/comma
- */
-function extractKeyName(name: string): string {
-  // Remove common prefixes and get first significant word
-  const cleaned = name.replace(/^(the|a|an)\s+/i, '').trim();
-
-  // Match first word (letters and numbers, min 3 chars)
-  const match = cleaned.match(/^([A-Za-z0-9]{3,})/);
-  return match ? match[1].toLowerCase() : '';
-}
-
-/**
- * Check if two names have matching key identifiers
- */
-function keyNameMatch(a: string, b: string): number {
-  const keyA = extractKeyName(a);
-  const keyB = extractKeyName(b);
-
-  if (!keyA || !keyB) return 0;
-  return keyA === keyB ? 1.0 : 0.0;
-}
-
-/**
- * Calculate confidence boost based on set size
- * Smaller sets have higher certainty due to fewer possible combinations
- */
-function calculateSetSizeBoost(
-  totalFigs: number,
-  baseSimilarity: number
-): number {
-  if (totalFigs === 1) {
-    // Single fig set - perfect certainty
-    return 1.0 - baseSimilarity; // Boost to 1.0
-  }
-
-  if (totalFigs === 2) {
-    // 2-fig set - very high boost for good matches
-    if (baseSimilarity >= 0.3) return 0.3;
-    if (baseSimilarity >= 0.2) return 0.2;
-    return 0.1;
-  }
-
-  if (totalFigs === 3) {
-    // 3-fig set - moderate boost
-    if (baseSimilarity >= 0.4) return 0.2;
-    if (baseSimilarity >= 0.3) return 0.15;
-    return 0.05;
-  }
-
-  if (totalFigs <= 5) {
-    // Small sets still get some boost
-    return Math.max(0, 0.1 - (totalFigs - 4) * 0.03);
-  }
-
-  // Larger sets get minimal boost
-  return Math.max(0, 0.05 - (totalFigs - 6) * 0.01);
-}
-
-/**
- * Check if a BL fig is the only viable option for an RB fig
- * Returns true if no other BL fig has decent similarity (>0.3)
- */
-function isOnlyViableOption(
-  rb: RbCandidate,
-  targetBl: BlCandidate,
-  availableBl: BlCandidate[],
-  imageSimilarityMap: Map<string, number | null>
-): boolean {
-  const alternatives = availableBl.filter(
-    bl => bl.minifigNo !== targetBl.minifigNo
-  );
-
-  for (const alt of alternatives) {
-    const imageKey = `${rb.fig_num}-${alt.minifigNo}`;
-    const imageSim = imageSimilarityMap.get(imageKey) || null;
-    const { score } = calculateCombinedSimilarity(rb, alt, imageSim);
-
-    if (score > 0.3) {
-      return false; // Has viable alternative
-    }
-  }
-
-  return true; // No viable alternatives
-}
-
-/**
- * Detect duplicate mappings (multiple RB figs mapping to same BL fig)
- * Returns valid mappings and logs conflicts
- */
-function detectDuplicateMappings(
-  mappings: Database['public']['Tables']['bricklink_minifig_mappings']['Insert'][],
-  logPrefix: string
-): {
-  valid: Database['public']['Tables']['bricklink_minifig_mappings']['Insert'][];
-  conflicts: Array<{ rb_fig_ids: string[]; bl_item_id: string; kept: string }>;
-} {
-  const byBlItem = new Map<string, typeof mappings>();
-
-  // Group by BL item ID
-  for (const mapping of mappings) {
-    const existing = byBlItem.get(mapping.bl_item_id) || [];
-    existing.push(mapping);
-    byBlItem.set(mapping.bl_item_id, existing);
-  }
-
-  const valid: typeof mappings = [];
-  const conflicts: Array<{
-    rb_fig_ids: string[];
-    bl_item_id: string;
-    kept: string;
-  }> = [];
-
-  // Resolve conflicts
-  for (const [blItemId, group] of byBlItem) {
-    if (group.length === 1) {
-      valid.push(group[0]!);
-    } else {
-      // Multiple RB figs map to same BL fig - keep highest confidence
-      const sorted = group.sort(
-        (a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)
-      );
-      const winner = sorted[0]!;
-      valid.push(winner);
-
-      conflicts.push({
-        rb_fig_ids: group.map(m => m.rb_fig_id),
-        bl_item_id: blItemId,
-        kept: winner.rb_fig_id,
-      });
-
-      // eslint-disable-next-line no-console
-      console.warn(
-        `${logPrefix} Duplicate mapping detected for BL ${blItemId}:`,
-        `Kept ${winner.rb_fig_id} (${(winner.confidence ?? 0).toFixed(2)}),`,
-        `rejected ${group
-          .slice(1)
-          .map(m => `${m.rb_fig_id} (${(m.confidence ?? 0).toFixed(2)})`)
-          .join(', ')}`
-      );
-    }
-  }
-
-  return { valid, conflicts };
-}
-
-/**
- * Find matches based on unique part counts within the set
- * Returns map of RB fig_num → BL minifig_no for unique matches
- */
-function findUniquePartCountMatches(
-  rbFigs: RbCandidate[],
-  blFigs: BlCandidate[]
-): Map<string, { blMinifigNo: string; verified: boolean }> {
-  const matches = new Map<string, { blMinifigNo: string; verified: boolean }>();
-
-  // Count occurrences of each part count
-  const rbPartCounts = new Map<number, string[]>();
-  const blPartCounts = new Map<number, string[]>();
-
-  for (const rb of rbFigs) {
-    const list = rbPartCounts.get(rb.quantity) || [];
-    list.push(rb.fig_num);
-    rbPartCounts.set(rb.quantity, list);
-  }
-
-  for (const bl of blFigs) {
-    const list = blPartCounts.get(bl.quantity) || [];
-    list.push(bl.minifigNo);
-    blPartCounts.set(bl.quantity, list);
-  }
-
-  // Match figs where part count appears exactly once in both RB and BL
-  for (const [partCount, rbFigIds] of rbPartCounts) {
-    if (rbFigIds.length === 1 && blPartCounts.has(partCount)) {
-      const blFigIds = blPartCounts.get(partCount)!;
-      if (blFigIds.length === 1) {
-        const rbFig = rbFigs.find(f => f.fig_num === rbFigIds[0])!;
-        const blFig = blFigs.find(f => f.minifigNo === blFigIds[0])!;
-
-        // Verify with name similarity to avoid false positives
-        const nameSim = jaccardSimilarity(rbFig.tokens, blFig.tokens);
-        const substringSim = substringSimilarity(rbFig.name, blFig.name);
-        const keyNameSim = keyNameMatch(rbFig.name, blFig.name);
-        const combinedNameSim = Math.max(nameSim, substringSim, keyNameSim);
-
-        // Require at least some name similarity (0.2) to confirm match
-        const verified = combinedNameSim >= 0.2;
-
-        matches.set(rbFigIds[0], {
-          blMinifigNo: blFigIds[0],
-          verified,
-        });
-      }
-    }
-  }
-
-  return matches;
-}
-
-/**
- * Calculate combined similarity score using multiple dimensions
- * Weights optimized for character name matching and substring similarity
- */
-function calculateCombinedSimilarity(
-  rb: RbCandidate,
-  bl: BlCandidate,
-  imageSimilarity: number | null = null
-): { score: number; imageSimilarity: number | null } {
-  // Token-based similarity (Jaccard)
-  const jaccardSim = jaccardSimilarity(rb.tokens, bl.tokens);
-
-  // Character-level substring similarity
-  const substringSim = substringSimilarity(rb.name, bl.name);
-
-  // Key name match (character identifier)
-  const keyNameSim = keyNameMatch(rb.name, bl.name);
-
-  // Part count similarity (normalized, closer counts = higher score)
-  const rbPartCount = rb.quantity;
-  const blPartCount = bl.quantity;
-  const maxCount = Math.max(rbPartCount, blPartCount);
-  const partCountSim =
-    maxCount > 0 ? 1 - Math.abs(rbPartCount - blPartCount) / maxCount : 0;
-
-  // Calculate weighted score with updated weights:
-  // - Substring: 0.35 (highest - character names are most reliable)
-  // - Key name: 0.20 (precise character identifier)
-  // - Jaccard: 0.20 (token-based matching)
-  // - Image: 0.20 (visual similarity when available)
-  // - Part count: 0.05 (low weight - unique counts handled separately)
-  let score: number;
-  if (imageSimilarity !== null && imageSimilarity >= 0) {
-    score =
-      jaccardSim * 0.2 +
-      substringSim * 0.35 +
-      keyNameSim * 0.2 +
-      partCountSim * 0.05 +
-      imageSimilarity * 0.2;
-  } else {
-    // Without image: redistribute weight proportionally
-    score =
-      jaccardSim * 0.25 +
-      substringSim * 0.44 +
-      keyNameSim * 0.25 +
-      partCountSim * 0.06;
-  }
-
-  return { score, imageSimilarity };
-}
-
 async function createMinifigMappingsForSet(
   supabase: SupabaseClient<Database>,
   setNum: string,
@@ -603,13 +269,6 @@ async function createMinifigMappingsForSet(
     return { count: 0, pairs: [] };
   }
 
-  if (inventories && inventories.length > 1) {
-    // eslint-disable-next-line no-console
-    console.log(
-      `${logPrefix} Set ${setNum} has ${inventories.length} inventory versions (using union of all)`
-    );
-  }
-
   // Load RB inventory minifigs.
   const { data: invMinifigs, error: invFigErr } = await supabase
     .from('rb_inventory_minifigs')
@@ -630,7 +289,7 @@ async function createMinifigMappingsForSet(
     return { count: 0, pairs: [] };
   }
 
-  // Aggregate quantities by fig_num.
+  // Aggregate quantities by fig_num (deduplicate across inventory versions)
   const figQuantityMap = new Map<string, number>();
   for (const row of invMinifigs) {
     const current = figQuantityMap.get(row.fig_num) ?? 0;
@@ -639,352 +298,126 @@ async function createMinifigMappingsForSet(
 
   const figNums = Array.from(figQuantityMap.keys());
 
-  // Load RB minifig names and image hashes.
-  const { data: figs, error: figsErr } = await supabase
+  // Load RB minifig names for logging
+  const { data: figs } = await supabase
     .from('rb_minifigs')
     .select('fig_num,name')
     .in('fig_num', figNums);
 
-  if (figsErr) {
-    // eslint-disable-next-line no-console
-    console.error(
-      `${logPrefix} Failed to load rb_minifigs for set`,
-      setNum,
-      figsErr.message
-    );
-    return { count: 0, pairs: [] };
-  }
-
-  // Load RB minifig image hashes
-  const { data: rbImages } = await supabase
-    .from('rb_minifig_images')
-    .select('fig_num,image_url,image_hash')
-    .in('fig_num', figNums);
-
   const nameByFig = new Map<string, string>();
-  const imageDataByFig = new Map<
-    string,
-    { url: string | null; hash: string | null }
-  >();
-
   for (const row of figs ?? []) {
     nameByFig.set(row.fig_num, row.name);
   }
 
-  for (const img of rbImages ?? []) {
-    imageDataByFig.set(img.fig_num, {
-      url: img.image_url,
-      hash: img.image_hash,
-    });
-  }
+  // Build RB and BL candidate lists
+  const rbCandidates: RbCandidate[] = figNums.map(figNum => ({
+    fig_num: figNum,
+    name: nameByFig.get(figNum) ?? figNum,
+    quantity: figQuantityMap.get(figNum) ?? 1,
+  }));
 
-  const rbCandidates: RbCandidate[] = figNums.map(figNum => {
-    const name = nameByFig.get(figNum) ?? figNum;
-    const normName = normalizeName(name);
-    const imageData = imageDataByFig.get(figNum);
-    return {
-      fig_num: figNum,
-      name,
-      quantity: figQuantityMap.get(figNum) ?? 0,
-      normName,
-      tokens: tokenize(name),
-      imageUrl: imageData?.url ?? null,
-      imageHash: imageData?.hash ?? null,
-    };
-  });
+  const blCandidates: BlCandidate[] = blMinifigs.map(bl => ({
+    minifigNo: bl.minifigNo,
+    name: bl.name ?? bl.minifigNo,
+    quantity: bl.quantity,
+  }));
 
   if (rbCandidates.length === 0) {
     return { count: 0, pairs: [] };
   }
 
-  const blCandidates: BlCandidate[] = blMinifigs.map(bl => {
-    const normName = normalizeName(bl.name);
-    return {
-      minifigNo: bl.minifigNo,
-      name: bl.name ?? bl.minifigNo,
-      quantity: bl.quantity,
-      normName,
-      tokens: tokenize(bl.name ?? bl.minifigNo),
-      imageHash: bl.imageHash ?? null,
-      imageUrl: bl.imageUrl ?? null,
-    };
-  });
-
-  // Build normalized name lookup for BL minifigs.
-  const normBlByName = new Map<string, BlCandidate[]>();
-  for (const bl of blCandidates) {
-    const key = bl.normName;
-    if (!key) continue;
-    const list = normBlByName.get(key) ?? [];
-    list.push(bl);
-    normBlByName.set(key, list);
-  }
-
-  const unmatchedRb = new Map<string, RbCandidate>();
-  for (const rb of rbCandidates) {
-    unmatchedRb.set(rb.fig_num, rb);
-  }
-  const matchedBl = new Set<string>();
-
-  // Create mappings where normalized names match uniquely.
+  // Simple position-based mapping
+  const pairedIds: { rbFigId: string; blItemId: string }[] = [];
   const mappingRows: Database['public']['Tables']['bricklink_minifig_mappings']['Insert'][] =
     [];
-  const pairedIds: { rbFigId: string; blItemId: string }[] = [];
 
-  function recordMatch(
-    rb: RbCandidate,
-    bl: BlCandidate,
-    confidence: number,
-    source: string,
-    imageSimilarity: number | null = null
-  ) {
-    mappingRows.push({
-      rb_fig_id: rb.fig_num,
-      bl_item_id: bl.minifigNo,
-      confidence,
-      source,
-      image_similarity: imageSimilarity,
-      image_match_attempted: rb.imageHash && bl.imageHash ? true : false,
-    });
-    pairedIds.push({ rbFigId: rb.fig_num, blItemId: bl.minifigNo });
-    unmatchedRb.delete(rb.fig_num);
-    matchedBl.add(bl.minifigNo);
-  }
-
-  for (const rb of rbCandidates) {
-    if (!rb.normName) continue;
-    const candidates =
-      normBlByName
-        .get(rb.normName)
-        ?.filter(bl => !matchedBl.has(bl.minifigNo)) ?? [];
-    if (candidates.length === 1) {
-      recordMatch(rb, candidates[0]!, 1, 'set:name-normalized');
+  if (rbCandidates.length === blCandidates.length) {
+    // Same count: pair by position (LEGO sets have consistent ordering)
+    for (let i = 0; i < rbCandidates.length; i++) {
+      const rb = rbCandidates[i]!;
+      const bl = blCandidates[i]!;
+      pairedIds.push({ rbFigId: rb.fig_num, blItemId: bl.minifigNo });
+      mappingRows.push({
+        rb_fig_id: rb.fig_num,
+        bl_item_id: bl.minifigNo,
+        confidence: 1.0,
+        source: 'set:position-match',
+      });
     }
-  }
+  } else {
+    // Different counts: match by quantity first, then by position for remaining
+    const matchedRb = new Set<string>();
+    const matchedBl = new Set<string>();
 
-  // Unique part count matching (high confidence for unique counts within set)
-  const uniquePartMatches = findUniquePartCountMatches(
-    Array.from(unmatchedRb.values()),
-    blCandidates.filter(bl => !matchedBl.has(bl.minifigNo))
-  );
+    // Group by quantity for matching
+    const rbByQty = new Map<number, RbCandidate[]>();
+    const blByQty = new Map<number, BlCandidate[]>();
 
-  for (const [rbFigId, match] of uniquePartMatches) {
-    const rb = unmatchedRb.get(rbFigId);
-    const bl = blCandidates.find(b => b.minifigNo === match.blMinifigNo);
-
-    if (rb && bl && match.verified) {
-      // High confidence for verified unique part count matches
-      recordMatch(rb, bl, 0.95, 'set:unique-part-count');
+    for (const rb of rbCandidates) {
+      const list = rbByQty.get(rb.quantity) ?? [];
+      list.push(rb);
+      rbByQty.set(rb.quantity, list);
     }
-  }
 
-  // Similarity-based matching for remaining figs (using combined name + image similarity).
-  const SIM_THRESHOLD = 0.25;
-  const SECOND_GAP = 0.1;
-  for (const rb of Array.from(unmatchedRb.values())) {
-    let best: {
-      bl: BlCandidate;
-      score: number;
-      imageSimilarity: number | null;
-    } | null = null;
-    let second = 0;
     for (const bl of blCandidates) {
-      if (matchedBl.has(bl.minifigNo)) continue;
+      const list = blByQty.get(bl.quantity) ?? [];
+      list.push(bl);
+      blByQty.set(bl.quantity, list);
+    }
 
-      // Calculate image similarity if both hashes are available
-      let imageSimilarity: number | null = null;
-      if (rb.imageHash && bl.imageHash) {
-        try {
-          const { calculateImageSimilarity } = await getImageHashModule();
-          imageSimilarity = calculateImageSimilarity(
-            rb.imageHash,
-            bl.imageHash
-          );
-        } catch (error) {
-          // Hash calculation failed, skip image similarity
-          imageSimilarity = null;
-        }
-      }
-
-      // Get combined similarity score
-      const { score } = calculateCombinedSimilarity(rb, bl, imageSimilarity);
-
-      if (score > (best?.score ?? 0)) {
-        second = best?.score ?? 0;
-        best = { bl, score, imageSimilarity };
-      } else if (score > second) {
-        second = score;
+    // Match by unique quantities first
+    for (const [qty, rbList] of rbByQty) {
+      const blList = blByQty.get(qty) ?? [];
+      if (rbList.length === 1 && blList.length === 1) {
+        const rb = rbList[0]!;
+        const bl = blList[0]!;
+        pairedIds.push({ rbFigId: rb.fig_num, blItemId: bl.minifigNo });
+        mappingRows.push({
+          rb_fig_id: rb.fig_num,
+          bl_item_id: bl.minifigNo,
+          confidence: 0.95,
+          source: 'set:quantity-match',
+        });
+        matchedRb.add(rb.fig_num);
+        matchedBl.add(bl.minifigNo);
       }
     }
-    if (
-      best &&
-      best.score >= SIM_THRESHOLD &&
-      best.score - second >= SECOND_GAP
-    ) {
-      // Apply set size confidence boost
-      const totalFigs = rbCandidates.length;
-      const boost = calculateSetSizeBoost(totalFigs, best.score);
-      const finalConfidence = Math.min(1.0, best.score + boost);
 
-      recordMatch(
-        rb,
-        best.bl,
-        finalConfidence,
-        'set:combined-similarity',
-        best.imageSimilarity
+    // Remaining: pair by position
+    const remainingRb = rbCandidates.filter(rb => !matchedRb.has(rb.fig_num));
+    const remainingBl = blCandidates.filter(bl => !matchedBl.has(bl.minifigNo));
+
+    const minLen = Math.min(remainingRb.length, remainingBl.length);
+    for (let i = 0; i < minLen; i++) {
+      const rb = remainingRb[i]!;
+      const bl = remainingBl[i]!;
+      pairedIds.push({ rbFigId: rb.fig_num, blItemId: bl.minifigNo });
+      mappingRows.push({
+        rb_fig_id: rb.fig_num,
+        bl_item_id: bl.minifigNo,
+        confidence: 0.8,
+        source: 'set:position-fallback',
+      });
+    }
+
+    // Log if we have unmatched figs (data mismatch between RB and BL)
+    if (remainingRb.length !== remainingBl.length) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `${logPrefix} Count mismatch for set ${setNum}: RB=${rbCandidates.length}, BL=${blCandidates.length}`
       );
     }
-  }
-
-  // Greedy best-match fallback: if equal counts remain, pair by best available similarity.
-  // This handles cases where RB/BL naming conventions diverge significantly.
-  let remainingRb = Array.from(unmatchedRb.values());
-  let remainingBl = blCandidates.filter(bl => !matchedBl.has(bl.minifigNo));
-
-  if (remainingRb.length > 0 && remainingRb.length === remainingBl.length) {
-    // Sort RB by name length (shorter = more generic, match last)
-    const sortedRb = [...remainingRb].sort(
-      (a, b) => b.name.length - a.name.length
-    );
-    for (const rb of sortedRb) {
-      if (!unmatchedRb.has(rb.fig_num)) continue;
-      const available = blCandidates.filter(bl => !matchedBl.has(bl.minifigNo));
-      if (available.length === 0) break;
-
-      let best: {
-        bl: BlCandidate;
-        score: number;
-        imageSimilarity: number | null;
-      } | null = null;
-      for (const bl of available) {
-        // Calculate image similarity if both hashes are available
-        let imageSimilarity: number | null = null;
-        if (rb.imageHash && bl.imageHash) {
-          try {
-            const { calculateImageSimilarity } = await getImageHashModule();
-            imageSimilarity = calculateImageSimilarity(
-              rb.imageHash,
-              bl.imageHash
-            );
-          } catch (error) {
-            imageSimilarity = null;
-          }
-        }
-
-        const { score } = calculateCombinedSimilarity(rb, bl, imageSimilarity);
-        if (!best || score > best.score) {
-          best = { bl, score, imageSimilarity };
-        }
-      }
-      if (best) {
-        // Apply set size boost to greedy fallback matches
-        const totalFigs = rbCandidates.length;
-        const boost = calculateSetSizeBoost(totalFigs, best.score);
-        const finalConfidence = Math.min(1.0, best.score + boost);
-
-        recordMatch(
-          rb,
-          best.bl,
-          finalConfidence,
-          'set:greedy-fallback',
-          best.imageSimilarity
-        );
-      }
-    }
-  }
-
-  // Stage 4.5: Process of Elimination
-  // If most figs are high-confidence and only 1-2 low-confidence remain, boost them
-  remainingRb = Array.from(unmatchedRb.values());
-  remainingBl = blCandidates.filter(bl => !matchedBl.has(bl.minifigNo));
-
-  const totalFigsInSet = rbCandidates.length;
-  const highConfMatches = mappingRows.filter(
-    m => (m.confidence ?? 0) >= 0.7
-  ).length;
-  const highConfRatio = highConfMatches / totalFigsInSet;
-
-  if (
-    highConfRatio >= 0.75 && // Most figs solved (75%+)
-    remainingRb.length >= 1 &&
-    remainingRb.length <= 2 && // 1-2 low-conf remain
-    remainingRb.length === remainingBl.length && // Equal counts
-    rbCandidates.length === blCandidates.length // Complete set (no mismatches)
-  ) {
-    // Build image similarity cache for checking alternatives
-    const imageSimilarityCache = new Map<string, number | null>();
-
-    for (const rb of remainingRb) {
-      let best: {
-        bl: BlCandidate;
-        score: number;
-        imageSimilarity: number | null;
-      } | null = null;
-
-      for (const bl of remainingBl) {
-        // Calculate image similarity if available
-        let imageSimilarity: number | null = null;
-        if (rb.imageHash && bl.imageHash) {
-          try {
-            const { calculateImageSimilarity } = await getImageHashModule();
-            imageSimilarity = calculateImageSimilarity(
-              rb.imageHash,
-              bl.imageHash
-            );
-          } catch {
-            imageSimilarity = null;
-          }
-        }
-
-        const imageKey = `${rb.fig_num}-${bl.minifigNo}`;
-        imageSimilarityCache.set(imageKey, imageSimilarity);
-
-        const { score } = calculateCombinedSimilarity(rb, bl, imageSimilarity);
-
-        if (score > (best?.score ?? 0)) {
-          best = { bl, score, imageSimilarity };
-        }
-      }
-
-      if (
-        best &&
-        isOnlyViableOption(rb, best.bl, remainingBl, imageSimilarityCache)
-      ) {
-        recordMatch(rb, best.bl, 0.9, 'set:elimination', best.imageSimilarity);
-      }
-    }
-  }
-
-  // Stage 5: Final fallback - if exactly one RB and one BL remain, pair them.
-  remainingRb = Array.from(unmatchedRb.values());
-  remainingBl = blCandidates.filter(bl => !matchedBl.has(bl.minifigNo));
-  if (remainingRb.length === 1 && remainingBl.length === 1) {
-    // Single remaining fig gets perfect confidence (only option)
-    recordMatch(remainingRb[0]!, remainingBl[0]!, 1.0, 'set:single-fig');
   }
 
   if (mappingRows.length === 0) {
     return { count: 0, pairs: [] };
   }
 
-  // Duplicate Prevention: Ensure no two RB figs map to same BL fig
-  const { valid: validMappings, conflicts } = detectDuplicateMappings(
-    mappingRows,
-    logPrefix
-  );
-
-  if (conflicts.length > 0) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `${logPrefix} Resolved ${conflicts.length} duplicate mapping(s) for set ${setNum}`
-    );
-  }
-
-  // Check for existing manually approved mappings - we should NOT overwrite these
-  const rbFigIds = validMappings.map(m => m.rb_fig_id);
+  // Check for existing manually approved mappings - preserve them
+  const rbFigIds = mappingRows.map(m => m.rb_fig_id);
   const { data: existingMappings } = await supabase
     .from('bricklink_minifig_mappings')
-    .select('rb_fig_id, bl_item_id, confidence, source, manually_approved')
+    .select('rb_fig_id, manually_approved')
     .in('rb_fig_id', rbFigIds);
 
   const manuallyApproved = new Set(
@@ -993,24 +426,12 @@ async function createMinifigMappingsForSet(
       .map(m => m.rb_fig_id)
   );
 
-  // Filter out manually approved mappings from the update
-  const mappingsToUpsert = validMappings.filter(
+  const mappingsToUpsert = mappingRows.filter(
     m => !manuallyApproved.has(m.rb_fig_id)
   );
 
-  if (manuallyApproved.size > 0) {
-    // eslint-disable-next-line no-console
-    console.log(
-      `${logPrefix} Preserving ${manuallyApproved.size} manually approved mapping(s) for set ${setNum}`
-    );
-  }
-
   if (mappingsToUpsert.length === 0) {
-    // eslint-disable-next-line no-console
-    console.log(
-      `${logPrefix} All mappings for set ${setNum} are manually approved - no updates needed`
-    );
-    return { count: validMappings.length, pairs: pairedIds };
+    return { count: mappingRows.length, pairs: pairedIds };
   }
 
   const { error: mapErr } = await supabase
@@ -1027,24 +448,12 @@ async function createMinifigMappingsForSet(
     return { count: 0, pairs: [] };
   }
 
-  // Log mapping quality for observability.
-  const confidences = mappingsToUpsert.map(row => row.confidence ?? 0);
-  const total = confidences.length;
-  const avgConfidence =
-    confidences.reduce((sum, v) => sum + v, 0) / (total || 1);
-  const minConfidence = confidences.length ? Math.min(...confidences) : null;
-  const lowConfidenceCount = confidences.filter(v => v < 0.5).length;
   // eslint-disable-next-line no-console
-  console.log(`${logPrefix} Mapping stats for set ${setNum}`, {
-    total: validMappings.length,
-    updated: mappingsToUpsert.length,
-    preserved: manuallyApproved.size,
-    lowConfidenceCount,
-    minConfidence,
-    avgConfidence: Number.isFinite(avgConfidence) ? avgConfidence : null,
-  });
+  console.log(
+    `${logPrefix} Mapped ${mappingRows.length} figs for set ${setNum} (position-based)`
+  );
 
-  return { count: validMappings.length, pairs: pairedIds };
+  return { count: mappingRows.length, pairs: pairedIds };
 }
 
 // =============================================================================
