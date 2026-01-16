@@ -53,7 +53,7 @@ export function PublicSetCard({
     setHasTriedRefresh(true);
     try {
       const res = await fetch(
-        `/api/sets/id/${encodeURIComponent(setNumber)}/refresh-image`,
+        `/api/sets/${encodeURIComponent(setNumber)}/refresh-image`,
         {
           method: 'POST',
           headers: {
@@ -102,7 +102,7 @@ export function PublicSetCard({
       )}
     >
       <Link
-        href={`/sets/id/${encodeURIComponent(setNumber)}`}
+        href={`/sets/${encodeURIComponent(setNumber)}`}
         className="block w-full"
       >
         <div className="w-full">

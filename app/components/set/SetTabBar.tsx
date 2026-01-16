@@ -172,7 +172,7 @@ export function SetTabBar({
                   {recentSets.map(entry => (
                     <li key={entry.setNumber}>
                       <Link
-                        href={`/sets/id/${entry.setNumber}`}
+                        href={`/sets/${entry.setNumber}`}
                         prefetch={true}
                         onClick={() => handleOpenRecentSet(entry)}
                         className={cn(

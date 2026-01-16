@@ -92,6 +92,22 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      // Legacy /sets/id/[setNumber] URLs redirect to /sets/[setNumber]
+      {
+        source: '/sets/id/:setNumber*',
+        destination: '/sets/:setNumber*',
+        permanent: true,
+      },
+      // Legacy /api/sets/id/[setNumber] URLs redirect to /api/sets/[setNumber]
+      {
+        source: '/api/sets/id/:path*',
+        destination: '/api/sets/:path*',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

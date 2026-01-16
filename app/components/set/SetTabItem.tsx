@@ -44,7 +44,7 @@ export function SetTabItem({ tab, isActive, hasSearchParty }: SetTabItemProps) {
               );
               const nextTab = remainingTabs[nextIndex];
               if (nextTab) {
-                router.push(`/sets/id/${nextTab.setNumber}`);
+                router.push(`/sets/${nextTab.setNumber}`);
               }
             } else {
               // No tabs left, go home
@@ -65,7 +65,7 @@ export function SetTabItem({ tab, isActive, hasSearchParty }: SetTabItemProps) {
   const displayName =
     tab.name.length > 24 ? `${tab.name.slice(0, 22)}...` : tab.name;
 
-  const tabUrl = `/sets/id/${tab.setNumber}`;
+  const tabUrl = `/sets/${tab.setNumber}`;
 
   return (
     <Link
@@ -74,7 +74,7 @@ export function SetTabItem({ tab, isActive, hasSearchParty }: SetTabItemProps) {
       role="tab"
       aria-selected={isActive}
       aria-label={`${tab.setNumber}: ${tab.name}`}
-      onClick={isActive ? e => e.preventDefault() : undefined}
+      {...(isActive ? { onClick: e => e.preventDefault() } : {})}
       className={cn(
         'group relative flex h-8 flex-shrink-0 items-center gap-2 rounded-md border-2 px-2 pr-7 transition-all',
         isActive

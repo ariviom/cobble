@@ -9,12 +9,10 @@ import { NextResponse } from 'next/server';
 export const POST = withCsrfProtection(async (req: NextRequest) => {
   const url = new URL(req.url);
   const segments = url.pathname.split('/').filter(Boolean);
-  // Expecting path: /api/sets/id/[setNumber]/refresh-image
-  const idIndex = segments.indexOf('id');
+  // Expecting path: /api/sets/[setNumber]/refresh-image
+  // segments: ['api', 'sets', setNumber, 'refresh-image']
   const rawSetNumber =
-    idIndex !== -1 && segments.length > idIndex + 1
-      ? decodeURIComponent(segments[idIndex + 1] ?? '')
-      : '';
+    segments.length >= 3 ? decodeURIComponent(segments[2] ?? '') : '';
   const trimmed = rawSetNumber.trim();
 
   if (!trimmed) {

@@ -165,7 +165,7 @@ export function SetTopBar({
     setHasTriedRefresh(true);
     try {
       const res = await fetch(
-        `/api/sets/id/${encodeURIComponent(setNumber)}/refresh-image`,
+        `/api/sets/${encodeURIComponent(setNumber)}/refresh-image`,
         {
           method: 'POST',
           headers: {
