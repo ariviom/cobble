@@ -9,7 +9,6 @@ import { Spinner } from '@/app/components/ui/Spinner';
 import { Toast } from '@/app/components/ui/Toast';
 import { useCallback, useMemo, useRef } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
-import { InventoryControls } from './InventoryControls';
 import { useInventoryContext } from './InventoryProvider';
 import { InventoryItem } from './items/InventoryItem';
 import { SearchPartyBanner } from './SearchPartyBanner';
@@ -166,8 +165,6 @@ export function Inventory() {
 
   return (
     <div className="flex h-full flex-col">
-      <InventoryControls />
-
       {/* Search Party Experimental Banner */}
       {isInGroupSession && <SearchPartyBanner />}
 

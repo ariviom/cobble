@@ -92,16 +92,15 @@ export function SetTabBar({
     <div
       data-testid="set-tab-bar"
       className={cn(
-        'fixed right-0 left-0 z-[999] flex w-full items-center',
-        'top-0',
+        'flex w-full items-center',
         'border-b-2 border-subtle bg-card shadow-sm',
-        'lg:top-[var(--spacing-nav-height)]'
+        'lg:col-span-full'
       )}
     >
       <nav
         className={cn(
           'flex h-10 w-full items-center gap-1 overflow-x-auto px-2 no-scrollbar',
-          'lg:px-3 lg:pl-[calc(20rem+0.75rem)]'
+          'lg:px-3 lg:pl-80'
         )}
         aria-label="Open sets"
       >

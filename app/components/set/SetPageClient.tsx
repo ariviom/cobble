@@ -3,6 +3,7 @@
 import { SetTopBar } from '@/app/components/nav/SetTopBar';
 import { SetTabBar } from '@/app/components/set/SetTabBar';
 import { Inventory } from '@/app/components/set/Inventory';
+import { InventoryControls } from '@/app/components/set/InventoryControls';
 import { InventoryProvider } from '@/app/components/set/InventoryProvider';
 import type { InventoryRow } from '@/app/components/set/types';
 import { Toast } from '@/app/components/ui/Toast';
@@ -341,73 +342,78 @@ export function SetPageClient({
   const showTabBar = tabs.length > 0;
 
   return (
-    <div
-      className={cn(
-        'flex min-h-[100dvh] flex-col',
-        'lg:set-grid-layout lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:min-h-0 lg:pl-80 lg:set-grid-animated',
-        'lg:set-grid-top-collapsed'
-      )}
-      data-has-tabs={showTabBar ? 'true' : 'false'}
+    <InventoryProvider
+      setNumber={setNumber}
+      setName={setName}
+      initialInventory={initialInventory ?? null}
+      enableCloudSync
+      groupSessionId={groupSession?.id ?? null}
+      groupParticipantId={currentParticipant?.id ?? null}
+      groupClientId={clientId}
+      onParticipantPiecesDelta={handleParticipantPiecesDelta}
     >
-      {/* Header container: SetTopBar + SetTabBar share the first grid row on desktop */}
-      <div className="contents lg:flex lg:flex-col">
-        <SetTopBar
-          setNumber={setNumber}
-          setName={setName}
-          imageUrl={imageUrl}
-          year={year}
-          numParts={numParts}
-          themeId={themeId ?? null}
-          {...(clientId
-            ? {
-                searchParty: {
-                  active: !!groupSession,
-                  loading: isSearchTogetherLoading,
-                  canHost: !!user,
-                  joinUrl,
-                  participants,
-                  totalPiecesFound,
-                  currentParticipantId: currentParticipant?.id ?? null,
-                  onStart: handleStartSearchTogether,
-                  onEnd: handleEndSearchTogether,
-                },
-              }
-            : {})}
-        />
-        {showTabBar && (
-          <SetTabBar
-            tabs={tabs}
-            activeSetNumber={setNumber}
-            groupSessionSetNumber={groupSession?.setNumber ?? null}
+      <div
+        className={cn(
+          'set-grid-layout min-h-[100dvh]',
+          'lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:overflow-hidden'
+        )}
+        data-has-tabs={showTabBar ? 'true' : 'false'}
+      >
+        {/* Mobile: sticky header | Desktop: lg:contents dissolves wrapper */}
+        <header className="sticky top-0 z-60 col-span-full bg-card lg:contents">
+          {showTabBar && (
+            <SetTabBar
+              tabs={tabs}
+              activeSetNumber={setNumber}
+              groupSessionSetNumber={groupSession?.setNumber ?? null}
+            />
+          )}
+          <SetTopBar
+            setNumber={setNumber}
+            setName={setName}
+            imageUrl={imageUrl}
+            year={year}
+            numParts={numParts}
+            themeId={themeId ?? null}
+            {...(clientId
+              ? {
+                  searchParty: {
+                    active: !!groupSession,
+                    loading: isSearchTogetherLoading,
+                    canHost: !!user,
+                    joinUrl,
+                    participants,
+                    totalPiecesFound,
+                    currentParticipantId: currentParticipant?.id ?? null,
+                    onStart: handleStartSearchTogether,
+                    onEnd: handleEndSearchTogether,
+                  },
+                }
+              : {})}
+          />
+          <InventoryControls />
+        </header>
+
+        {/* Content - scrolls on desktop */}
+        <main className="lg:col-start-2 lg:overflow-auto">
+          <Inventory />
+        </main>
+
+        {searchPartyError && (
+          <Toast
+            variant="error"
+            description={searchPartyError}
+            onClose={() => setSearchPartyError(null)}
+          />
+        )}
+        {tabLimitError && (
+          <Toast
+            variant="warning"
+            description={tabLimitError}
+            onClose={() => setTabLimitError(null)}
           />
         )}
       </div>
-      <InventoryProvider
-        setNumber={setNumber}
-        setName={setName}
-        initialInventory={initialInventory ?? null}
-        enableCloudSync
-        groupSessionId={groupSession?.id ?? null}
-        groupParticipantId={currentParticipant?.id ?? null}
-        groupClientId={clientId}
-        onParticipantPiecesDelta={handleParticipantPiecesDelta}
-      >
-        <Inventory />
-      </InventoryProvider>
-      {searchPartyError && (
-        <Toast
-          variant="error"
-          description={searchPartyError}
-          onClose={() => setSearchPartyError(null)}
-        />
-      )}
-      {tabLimitError && (
-        <Toast
-          variant="warning"
-          description={tabLimitError}
-          onClose={() => setTabLimitError(null)}
-        />
-      )}
-    </div>
+    </InventoryProvider>
   );
 }

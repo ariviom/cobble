@@ -2,6 +2,7 @@
 
 import { SetTopBar } from '@/app/components/nav/SetTopBar';
 import { Inventory } from '@/app/components/set/Inventory';
+import { InventoryControls } from '@/app/components/set/InventoryControls';
 import { InventoryProvider } from '@/app/components/set/InventoryProvider';
 import { cn } from '@/app/components/ui/utils';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
@@ -234,78 +235,114 @@ export function GroupSessionPageClient({
     };
   }, [sessionId, supabase]);
 
-  return (
+  // Wrap in InventoryProvider when joined so controls work
+  const content = hasJoined ? (
+    <InventoryProvider
+      setNumber={setNumber}
+      setName={setName}
+      enableCloudSync={false}
+      groupSessionId={sessionId}
+      groupParticipantId={currentParticipant?.id ?? null}
+      groupClientId={clientId}
+      onParticipantPiecesDelta={handleParticipantPiecesDelta}
+    >
+      <div
+        className={cn(
+          'set-grid-layout min-h-[100dvh]',
+          'lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:overflow-hidden'
+        )}
+      >
+        {/* Mobile: sticky header | Desktop: lg:contents dissolves wrapper */}
+        <header className="sticky top-0 z-60 col-span-full bg-card lg:contents">
+          <SetTopBar
+            setNumber={setNumber}
+            setName={setName}
+            imageUrl={imageUrl}
+            year={year}
+            numParts={numParts}
+            themeId={themeId ?? null}
+            searchParty={{
+              active: hasJoined,
+              loading: isJoining,
+              canHost: false,
+              joinUrl,
+              participants,
+              totalPiecesFound,
+              onStart: () => {},
+              onEnd: () => {},
+            }}
+          />
+          <InventoryControls />
+        </header>
+
+        {/* Content - scrolls on desktop */}
+        <main className="lg:col-start-2 lg:overflow-auto">
+          <Inventory />
+        </main>
+      </div>
+    </InventoryProvider>
+  ) : (
     <div
       className={cn(
-        'flex min-h-[100dvh] flex-col',
-        'lg:set-grid-layout lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:min-h-0 lg:pl-80 lg:set-grid-animated',
-        'lg:set-grid-top-collapsed'
+        'set-grid-layout min-h-[100dvh]',
+        'lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:overflow-hidden'
       )}
     >
-      <SetTopBar
-        setNumber={setNumber}
-        setName={setName}
-        imageUrl={imageUrl}
-        year={year}
-        numParts={numParts}
-        themeId={themeId ?? null}
-        // Participants joining via link are not hosts; they see read-only
-        // Search Party stats in the top bar.
-        searchParty={{
-          active: hasJoined,
-          loading: isJoining,
-          canHost: false,
-          joinUrl,
-          participants,
-          totalPiecesFound,
-          onStart: () => {},
-          onEnd: () => {},
-        }}
-      />
-      {!hasJoined ? (
-        <div className="flex flex-1 items-center justify-center px-4 py-8">
-          <div className="w-full max-w-sm rounded-md border-2 border-subtle bg-card p-4 text-xs">
-            <h1 className="text-sm font-semibold text-foreground">
-              Join this Search Party session
-            </h1>
-            <p className="mt-2 text-foreground-muted">
-              Enter a name so others can see who&apos;s helping search this set.
-              We&apos;ll remember it on this device so you stay recognized if
-              you disconnect and rejoin.
-            </p>
-            <label className="mt-4 block text-[11px] font-medium text-foreground">
-              Name
-            </label>
-            <input
-              type="text"
-              value={displayNameInput}
-              onChange={event => setDisplayNameInput(event.target.value)}
-              className="mt-1 w-full rounded-md border-2 border-subtle bg-background px-2 py-1 text-xs"
-              placeholder="e.g., Alice, Living room, iPad"
-            />
-            <button
-              type="button"
-              className="mt-4 inline-flex h-8 w-full items-center justify-center rounded-md bg-theme-primary px-3 text-[11px] font-medium text-white hover:bg-theme-primary/90 disabled:opacity-60"
-              onClick={() => void handleJoin()}
-              disabled={isJoining || !displayNameInput.trim() || !clientId}
-            >
-              {isJoining ? 'Joining…' : 'Join session'}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <InventoryProvider
+      {/* Mobile: sticky header | Desktop: lg:contents dissolves wrapper */}
+      <header className="sticky top-0 z-60 col-span-full bg-card lg:contents">
+        <SetTopBar
           setNumber={setNumber}
           setName={setName}
-          enableCloudSync={false}
-          groupSessionId={sessionId}
-          groupParticipantId={currentParticipant?.id ?? null}
-          groupClientId={clientId}
-          onParticipantPiecesDelta={handleParticipantPiecesDelta}
-        >
-          <Inventory />
-        </InventoryProvider>
-      )}
+          imageUrl={imageUrl}
+          year={year}
+          numParts={numParts}
+          themeId={themeId ?? null}
+          searchParty={{
+            active: hasJoined,
+            loading: isJoining,
+            canHost: false,
+            joinUrl,
+            participants,
+            totalPiecesFound,
+            onStart: () => {},
+            onEnd: () => {},
+          }}
+        />
+      </header>
+
+      {/* Join form */}
+      <main className="flex flex-1 items-center justify-center px-4 py-8 lg:col-start-2">
+        <div className="w-full max-w-sm rounded-md border-2 border-subtle bg-card p-4 text-xs">
+          <h1 className="text-sm font-semibold text-foreground">
+            Join this Search Party session
+          </h1>
+          <p className="mt-2 text-foreground-muted">
+            Enter a name so others can see who&apos;s helping search this set.
+            We&apos;ll remember it on this device so you stay recognized if you
+            disconnect and rejoin.
+          </p>
+          <label className="mt-4 block text-[11px] font-medium text-foreground">
+            Name
+          </label>
+          <input
+            type="text"
+            value={displayNameInput}
+            onChange={event => setDisplayNameInput(event.target.value)}
+            className="mt-1 w-full rounded-md border-2 border-subtle bg-background px-2 py-1 text-xs"
+            placeholder="e.g., Alice, Living room, iPad"
+          />
+          <button
+            type="button"
+            className="mt-4 inline-flex h-8 w-full items-center justify-center rounded-md bg-theme-primary px-3 text-[11px] font-medium text-white hover:bg-theme-primary/90 disabled:opacity-60"
+            onClick={() => void handleJoin()}
+            disabled={isJoining || !displayNameInput.trim() || !clientId}
+          >
+            {isJoining ? 'Joining…' : 'Join session'}
+          </button>
+        </div>
+      </main>
     </div>
   );
+
+  return content;
 }

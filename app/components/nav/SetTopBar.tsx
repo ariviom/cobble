@@ -244,8 +244,8 @@ export function SetTopBar({
     <>
       <div
         className={cn(
-          'fixed top-0 right-0 z-60 flex h-topnav-height w-full items-center justify-between',
-          'lg:relative lg:h-full lg:w-full'
+          'flex w-full items-center justify-between',
+          'lg:col-start-2 lg:h-full'
         )}
       >
         <div className="group set flex h-full w-full items-center gap-3 bg-card px-3 py-2 lg:py-3 lg:pr-3">

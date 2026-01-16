@@ -110,31 +110,13 @@
   --spacing-topnav-height: 6rem;
   --spacing-tab-bar-height: 2.5rem;
   --spacing-controls-height: 3.5rem;
-  /* Tab bar offset - 0 by default, set via data attribute when tabs present */
-  --spacing-tab-bar-offset: 0rem;
-  --spacing-filter-offset: calc(
-    var(--spacing-nav-height) + var(--spacing-topnav-height) +
-      var(--spacing-tab-bar-offset)
-  );
-  --spacing-inventory-offset: calc(
-    var(--spacing-topnav-height) + var(--spacing-controls-height) +
-      var(--spacing-tab-bar-offset)
-  );
-  --spacing-sticky-label: calc(
-    var(--spacing-topnav-height) + var(--spacing-controls-height) +
-      var(--spacing-tab-bar-offset)
-  );
+  /* Pinned panel height - viewport minus header elements */
   --spacing-pinned-panel-height: calc(
     100dvh - var(--spacing-topnav-height) - var(--spacing-controls-height) -
-      var(--spacing-nav-height) - var(--spacing-tab-bar-offset)
+      var(--spacing-nav-height) - var(--grid-row-tabs, 0px)
   );
   --breakpoint-xs: 23.5rem;
   --breakpoint-3xl: 120rem;
-}
-
-/* When tabs are present, add tab bar height to offset calculations */
-[data-has-tabs='true'] {
-  --spacing-tab-bar-offset: var(--spacing-tab-bar-height);
 }
 
 /* Theme color utilities */
@@ -236,10 +218,6 @@
 @media (min-width: 1024px) {
   :root {
     --spacing-topnav-height: 8rem;
-    --spacing-sticky-label: calc(
-      var(--spacing-topnav-height) + var(--spacing-controls-height) +
-        var(--spacing-nav-height) + var(--spacing-tab-bar-offset)
-    );
   }
 }
 
@@ -368,34 +346,27 @@ body {
   display: none; /* Chrome, Safari, Opera */
 }
 
+/* Set page grid layout - 4 rows (tabs, topnav, controls, content) */
 @utility set-grid-layout {
   display: grid;
   grid-template-rows:
-    var(--set-grid-top-row, var(--spacing-topnav-height))
-    minmax(0, 1fr);
+    var(--grid-row-tabs, 0px) /* Row 1: Tabs (0 when hidden) */
+    auto /* Row 2: TopNav (content-sized) */
+    var(--spacing-controls-height) /* Row 3: Controls (fixed) */
+    minmax(0, 1fr); /* Row 4: Content (flexible) */
+  grid-template-columns: 1fr; /* Mobile: single column */
 }
 
-@utility set-grid-animated {
-  transition: grid-template-rows 200ms ease-out;
+/* Desktop: 2 columns (sidebar + main) */
+@media (min-width: 1024px) {
+  .set-grid-layout {
+    grid-template-columns: 20rem 1fr;
+  }
 }
 
-@utility set-grid-top-collapsed {
-  --set-grid-top-row: var(--spacing-topnav-height);
-}
-
-/* Add tab bar height when tabs are present */
-[data-has-tabs='true'].set-grid-top-collapsed {
-  --set-grid-top-row: calc(
-    var(--spacing-topnav-height) + var(--spacing-tab-bar-height)
-  );
-}
-
-@utility set-grid-top-expanded {
-  --set-grid-top-row: 12rem;
-}
-
-[data-has-tabs='true'].set-grid-top-expanded {
-  --set-grid-top-row: calc(12rem + var(--spacing-tab-bar-height));
+/* When tabs are visible, set row 1 height */
+[data-has-tabs='true'] {
+  --grid-row-tabs: var(--spacing-tab-bar-height);
 }
 
 /* Typography utilities - BOLD and playful */
@@ -489,10 +460,7 @@ body {
   padding-inline: 1rem;
 }
 
-/* Top positioning utilities for fixed/sticky elements */
-@utility top-topnav-height {
-  top: var(--spacing-topnav-height);
-}
+/* Top positioning utility for tab bar height */
 
 @utility h-tab-bar-height {
   height: var(--spacing-tab-bar-height);
