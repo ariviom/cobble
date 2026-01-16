@@ -369,6 +369,7 @@ export default async function CollectionHandlePage({
   > = {};
 
   if (allMinifigIds.length > 0) {
+    // Load basic metadata from Rebrickable catalog
     const { data: minifigs } = await supabase
       .from('rb_minifigs')
       .select<'fig_num,name,num_parts'>('fig_num,name,num_parts')
@@ -386,34 +387,36 @@ export default async function CollectionHandlePage({
       ])
     );
 
-    // Load BrickLink IDs for these figs.
-    // BL mappings: global, then per-set fallback.
-    const { data: mappings, error: mapErr } = await supabase
-      .from('bricklink_minifig_mappings')
-      .select('rb_fig_id,bl_item_id')
+    // Load BrickLink data (BL ID and image URL) from bl_set_minifigs
+    // This table has both the BL minifig_no and image_url from BrickLink API
+    const { data: blSetMinifigs, error: blErr } = await supabase
+      .from('bl_set_minifigs')
+      .select('rb_fig_id,minifig_no,image_url')
       .in('rb_fig_id', allMinifigIds);
-    if (!mapErr) {
-      for (const row of mappings ?? []) {
+
+    if (!blErr) {
+      for (const row of blSetMinifigs ?? []) {
         const rbId = row.rb_fig_id;
         if (!rbId) continue;
         const existing = minifigMeta[rbId];
         minifigMeta[rbId] = {
           name: existing?.name ?? null,
           num_parts: existing?.num_parts ?? null,
-          image_url: existing?.image_url ?? null,
-          bl_id: row.bl_item_id ?? null,
+          image_url: row.image_url ?? existing?.image_url ?? null,
+          bl_id: row.minifig_no ?? existing?.bl_id ?? null,
         };
       }
     }
 
-    const missingForBl = allMinifigIds.filter(id => !minifigMeta[id]?.bl_id);
-    if (missingForBl.length > 0) {
-      const { data: setMap, error: setErr } = await supabase
-        .from('bl_set_minifigs')
-        .select('rb_fig_id,minifig_no')
-        .in('rb_fig_id', missingForBl);
-      if (!setErr) {
-        for (const row of setMap ?? []) {
+    // Fallback: check global mappings for any still missing BL IDs
+    const missingBlId = allMinifigIds.filter(id => !minifigMeta[id]?.bl_id);
+    if (missingBlId.length > 0) {
+      const { data: mappings, error: mapErr } = await supabase
+        .from('bricklink_minifig_mappings')
+        .select('rb_fig_id,bl_item_id')
+        .in('rb_fig_id', missingBlId);
+      if (!mapErr) {
+        for (const row of mappings ?? []) {
           const rbId = row.rb_fig_id;
           if (!rbId) continue;
           const existing = minifigMeta[rbId];
@@ -421,7 +424,7 @@ export default async function CollectionHandlePage({
             name: existing?.name ?? null,
             num_parts: existing?.num_parts ?? null,
             image_url: existing?.image_url ?? null,
-            bl_id: existing?.bl_id ?? row.minifig_no ?? null,
+            bl_id: row.bl_item_id ?? null,
           };
         }
       }
