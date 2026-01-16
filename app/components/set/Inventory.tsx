@@ -7,174 +7,55 @@ import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Modal } from '@/app/components/ui/Modal';
 import { Spinner } from '@/app/components/ui/Spinner';
 import { Toast } from '@/app/components/ui/Toast';
-import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
 import { useCallback, useMemo, useRef } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
 import { InventoryControls } from './InventoryControls';
+import { useInventoryContext } from './InventoryProvider';
 import { InventoryItem } from './items/InventoryItem';
 import { SearchPartyBanner } from './SearchPartyBanner';
-import type {
-  GroupBy,
-  InventoryFilter,
-  InventoryRow,
-  ItemSize,
-  SortKey,
-  ViewType,
-} from './types';
 
-export type PriceInfo = {
-  unitPrice: number | null;
-  minPrice: number | null;
-  maxPrice: number | null;
-  currency: string | null;
-  pricingSource?: 'real_time' | 'historical' | 'unavailable';
-  pricing_source?: 'real_time' | 'historical' | 'unavailable';
-  lastUpdatedAt?: string | null;
-  nextRefreshAt?: string | null;
-  scopeLabel?: string | null;
-  bricklinkColorId: number | null;
-  itemType: 'PART' | 'MINIFIG';
-};
+export function Inventory() {
+  const ctx = useInventoryContext();
+  const {
+    setNumber,
+    setName,
+    rows,
+    keys,
+    ownedByKey,
+    minifigStatusByKey,
+    isLoading,
+    error,
+    isMinifigEnriching,
+    minifigEnrichmentError,
+    retryMinifigEnrichment,
+    view,
+    itemSize,
+    sortedIndices,
+    gridSizes,
+    pricesByKey,
+    pendingPriceKeys,
+    requestPricesForKeys,
+    handleOwnedChange,
+    isPinned,
+    togglePinned,
+    isInGroupSession,
+    connectionState,
+    hasConnectedOnce,
+    exportOpen,
+    closeExportModal,
+    getMissingRows,
+    getAllRows,
+    showEnrichmentToast,
+    dismissEnrichmentToast,
+    migration,
+    isMigrating,
+    confirmMigration,
+    keepCloudData,
+  } = ctx;
 
-type PriceSummary = {
-  total: number;
-  minTotal: number | null;
-  maxTotal: number | null;
-  currency: string | null;
-  pricedItemCount: number;
-};
-
-export type InventoryTableProps = {
-  setNumber: string;
-  setName?: string;
-  initialInventory?: InventoryRow[] | null;
-  enableCloudSync?: boolean;
-  groupSessionId?: string | null;
-  groupParticipantId?: string | null;
-  groupClientId?: string | null;
-  onParticipantPiecesDelta?: (
-    participantId: string | null,
-    delta: number
-  ) => void;
-  onPriceStatusChange?: (
-    status: 'idle' | 'loading' | 'loaded' | 'error'
-  ) => void;
-  onPriceTotalsChange?: (summary: PriceSummary | null) => void;
-};
-
-type InventoryTableViewProps = {
-  setNumber: string;
-  setName?: string;
-  rows: InventoryRow[];
-  keys: string[];
-  ownedByKey: Record<string, number>;
-  minifigStatusByKey: Map<
-    string,
-    import('@/app/hooks/useInventory').MinifigStatus
-  >;
-  isLoading: boolean;
-  error: Error | string | null;
-  isMinifigEnriching: boolean;
-  minifigEnrichmentError: Error | string | null;
-  retryMinifigEnrichment: (() => void) | null;
-  sortKey: SortKey;
-  sortDir: 'asc' | 'desc';
-  filter: InventoryFilter;
-  view: ViewType;
-  itemSize: ItemSize;
-  groupBy: GroupBy;
-  setSortKey: (key: SortKey) => void;
-  setSortDir: (dir: 'asc' | 'desc') => void;
-  setFilter: (filter: InventoryFilter) => void;
-  setView: (view: ViewType) => void;
-  setItemSize: (size: ItemSize) => void;
-  setGroupBy: (group: GroupBy) => void;
-  sortedIndices: number[];
-  subcategoriesByParent: Record<string, string[]>;
-  colorOptions: string[];
-  countsByParent: Record<string, number>;
-  parentOptions: string[];
-  gridSizes: string;
-  exportOpen: boolean;
-  showEnrichmentToast: boolean;
-  onDismissEnrichmentToast: () => void;
-  handleExportOpen: { open: () => void; close: () => void };
-  pricesByKey: Record<string, PriceInfo> | null;
-  pendingPriceKeys: Set<string> | null;
-  requestPricesForKeys?: (keys: string[]) => void;
-  pinnedStore: {
-    toggle: (key: string) => void;
-    isPinned: (key: string) => boolean;
-  };
-  handleOwnedChange: (key: string, nextOwned: number) => void;
-  migration: {
-    open: boolean;
-    localTotal: number;
-    supabaseTotal: number;
-  } | null;
-  isMigrating: boolean;
-  confirmMigration: () => Promise<void>;
-  keepCloudData: () => Promise<void>;
-  broadcastPieceDelta: (payload: {
-    key: string;
-    delta: number;
-    newOwned: number;
-  }) => void;
-  connectionState?: 'disconnected' | 'connecting' | 'connected';
-  hasConnectedOnce?: boolean;
-  isInGroupSession?: boolean;
-};
-
-export function InventoryTableView({
-  setNumber,
-  setName,
-  rows,
-  keys,
-  ownedByKey,
-  minifigStatusByKey,
-  isLoading,
-  error,
-  isMinifigEnriching,
-  minifigEnrichmentError,
-  retryMinifigEnrichment,
-  sortKey,
-  sortDir,
-  filter,
-  view,
-  itemSize,
-  groupBy,
-  setSortKey,
-  setSortDir,
-  setFilter,
-  setView,
-  setItemSize,
-  setGroupBy,
-  sortedIndices,
-  subcategoriesByParent,
-  colorOptions,
-  countsByParent,
-  parentOptions,
-  gridSizes,
-  exportOpen,
-  showEnrichmentToast,
-  onDismissEnrichmentToast,
-  handleExportOpen,
-  pricesByKey,
-  pendingPriceKeys,
-  requestPricesForKeys,
-  pinnedStore,
-  handleOwnedChange,
-  migration,
-  isMigrating,
-  confirmMigration,
-  keepCloudData,
-  broadcastPieceDelta,
-  connectionState,
-  hasConnectedOnce,
-  isInGroupSession,
-}: InventoryTableViewProps) {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
+  // Render a single inventory item
   const renderInventoryItem = useCallback(
     (rowIndex: number, key: string) => {
       const row = rows[rowIndex]!;
@@ -224,16 +105,10 @@ export function InventoryTableView({
             : {})}
           onOwnedChange={nextOwned => {
             const clamped = clampOwned(nextOwned, row.quantityRequired ?? 0);
-            const prevOwned = ownedByKey[key] ?? 0;
             handleOwnedChange(key, clamped);
-            broadcastPieceDelta({
-              key,
-              delta: clamped - prevOwned,
-              newOwned: clamped,
-            });
           }}
-          isPinned={pinnedStore.isPinned(key)}
-          onTogglePinned={() => pinnedStore.toggle(key)}
+          isPinned={isPinned(key)}
+          onTogglePinned={() => togglePinned(key)}
           isEnriching={isMinifigEnriching}
         />
       );
@@ -247,16 +122,13 @@ export function InventoryTableView({
       pendingPriceKeys,
       requestPricesForKeys,
       handleOwnedChange,
-      broadcastPieceDelta,
-      pinnedStore,
+      isPinned,
+      togglePinned,
       isMinifigEnriching,
     ]
   );
 
-  // Note: List view is intentionally non-virtualized to avoid height/measurement
-  // drift when item sizes change (size toggle, enrichment). Re-enabling would
-  // require: size-aware estimates, measureElement/ResizeObserver, remeasure on
-  // view/size changes, and likely gating by a row-count threshold.
+  // Pre-render list rows
   const listRows = useMemo(() => {
     if (view !== 'list') return null;
     return sortedIndices.map(rowIndex => {
@@ -274,6 +146,7 @@ export function InventoryTableView({
     });
   }, [view, sortedIndices, keys, itemSize, renderInventoryItem]);
 
+  // Pre-render grid rows
   const gridRows = useMemo(() => {
     if (view !== 'grid') return null;
     return sortedIndices.map(rowIndex => {
@@ -291,75 +164,14 @@ export function InventoryTableView({
     });
   }, [view, sortedIndices, keys, itemSize, renderInventoryItem]);
 
-  const getMissingRows = useMemo(
-    () => (): MissingRow[] =>
-      rows.map((row, idx) => {
-        const key = keys[idx]!;
-        return {
-          setNumber: row.setNumber,
-          partId: row.partId,
-          colorId: row.colorId,
-          elementId: row.elementId ?? null,
-          quantityMissing: computeMissing(
-            row.quantityRequired ?? 0,
-            ownedByKey[key] ?? 0
-          ),
-        };
-      }),
-    [rows, keys, ownedByKey]
-  );
-
-  const getAllRows = useMemo(
-    () => (): MissingRow[] =>
-      rows.map(row => {
-        return {
-          setNumber: row.setNumber,
-          partId: row.partId,
-          colorId: row.colorId,
-          elementId: row.elementId ?? null,
-          quantityMissing: row.quantityRequired ?? 0,
-        };
-      }),
-    [rows]
-  );
-
   return (
     <div className="flex h-full flex-col">
-      <InventoryControls
-        setNumber={setNumber}
-        {...(setName ? { setName } : {})}
-        sortKey={sortKey}
-        sortDir={sortDir}
-        filter={filter}
-        view={view}
-        itemSize={itemSize}
-        groupBy={groupBy}
-        onChangeSortKey={setSortKey}
-        onToggleSortDir={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-        onChangeFilter={setFilter}
-        onChangeView={setView}
-        onChangeItemSize={setItemSize}
-        onChangeGroupBy={setGroupBy}
-        colorOptions={colorOptions}
-        parentCounts={countsByParent}
-        parentOptions={parentOptions}
-        subcategoriesByParent={subcategoriesByParent}
-        onToggleColor={color => {
-          const exists = filter.colors.includes(color);
-          setFilter({
-            ...filter,
-            colors: exists
-              ? filter.colors.filter(c => c !== color)
-              : [...filter.colors, color],
-          });
-        }}
-        onOpenExportModal={handleExportOpen.open}
-      />
+      <InventoryControls />
 
       {/* Search Party Experimental Banner */}
       {isInGroupSession && <SearchPartyBanner />}
 
-      {/* Connection Status for Search Party - only show after first successful connection */}
+      {/* Connection Status for Search Party */}
       {isInGroupSession &&
         hasConnectedOnce &&
         connectionState !== 'connected' && (
@@ -416,6 +228,7 @@ export function InventoryTableView({
         </div>
       )}
 
+      {/* Enrichment toasts */}
       <div className="flex items-center gap-3">
         {showEnrichmentToast &&
         isMinifigEnriching &&
@@ -424,7 +237,7 @@ export function InventoryTableView({
             title="Enriching minifigs…"
             description="Fetching images and subparts."
             variant="info"
-            onClose={onDismissEnrichmentToast}
+            onClose={dismissEnrichmentToast}
           />
         ) : null}
         {showEnrichmentToast && minifigEnrichmentError ? (
@@ -435,20 +248,22 @@ export function InventoryTableView({
             {...(retryMinifigEnrichment
               ? { actionLabel: 'Retry', onAction: retryMinifigEnrichment }
               : {})}
-            onClose={onDismissEnrichmentToast}
+            onClose={dismissEnrichmentToast}
           />
         ) : null}
       </div>
 
+      {/* Export Modal */}
       <ExportModal
         open={exportOpen}
-        onClose={handleExportOpen.close}
+        onClose={closeExportModal}
         {...(setName ? { setName } : {})}
         setNumber={setNumber}
         getMissingRows={getMissingRows}
         getAllRows={getAllRows}
       />
 
+      {/* Migration Modal */}
       <Modal
         open={migration?.open ?? false}
         onClose={() => {

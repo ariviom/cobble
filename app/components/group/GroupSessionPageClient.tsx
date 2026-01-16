@@ -1,7 +1,8 @@
 'use client';
 
 import { SetTopBar } from '@/app/components/nav/SetTopBar';
-import { InventoryTable } from '@/app/components/set/InventoryTable';
+import { Inventory } from '@/app/components/set/Inventory';
+import { InventoryProvider } from '@/app/components/set/InventoryProvider';
 import { cn } from '@/app/components/ui/utils';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
 import { useOrigin } from '@/app/hooks/useOrigin';
@@ -293,7 +294,7 @@ export function GroupSessionPageClient({
           </div>
         </div>
       ) : (
-        <InventoryTable
+        <InventoryProvider
           setNumber={setNumber}
           setName={setName}
           enableCloudSync={false}
@@ -301,7 +302,9 @@ export function GroupSessionPageClient({
           groupParticipantId={currentParticipant?.id ?? null}
           groupClientId={clientId}
           onParticipantPiecesDelta={handleParticipantPiecesDelta}
-        />
+        >
+          <Inventory />
+        </InventoryProvider>
       )}
     </div>
   );

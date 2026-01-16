@@ -2,7 +2,8 @@
 
 import { SetTopBar } from '@/app/components/nav/SetTopBar';
 import { SetTabBar } from '@/app/components/set/SetTabBar';
-import { InventoryTable } from '@/app/components/set/InventoryTable';
+import { Inventory } from '@/app/components/set/Inventory';
+import { InventoryProvider } from '@/app/components/set/InventoryProvider';
 import type { InventoryRow } from '@/app/components/set/types';
 import { Toast } from '@/app/components/ui/Toast';
 import { cn } from '@/app/components/ui/utils';
@@ -381,7 +382,7 @@ export function SetPageClient({
           />
         )}
       </div>
-      <InventoryTable
+      <InventoryProvider
         setNumber={setNumber}
         setName={setName}
         initialInventory={initialInventory ?? null}
@@ -390,7 +391,9 @@ export function SetPageClient({
         groupParticipantId={currentParticipant?.id ?? null}
         groupClientId={clientId}
         onParticipantPiecesDelta={handleParticipantPiecesDelta}
-      />
+      >
+        <Inventory />
+      </InventoryProvider>
       {searchPartyError && (
         <Toast
           variant="error"

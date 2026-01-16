@@ -1,80 +1,49 @@
 'use client';
 
-import { useInventory } from '@/app/hooks/useInventory';
 import { useIsDesktop } from '@/app/hooks/useMediaQuery';
-import { useOwnedStore } from '@/app/store/owned';
-import { usePinnedStore } from '@/app/store/pinned';
 import { useEffect, useRef, useState } from 'react';
 import { TopBarControls } from './controls/TopBarControls';
-import type {
-  GroupBy,
-  InventoryFilter,
-  ItemSize,
-  SortKey,
-  ViewType,
-} from './types';
+import { useInventoryContext } from './InventoryProvider';
 
-type Props = {
-  setNumber: string;
-  setName?: string;
-  view: ViewType;
-  onChangeView: (v: ViewType) => void;
-  itemSize: ItemSize;
-  onChangeItemSize: (s: ItemSize) => void;
-  sortKey: SortKey;
-  onChangeSortKey: (k: SortKey) => void;
-  sortDir: 'asc' | 'desc';
-  onToggleSortDir: () => void;
-  groupBy: GroupBy;
-  onChangeGroupBy: (g: GroupBy) => void;
-  filter: InventoryFilter;
-  onChangeFilter: (f: InventoryFilter) => void;
-  parentOptions: string[];
-  parentCounts?: Record<string, number>;
-  subcategoriesByParent: Record<string, string[]>;
-  colorOptions: string[];
-  onToggleColor: (color: string) => void;
-  onOpenExportModal: () => void;
-};
-
-export function InventoryControls(props: Props) {
+export function InventoryControls() {
+  const ctx = useInventoryContext();
   const {
     setNumber,
+    setName,
     view,
-    onChangeView,
+    setView,
     itemSize,
-    onChangeItemSize,
+    setItemSize,
     sortKey,
-    onChangeSortKey,
+    setSortKey,
     sortDir,
-    onToggleSortDir,
+    setSortDir,
     groupBy,
-    onChangeGroupBy,
+    setGroupBy,
     filter,
-    onChangeFilter,
+    setFilter,
     parentOptions,
-    parentCounts,
+    countsByParent,
     subcategoriesByParent,
     colorOptions,
-    onToggleColor,
-    onOpenExportModal,
-  } = props;
+    openExportModal,
+    markAllMissing,
+    markAllComplete,
+    getPinnedCount,
+  } = ctx;
+
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDesktop = useIsDesktop();
   const [isParentOpen, setIsParentOpen] = useState(false);
   const [isColorOpen, setIsColorOpen] = useState(false);
-  const ownedStore = useOwnedStore();
-  const { keys, required } = useInventory(setNumber);
-  const pinnedState = usePinnedStore();
-  const pinnedCount = pinnedState.getPinnedKeysForSet(setNumber).length;
 
   // Close dropdown on outside click
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!containerRef.current) return;
       if (!containerRef.current.contains(e.target as Node)) {
-        // Keep sidebar panels open on desktop; allow outside-click to close otherwise
+        // Keep sidebar panels open on desktop
         if (
           isDesktop &&
           (openDropdownId === 'parent' || openDropdownId === 'color')
@@ -99,7 +68,7 @@ export function InventoryControls(props: Props) {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // When the pinned panel is open, prevent scrolling on the root to make it feel modal-like
+  // When the pinned panel is open, prevent scrolling
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const root = document.documentElement;
@@ -127,35 +96,42 @@ export function InventoryControls(props: Props) {
     groupId: string,
     key: string
   ) => {
-    // Close dropdown after selection, except for the desktop sidebar panels
+    // Close dropdown after selection, except for desktop sidebar panels
     if (!(isDesktop && (dropdownId === 'parent' || dropdownId === 'color'))) {
       setOpenDropdownId(null);
     }
 
-    // Handle the actual change based on dropdown type
     if (dropdownId === 'display') {
       if (groupId !== 'display') return;
       if (key === 'all' || key === 'missing' || key === 'owned') {
-        onChangeFilter({
-          ...filter,
-          display: key,
-        });
+        setFilter({ ...filter, display: key });
       }
     } else if (dropdownId === 'sort') {
-      if (groupId === 'sortBy') onChangeSortKey(key as SortKey);
+      if (groupId === 'sortBy')
+        setSortKey(key as 'name' | 'color' | 'size' | 'category' | 'price');
       else if (groupId === 'order') {
-        if (key !== sortDir) onToggleSortDir();
-      } else if (groupId === 'groupBy') onChangeGroupBy(key as GroupBy);
+        if (key !== sortDir) setSortDir(key === 'asc' ? 'asc' : 'desc');
+      } else if (groupId === 'groupBy')
+        setGroupBy(key as 'none' | 'color' | 'size' | 'category');
     } else if (dropdownId === 'view') {
       if (groupId === 'viewMode') {
-        onChangeView(key as ViewType);
+        setView(key as 'list' | 'grid');
       } else if (groupId === 'itemSize') {
-        onChangeItemSize(key as ItemSize);
+        setItemSize(key as 'sm' | 'md' | 'lg');
       }
     } else if (dropdownId === 'color') {
-      // remain open on desktop
       if (isDesktop) setIsColorOpen(true);
     }
+  };
+
+  const handleToggleColor = (color: string) => {
+    const exists = filter.colors.includes(color);
+    setFilter({
+      ...filter,
+      colors: exists
+        ? filter.colors.filter(c => c !== color)
+        : [...filter.colors, color],
+    });
   };
 
   return (
@@ -165,17 +141,17 @@ export function InventoryControls(props: Props) {
     >
       <TopBarControls
         setNumber={setNumber}
-        {...(props.setName ? { setName: props.setName } : {})}
+        {...(setName ? { setName } : {})}
         view={view}
-        onChangeView={onChangeView}
+        onChangeView={setView}
         itemSize={itemSize}
-        onChangeItemSize={onChangeItemSize}
+        onChangeItemSize={setItemSize}
         sortKey={sortKey}
-        onChangeSortKey={onChangeSortKey}
+        onChangeSortKey={setSortKey}
         sortDir={sortDir}
-        onToggleSortDir={onToggleSortDir}
+        onToggleSortDir={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
         groupBy={groupBy}
-        onChangeGroupBy={onChangeGroupBy}
+        onChangeGroupBy={setGroupBy}
         displayKey={filter.display}
         onChangeDisplay={(next: 'all' | 'missing' | 'owned') =>
           handleDropdownChange('display', 'display', next)
@@ -185,22 +161,20 @@ export function InventoryControls(props: Props) {
         onCloseDropdown={id =>
           setOpenDropdownId(prev => (prev === id ? null : prev))
         }
-        pinnedCount={pinnedCount}
-        onMarkAllMissing={() => ownedStore.clearAll(setNumber)}
-        onMarkAllComplete={() =>
-          ownedStore.markAllAsOwned(setNumber, keys, required)
-        }
+        pinnedCount={getPinnedCount()}
+        onMarkAllMissing={markAllMissing}
+        onMarkAllComplete={markAllComplete}
         filter={filter}
-        onChangeFilter={onChangeFilter}
+        onChangeFilter={setFilter}
         parentOptions={parentOptions}
-        {...(parentCounts ? { parentCounts } : {})}
+        parentCounts={countsByParent}
         subcategoriesByParent={subcategoriesByParent}
         colorOptions={colorOptions}
-        onToggleColor={onToggleColor}
+        onToggleColor={handleToggleColor}
         isDesktop={isDesktop}
         isParentOpen={isParentOpen}
         isColorOpen={isColorOpen}
-        onOpenExportModal={onOpenExportModal}
+        onOpenExportModal={openExportModal}
       />
     </div>
   );
