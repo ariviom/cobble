@@ -14,7 +14,7 @@ const badgeVariants = cva(
           'bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-200',
         // Primary yellow uses accessible dark text
         primary: 'bg-brand-yellow text-on-yellow',
-        accent: 'bg-theme-primary text-white',
+        accent: 'bg-theme-primary text-theme-primary-contrast',
         // Semantic colors - all use white text on colored backgrounds
         success: 'bg-brand-green text-white',
         warning: 'bg-brand-orange text-white',

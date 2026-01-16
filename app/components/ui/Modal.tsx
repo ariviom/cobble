@@ -38,9 +38,9 @@ export function Modal({ open, title, onClose, children }: Props) {
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative w-full max-w-md overflow-hidden rounded-lg bg-card shadow-[0_8px_0_0] shadow-neutral-300 dark:shadow-neutral-800">
-        {/* Yellow accent strip - flush with edge */}
-        <div className="h-2 bg-brand-yellow" />
+      <div className="relative w-full max-w-md overflow-hidden rounded-lg bg-card shadow-[0_8px_0_0_var(--color-shadow-depth)]">
+        {/* Theme accent strip - flush with edge */}
+        <div className="h-2 bg-theme-primary" />
         <div className="flex items-center justify-between border-b border-subtle px-5 py-4">
           <div id={titleId} className="text-xl font-bold text-foreground">
             {title}

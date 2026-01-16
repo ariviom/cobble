@@ -48,10 +48,10 @@ export function SegmentedControl({
       )}
       role="tablist"
     >
-      {/* Sliding thumb - light blue background */}
+      {/* Sliding thumb - theme color background */}
       {thumbStyle && (
         <div
-          className="pointer-events-none absolute top-0 bottom-0 bg-brand-blue/20 transition-all duration-150"
+          className="pointer-events-none absolute top-0 bottom-0 bg-theme-primary/20 transition-all duration-150"
           style={{ left: thumbStyle.left - 2, width: thumbStyle.width + 4 }}
           aria-hidden="true"
         />

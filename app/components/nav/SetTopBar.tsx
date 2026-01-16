@@ -371,7 +371,7 @@ export function SetTopBar({
                           </>
                         ) : (
                           <div className="space-y-2">
-                            <p className="font-bold text-brand-orange">
+                            <p className="font-bold text-warning">
                               You&apos;ve used all {quotaInfo.limit} Search
                               Party sessions this month
                             </p>

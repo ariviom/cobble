@@ -139,7 +139,7 @@ export function SetStatusMenu({
           </RowButton>
           <RowButton
             size="sm"
-            className="text-brand-red"
+            className="text-danger"
             onClick={event => {
               event.preventDefault();
               event.stopPropagation();

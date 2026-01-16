@@ -43,7 +43,7 @@ export function SidebarColorPanel({
           <div className="flex w-full justify-center border-t-2 border-subtle">
             <button
               type="button"
-              className="h-full w-full cursor-pointer py-3.5 font-semibold text-foreground-muted transition-colors hover:bg-brand-yellow/10 hover:text-foreground"
+              className="h-full w-full cursor-pointer py-3.5 font-semibold text-foreground-muted transition-colors hover:bg-theme-primary/10 hover:text-foreground"
               onClick={onClear}
             >
               Clear All

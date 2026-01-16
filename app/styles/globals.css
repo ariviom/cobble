@@ -80,10 +80,25 @@
   --brick-depth-pressed: 0 1px 0;
 
   /* Accessible text colors for brand backgrounds */
+  --color-on-white: #1a1a1a;
   --color-on-yellow: #1a1600;
   --color-on-red: #ffffff;
   --color-on-blue: #ffffff;
   --color-on-green: #ffffff;
+
+  /* Theme text colors - readable versions of theme primary for text on backgrounds */
+  --color-theme-text: var(--color-theme-primary);
+  --color-theme-primary-contrast: white;
+
+  /* Theme shadow - darker version of theme color for 3D depth effect */
+  --color-theme-shadow: color-mix(
+    in oklch,
+    var(--color-theme-primary) 70%,
+    black
+  );
+
+  /* Shadow depth - the "3D pressed" effect under buttons */
+  --color-shadow-depth: var(--color-neutral-300);
 
   /* Container widths */
   --container-narrow: 32rem;
@@ -93,26 +108,129 @@
   --font-sans: var(--font-cera-pro);
   --spacing-nav-height: 4rem;
   --spacing-topnav-height: 6rem;
+  --spacing-tab-bar-height: 2.5rem;
   --spacing-controls-height: 3.5rem;
+  /* Tab bar offset - 0 by default, set via data attribute when tabs present */
+  --spacing-tab-bar-offset: 0rem;
   --spacing-filter-offset: calc(
-    var(--spacing-nav-height) + var(--spacing-topnav-height)
+    var(--spacing-nav-height) + var(--spacing-topnav-height) +
+      var(--spacing-tab-bar-offset)
   );
   --spacing-inventory-offset: calc(
-    var(--spacing-topnav-height) + var(--spacing-controls-height)
+    var(--spacing-topnav-height) + var(--spacing-controls-height) +
+      var(--spacing-tab-bar-offset)
   );
   --spacing-sticky-label: calc(
-    var(--spacing-topnav-height) + var(--spacing-controls-height)
+    var(--spacing-topnav-height) + var(--spacing-controls-height) +
+      var(--spacing-tab-bar-offset)
   );
   --spacing-pinned-panel-height: calc(
     100dvh - var(--spacing-topnav-height) - var(--spacing-controls-height) -
-      var(--spacing-nav-height)
+      var(--spacing-nav-height) - var(--spacing-tab-bar-offset)
   );
   --breakpoint-xs: 23.5rem;
   --breakpoint-3xl: 120rem;
 }
 
+/* When tabs are present, add tab bar height to offset calculations */
+[data-has-tabs='true'] {
+  --spacing-tab-bar-offset: var(--spacing-tab-bar-height);
+}
+
+/* Theme color utilities */
+.bg-theme-primary {
+  background-color: var(--color-theme-primary);
+}
+
+.bg-theme-primary\/10 {
+  background-color: color-mix(
+    in oklch,
+    var(--color-theme-primary) 10%,
+    transparent
+  );
+}
+
+.bg-theme-primary\/20 {
+  background-color: color-mix(
+    in oklch,
+    var(--color-theme-primary) 20%,
+    transparent
+  );
+}
+
 .text-theme-primary-contrast {
-  color: white;
+  color: var(--color-theme-primary-contrast);
+}
+
+.text-theme-text {
+  color: var(--color-theme-text);
+}
+
+.accent-theme-primary {
+  accent-color: var(--color-theme-primary);
+}
+
+.border-theme-primary {
+  border-color: var(--color-theme-primary);
+}
+
+.border-theme-primary\/30 {
+  border-color: color-mix(
+    in oklch,
+    var(--color-theme-primary) 30%,
+    transparent
+  );
+}
+
+.ring-theme-primary {
+  --tw-ring-color: var(--color-theme-primary);
+}
+
+/* Semantic color utilities - these stay fixed regardless of theme */
+.text-danger {
+  color: var(--color-danger);
+}
+.bg-danger {
+  background-color: var(--color-danger);
+}
+.border-danger {
+  border-color: var(--color-danger);
+}
+.ring-danger {
+  --tw-ring-color: var(--color-danger);
+}
+
+.text-success {
+  color: var(--color-success);
+}
+.bg-success {
+  background-color: var(--color-success);
+}
+.border-success {
+  border-color: var(--color-success);
+}
+.ring-success {
+  --tw-ring-color: var(--color-success);
+}
+
+.text-warning {
+  color: var(--color-warning);
+}
+.bg-warning {
+  background-color: var(--color-warning);
+}
+.border-warning {
+  border-color: var(--color-warning);
+}
+
+.text-info {
+  color: var(--color-info);
+}
+.bg-info {
+  background-color: var(--color-info);
+}
+.border-info {
+  border-color: var(--color-info);
 }
 
 @media (min-width: 1024px) {
@@ -120,7 +238,7 @@
     --spacing-topnav-height: 8rem;
     --spacing-sticky-label: calc(
       var(--spacing-topnav-height) + var(--spacing-controls-height) +
-        var(--spacing-nav-height)
+        var(--spacing-nav-height) + var(--spacing-tab-bar-offset)
     );
   }
 }
@@ -146,6 +264,9 @@
 
   --color-subtle: var(--color-neutral-200);
   --color-strong: var(--color-neutral-300);
+
+  /* Dark mode shadow depth - use dark gray instead of light */
+  --color-shadow-depth: oklch(15% 0 0);
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -194,6 +315,12 @@
 
 @custom-variant expanded-topnav {
   &:where(.expanded-topnav *) {
+    @slot;
+  }
+}
+
+@custom-variant has-tabs {
+  &:where([data-has-tabs='true'] *) {
     @slot;
   }
 }
@@ -256,8 +383,19 @@ body {
   --set-grid-top-row: var(--spacing-topnav-height);
 }
 
+/* Add tab bar height when tabs are present */
+[data-has-tabs='true'].set-grid-top-collapsed {
+  --set-grid-top-row: calc(
+    var(--spacing-topnav-height) + var(--spacing-tab-bar-height)
+  );
+}
+
 @utility set-grid-top-expanded {
   --set-grid-top-row: 12rem;
+}
+
+[data-has-tabs='true'].set-grid-top-expanded {
+  --set-grid-top-row: calc(12rem + var(--spacing-tab-bar-height));
 }
 
 /* Typography utilities - BOLD and playful */
@@ -349,4 +487,13 @@ body {
   max-width: var(--container-wide);
   margin-inline: auto;
   padding-inline: 1rem;
+}
+
+/* Top positioning utilities for fixed/sticky elements */
+@utility top-topnav-height {
+  top: var(--spacing-topnav-height);
+}
+
+@utility h-tab-bar-height {
+  height: var(--spacing-tab-bar-height);
 }

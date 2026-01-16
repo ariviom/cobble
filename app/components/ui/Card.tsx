@@ -10,6 +10,8 @@ const cardVariants = cva(
     variants: {
       variant: {
         default: 'border-subtle',
+        // Theme-colored top strip - matches user's selected theme color
+        theme: 'border-subtle border-t-4 border-t-theme-primary',
         // Colored top strip variants - like stacked LEGO bricks
         yellow: 'border-subtle border-t-4 border-t-brand-yellow',
         red: 'border-subtle border-t-4 border-t-brand-red',
@@ -20,11 +22,11 @@ const cardVariants = cva(
         'outline-blue': 'border-brand-blue bg-brand-blue/5',
       },
       elevated: {
-        true: 'shadow-[0_4px_0_0] shadow-neutral-200 dark:shadow-neutral-800',
+        true: 'shadow-[0_4px_0_0_var(--color-shadow-depth)]',
         false: '',
       },
       interactive: {
-        true: 'cursor-pointer hover:-translate-y-1 hover:shadow-[0_6px_0_0] hover:shadow-neutral-200 dark:hover:shadow-neutral-800 active:translate-y-0 active:shadow-[0_2px_0_0]',
+        true: 'cursor-pointer hover:-translate-y-1 hover:shadow-[0_6px_0_0_var(--color-shadow-depth)] active:translate-y-0 active:shadow-[0_2px_0_0_var(--color-shadow-depth)]',
         false: '',
       },
       padding: {

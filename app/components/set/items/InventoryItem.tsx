@@ -201,7 +201,7 @@ function InventoryItemComponent({
               alt={row.partName}
               loading="lazy"
               variant="inventoryThumb"
-              className={`mx-auto aspect-square h-full w-full rounded-sm object-contain ${owned === row.quantityRequired ? 'ring-2 ring-brand-green' : 'ring-1 ring-foreground-accent'}`}
+              className={`mx-auto aspect-square h-full w-full rounded-sm object-contain ${owned === row.quantityRequired ? 'ring-2 ring-success' : 'ring-1 ring-foreground-accent'}`}
               data-knockout="true"
             />
           ) : showImageLoader ? (
@@ -212,7 +212,7 @@ function InventoryItemComponent({
             </div>
           )}
           <div
-            className={`absolute right-0 bottom-0 flex h-6 min-w-6 translate-x-3 translate-y-1/2 items-center justify-center rounded-full grid:h-8 grid:min-w-8 ${owned === row.quantityRequired ? 'border-2 border-brand-green bg-background text-brand-green' : ''}`}
+            className={`absolute right-0 bottom-0 flex h-6 min-w-6 translate-x-3 translate-y-1/2 items-center justify-center rounded-full grid:h-8 grid:min-w-8 ${owned === row.quantityRequired ? 'border-2 border-success bg-background text-success' : ''}`}
           >
             {owned === row.quantityRequired ? (
               <svg
@@ -233,7 +233,7 @@ function InventoryItemComponent({
                 />
               </svg>
             ) : (
-              <span className="hidden border-brand-red bg-background px-2 text-sm text-brand-red">
+              <span className="hidden border-danger bg-background px-2 text-sm text-danger">
                 Need {row.quantityRequired - owned}
               </span>
             )}
@@ -286,8 +286,8 @@ function InventoryItemComponent({
               <p
                 className={
                   row.quantityRequired === owned
-                    ? 'text-brand-green'
-                    : 'text-brand-red'
+                    ? 'text-success'
+                    : 'text-danger'
                 }
               >
                 {row.quantityRequired === owned
@@ -395,7 +395,7 @@ function InventoryItemComponent({
           </Link>
           {isMinifig && rebrickableFigId && (
             <Link
-              href={`/minifigs/id/${encodeURIComponent(rebrickableFigId)}`}
+              href={`/minifigs/${encodeURIComponent(rebrickableFigId)}`}
               className="inline-flex items-center justify-center rounded-md border-2 border-subtle bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-card-muted"
               onClick={event => event.stopPropagation()}
             >

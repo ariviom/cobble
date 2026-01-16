@@ -104,7 +104,7 @@ export function SetDisplayCard({
       className={cn(
         'group relative',
         cardVariants({
-          variant: 'yellow',
+          variant: 'theme',
           elevated: true,
           interactive: true,
           padding: 'none',

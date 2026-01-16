@@ -307,7 +307,7 @@ export function TopBarControls({
       </div>
       {/* Sidebar Group Triggers */}
       <div className="sidebar relative min-w-fit border-subtle lg:fixed lg:top-nav-height lg:left-0 lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-card">
-        <div className="flex flex-nowrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-1">
+        <div className="flex flex-nowrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-0">
           {parentOptions.length > 0 ? (
             <div className="lg:relative">
               <DropdownTrigger

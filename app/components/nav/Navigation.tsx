@@ -54,19 +54,19 @@ export function Navigation({
   return (
     <nav
       className={cn(
-        // Bold yellow nav bar - the LEGO signature color
-        'fixed inset-x-0 bottom-0 z-100 w-full bg-brand-yellow shadow-[#b39700] lg:top-0 lg:bottom-auto lg:shadow-[0_4px_0_0]',
+        // Bold nav bar using theme color
+        'fixed inset-x-0 bottom-0 z-100 w-full bg-theme-primary shadow-[color:var(--color-theme-shadow)] lg:top-0 lg:bottom-auto lg:shadow-[0_4px_0_0]',
         className
       )}
     >
       <div className="relative flex h-nav-height w-full items-center px-4 lg:px-6">
         <div className="relative flex w-full items-center justify-around gap-x-1 lg:justify-center lg:gap-x-3">
-          {/* Desktop brand - clean, minimal treatment on yellow */}
+          {/* Desktop brand - clean, minimal treatment on theme background */}
           <Link
             href="/"
             className="group hidden items-center gap-2 transition-all duration-150 hover:scale-[1.02] lg:absolute lg:top-1/2 lg:left-6 lg:flex lg:-translate-y-1/2"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#fffef0] shadow-[inset_0_-2px_0_0_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.1)] transition-transform duration-150 group-hover:rotate-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-[inset_0_-2px_0_0_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.1)] transition-transform duration-150 group-hover:rotate-6">
               <Image
                 src="/logo/brickparty_logo_sm.png"
                 alt="Brick Party"
@@ -74,9 +74,9 @@ export function Navigation({
                 height={32}
               />
             </div>
-            <h1 className="text-xl font-extrabold tracking-tight">
-              <span className="text-neutral-900">Brick</span>
-              <span className="text-[#616161]">Party</span>
+            <h1 className="text-xl font-extrabold tracking-tight text-theme-primary-contrast">
+              <span>Brick</span>
+              <span className="opacity-70">Party</span>
             </h1>
           </Link>
           <NavLinkItem

@@ -10,15 +10,25 @@ type QuantityDropdownProps = {
    * Maximum selectable quantity (inclusive). Defaults to 10.
    */
   max?: number;
+  /**
+   * Size variant. Use 'md' to match StatusToggleButton sizing.
+   */
+  size?: 'sm' | 'md';
   disabled?: boolean;
   className?: string;
   'aria-label'?: string;
+};
+
+const sizeStyles = {
+  sm: 'min-w-12 px-2 py-1 text-xs',
+  md: 'min-w-14 px-3 py-2 text-sm font-medium',
 };
 
 export function QuantityDropdown({
   value,
   onChange,
   max = 10,
+  size = 'sm',
   disabled,
   className,
   'aria-label': ariaLabel,
@@ -37,7 +47,8 @@ export function QuantityDropdown({
   return (
     <select
       className={cn(
-        'inline-flex min-w-[3rem] rounded-md border-2 border-subtle bg-card px-2 py-1 text-xs',
+        'inline-flex rounded-md border-2 border-subtle bg-card transition-colors hover:border-strong',
+        sizeStyles[size],
         disabled && 'cursor-not-allowed opacity-60',
         className
       )}

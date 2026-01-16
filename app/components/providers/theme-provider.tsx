@@ -3,6 +3,9 @@
 import {
   DEFAULT_THEME_COLOR,
   THEME_COLOR_TO_VALUE,
+  THEME_CONTRAST_TEXT,
+  THEME_TEXT_COLORS_DARK,
+  THEME_TEXT_COLORS_LIGHT,
   ThemeColor,
   ThemePreference,
   USER_THEME_COLOR_KEY,
@@ -64,13 +67,29 @@ function persistThemeColor(color: ThemeColor) {
   }
 }
 
-function applyThemeColor(nextColor: ThemeColor) {
+function applyThemeColor(
+  nextColor: ThemeColor,
+  resolvedTheme?: 'light' | 'dark'
+) {
   const cssValue =
     THEME_COLOR_TO_VALUE[nextColor] ??
     THEME_COLOR_TO_VALUE[DEFAULT_THEME_COLOR];
+
+  // Determine text color based on resolved theme (dark mode needs lighter colors)
+  const isDark = resolvedTheme === 'dark';
+  const textColorMap = isDark
+    ? THEME_TEXT_COLORS_DARK
+    : THEME_TEXT_COLORS_LIGHT;
+  const textColor =
+    textColorMap[nextColor] ?? textColorMap[DEFAULT_THEME_COLOR];
+  const contrastText =
+    THEME_CONTRAST_TEXT[nextColor] ?? THEME_CONTRAST_TEXT[DEFAULT_THEME_COLOR];
+
   if (typeof document !== 'undefined') {
     const root = document.documentElement;
     root?.style.setProperty('--color-theme-primary', cssValue);
+    root?.style.setProperty('--color-theme-text', textColor);
+    root?.style.setProperty('--color-theme-primary-contrast', contrastText);
   }
   persistThemeColor(nextColor);
 }
@@ -122,14 +141,23 @@ function AppThemeInner({
   const [isMounted, setIsMounted] = useState(false);
   const [isLoadingColor, setIsLoadingColor] = useState(true);
 
+  // Initialize theme color on mount only
   useEffect(() => {
     setIsMounted(true);
     const storedColor = readStoredThemeColor(USER_THEME_COLOR_KEY);
     const nextColor = initialThemeColor ?? storedColor ?? DEFAULT_THEME_COLOR;
     setThemeColorState(nextColor);
-    applyThemeColor(nextColor);
     setIsLoadingColor(false);
+    // Note: Initial color application happens in the effect below
   }, [initialThemeColor]);
+
+  // Apply theme colors whenever color or resolved theme changes
+  // This handles both initial mount and light/dark mode switches
+  useEffect(() => {
+    if (!isMounted) return;
+    const safeResolved = resolvedTheme === 'dark' ? 'dark' : 'light';
+    applyThemeColor(themeColor, safeResolved);
+  }, [resolvedTheme, themeColor, isMounted]);
 
   const setTheme = useCallback(
     (nextTheme: ThemePreference) => {
@@ -149,7 +177,8 @@ function AppThemeInner({
   const setThemeColor = useCallback(
     (nextColor: ThemeColor) => {
       setThemeColorState(nextColor);
-      applyThemeColor(nextColor);
+      const safeResolved = resolvedTheme === 'dark' ? 'dark' : 'light';
+      applyThemeColor(nextColor, safeResolved);
       if (user) {
         const normalizedTheme =
           theme === 'light' || theme === 'dark' || theme === 'system'
@@ -166,7 +195,7 @@ function AppThemeInner({
         });
       }
     },
-    [theme, user]
+    [theme, resolvedTheme, user]
   );
 
   const contextValue = useMemo<ThemeContextValue>(() => {

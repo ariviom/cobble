@@ -1,3 +1,7 @@
+'use client';
+
+import { cardVariants } from '@/app/components/ui/Card';
+import { cn } from '@/app/components/ui/utils';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -21,9 +25,19 @@ export function PublicSetCard({
   themeLabel,
   className,
 }: PublicSetCardProps) {
+  const displayName = name && name.trim() ? name : setNumber;
+
+  // Build metadata parts array (matches SetDisplayCard order)
   const metadataParts: string[] = [setNumber];
-  if (year) {
+  if (typeof year === 'number' && Number.isFinite(year) && year > 0) {
     metadataParts.push(String(year));
+  }
+  if (
+    typeof numParts === 'number' &&
+    Number.isFinite(numParts) &&
+    numParts > 0
+  ) {
+    metadataParts.push(`${numParts} parts`);
   }
 
   const [resolvedImageUrl, setResolvedImageUrl] = useState<string | null>(
@@ -73,53 +87,59 @@ export function PublicSetCard({
       setResolvedImageUrl(null);
     }
   };
-  if (
-    typeof numParts === 'number' &&
-    Number.isFinite(numParts) &&
-    numParts > 0
-  ) {
-    metadataParts.push(`${numParts} parts`);
-  }
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-lg border-2 border-subtle bg-card ${className ?? ''}`}
+      className={cn(
+        'group relative',
+        cardVariants({
+          variant: 'theme',
+          elevated: true,
+          interactive: true,
+          padding: 'none',
+        }),
+        className
+      )}
     >
       <Link
         href={`/sets/id/${encodeURIComponent(setNumber)}`}
         className="block w-full"
       >
         <div className="w-full">
-          <div className="relative w-full bg-card-muted">
-            <div className="relative mx-auto w-full max-w-full bg-card p-2">
+          {/* Image area with gradient background matching SetDisplayCard */}
+          <div className="relative w-full">
+            <div className="relative mx-auto w-full max-w-full p-3">
               {resolvedImageUrl ? (
-                <Image
-                  src={resolvedImageUrl}
-                  alt=""
-                  width={512}
-                  height={512}
-                  className="aspect-square h-full w-full overflow-hidden rounded-lg object-cover"
-                  onError={handleImageError}
-                />
+                <div className="relative aspect-square w-full overflow-hidden rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+                  <Image
+                    src={resolvedImageUrl}
+                    alt=""
+                    fill
+                    className="rounded-sm object-contain p-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
+                    onError={handleImageError}
+                  />
+                </div>
               ) : (
-                <div className="flex aspect-square items-center justify-center text-xs text-foreground-muted">
+                <div className="flex aspect-square items-center justify-center rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 text-sm font-medium text-foreground-muted dark:from-neutral-800 dark:to-neutral-900">
                   No Image
                 </div>
               )}
             </div>
           </div>
-          <div className="flex items-start gap-2 px-3 py-3">
+
+          {/* Content area matching SetDisplayCard typography */}
+          <div className="flex items-start gap-2 px-4 py-3">
             <div className="min-w-0 flex-1">
               {themeLabel && (
-                <div className="w-full text-sm font-medium text-foreground-muted">
+                <div className="mb-1 w-full truncate text-xs font-bold tracking-wide text-brand-blue uppercase">
                   {themeLabel}
                 </div>
               )}
-              <div className="line-clamp-1 w-full overflow-hidden font-medium">
-                {name}
+              <div className="line-clamp-2 w-full overflow-hidden text-base leading-tight font-bold text-foreground">
+                {displayName}
               </div>
-              <div className="mt-1 w-full text-xs text-foreground-muted">
-                {metadataParts.join(' | ')}
+              <div className="mt-1.5 w-full text-sm font-semibold text-foreground-muted">
+                {metadataParts.join(' • ')}
               </div>
             </div>
           </div>

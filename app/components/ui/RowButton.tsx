@@ -5,7 +5,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 
 const rowButtonVariants = cva(
   // Chunky, LEGO-inspired row buttons with bold active states
-  'flex w-full h-full items-center bg-card px-4 text-left font-medium text-foreground transition-all duration-150 hover:bg-brand-yellow/10 cursor-pointer data-[selected=true]:bg-brand-yellow/20 data-[selected=true]:text-neutral-900 data-[selected=true]:font-semibold',
+  'flex w-full h-full items-center bg-card px-4 text-left font-medium text-foreground transition-all duration-150 hover:bg-theme-primary/10 cursor-pointer data-[selected=true]:bg-theme-primary/20 data-[selected=true]:text-theme-text data-[selected=true]:font-semibold',
   {
     variants: {
       size: {
