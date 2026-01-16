@@ -1,12 +1,14 @@
 'use client';
 
+import { Alert } from '@/app/components/ui/Alert';
 import { Button } from '@/app/components/ui/Button';
 import {
   Card,
   CardContent,
-  CardDescription,
+  CardHeader,
   CardTitle,
 } from '@/app/components/ui/Card';
+import { Checkbox } from '@/app/components/ui/Checkbox';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import {
   saveUserMinifigSyncPreferences,
@@ -142,125 +144,122 @@ export function SetsTab({
   };
 
   return (
-    <Card
-      id="account-sets-section"
-      aria-labelledby="account-sets-heading"
-      className="border-none bg-transparent p-0 shadow-none"
-    >
-      <CardContent className="flex flex-col gap-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <CardTitle
-              id="account-sets-heading"
-              className="text-xl font-semibold text-foreground"
-            >
-              Your sets
-            </CardTitle>
-            <CardDescription className="mt-1 text-sm text-foreground-muted">
-              Counts of sets you&apos;ve marked as owned or added to your
-              wishlist.
-            </CardDescription>
-          </div>
-        </div>
-
-        {!isLoggedIn && (
-          <p className="mt-1 text-xs text-foreground-muted">
-            Sign in to track your sets across devices.
+    <div className="space-y-6">
+      {/* Collection Stats */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Your sets</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-body text-foreground-muted">
+            Counts of sets you&apos;ve marked as owned or added to your
+            wishlist.
           </p>
-        )}
-        <div className="mt-4 space-y-3 border-t border-subtle pt-4">
-          <div className="rounded-md border border-subtle bg-card-muted px-3 py-2">
-            <p className="text-[11px] tracking-wide text-foreground-muted uppercase">
-              Owned
-            </p>
-            <p className="mt-1 text-lg font-semibold text-foreground">
-              {ownedCount.toLocaleString()}
-            </p>
-          </div>
-          <div className="rounded-md border border-subtle bg-card-muted px-3 py-2">
-            <p className="text-[11px] tracking-wide text-foreground-muted uppercase">
-              Wishlist
-            </p>
-            <p className="mt-1 text-lg font-semibold text-foreground">
-              {wishlistCount.toLocaleString()}
-            </p>
-          </div>
-        </div>
 
-        <div className="mt-6 space-y-4 border-t border-subtle pt-4">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">
-              Minifigure sync from owned sets
-            </h3>
-            <p className="mt-1 text-xs text-foreground-muted">
-              When enabled, Brick Party keeps your{' '}
-              <span className="font-medium">owned</span> minifigures in sync
-              with the sets you&apos;ve marked as owned. Minifigure wishlists
-              are never created or updated automatically.
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="h-3 w-3 accent-theme-primary"
-                  checked={syncOwnedMinifigsFromSets}
-                  onChange={event =>
-                    void handleSaveMinifigSyncPreference(event.target.checked)
-                  }
-                  disabled={!isLoggedIn || isSavingMinifigSync}
-                />
-                <span>Automatically sync owned set minifigures</span>
-              </label>
+          {!isLoggedIn && (
+            <Alert variant="info" className="mt-4">
+              Sign in to track your sets across devices.
+            </Alert>
+          )}
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border-2 border-subtle bg-card-muted p-4">
+              <p className="text-label font-semibold tracking-wide text-foreground-muted uppercase">
+                Owned
+              </p>
+              <p className="text-heading-lg mt-1 font-bold text-foreground">
+                {ownedCount.toLocaleString()}
+              </p>
+            </div>
+            <div className="rounded-lg border-2 border-subtle bg-card-muted p-4">
+              <p className="text-label font-semibold tracking-wide text-foreground-muted uppercase">
+                Wishlist
+              </p>
+              <p className="text-heading-lg mt-1 font-bold text-foreground">
+                {wishlistCount.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Minifig Sync Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Minifigure sync from owned sets</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-body text-foreground-muted">
+            When enabled, Brick Party keeps your owned minifigures in sync with
+            the sets you&apos;ve marked as owned. Minifigure wishlists are never
+            created or updated automatically.
+          </p>
+
+          <div className="mt-6 space-y-4">
+            <label className="flex items-center gap-3">
+              <Checkbox
+                checked={syncOwnedMinifigsFromSets}
+                onChange={event =>
+                  void handleSaveMinifigSyncPreference(event.target.checked)
+                }
+                disabled={!isLoggedIn || isSavingMinifigSync}
+              />
+              <span className="text-body font-medium text-foreground">
+                Automatically sync owned set minifigures
+              </span>
               {isSavingMinifigSync && (
-                <span className="text-[11px] text-foreground-muted">
+                <span className="text-body-sm text-foreground-muted">
                   Saving…
                 </span>
               )}
-            </div>
+            </label>
+
             {minifigSyncError && (
-              <p className="mt-1 text-[11px] text-brand-red">
+              <p className="text-body-sm font-medium text-danger">
                 {minifigSyncError}
               </p>
             )}
             {minifigSyncMessage && !minifigSyncError && (
-              <p className="mt-1 text-[11px] text-emerald-600">
+              <p className="text-body-sm font-medium text-success">
                 {minifigSyncMessage}
               </p>
             )}
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="rounded-md border border-subtle bg-card px-3 py-2 text-xs">
-            <p className="font-semibold text-foreground">
-              One-time sync from owned sets
-            </p>
-            <p className="mt-1 text-[11px] text-foreground-muted">
-              This will recompute your{' '}
-              <span className="font-medium">owned</span> minifigures from the
-              sets you&apos;ve marked as owned. Minifigure quantities will be
-              adjusted to match quantities found in those sets.
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => void handleRunMinifigSyncNow()}
-                disabled={!isLoggedIn || isRunningMinifigSyncNow}
-                className="inline-flex items-center px-3 py-1.5 text-[11px]"
-              >
-                {isRunningMinifigSyncNow
-                  ? 'Syncing…'
-                  : 'Sync owned set minifigures now'}
-              </Button>
-              {isRunningMinifigSyncNow && (
-                <span className="text-[11px] text-foreground-muted">
-                  This may take a few seconds.
-                </span>
-              )}
-            </div>
+      {/* One-time Sync */}
+      <Card>
+        <CardHeader>
+          <CardTitle>One-time sync from owned sets</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-body text-foreground-muted">
+            This will recompute your owned minifigures from the sets you&apos;ve
+            marked as owned. Minifigure quantities will be adjusted to match
+            quantities found in those sets.
+          </p>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => void handleRunMinifigSyncNow()}
+              disabled={!isLoggedIn || isRunningMinifigSyncNow}
+            >
+              {isRunningMinifigSyncNow
+                ? 'Syncing…'
+                : 'Sync owned set minifigures now'}
+            </Button>
+            {isRunningMinifigSyncNow && (
+              <span className="text-body-sm text-foreground-muted">
+                This may take a few seconds.
+              </span>
+            )}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

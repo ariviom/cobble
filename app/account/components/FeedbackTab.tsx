@@ -1,10 +1,11 @@
 'use client';
 
+import { Alert } from '@/app/components/ui/Alert';
 import { Button } from '@/app/components/ui/Button';
 import {
   Card,
   CardContent,
-  CardDescription,
+  CardHeader,
   CardTitle,
 } from '@/app/components/ui/Card';
 import { Input } from '@/app/components/ui/Input';
@@ -106,141 +107,124 @@ export function FeedbackTab({ user }: FeedbackTabProps) {
   };
 
   return (
-    <Card
-      id="feedback-section"
-      aria-labelledby="feedback-heading"
-      className="border-none bg-transparent p-0 shadow-none"
-    >
-      <CardContent className="flex flex-col gap-6">
-        <div>
-          <CardTitle
-            id="feedback-heading"
-            className="text-xl font-semibold text-foreground"
-          >
-            Send feedback
-          </CardTitle>
-          <CardDescription className="mt-1 text-sm text-foreground-muted">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Send feedback</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-body text-foreground-muted">
             Help us improve Brick Party. Share bugs, feature requests, or
             general feedback.
-          </CardDescription>
-        </div>
+          </p>
 
-        {!isLoggedIn && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-            <p>You must be signed in to submit feedback.</p>
-          </div>
-        )}
+          {!isLoggedIn && (
+            <Alert variant="warning" className="mt-4">
+              You must be signed in to submit feedback.
+            </Alert>
+          )}
 
-        {isLoggedIn && (
-          <div className="mt-4 space-y-6">
-            <div className="flex flex-col gap-2">
-              <h3 className="text-sm font-semibold text-foreground">
-                Submit feedback
-              </h3>
-              <p className="text-xs text-foreground-muted">
-                We read every submission and use your feedback to guide product
-                development.
-              </p>
-
+          {isLoggedIn && (
+            <div className="mt-6 space-y-4">
               {/* Email (read-only) */}
-              <label className="mt-2 text-[11px] font-medium text-foreground">
-                Email
-              </label>
-              <Input
-                type="email"
-                value={userEmail}
-                disabled
-                className="w-full text-xs text-foreground-muted"
-              />
-              <p className="text-[11px] text-foreground-muted">
-                We&apos;ll use this email if we need to follow up with you.
-              </p>
+              <div>
+                <label className="text-label font-semibold text-foreground">
+                  Email
+                </label>
+                <p className="text-body-sm mt-0.5 text-foreground-muted">
+                  We&apos;ll use this email if we need to follow up with you.
+                </p>
+                <Input
+                  type="email"
+                  size="sm"
+                  value={userEmail}
+                  disabled
+                  className="mt-2"
+                />
+              </div>
 
               {/* Name */}
-              <label className="mt-2 text-[11px] font-medium text-foreground">
-                Name
-              </label>
-              <Input
-                type="text"
-                value={name}
-                onChange={e => {
-                  setName(e.target.value);
-                  setError(null);
-                  setSuccess(null);
-                }}
-                placeholder="Your name"
-                maxLength={100}
-                className="w-full text-xs"
-                disabled={isSubmitting}
-              />
+              <div>
+                <label className="text-label font-semibold text-foreground">
+                  Name
+                </label>
+                <Input
+                  type="text"
+                  size="sm"
+                  value={name}
+                  onChange={e => {
+                    setName(e.target.value);
+                    setError(null);
+                    setSuccess(null);
+                  }}
+                  placeholder="Your name"
+                  maxLength={100}
+                  className="mt-2"
+                  disabled={isSubmitting}
+                />
+              </div>
 
               {/* Message */}
-              <label className="mt-2 text-[11px] font-medium text-foreground">
-                Message
-              </label>
-              <textarea
-                value={message}
-                onChange={e => {
-                  setMessage(e.target.value);
-                  setError(null);
-                  setSuccess(null);
-                }}
-                placeholder="Tell us what you think..."
-                maxLength={2000}
-                rows={6}
-                disabled={isSubmitting}
-                className="w-full rounded-md border border-subtle bg-card px-2 py-1 text-xs text-foreground shadow-sm placeholder:text-foreground-muted focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-              />
-              <p className="text-[11px] text-foreground-muted">
-                {message.length} / 2000 characters
-              </p>
+              <div>
+                <label className="text-label font-semibold text-foreground">
+                  Message
+                </label>
+                <textarea
+                  value={message}
+                  onChange={e => {
+                    setMessage(e.target.value);
+                    setError(null);
+                    setSuccess(null);
+                  }}
+                  placeholder="Tell us what you think..."
+                  maxLength={2000}
+                  rows={6}
+                  disabled={isSubmitting}
+                  className="mt-2 w-full rounded-md border-2 border-subtle bg-card px-4 py-3 text-base font-medium text-foreground transition-all duration-150 placeholder:text-foreground-muted/50 focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:bg-background-muted disabled:opacity-50"
+                />
+                <p className="text-body-sm mt-1 text-foreground-muted">
+                  {message.length} / 2000 characters
+                </p>
+              </div>
 
               {/* Error message */}
-              {error && (
-                <div className="rounded-md border-2 border-danger/30 bg-danger-muted px-3 py-2 text-[11px] font-medium text-danger">
-                  {error}
-                </div>
-              )}
+              {error && <Alert variant="error">{error}</Alert>}
 
               {/* Success message */}
-              {success && (
-                <div className="rounded-md border-2 border-success/30 bg-success-muted px-3 py-2 text-[11px] font-medium text-success">
-                  {success}
-                </div>
-              )}
+              {success && <Alert variant="success">{success}</Alert>}
 
               {/* Submit button */}
-              <div className="mt-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => void handleSubmit()}
-                  disabled={isSubmitting}
-                  className="inline-flex items-center px-3 py-1.5 text-[11px]"
-                >
-                  {isSubmitting ? 'Submitting…' : 'Submit feedback'}
-                </Button>
-              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                onClick={() => void handleSubmit()}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Submitting…' : 'Submit feedback'}
+              </Button>
             </div>
+          )}
+        </CardContent>
+      </Card>
 
-            {/* Direct email option */}
-            <div className="border-t border-subtle pt-4">
-              <h3 className="text-sm font-semibold text-foreground">
-                Email directly
-              </h3>
-              <p className="mt-1 text-xs text-foreground-muted">
-                Prefer email? You can also reach us directly at{' '}
-                <a
-                  href="mailto:stud@brick-party.com"
-                  className="font-medium text-theme-primary hover:underline"
-                >
-                  stud@brick-party.com
-                </a>
-              </p>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {/* Direct email option */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Email directly</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-body text-foreground-muted">
+            Prefer email? You can also reach us directly at{' '}
+            <a
+              href="mailto:stud@brick-party.com"
+              className="font-semibold text-theme-primary hover:underline"
+            >
+              stud@brick-party.com
+            </a>
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

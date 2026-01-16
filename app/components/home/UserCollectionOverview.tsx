@@ -25,6 +25,7 @@ type ThemeInfo = {
 type CustomListFilter = `list:${string}`;
 type ListFilter = 'all' | 'owned' | 'wishlist' | CustomListFilter;
 type GroupBy = 'status' | 'theme';
+type MinifigGroupBy = 'status' | 'category';
 
 type UserSetsView = 'all' | 'owned' | 'wishlist';
 type CollectionType = 'sets' | 'minifigs';
@@ -193,7 +194,10 @@ export function UserCollectionOverview({
   const [collectionType, setCollectionType] =
     useState<CollectionType>(initialType);
   const [groupBy, setGroupBy] = useState<GroupBy>('status');
+  const [minifigGroupBy, setMinifigGroupBy] =
+    useState<MinifigGroupBy>('status');
   const [themeFilter, setThemeFilter] = useState<number | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all');
   const [listMembership, setListMembership] = useState<
     Record<string, ListMembership>
   >({});
@@ -355,6 +359,23 @@ export function UserCollectionOverview({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [sets, themeMap]);
 
+  // Build category options from minifigs (for category filter dropdown)
+  const categoryOptions = useMemo(() => {
+    const names = new Map<number, string>();
+    for (const fig of minifigs) {
+      if (
+        typeof fig.categoryId === 'number' &&
+        Number.isFinite(fig.categoryId) &&
+        fig.categoryName
+      ) {
+        names.set(fig.categoryId, fig.categoryName);
+      }
+    }
+    return Array.from(names.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [minifigs]);
+
   const filteredSets = useMemo(() => {
     const customListId = selectedListId;
     const membership = customListId ? listMembership[customListId]?.sets : null;
@@ -415,14 +436,30 @@ export function UserCollectionOverview({
           return false;
         }
       }
+      // Category filter
+      if (categoryFilter !== 'all') {
+        if (
+          typeof fig.categoryId !== 'number' ||
+          !Number.isFinite(fig.categoryId)
+        ) {
+          return false;
+        }
+        if (fig.categoryId !== categoryFilter) return false;
+      }
       return true;
     });
-  }, [minifigs, listFilter, selectedListId, listMembership]);
+  }, [minifigs, listFilter, selectedListId, listMembership, categoryFilter]);
 
   const groupedMinifigs = useMemo(() => {
     const groups = new Map<string, typeof filteredMinifigs>();
     for (const fig of filteredMinifigs) {
-      const key = getMinifigStatusLabel(fig.status);
+      let key: string;
+      if (minifigGroupBy === 'status') {
+        key = getMinifigStatusLabel(fig.status);
+      } else {
+        // Group by category
+        key = fig.categoryName ?? 'Unknown category';
+      }
       if (!groups.has(key)) {
         groups.set(key, []);
       }
@@ -431,7 +468,7 @@ export function UserCollectionOverview({
     return Array.from(groups.entries())
       .map(([label, items]) => ({ label, items }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [filteredMinifigs]);
+  }, [filteredMinifigs, minifigGroupBy]);
 
   const hasAnySets = sets.length > 0;
   const hasAnyMinifigs = minifigs.length > 0;
@@ -602,6 +639,59 @@ export function UserCollectionOverview({
                     </div>
                   </>
                 )}
+                {collectionType === 'minifigs' && hasAnyMinifigs && (
+                  <>
+                    <div className="flex shrink-0 flex-col gap-1">
+                      <span className="text-xs font-medium text-foreground-muted">
+                        Theme
+                      </span>
+                      <Select
+                        id="category-filter"
+                        size="sm"
+                        className="min-w-[120px]"
+                        value={
+                          categoryFilter === 'all'
+                            ? 'all'
+                            : String(categoryFilter)
+                        }
+                        onChange={event => {
+                          const v = event.target.value;
+                          if (v === 'all') {
+                            setCategoryFilter('all');
+                          } else {
+                            const parsed = Number(v);
+                            setCategoryFilter(
+                              Number.isFinite(parsed) ? parsed : 'all'
+                            );
+                          }
+                        }}
+                      >
+                        <option value="all">All themes</option>
+                        {categoryOptions.map(opt => (
+                          <option key={opt.id} value={opt.id}>
+                            {opt.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <div className="flex shrink-0 flex-col gap-1">
+                      <span className="text-xs font-medium text-foreground-muted">
+                        Group
+                      </span>
+                      <SegmentedControl
+                        size="sm"
+                        segments={[
+                          { key: 'status', label: 'Collection' },
+                          { key: 'category', label: 'Theme' },
+                        ]}
+                        value={minifigGroupBy}
+                        onChange={key =>
+                          setMinifigGroupBy(key as MinifigGroupBy)
+                        }
+                      />
+                    </div>
+                  </>
+                )}
               </>
             )}
             <div className="flex shrink-0 flex-col gap-1">
@@ -644,13 +734,13 @@ export function UserCollectionOverview({
         )}
 
         {listsError && (
-          <div className="mt-2 text-xs text-brand-red">
+          <div className="mt-2 text-xs text-danger">
             Failed to load lists. Try refreshing the page.
           </div>
         )}
 
         {collectionType === 'minifigs' && minifigsError && (
-          <div className="mt-2 text-xs text-brand-red">{minifigsError}</div>
+          <div className="mt-2 text-xs text-danger">{minifigsError}</div>
         )}
 
         {isCustomListLoading && (
@@ -662,7 +752,7 @@ export function UserCollectionOverview({
         {selectedListId &&
           listMembershipError &&
           listMembershipErrorId === selectedListId && (
-            <div className="mt-2 text-xs text-brand-red">
+            <div className="mt-2 text-xs text-danger">
               {listMembershipError}
             </div>
           )}
@@ -692,7 +782,7 @@ export function UserCollectionOverview({
                 <CollectionGroupHeading>{group.label}</CollectionGroupHeading>
                 <div
                   data-item-size="md"
-                  className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+                  className="grid grid-cols-1 gap-x-2 gap-y-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
                 >
                   {group.items.map(set => (
                     <SetDisplayCard
@@ -724,7 +814,7 @@ export function UserCollectionOverview({
               {groupedMinifigs.map(group => (
                 <div key={group.label} className="flex flex-col gap-2">
                   <CollectionGroupHeading>{group.label}</CollectionGroupHeading>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-x-2 gap-y-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                     {group.items.map(fig => (
                       <MinifigCard
                         key={fig.figNum}
@@ -734,6 +824,8 @@ export function UserCollectionOverview({
                         blId={fig.blId ?? null}
                         numParts={fig.numParts}
                         quantity={fig.quantity}
+                        year={fig.year}
+                        themeName={fig.categoryName}
                       />
                     ))}
                   </div>

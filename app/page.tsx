@@ -39,16 +39,24 @@ export default function Home() {
                 lists for Rebrickable and BrickLink.
               </p>
 
-              {/* CTA Buttons - Big, chunky, and playful */}
+              {/* CTA Buttons - Big, chunky, and playful (hardcoded colors to avoid theme conflicts) */}
               <div className="flex flex-wrap justify-center gap-4">
                 <Link href="/search">
-                  <Button variant="primary" size="lg" className="gap-2 text-lg">
+                  <Button
+                    variant="hero-primary"
+                    size="lg"
+                    className="gap-2 text-lg"
+                  >
                     <Search className="h-5 w-5" />
                     Search Sets
                   </Button>
                 </Link>
                 <Link href="/identify">
-                  <Button variant="accent" size="lg" className="gap-2 text-lg">
+                  <Button
+                    variant="hero-secondary"
+                    size="lg"
+                    className="gap-2 text-lg"
+                  >
                     <Camera className="h-5 w-5" />
                     Identify Parts
                   </Button>

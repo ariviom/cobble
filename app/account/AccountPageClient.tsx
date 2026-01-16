@@ -1,11 +1,18 @@
 'use client';
 
+import { Alert } from '@/app/components/ui/Alert';
+import { buttonVariants } from '@/app/components/ui/Button';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/app/components/ui/Tabs';
 import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
 import type { Tables } from '@/supabase/types';
 import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
-import { useState } from 'react';
 
 import { AccountTab, DisplayTab, FeedbackTab, SetsTab } from './components';
 import { useAccountData } from './hooks/useAccountData';
@@ -19,15 +26,6 @@ type AccountPageClientProps = {
   initialPricingCountry: string | null;
   initialSyncOwnedMinifigsFromSets: boolean;
 };
-
-type TabId = 'account' | 'display' | 'sets' | 'feedback';
-
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'account', label: 'Account' },
-  { id: 'display', label: 'Display & behavior' },
-  { id: 'sets', label: 'Your sets' },
-  { id: 'feedback', label: 'Feedback' },
-];
 
 export default function AccountPageClient({
   initialUser,
@@ -57,92 +55,80 @@ export default function AccountPageClient({
     initialPricingCountry,
   });
 
-  const [activeTab, setActiveTab] = useState<TabId>('account');
-
   const isLoggedIn = !!user;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-8 lg:px-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 lg:px-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
-        <p className="mt-2 text-sm text-foreground-muted">
+        <h1 className="text-heading-lg font-bold tracking-tight text-foreground">
+          Account
+        </h1>
+        <p className="mt-1 text-body text-foreground-muted">
           Manage your sign-in, profile, and default Brick Party behavior.
         </p>
       </header>
 
       {!isLoading && !isLoggedIn && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p>
-              You are not logged in. To manage your account settings and sync
-              data in the future, sign in first.
-            </p>
+        <Alert variant="warning">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              You are not logged in. Sign in to manage your account settings and
+              sync data across devices.
+            </span>
             <Link
               href="/login"
-              className="rounded-md bg-amber-900 px-3 py-1.5 text-xs font-medium text-amber-50 hover:bg-amber-800"
+              className={buttonVariants({ variant: 'primary', size: 'sm' })}
             >
-              Go to login
+              Sign in
             </Link>
           </div>
-        </div>
+        </Alert>
       )}
 
-      {error && <ErrorBanner className="text-xs" message={error} />}
+      {error && <ErrorBanner message={error} />}
 
-      {/* Tab navigation */}
-      <nav className="border-b border-subtle">
-        <div className="flex gap-4 overflow-x-auto px-1 pb-2 text-xs font-medium">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              className={
-                activeTab === tab.id
-                  ? 'border-b-2 border-theme-primary pb-1 text-theme-primary'
-                  : 'border-b-2 border-transparent pb-1 text-foreground-muted hover:text-foreground'
-              }
-              onClick={() => setActiveTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </nav>
+      <Tabs defaultValue="account" className="w-full">
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="account">Account</TabsTrigger>
+          <TabsTrigger value="display">Display</TabsTrigger>
+          <TabsTrigger value="sets">Your sets</TabsTrigger>
+          <TabsTrigger value="feedback">Feedback</TabsTrigger>
+        </TabsList>
 
-      {/* Tab content */}
-      {activeTab === 'account' && (
-        <AccountTab
-          user={user}
-          profile={profile}
-          setUser={setUser}
-          setProfile={setProfile}
-          setError={setError}
-        />
-      )}
+        <TabsContent value="account">
+          <AccountTab
+            user={user}
+            profile={profile}
+            setUser={setUser}
+            setProfile={setProfile}
+            setError={setError}
+          />
+        </TabsContent>
 
-      {activeTab === 'display' && (
-        <DisplayTab
-          user={user}
-          profile={profile}
-          setProfile={setProfile}
-          setError={setError}
-          pricingCurrency={pricingCurrency}
-          pricingCountry={pricingCountry}
-          setPricingCurrency={setPricingCurrency}
-          setPricingCountry={setPricingCountry}
-        />
-      )}
+        <TabsContent value="display">
+          <DisplayTab
+            user={user}
+            profile={profile}
+            setProfile={setProfile}
+            setError={setError}
+            pricingCurrency={pricingCurrency}
+            pricingCountry={pricingCountry}
+            setPricingCurrency={setPricingCurrency}
+            setPricingCountry={setPricingCountry}
+          />
+        </TabsContent>
 
-      {activeTab === 'sets' && (
-        <SetsTab
-          user={user}
-          initialSyncOwnedMinifigsFromSets={initialSyncOwnedMinifigsFromSets}
-        />
-      )}
+        <TabsContent value="sets">
+          <SetsTab
+            user={user}
+            initialSyncOwnedMinifigsFromSets={initialSyncOwnedMinifigsFromSets}
+          />
+        </TabsContent>
 
-      {activeTab === 'feedback' && <FeedbackTab user={user} />}
+        <TabsContent value="feedback">
+          <FeedbackTab user={user} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

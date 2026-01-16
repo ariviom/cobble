@@ -71,7 +71,7 @@ export function TabsList({ className, children, ...rest }: TabsListProps) {
       role="tablist"
       className={cn(
         // Chunky container with border, like a LEGO baseplate
-        'inline-flex items-center gap-1 rounded-lg border-2 border-subtle bg-background-muted p-1.5',
+        'inline-flex items-center gap-4 rounded-lg border-2 border-subtle bg-background-muted p-1.5',
         className
       )}
       {...rest}
@@ -113,8 +113,8 @@ export function TabsTrigger({
         'focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:outline-none',
         'disabled:pointer-events-none disabled:opacity-50',
         isSelected
-          ? // Selected: Yellow background like nav items, with 3D depth
-            'bg-brand-yellow text-on-yellow shadow-[0_2px_0_0] shadow-[#b39700]'
+          ? // Selected: Theme color background with 3D depth
+            'bg-theme-primary text-theme-primary-contrast shadow-[0_2px_0_0_var(--color-theme-shadow)]'
           : 'text-foreground-muted hover:bg-card hover:text-foreground',
         className
       )}

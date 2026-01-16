@@ -185,7 +185,7 @@ function LoginForm() {
 
       <header className="relative text-center">
         {/* LEGO brick icon - bolder */}
-        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-lg bg-brand-yellow shadow-[0_3px_0_0] shadow-[#b39700]">
+        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-lg bg-theme-primary shadow-[0_3px_0_0_var(--color-theme-shadow)]">
           <span className="text-3xl">🧱</span>
         </div>
         <h1 className="text-3xl font-extrabold tracking-tight">Welcome back</h1>
@@ -194,7 +194,7 @@ function LoginForm() {
         </p>
       </header>
 
-      <Card elevated variant="yellow">
+      <Card elevated variant="theme">
         <CardHeader>
           <div>
             <CardTitle>Sign in with Google</CardTitle>

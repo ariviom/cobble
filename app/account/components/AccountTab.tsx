@@ -8,7 +8,7 @@ import { Button } from '@/app/components/ui/Button';
 import {
   Card,
   CardContent,
-  CardDescription,
+  CardHeader,
   CardTitle,
 } from '@/app/components/ui/Card';
 import { Input } from '@/app/components/ui/Input';
@@ -233,242 +233,211 @@ export function AccountTab({
   };
 
   return (
-    <>
-      <Card
-        id="account-auth-section"
-        aria-labelledby="account-auth-heading"
-        className="border-none bg-transparent p-0 shadow-none"
-      >
-        <CardContent className="flex flex-col gap-6">
-          <div>
-            <CardTitle
-              id="account-auth-heading"
-              className="text-xl font-semibold text-foreground"
-            >
-              Sign-in &amp; identity
-            </CardTitle>
-            <CardDescription className="mt-1 text-sm text-foreground-muted">
-              Brick Party supports Google Sign-In. Rebrickable and BrickLink are
-              used only as data sources, not as login providers.
-            </CardDescription>
-          </div>
+    <div className="space-y-6">
+      {/* Sign-in & Identity Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Sign-in &amp; identity</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-body text-foreground-muted">
+            Brick Party supports Google Sign-In. Rebrickable and BrickLink are
+            used only as data sources, not as login providers.
+          </p>
 
-          <div className="mt-4 space-y-8">
-            {isLoggedIn && (
-              <div className="flex flex-col gap-2 border-t border-subtle pt-4">
-                <h3 className="text-sm font-semibold text-foreground">
-                  Email &amp; password
-                </h3>
-                <p className="text-xs text-foreground-muted">
-                  Manage your Brick Party handle and email used for
-                  account-related communication.
-                </p>
-                <label className="mt-2 text-[11px] font-medium text-foreground">
+          {isLoggedIn && (
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="text-label font-semibold text-foreground">
                   Username
                 </label>
-                <Input
-                  type="text"
-                  value={usernameInput}
-                  onChange={e => {
-                    setUsernameInput(e.target.value);
-                    setUsernameError(null);
-                  }}
-                  className="w-full text-xs"
-                />
-                {usernameError && (
-                  <p className="mt-1 text-[11px] font-medium text-danger">
-                    {usernameError}
-                  </p>
-                )}
-                {!usernameError && (
-                  <p className="mt-1 text-[11px] text-foreground-muted">
-                    Pick a handle for public links. Lowercase letters, numbers,
-                    and underscores; can be changed later.
-                  </p>
-                )}
-                <div className="mt-2">
+                <p className="text-body-sm mt-0.5 text-foreground-muted">
+                  Pick a handle for public links. Lowercase letters, numbers,
+                  and underscores.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <Input
+                    type="text"
+                    size="sm"
+                    value={usernameInput}
+                    onChange={e => {
+                      setUsernameInput(e.target.value);
+                      setUsernameError(null);
+                    }}
+                    className="flex-1"
+                  />
                   <Button
                     type="button"
                     size="sm"
                     onClick={() => void handleSaveUsername()}
                     disabled={!isLoggedIn || isSavingUsername}
-                    className="inline-flex items-center px-3 py-1.5 text-[11px]"
                   >
-                    {isSavingUsername ? 'Saving…' : 'Save username'}
+                    {isSavingUsername ? 'Saving…' : 'Save'}
                   </Button>
                 </div>
-                <label className="mt-4 text-[11px] font-medium text-foreground">
+                {usernameError && (
+                  <p className="text-body-sm mt-1.5 font-medium text-danger">
+                    {usernameError}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="text-label font-semibold text-foreground">
                   Email
                 </label>
                 <Input
                   type="email"
-                  disabled
-                  value={googleEmail}
-                  className="w-full text-xs text-foreground-muted"
-                />
-              </div>
-            )}
-
-            {isLoggedIn && isEmailAuth && (
-              <div className="flex flex-col gap-2 border-t border-subtle pt-4">
-                <h3 className="text-sm font-semibold text-foreground">
-                  Change password
-                </h3>
-                <p className="text-xs text-foreground-muted">
-                  Update your Brick Party password. You&apos;ll need your
-                  current password to make this change.
-                </p>
-                <label className="mt-2 text-[11px] font-medium text-foreground">
-                  Current password
-                </label>
-                <Input
-                  type="password"
-                  value={currentPassword}
-                  onChange={e => setCurrentPassword(e.target.value)}
-                  className="w-full text-xs"
-                />
-                <label className="mt-2 text-[11px] font-medium text-foreground">
-                  New password
-                </label>
-                <Input
-                  type="password"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  className="w-full text-xs"
-                />
-                <label className="mt-2 text-[11px] font-medium text-foreground">
-                  Confirm new password
-                </label>
-                <Input
-                  type="password"
-                  value={confirmNewPassword}
-                  onChange={e => setConfirmNewPassword(e.target.value)}
-                  className="w-full text-xs"
-                />
-                {passwordError && (
-                  <p className="mt-1 text-[11px] text-danger">
-                    {passwordError}
-                  </p>
-                )}
-                {passwordSuccess && (
-                  <p className="mt-1 text-[11px] text-emerald-600">
-                    {passwordSuccess}
-                  </p>
-                )}
-                <div className="mt-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => void handleChangePassword()}
-                    disabled={!isLoggedIn || isUpdatingPassword}
-                    className="inline-flex items-center px-3 py-1.5 text-[11px]"
-                  >
-                    {isUpdatingPassword
-                      ? 'Updating password…'
-                      : 'Update password'}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {(!isLoggedIn || isGoogleAuth) && (
-              <div className="flex flex-col gap-2 border-t border-subtle pt-4">
-                <h3 className="text-sm font-semibold text-foreground">
-                  Google account
-                </h3>
-                <p className="text-xs text-foreground-muted">
-                  When you sign in with Google, your Google email will appear
-                  here.
-                </p>
-                <label className="mt-1 text-[11px] font-medium text-foreground">
-                  Google email
-                </label>
-                <Input
-                  type="email"
-                  disabled
-                  value={googleEmail}
-                  className="w-full text-xs text-foreground"
-                />
-                {!isLoggedIn && (
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      window.location.href = '/login';
-                    }}
-                    size="sm"
-                    className="mt-3 inline-flex items-center px-3 py-1.5 text-xs"
-                  >
-                    Connect Google
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 
-        <div className="mt-6 border-t border-subtle pt-4">
-          <h3 className="text-sm font-semibold text-foreground">
-            Rebrickable account (optional)
-          </h3>
-          <p className="mt-1 text-xs text-foreground-muted">
-            In the future you&apos;ll be able to link your Rebrickable account
-            so Brick Party can read your existing collection (via a Rebrickable
-            user token).
-          </p>
-          <div className="mt-3 flex flex-col gap-3">
-            <div className="flex flex-col">
-              <label className="mt-2 text-[11px] font-medium text-foreground">
-                Rebrickable user token
-              </label>
-              <Input
-                type="text"
-                disabled
-                placeholder="paste token here (coming soon)"
-                className="w-full text-xs text-foreground-muted"
-              />
-            </div>
-            <div className="flex items-end">
-              <Button
-                type="button"
-                disabled
-                size="sm"
-                className="w-full px-3 py-1.5 text-xs text-foreground-muted"
-              >
-                Connect Rebrickable (coming soon)
-              </Button>
-            </div>
-          </div>
-        </div>
-        */}
-
-          {isLoggedIn && (
-            <div className="mt-6 border-t border-subtle pt-4">
-              <h3 className="text-sm font-semibold text-foreground">
-                Sign out
-              </h3>
-              <p className="mt-1 text-xs text-foreground-muted">
-                Log out of Brick Party on this device. You can sign back in with
-                Google or email later.
-              </p>
-              <div className="mt-3">
-                <Button
-                  type="button"
                   size="sm"
-                  variant="destructive"
-                  onClick={() => void handleLogout()}
-                  disabled={isLoggingOut}
-                  className="inline-flex items-center px-3 py-1.5 text-[11px]"
-                >
-                  {isLoggingOut ? 'Signing out…' : 'Log out'}
-                </Button>
+                  disabled
+                  value={googleEmail}
+                  className="mt-2"
+                />
               </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Legal links - visible for all users */}
-      <div className="mt-6 flex justify-center gap-3 text-xs text-foreground-muted">
+      {/* Change Password Section (email auth only) */}
+      {isLoggedIn && isEmailAuth && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Change password</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-body text-foreground-muted">
+              Update your Brick Party password. You&apos;ll need your current
+              password to make this change.
+            </p>
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="text-label font-semibold text-foreground">
+                  Current password
+                </label>
+                <Input
+                  type="password"
+                  size="sm"
+                  value={currentPassword}
+                  onChange={e => setCurrentPassword(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+              <div>
+                <label className="text-label font-semibold text-foreground">
+                  New password
+                </label>
+                <Input
+                  type="password"
+                  size="sm"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+              <div>
+                <label className="text-label font-semibold text-foreground">
+                  Confirm new password
+                </label>
+                <Input
+                  type="password"
+                  size="sm"
+                  value={confirmNewPassword}
+                  onChange={e => setConfirmNewPassword(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+              {passwordError && (
+                <p className="text-body-sm font-medium text-danger">
+                  {passwordError}
+                </p>
+              )}
+              {passwordSuccess && (
+                <p className="text-body-sm font-medium text-success">
+                  {passwordSuccess}
+                </p>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void handleChangePassword()}
+                disabled={!isLoggedIn || isUpdatingPassword}
+              >
+                {isUpdatingPassword ? 'Updating…' : 'Update password'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Google Account Section (not logged in or Google auth) */}
+      {(!isLoggedIn || isGoogleAuth) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Google account</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-body text-foreground-muted">
+              When you sign in with Google, your Google email will appear here.
+            </p>
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="text-label font-semibold text-foreground">
+                  Google email
+                </label>
+                <Input
+                  type="email"
+                  size="sm"
+                  disabled
+                  value={googleEmail}
+                  className="mt-2"
+                />
+              </div>
+              {!isLoggedIn && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="primary"
+                  onClick={() => {
+                    window.location.href = '/login';
+                  }}
+                >
+                  Connect Google
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sign Out Section */}
+      {isLoggedIn && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Sign out</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-body text-foreground-muted">
+              Log out of Brick Party on this device. You can sign back in with
+              Google or email later.
+            </p>
+            <div className="mt-4">
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                onClick={() => void handleLogout()}
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? 'Signing out…' : 'Log out'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Legal links */}
+      <div className="text-body-sm flex justify-center gap-3 pt-4 text-foreground-muted">
         <Link
           href="/privacy"
           className="underline underline-offset-2 hover:text-foreground"
@@ -483,6 +452,6 @@ export function AccountTab({
           Terms of Service
         </Link>
       </div>
-    </>
+    </div>
   );
 }
