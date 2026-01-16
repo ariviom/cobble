@@ -34,7 +34,7 @@ export function MinifigSearchResultItem({
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-lg border-2 border-subtle bg-card">
       <Link
-        href={`/minifigs/id/${encodeURIComponent(routeId || figNum)}`}
+        href={`/minifigs/${encodeURIComponent(routeId || figNum)}`}
         className="block w-full"
       >
         <div className="w-full">
