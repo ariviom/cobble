@@ -76,6 +76,19 @@ export function useSupabaseOwned({
   const markAllAsOwned = useOwnedStore(
     (state: OwnedState) => state.markAllAsOwned
   );
+  const hydratedSets = useOwnedStore(
+    (state: OwnedState) => state._hydratedSets
+  );
+  const hydrateFromIndexedDB = useOwnedStore(
+    (state: OwnedState) => state.hydrateFromIndexedDB
+  );
+  const isOwnedHydrated = hydratedSets.has(setNumber);
+
+  // Ensure IndexedDB hydration has been triggered for this set.
+  useEffect(() => {
+    if (isOwnedHydrated) return;
+    void hydrateFromIndexedDB(setNumber);
+  }, [setNumber, hydrateFromIndexedDB, isOwnedHydrated]);
 
   // Initialize client ID on mount
   useEffect(() => {
@@ -206,6 +219,7 @@ export function useSupabaseOwned({
   useEffect(() => {
     if (!enableCloudSync || !userId || !migrationDecisionKey) return;
     if (rows.length === 0 || keys.length === 0) return;
+    if (!isOwnedHydrated) return;
     if (hydrated) return;
 
     let cancelled = false;
@@ -379,6 +393,7 @@ export function useSupabaseOwned({
     markAllAsOwned,
     setNumber,
     hydrated,
+    isOwnedHydrated,
   ]);
 
   const confirmMigration = useCallback(async () => {
