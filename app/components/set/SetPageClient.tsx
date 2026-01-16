@@ -1,11 +1,13 @@
 'use client';
 
 import { SetTopBar } from '@/app/components/nav/SetTopBar';
+import { SetTabBar } from '@/app/components/set/SetTabBar';
 import { InventoryTable } from '@/app/components/set/InventoryTable';
 import type { InventoryRow } from '@/app/components/set/types';
 import { Toast } from '@/app/components/ui/Toast';
 import { cn } from '@/app/components/ui/utils';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
+import { useOpenTabs } from '@/app/hooks/useOpenTabs';
 import { useOrigin } from '@/app/hooks/useOrigin';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
@@ -53,12 +55,15 @@ export function SetPageClient({
   const [participants, setParticipants] = useState<GroupParticipant[]>([]);
   const [isSearchTogetherLoading, setIsSearchTogetherLoading] = useState(false);
   const [searchPartyError, setSearchPartyError] = useState<string | null>(null);
+  const [tabLimitError, setTabLimitError] = useState<string | null>(null);
 
   const origin = useOrigin();
   const { user } = useSupabaseUser();
   const clientId = useGroupClientId();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const { tabs, add: addTab } = useOpenTabs();
 
+  // Add to recent sets
   useEffect(() => {
     addRecentSet({
       setNumber,
@@ -70,6 +75,20 @@ export function SetPageClient({
       themeName: themeName ?? null,
     });
   }, [setNumber, setName, year, imageUrl, numParts, themeId, themeName]);
+
+  // Register as open tab
+  useEffect(() => {
+    const result = addTab({
+      setNumber,
+      name: setName,
+      year,
+      imageUrl,
+      numParts,
+    });
+    if (!result.success && result.reason === 'limit_reached') {
+      setTabLimitError('Close a tab to open another set (max 8 tabs)');
+    }
+  }, [setNumber, setName, year, imageUrl, numParts, addTab]);
 
   const joinUrl = useMemo(() => {
     if (!groupSession || !groupSession.slug) return null;
@@ -318,6 +337,8 @@ export function SetPageClient({
     };
   }, [groupSession?.id, supabase]);
 
+  const showTabBar = tabs.length > 0;
+
   return (
     <div
       className={cn(
@@ -325,30 +346,41 @@ export function SetPageClient({
         'lg:set-grid-layout lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:min-h-0 lg:pl-80 lg:set-grid-animated',
         'lg:set-grid-top-collapsed'
       )}
+      data-has-tabs={showTabBar ? 'true' : 'false'}
     >
-      <SetTopBar
-        setNumber={setNumber}
-        setName={setName}
-        imageUrl={imageUrl}
-        year={year}
-        numParts={numParts}
-        themeId={themeId ?? null}
-        {...(clientId
-          ? {
-              searchParty: {
-                active: !!groupSession,
-                loading: isSearchTogetherLoading,
-                canHost: !!user,
-                joinUrl,
-                participants,
-                totalPiecesFound,
-                currentParticipantId: currentParticipant?.id ?? null,
-                onStart: handleStartSearchTogether,
-                onEnd: handleEndSearchTogether,
-              },
-            }
-          : {})}
-      />
+      {/* Header container: SetTopBar + SetTabBar share the first grid row on desktop */}
+      <div className="contents lg:flex lg:flex-col">
+        <SetTopBar
+          setNumber={setNumber}
+          setName={setName}
+          imageUrl={imageUrl}
+          year={year}
+          numParts={numParts}
+          themeId={themeId ?? null}
+          {...(clientId
+            ? {
+                searchParty: {
+                  active: !!groupSession,
+                  loading: isSearchTogetherLoading,
+                  canHost: !!user,
+                  joinUrl,
+                  participants,
+                  totalPiecesFound,
+                  currentParticipantId: currentParticipant?.id ?? null,
+                  onStart: handleStartSearchTogether,
+                  onEnd: handleEndSearchTogether,
+                },
+              }
+            : {})}
+        />
+        {showTabBar && (
+          <SetTabBar
+            tabs={tabs}
+            activeSetNumber={setNumber}
+            groupSessionSetNumber={groupSession?.setNumber ?? null}
+          />
+        )}
+      </div>
       <InventoryTable
         setNumber={setNumber}
         setName={setName}
@@ -364,6 +396,13 @@ export function SetPageClient({
           variant="error"
           description={searchPartyError}
           onClose={() => setSearchPartyError(null)}
+        />
+      )}
+      {tabLimitError && (
+        <Toast
+          variant="warning"
+          description={tabLimitError}
+          onClose={() => setTabLimitError(null)}
         />
       )}
     </div>

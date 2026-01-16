@@ -49,6 +49,9 @@ type UseGroupSessionChannelResult = {
   hasConnectedOnce: boolean;
 };
 
+/** Debounce window for piece_delta broadcasts (ms). Batches rapid changes to same piece. */
+const PIECE_DELTA_DEBOUNCE_MS = 200;
+
 export function useGroupSessionChannel({
   enabled,
   sessionId,
@@ -69,6 +72,12 @@ export function useGroupSessionChannel({
   const reconnectAttemptRef = useRef(0);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const disconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debounce state for piece_delta broadcasts - accumulates rapid changes per key
+  const pendingDeltasRef = useRef<
+    Map<string, { accumulatedDelta: number; newOwned: number }>
+  >(new Map());
+  const deltaTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
     if (!enabled || !sessionId) {
@@ -190,6 +199,10 @@ export function useGroupSessionChannel({
       setConnectionState('disconnected');
     }
 
+    // Capture refs for cleanup
+    const deltaTimers = deltaTimersRef.current;
+    const pendingDeltas = pendingDeltasRef.current;
+
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
@@ -199,6 +212,13 @@ export function useGroupSessionChannel({
         clearTimeout(disconnectTimeoutRef.current);
         disconnectTimeoutRef.current = null;
       }
+      // Clear all pending delta timers
+      for (const timer of deltaTimers.values()) {
+        clearTimeout(timer);
+      }
+      deltaTimers.clear();
+      pendingDeltas.clear();
+
       if (channelRef.current) {
         void channelRef.current.unsubscribe();
         channelRef.current = null;
@@ -228,33 +248,67 @@ export function useGroupSessionChannel({
       const channel = channelRef.current;
       if (!channel) return;
 
-      const payload: PieceDeltaPayload = {
-        key: args.key,
-        delta: args.delta,
-        newOwned: args.newOwned,
-        participantId,
-        clientId,
-        setNumber,
-      };
-
-      channel
-        .send({
-          type: 'broadcast',
-          event: 'piece_delta',
-          payload,
-        })
-        .catch(err => {
-          if (process.env.NODE_ENV !== 'production') {
-            console.error('[GroupSessionChannel] broadcast failed', {
-              sessionId,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-        });
-
+      // Update local participant stats immediately for responsive UI
       if (onParticipantPiecesDelta) {
         onParticipantPiecesDelta(participantId ?? null, args.delta);
       }
+
+      // Accumulate delta for this key (batches rapid changes)
+      const pending = pendingDeltasRef.current.get(args.key);
+      if (pending) {
+        pending.accumulatedDelta += args.delta;
+        pending.newOwned = args.newOwned; // Always use latest value
+      } else {
+        pendingDeltasRef.current.set(args.key, {
+          accumulatedDelta: args.delta,
+          newOwned: args.newOwned,
+        });
+      }
+
+      // Clear existing timer for this key if any
+      const existingTimer = deltaTimersRef.current.get(args.key);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
+
+      // Set new debounce timer
+      const timer = setTimeout(() => {
+        const pendingData = pendingDeltasRef.current.get(args.key);
+        if (!pendingData) return;
+
+        // Clean up tracking state
+        pendingDeltasRef.current.delete(args.key);
+        deltaTimersRef.current.delete(args.key);
+
+        // Skip if delta accumulated to zero (e.g., +1 then -1)
+        if (pendingData.accumulatedDelta === 0) return;
+
+        const payload: PieceDeltaPayload = {
+          key: args.key,
+          delta: pendingData.accumulatedDelta,
+          newOwned: pendingData.newOwned,
+          participantId,
+          clientId,
+          setNumber,
+        };
+
+        channel
+          .send({
+            type: 'broadcast',
+            event: 'piece_delta',
+            payload,
+          })
+          .catch(err => {
+            if (process.env.NODE_ENV !== 'production') {
+              console.error('[GroupSessionChannel] broadcast failed', {
+                sessionId,
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+          });
+      }, PIECE_DELTA_DEBOUNCE_MS);
+
+      deltaTimersRef.current.set(args.key, timer);
     },
     [
       enabled,

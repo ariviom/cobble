@@ -29,6 +29,7 @@ export default async function SetPage({ params }: SetPageProps) {
   return (
     <LocalDataProviderBoundary>
       <SetPageClient
+        key={summary.setNumber}
         setNumber={summary.setNumber}
         setName={summary.name}
         year={summary.year}
