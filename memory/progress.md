@@ -145,27 +145,18 @@
 
 ## Planned / In Progress
 
-- Pull-on-login for multi-device sync (fetch user data from Supabase on new device)
-- Hardening of error states and retries for search and inventory requests; surface normalized `AppError` codes in the UI instead of generic messages.
-- Tests for CSV export generators (Rebrickable + BrickLink) and for Rebrickable client retry/backoff behavior.
+See `docs/BACKLOG.md` for the full consolidated backlog.
 
-### Improvement backlog (2025-11-26 review)
+**High priority:**
+- Stripe UI/UX enforcement (Account page, upgrade CTAs, feature gating)
 
-- Extract sub-pipelines from the Identify backend into smaller pure helpers (RB candidate resolution, BL supersets fallback, BL-only fallback) and add a per-request budget to cap external calls.
-- Improve Identify page UX with clearer sub-states (e.g., "Identifying…", "Finding sets…", "Using BrickLink-only data") and consider debouncing rapid candidate/color changes.
-- Refactor Supabase-owned state into a lower-level owned-persistence service plus a higher-level migration coordinator hook, and add lightweight telemetry/logging for Supabase write failures.
-- Centralize non-blocking error surfacing (e.g., toasts) for Supabase-backed flows like collection create/toggle and set status updates.
-- Upgrade the modal implementation to full accessibility: focus trap, focus restoration, inert background, and robust `aria-labelledby` / `aria-describedby`.
-- Tighten accessibility and keyboard support across complex controls (inventory filters, color pickers, identify chips): ensure proper roles, key handling, and ARIA labels.
-- Add defensive rate limiting and/or feature flags for Identify and pricing endpoints to prevent overuse of BrickLink/Rebrickable (per-IP and/or per-user limits).
-- Cache "identify → sets" resolutions in Supabase keyed by normalized part/color identifiers to avoid repeating heavy Identify pipelines.
-- Introduce structured logging and basic metrics (per-route latency/error rates, cache hit/miss, external API throttling) to support higher scale and easier debugging.
-- Enhance auth lifecycle handling by subscribing to Supabase `auth.onAuthStateChange` so hooks depending on `useSupabaseUser` react to in-session login/logout.
-- Expand automated tests around Identify and pricing flows (mocked RB/BL/Brickognize) and add end-to-end validation for CSV exports against Rebrickable/BrickLink import rules.
+**Medium priority:**
+- Multi-device sync (pull-on-login)
+- Error states hardening
 
 ## Status
 
-Implementation is in progress: core data flow via server proxies and virtualized table is working, and owned persistence, sorting, filters, exports, and manual pricing are implemented. **BrickLink is now the exclusive source of truth for minifigure data** - all RB→BL mapping logic has been removed and replaced with direct BL table queries with self-healing capabilities.
+Core MVP is feature-complete: search, inventory, owned tracking, CSV exports, pricing, and identify flows are all working. Auth and Supabase persistence are wired up. **BrickLink is the exclusive source of truth for minifigure data** with self-healing capabilities. Main remaining work is Stripe UI/UX enforcement and multi-device sync.
 
 ## Known Issues / Risks
 

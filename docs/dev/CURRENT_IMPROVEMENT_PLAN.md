@@ -88,8 +88,9 @@ rg "export (async function |function |const )(POST|PUT|PATCH|DELETE)" app/api/ -
 ## Related Documentation
 
 - `PREVIOUS_IMPROVEMENT_PLANS.md` - Completed improvement work
-- `CACHE_ARCHITECTURE_PLAN.md` - Detailed caching analysis
+- `archive/CACHE_ARCHITECTURE_PLAN.md` - Detailed caching analysis (archived)
 - `memory/system-patterns.md` - Caching strategy section
+- `docs/BACKLOG.md` - Consolidated project backlog
 
 ---
 

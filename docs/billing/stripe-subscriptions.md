@@ -157,14 +157,23 @@ Indexes: `billing_subscriptions(user_id)`, `billing_subscriptions(stripe_subscri
 5. Add tests for price→tier mapping, entitlement resolver, webhook flows (created/updated/canceled).
 6. Local webhook testing: `stripe listen --forward-to localhost:3000/api/stripe/webhook`.
 
-## Post-Foundation (not built yet; document for later)
+## Post-Foundation (not built yet)
 
-- UI/UX: Account/Billing page showing tier/status/renewal/cancel_at_period_end; Upgrade/Manage CTAs; inline upsells on gated features.
-- Feature enforcement: SSR entitlements preload, API guards, client `useFeatureFlag`.
-- Pricing expansion: Yearly pricing surfaced in UI when ready; optional multi-currency/localized prices.
-- Dunning/notifications: Past_due/unpaid handling, email or in-app banners.
-- Advanced tax/localization: per-country price availability if compliance requires.
-- Analytics/observability: event logging, latency/failure metrics on webhook handler.
+> **Tracking:** See `docs/BACKLOG.md` for consolidated task tracking.
+
+| Task                                              | Priority | Status         |
+| ------------------------------------------------- | -------- | -------------- |
+| Account/Billing page (tier/status/renewal/cancel) | High     | ⏳ Not started |
+| Upgrade/Manage CTAs                               | High     | ⏳ Not started |
+| Inline upsells on gated features                  | High     | ⏳ Not started |
+| SSR entitlements preload                          | High     | ⏳ Not started |
+| API guards for tier-restricted endpoints          | High     | ⏳ Not started |
+| Client `useFeatureFlag` hook                      | High     | ⏳ Not started |
+| Usage counters enforcement                        | High     | ⏳ Not started |
+| Dunning/notifications (past_due handling)         | Medium   | ⏳ Not started |
+| Yearly pricing UI                                 | Low      | ⏳ Not started |
+| Multi-currency/localized pricing                  | Low      | ⏳ Not started |
+| Analytics/observability                           | Low      | ⏳ Not started |
 
 ## Testing Checklist
 

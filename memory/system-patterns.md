@@ -38,9 +38,13 @@
     - A shared script module (`scripts/minifig-mapping-core.ts`) that:
       - Calls BrickLink `/items/SET/{setNum}/subsets` to fetch minifigs.
       - Loads Rebrickable inventories/minifigs for the same set from Supabase.
-      - Matches RB ↔ BL minifigs by normalized name, Jaccard similarity, and a greedy fallback within the set's small candidate list.
+      - **Simplified matching (January 2026)**: Uses position-based pairing instead of complex fuzzy matching. If RB count == BL count, pairs by position; otherwise matches by quantity first.
       - Upserts mappings into `bl_set_minifigs` and a global `bricklink_minifig_mappings` cache.
-      - Optionally fetches minifig component parts via `/items/MINIFIG/{minifigNo}/subsets` and maps RB minifig parts → BL parts.
+      - Optionally fetches minifig component parts via `/items/MINIFIG/{minifigNo}/subsets` and caches to `bl_minifig_parts`.
+  - **"Sets for minifig" lookups** use `getSetsForMinifigBl()` in `app/lib/bricklink/minifigs.ts`:
+    - Queries `bl_set_minifigs` directly instead of calling Rebrickable API.
+    - Enriches results with set details from `rb_sets`.
+    - Used by `/api/identify/sets/handlers/minifig.ts` and `/api/minifigs/[figNum]/route.ts`.
     - **Batched mapping module** (`app/lib/minifigMappingBatched.ts`) that reduces DB round-trips:
       - `getMinifigMappingsForSetBatched()` fetches mappings + sync status in a single parallel query (down from 6-8 sequential calls).
       - Built-in request deduplication via `inFlightSyncs` Map prevents duplicate BrickLink API calls for concurrent requests.

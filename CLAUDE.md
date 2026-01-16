@@ -24,6 +24,40 @@ Context resets between sessions. The Memory Bank in `./memory/` is the link to p
 - When context needs clarification
 - When user requests **"update memory bank"** → review ALL files, focus on `active-context.md` and `progress.md`
 
+## Documentation Structure
+
+Beyond the memory bank, project documentation lives in `docs/`:
+
+```
+docs/
+├── BACKLOG.md                 # Master task list (High/Medium/Low priority)
+├── billing/
+│   └── stripe-subscriptions.md   # Stripe integration spec
+└── dev/
+    ├── CURRENT_IMPROVEMENT_PLAN.md    # Active improvement work
+    ├── PREVIOUS_IMPROVEMENT_PLANS.md  # Historical archive
+    ├── *_COMPLETE.md                  # Completion docs (architecture reference)
+    └── archive/                       # Completed plans (historical reference)
+```
+
+### Documentation Workflow
+
+| Document                               | When to Use                                                |
+| -------------------------------------- | ---------------------------------------------------------- |
+| `docs/BACKLOG.md`                      | Add new tasks, check outstanding work, mark items complete |
+| `docs/dev/CURRENT_IMPROVEMENT_PLAN.md` | Track active improvement initiatives                       |
+| `docs/billing/stripe-subscriptions.md` | Stripe implementation details and status                   |
+| `memory/active-context.md`             | Current focus and recent completions                       |
+| `memory/progress.md`                   | High-level status, references BACKLOG.md                   |
+
+### When Planning New Work
+
+1. Check `docs/BACKLOG.md` for existing related tasks
+2. For major features, create a plan in `docs/dev/` (e.g., `FEATURE_NAME_PLAN.md`)
+3. When complete, rename to `*_COMPLETE.md` or move plan to `docs/dev/archive/`
+4. Update `docs/BACKLOG.md` to mark tasks complete
+5. Update `memory/active-context.md` with completion summary
+
 ## Collaboration Guidelines
 
 - **Challenge and question**: Don't immediately agree with requests that seem suboptimal or unclear
@@ -102,6 +136,54 @@ npm run ingest:rebrickable   # Ingest Rebrickable CSV catalog into Supabase
 - **Interface extraction** — shared types in dedicated files (`types.ts`, `app/lib/domain/`)
 - **Batch processing** — prefer efficient algorithms over N+1 patterns
 - **Consistent naming** — clear separation of concerns
+
+## Tailwind V4
+
+This project uses Tailwind CSS v4. Key differences from v3:
+
+### Direct Theme Variable References
+
+Theme variables defined in `@theme` blocks in `globals.css` can be referenced directly in class names without bracket notation:
+
+```css
+/* In globals.css */
+@theme {
+  --color-theme-primary: #016cb8;
+  --color-theme-shadow: color-mix(
+    in oklch,
+    var(--color-theme-primary) 70%,
+    black
+  );
+  --radius-lg: 1rem;
+}
+```
+
+```tsx
+// ❌ Don't use bracket notation for theme variables
+<div className="bg-[var(--color-theme-primary)] rounded-[var(--radius-lg)]" />
+
+// ✅ Reference theme variables directly (strip --color- or --radius- prefix)
+<div className="bg-theme-primary rounded-lg" />
+```
+
+### Custom Utilities
+
+Use `@utility` directive for custom utility classes in `globals.css`:
+
+```css
+@utility container-wide {
+  max-width: var(--container-wide);
+  margin-inline: auto;
+}
+```
+
+### Custom Variants
+
+Use `@custom-variant` for custom variant selectors:
+
+```css
+@custom-variant dark (&:where(.dark, .dark *));
+```
 
 ## Database Migrations
 
