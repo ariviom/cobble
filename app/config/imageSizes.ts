@@ -5,7 +5,9 @@ export type ImageVariant =
   | 'identifyCandidate'
   | 'minifigCard'
   | 'minifigSearch'
-  | 'setCard';
+  | 'setCard'
+  | 'exclusivePieceThumb'
+  | 'exclusiveSetThumb';
 
 type ImageSizeConfig = {
   width: number;
@@ -61,6 +63,18 @@ const IMAGE_SIZES: Record<ImageVariant, ImageSizeConfig> = {
     height: 512,
     sizes:
       '(min-width:1280px) 320px, (min-width:1024px) 280px, (min-width:640px) 240px, 200px',
+    quality: 70,
+  },
+  exclusivePieceThumb: {
+    width: 96,
+    height: 96,
+    sizes: '48px',
+    quality: 70,
+  },
+  exclusiveSetThumb: {
+    width: 160,
+    height: 160,
+    sizes: '80px',
     quality: 70,
   },
 };
