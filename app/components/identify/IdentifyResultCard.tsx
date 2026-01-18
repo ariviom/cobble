@@ -3,6 +3,7 @@
 import { useMinifigMeta } from '@/app/hooks/useMinifigMeta';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import type { IdentifyCandidate, IdentifyPart } from './types';
+import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 
 export function IdentifyResultCard({
@@ -62,7 +63,7 @@ export function IdentifyResultCard({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="text-xs text-foreground-muted">No Image</div>
+            <ImagePlaceholder variant="thumbnail" />
           )}
         </div>
         <div className="min-w-0 flex-1">

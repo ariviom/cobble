@@ -1,6 +1,7 @@
 'use client';
 
 import { cardVariants } from '@/app/components/ui/Card';
+import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { cn } from '@/app/components/ui/utils';
 import { getMinifigDisplayIds } from '@/app/lib/minifigIds';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
@@ -95,9 +96,7 @@ export function MinifigCard({
                   />
                 </div>
               ) : (
-                <div className="flex aspect-square items-center justify-center rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 text-sm font-medium text-foreground-muted dark:from-neutral-800 dark:to-neutral-900">
-                  No Image
-                </div>
+                <ImagePlaceholder variant="card" />
               )}
             </div>
           </div>
@@ -106,7 +105,7 @@ export function MinifigCard({
           <div className="flex items-start gap-2 px-4 py-3">
             <div className="min-w-0 flex-1">
               {themeName && (
-                <div className="mb-1 w-full truncate text-xs font-bold tracking-wide text-theme-primary uppercase">
+                <div className="mb-1 w-full truncate text-xs font-bold tracking-wide text-theme-text uppercase">
                   {themeName}
                 </div>
               )}
