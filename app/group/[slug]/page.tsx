@@ -44,7 +44,7 @@ export default async function GroupSessionPage({
   }
 
   return (
-    <PageLayout>
+    <PageLayout constrainHeight>
       <LocalDataProviderBoundary>
         <GroupSessionPageClient
           sessionId={session.id}
