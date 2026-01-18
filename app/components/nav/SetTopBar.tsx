@@ -17,7 +17,6 @@ import { cn } from '@/app/components/ui/utils';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { Copy, Trophy, Users } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
@@ -70,7 +69,6 @@ export function SetTopBar({
     resetDateFormatted?: string;
     loading: boolean;
   }>({ canHost: true, loading: false });
-  const [, setSetQuantity] = useState<number>(1);
   const { isLoading, ownedTotal } = useInventory(setNumber);
   const ownership = useSetOwnershipState({
     setNumber,
@@ -201,62 +199,22 @@ export function SetTopBar({
     }
   };
 
-  // Load persisted set-level quantity from Supabase when available.
-  useEffect(() => {
-    if (!user) {
-      setSetQuantity(1);
-      return;
-    }
-
-    let cancelled = false;
-    const supabase = getSupabaseBrowserClient();
-
-    const run = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('user_sets')
-          .select<'quantity'>('quantity')
-          .eq('user_id', user.id)
-          .eq('set_num', setNumber)
-          .maybeSingle();
-        if (cancelled || error || !data) return;
-        const q =
-          typeof data.quantity === 'number' &&
-          Number.isFinite(data.quantity) &&
-          data.quantity > 0
-            ? data.quantity
-            : 1;
-        setSetQuantity(q);
-      } catch (err) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('SetTopBar: failed to load set quantity', err);
-        }
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, setNumber]);
-
   return (
     <>
       <div
         className={cn(
           'flex w-full items-center justify-between',
-          'lg:col-start-2 lg:h-full'
+          'lg:col-start-2'
         )}
       >
-        <div className="group set relative flex h-full w-full items-center gap-3 bg-card px-3 py-2 lg:py-3 lg:pr-3">
-          <div className="size-16 flex-shrink-0 overflow-hidden rounded-md border-2 border-subtle bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+        <div className="group set relative flex w-full items-center gap-3 bg-card px-3 py-2 lg:pr-3">
+          <div className="size-16 flex-shrink-0 overflow-hidden rounded-md border-2 border-subtle bg-gradient-to-br from-neutral-100 to-neutral-200 lg:size-20 dark:from-neutral-800 dark:to-neutral-900">
             {resolvedImageUrl ? (
               <Image
                 src={resolvedImageUrl}
                 alt="Set thumbnail"
-                width={64}
-                height={64}
+                width={80}
+                height={80}
                 className="size-full object-contain p-1 drop-shadow-sm"
                 onError={handleImageError}
               />
@@ -290,24 +248,13 @@ export function SetTopBar({
               {' | '}
               {isLoading ? 'Computing…' : `${ownedTotal} / ${numParts} parts`}
             </div>
-            <div className="mt-2 flex w-full flex-wrap items-center gap-2">
-              {/* Quantity dropdown hidden for now - moved to kebab menu in future iteration
-              <div className="flex items-center gap-1 text-xs text-foreground-muted">
-                <span>Copies</span>
-                <QuantityDropdown
-                  value={setQuantity}
-                  onChange={handleQuantityChange}
-                  max={20}
-                  aria-label="Set quantity"
-                />
-              </div>
-              */}
-              {searchParty && (
+            {searchParty && (
+              <div className="mt-1.5 lg:absolute lg:top-1/2 lg:right-12 lg:mt-0 lg:-translate-y-1/2">
                 <button
                   type="button"
                   aria-label="Search Party"
                   className={cn(
-                    'relative inline-flex items-center gap-1.5 rounded-md border-2 px-4 py-2 text-[13px] font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                    'relative inline-flex items-center gap-1.5 rounded-md border-2 px-3 py-1.5 text-[13px] font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:px-4 lg:py-2',
                     searchParty.active
                       ? 'border-brand-blue bg-brand-blue text-white shadow-[0_2px_0_0] shadow-brand-blue/40'
                       : 'border-subtle bg-card text-foreground-muted hover:border-foreground/30 hover:bg-card-muted hover:text-foreground'
@@ -326,8 +273,8 @@ export function SetTopBar({
                     </div>
                   )}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
