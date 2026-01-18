@@ -142,6 +142,9 @@ export type InventoryContextValue = {
   // Enrichment toast
   showEnrichmentToast: boolean;
   dismissEnrichmentToast: () => void;
+
+  // Tab visibility (for scroll restoration)
+  isActive: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -169,6 +172,8 @@ export type InventoryProviderProps = {
   setName?: string;
   initialInventory?: InventoryRow[] | null;
   enableCloudSync?: boolean;
+  /** Whether this tab is currently visible (controls scroll restoration) */
+  isActive?: boolean;
   groupSessionId?: string | null;
   groupParticipantId?: string | null;
   groupClientId?: string | null;
@@ -192,6 +197,7 @@ export function InventoryProvider({
   setName,
   initialInventory,
   enableCloudSync = true,
+  isActive = true,
   groupSessionId,
   groupParticipantId,
   groupClientId,
@@ -547,6 +553,9 @@ export function InventoryProvider({
       // Enrichment toast
       showEnrichmentToast,
       dismissEnrichmentToast,
+
+      // Tab visibility
+      isActive,
     }),
     [
       setNumber,
@@ -603,6 +612,7 @@ export function InventoryProvider({
       closeExportModal,
       showEnrichmentToast,
       dismissEnrichmentToast,
+      isActive,
     ]
   );
 

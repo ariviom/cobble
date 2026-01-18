@@ -7,10 +7,14 @@ import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Modal } from '@/app/components/ui/Modal';
 import { Spinner } from '@/app/components/ui/Spinner';
 import { Toast } from '@/app/components/ui/Toast';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
 import { useInventoryContext } from './InventoryProvider';
 import { InventoryItem } from './items/InventoryItem';
+import {
+  InventoryItemModal,
+  type InventoryItemModalData,
+} from './items/InventoryItemModal';
 import { SearchPartyBanner } from './SearchPartyBanner';
 
 export function Inventory() {
@@ -53,6 +57,69 @@ export function Inventory() {
   } = ctx;
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null);
+
+  // Auto-request price when modal opens
+  useEffect(() => {
+    if (!selectedItemKey) return;
+    const priceInfo = pricesByKey ? pricesByKey[selectedItemKey] : null;
+    const hasPrice =
+      typeof priceInfo?.unitPrice === 'number' &&
+      Number.isFinite(priceInfo.unitPrice);
+    const hasRange =
+      typeof priceInfo?.minPrice === 'number' &&
+      typeof priceInfo?.maxPrice === 'number';
+    const isPending = pendingPriceKeys?.has(selectedItemKey) ?? false;
+    const canRequest =
+      !isPending && !pricesByKey?.[selectedItemKey] && requestPricesForKeys;
+
+    if (!hasPrice && !hasRange && !isPending && canRequest) {
+      requestPricesForKeys([selectedItemKey]);
+    }
+  }, [selectedItemKey, pricesByKey, pendingPriceKeys, requestPricesForKeys]);
+
+  // Build modal data from selected item
+  const selectedItemModalData = useMemo((): InventoryItemModalData | null => {
+    if (!selectedItemKey) return null;
+    const rowIndex = keys.indexOf(selectedItemKey);
+    if (rowIndex === -1) return null;
+    const row = rows[rowIndex];
+    if (!row) return null;
+
+    const priceInfo = pricesByKey ? pricesByKey[selectedItemKey] : null;
+    const hasPrice =
+      typeof priceInfo?.unitPrice === 'number' &&
+      Number.isFinite(priceInfo.unitPrice);
+    const hasRange =
+      typeof priceInfo?.minPrice === 'number' &&
+      typeof priceInfo?.maxPrice === 'number' &&
+      priceInfo.maxPrice >= priceInfo.minPrice;
+
+    return {
+      row,
+      pricingSource:
+        priceInfo?.pricingSource ?? priceInfo?.pricing_source ?? null,
+      bricklinkColorId: priceInfo?.bricklinkColorId ?? null,
+      isPricePending: pendingPriceKeys?.has(selectedItemKey) ?? false,
+      canRequestPrice: Boolean(
+        !pendingPriceKeys?.has(selectedItemKey) &&
+          !pricesByKey?.[selectedItemKey] &&
+          requestPricesForKeys
+      ),
+      hasPrice,
+      hasRange,
+      onRequestPrice: requestPricesForKeys
+        ? () => requestPricesForKeys([selectedItemKey])
+        : undefined,
+    };
+  }, [
+    selectedItemKey,
+    keys,
+    rows,
+    pricesByKey,
+    pendingPriceKeys,
+    requestPricesForKeys,
+  ]);
 
   // Render a single inventory item
   const renderInventoryItem = useCallback(
@@ -85,29 +152,14 @@ export function Inventory() {
           row={row}
           owned={displayOwned}
           missing={missingQty}
-          unitPrice={priceInfo?.unitPrice ?? null}
-          minPrice={priceInfo?.minPrice ?? null}
-          maxPrice={priceInfo?.maxPrice ?? null}
-          currency={priceInfo?.currency ?? null}
-          pricingSource={
-            priceInfo?.pricingSource ?? priceInfo?.pricing_source ?? null
-          }
           bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
-          isPricePending={pendingPriceKeys?.has(key) ?? false}
-          canRequestPrice={Boolean(
-            !pendingPriceKeys?.has(key) &&
-              !pricesByKey?.[key] &&
-              requestPricesForKeys
-          )}
-          {...(requestPricesForKeys
-            ? { onRequestPrice: () => requestPricesForKeys([key]) }
-            : {})}
           onOwnedChange={nextOwned => {
             const clamped = clampOwned(nextOwned, row.quantityRequired ?? 0);
             handleOwnedChange(key, clamped);
           }}
           isPinned={isPinned(key)}
           onTogglePinned={() => togglePinned(key)}
+          onShowMoreInfo={() => setSelectedItemKey(key)}
           isEnriching={isMinifigEnriching}
         />
       );
@@ -118,8 +170,6 @@ export function Inventory() {
       ownedByKey,
       minifigStatusByKey,
       setNumber,
-      pendingPriceKeys,
-      requestPricesForKeys,
       handleOwnedChange,
       isPinned,
       togglePinned,
@@ -127,41 +177,13 @@ export function Inventory() {
     ]
   );
 
-  // Pre-render list rows
-  const listRows = useMemo(() => {
-    if (view !== 'list') return null;
+  // Render items - no wrapper divs needed, spacing handled by container
+  const renderedItems = useMemo(() => {
     return sortedIndices.map(rowIndex => {
       const key = keys[rowIndex]!;
-      return (
-        <div
-          key={key}
-          className="w-full px-2 pb-2"
-          data-view="list"
-          data-item-size={itemSize}
-        >
-          {renderInventoryItem(rowIndex, key)}
-        </div>
-      );
+      return renderInventoryItem(rowIndex, key);
     });
-  }, [view, sortedIndices, keys, itemSize, renderInventoryItem]);
-
-  // Pre-render grid rows
-  const gridRows = useMemo(() => {
-    if (view !== 'grid') return null;
-    return sortedIndices.map(rowIndex => {
-      const key = keys[rowIndex]!;
-      return (
-        <div
-          key={key}
-          className="h-full"
-          data-view="grid"
-          data-item-size={itemSize}
-        >
-          {renderInventoryItem(rowIndex, key)}
-        </div>
-      );
-    });
-  }, [view, sortedIndices, keys, itemSize, renderInventoryItem]);
+  }, [sortedIndices, keys, renderInventoryItem]);
 
   return (
     <div className="flex h-full flex-col">
@@ -202,25 +224,17 @@ export function Inventory() {
               <Spinner />
             </div>
           ) : (
-            <>
-              {view === 'list' ? (
-                <div
-                  className="flex flex-col py-3"
-                  data-view="list"
-                  data-item-size={itemSize}
-                >
-                  {listRows}
-                </div>
-              ) : (
-                <div
-                  className={`grid ${gridSizes} gap-2 p-3`}
-                  data-view="grid"
-                  data-item-size={itemSize}
-                >
-                  {gridRows}
-                </div>
-              )}
-            </>
+            <div
+              className={
+                view === 'list'
+                  ? 'flex flex-col gap-2 px-2 pt-4 pb-1'
+                  : `grid ${gridSizes} gap-2 px-3 pt-4 pb-1`
+              }
+              data-view={view}
+              data-item-size={itemSize}
+            >
+              {renderedItems}
+            </div>
           )}
         </div>
       )}
@@ -288,6 +302,13 @@ export function Inventory() {
           </div>
         </div>
       </Modal>
+
+      {/* Item Details Modal - single instance for all items */}
+      <InventoryItemModal
+        open={selectedItemKey !== null}
+        onClose={() => setSelectedItemKey(null)}
+        data={selectedItemModalData}
+      />
     </div>
   );
 }

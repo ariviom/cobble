@@ -1,12 +1,17 @@
 'use client';
 
 import { InventoryItem } from '@/app/components/set/items/InventoryItem';
+import {
+  InventoryItemModal,
+  type InventoryItemModalData,
+} from '@/app/components/set/items/InventoryItemModal';
+import { Checkbox } from '@/app/components/ui/Checkbox';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Spinner } from '@/app/components/ui/Spinner';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { clampOwned, computeMissing } from '../inventory-utils';
 import type { InventoryRow, ItemSize, ViewType } from '../types';
 
@@ -42,6 +47,23 @@ export function PinnedPanelContent({
         ? 'grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
         : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6';
 
+  // Modal state for item details
+  const [selectedItem, setSelectedItem] = useState<{
+    row: InventoryRow;
+    setNumber: string;
+  } | null>(null);
+
+  const handleShowMoreInfo = useCallback(
+    (row: InventoryRow, setNumber: string) => {
+      setSelectedItem({ row, setNumber });
+    },
+    []
+  );
+
+  const selectedItemModalData: InventoryItemModalData | null = selectedItem
+    ? { row: selectedItem.row }
+    : null;
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto">
@@ -60,6 +82,7 @@ export function PinnedPanelContent({
                 itemSize={itemSize}
                 gridSizes={gridSizes}
                 isCurrent
+                onShowMoreInfo={handleShowMoreInfo}
               />
             )}
 
@@ -78,6 +101,7 @@ export function PinnedPanelContent({
                     view={view}
                     itemSize={itemSize}
                     gridSizes={gridSizes}
+                    onShowMoreInfo={handleShowMoreInfo}
                   />
                 ))}
               </>
@@ -88,18 +112,16 @@ export function PinnedPanelContent({
       <div className="border-t border-subtle text-sm">
         <div className="flex flex-col">
           <label className="flex cursor-pointer items-center gap-4 px-3 py-4 hover:bg-card">
-            <input
-              type="checkbox"
-              className="size-6 border-subtle bg-card accent-theme-primary"
+            <Checkbox
+              className="size-5"
               checked={autoUnpin}
               onChange={e => pinnedState.setAutoUnpin(e.currentTarget.checked)}
             />
             <span>Automatically unpin completed pieces</span>
           </label>
           <label className="flex cursor-pointer items-center gap-4 border-t border-subtle px-3 py-4 hover:bg-card">
-            <input
-              type="checkbox"
-              className="size-6 border-subtle bg-card accent-theme-primary"
+            <Checkbox
+              className="size-5"
               checked={showOtherSets}
               onChange={e =>
                 pinnedState.setShowOtherSets(e.currentTarget.checked)
@@ -109,6 +131,13 @@ export function PinnedPanelContent({
           </label>
         </div>
       </div>
+
+      {/* Item Details Modal - single instance for all pinned items */}
+      <InventoryItemModal
+        open={selectedItem !== null}
+        onClose={() => setSelectedItem(null)}
+        data={selectedItemModalData}
+      />
     </div>
   );
 }
@@ -121,6 +150,7 @@ type PinnedSetSectionProps = {
   itemSize: ItemSize;
   gridSizes: string;
   isCurrent?: boolean;
+  onShowMoreInfo?: (row: InventoryRow, setNumber: string) => void;
 };
 
 function PinnedSetSection({
@@ -131,6 +161,7 @@ function PinnedSetSection({
   itemSize,
   gridSizes,
   isCurrent,
+  onShowMoreInfo,
 }: PinnedSetSectionProps) {
   const { rows, keys, isLoading, error, ownedByKey } = useInventory(setNumber);
   const ownedStore = useOwnedStore();
@@ -227,6 +258,9 @@ function PinnedSetSection({
                   ...(setName ? { setName } : {}),
                 })
               }
+              {...(onShowMoreInfo
+                ? { onShowMoreInfo: () => onShowMoreInfo(row, setNumber) }
+                : {})}
             />
           );
         })}
