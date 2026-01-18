@@ -1,5 +1,6 @@
 'use client';
 
+import { ClearAllButton } from '@/app/components/ui/ClearAllButton';
 import { DropdownSection } from '@/app/components/ui/GroupedDropdown';
 import { RowButton } from '@/app/components/ui/RowButton';
 import { RowCheckbox } from '@/app/components/ui/RowCheckbox';
@@ -89,21 +90,16 @@ export function SidebarCategoryPanel({
           );
         })}
         {(filter.parents?.length || 0) > 0 ? (
-          <div className="flex w-full justify-center border-b-2 border-subtle">
-            <button
-              type="button"
-              className="h-full w-full cursor-pointer py-3.5 font-semibold text-foreground-muted transition-colors hover:bg-theme-primary/10 hover:text-foreground"
-              onClick={() =>
-                onChangeFilter({
-                  ...filter,
-                  parents: [],
-                  subcategoriesByParent: {},
-                })
-              }
-            >
-              Clear All
-            </button>
-          </div>
+          <ClearAllButton
+            className="border-b-2"
+            onClick={() =>
+              onChangeFilter({
+                ...filter,
+                parents: [],
+                subcategoriesByParent: {},
+              })
+            }
+          />
         ) : null}
       </div>
     </DropdownSection>
@@ -146,18 +142,13 @@ export function SidebarCategoryPanel({
               </RowButton>
             );
           })}
-          <div className="flex w-full justify-center border-b-2 border-subtle">
-            <button
-              type="button"
-              className="h-full w-full cursor-pointer py-3.5 font-semibold text-foreground-muted transition-colors hover:bg-theme-primary/10 hover:text-foreground"
-              onClick={() => {
-                if (!activeParent) return;
-                onChangeFilter(clearParentSubcategories(filter, activeParent));
-              }}
-            >
-              Clear All
-            </button>
-          </div>
+          <ClearAllButton
+            className="border-b-2"
+            onClick={() => {
+              if (!activeParent) return;
+              onChangeFilter(clearParentSubcategories(filter, activeParent));
+            }}
+          />
         </div>
       </DropdownSection>
     </>
