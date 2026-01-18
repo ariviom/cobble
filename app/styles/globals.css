@@ -90,6 +90,10 @@
   --color-theme-text: var(--color-theme-primary);
   --color-theme-primary-contrast: white;
 
+  /* Link color - always blue for consistent contrast on any background */
+  --color-link: var(--color-brand-blue);
+  --color-link-hover: color-mix(in oklch, var(--color-brand-blue) 80%, black);
+
   /* Theme shadow - darker version of theme color for 3D depth effect */
   --color-theme-shadow: color-mix(
     in oklch,
@@ -106,6 +110,17 @@
   --container-wide: 80rem;
 
   --font-sans: var(--font-cera-pro);
+
+  /* Font sizes - fill gaps in Tailwind's scale */
+  --font-size-2xs: 0.6875rem; /* 11px - compact UI text */
+
+  /* Component widths - common min-width values */
+  --width-xs: 4.375rem; /* 70px */
+  --width-sm: 6.25rem; /* 100px */
+  --width-md: 7.5rem; /* 120px */
+  --width-lg: 10rem; /* 160px */
+  --width-xl: 11.25rem; /* 180px */
+
   --spacing-nav-height: 4rem;
   --spacing-topnav-height: 6rem;
   --spacing-tab-bar-height: 2.5rem;
@@ -314,6 +329,12 @@ input.hide-arrows[type='number'] {
   -moz-appearance: textfield; /* Firefox */
 }
 
+html,
+body {
+  overflow-x: clip; /* Clip horizontal overflow without creating scroll container (preserves sticky) */
+  max-width: 100vw;
+}
+
 body {
   background: var(--color-background);
   color: var(--color-foreground);
@@ -354,7 +375,12 @@ body {
     auto /* Row 2: TopNav (content-sized) */
     var(--spacing-controls-height) /* Row 3: Controls (fixed) */
     minmax(0, 1fr); /* Row 4: Content (flexible) */
-  grid-template-columns: 1fr; /* Mobile: single column */
+  grid-template-columns: minmax(
+    0,
+    1fr
+  ); /* Mobile: single column, constrained */
+  max-width: 100vw; /* Prevent grid from exceeding viewport */
+  overflow-x: clip; /* Clip horizontal overflow without creating scroll container */
 }
 
 /* Desktop: 2 columns (sidebar + main) */
@@ -426,6 +452,46 @@ body {
     color-mix(in oklch, var(--color-brand-green) 70%, black);
 }
 
+/* Brick button depth - 3D pressed effect for buttons
+   Usage: brick-button-depth [--brick-shadow-color:var(--color-theme-shadow)]
+   The shadow color can be customized per-button via CSS variable */
+.brick-button-depth {
+  --_brick-shadow: var(--brick-shadow-color, var(--color-shadow-depth));
+  box-shadow: 0 4px 0 0 var(--_brick-shadow);
+  transition:
+    box-shadow 100ms,
+    transform 100ms;
+}
+
+.brick-button-depth:hover:not(:disabled) {
+  box-shadow: 0 3px 0 0 var(--_brick-shadow);
+  transform: translateY(1px);
+}
+
+.brick-button-depth:active:not(:disabled) {
+  box-shadow: 0 1px 0 0 var(--_brick-shadow);
+  transform: translateY(3px);
+}
+
+/* Brick button depth - secondary variant (smaller shadow) */
+.brick-button-depth-sm {
+  --_brick-shadow: var(--brick-shadow-color, var(--color-shadow-depth));
+  box-shadow: 0 3px 0 0 var(--_brick-shadow);
+  transition:
+    box-shadow 100ms,
+    transform 100ms;
+}
+
+.brick-button-depth-sm:hover:not(:disabled) {
+  box-shadow: 0 2px 0 0 var(--_brick-shadow);
+  transform: translateY(1px);
+}
+
+.brick-button-depth-sm:active:not(:disabled) {
+  box-shadow: 0 0 0 0 var(--_brick-shadow);
+  transform: translateY(3px);
+}
+
 /* Color strip decorations */
 @utility color-strip-top {
   position: relative;
@@ -464,4 +530,10 @@ body {
 
 @utility h-tab-bar-height {
   height: var(--spacing-tab-bar-height);
+}
+
+/* Grid item optimization - skip painting off-screen items */
+@utility inventory-grid-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
 }

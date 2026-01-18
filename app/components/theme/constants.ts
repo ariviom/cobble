@@ -16,6 +16,18 @@ export const THEME_COLOR_TO_VALUE: Record<ThemeColor, string> = {
 };
 
 /**
+ * Actual hex values for server-side rendering.
+ * Used to set CSS variables before hydration to prevent theme flash.
+ */
+export const THEME_COLOR_HEX: Record<ThemeColor, string> = {
+  blue: '#016cb8',
+  yellow: '#f2d300',
+  purple: '#4d2f93',
+  red: '#e3000b',
+  green: '#00b242',
+};
+
+/**
  * Theme text colors for readable text on backgrounds.
  * Yellow needs a darker amber for light mode contrast.
  */

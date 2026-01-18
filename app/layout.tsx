@@ -7,10 +7,15 @@ import { resolveThemePreference } from '@/app/lib/theme/resolve';
 import { buildUserHandle } from '@/app/lib/users';
 import type { User } from '@supabase/supabase-js';
 import type { Metadata, Viewport } from 'next';
-import type {
-  ResolvedTheme,
-  ThemeColor,
-  ThemePreference,
+import {
+  DEFAULT_THEME_COLOR,
+  THEME_COLOR_HEX,
+  THEME_CONTRAST_TEXT,
+  THEME_TEXT_COLORS_DARK,
+  THEME_TEXT_COLORS_LIGHT,
+  type ResolvedTheme,
+  type ThemeColor,
+  type ThemePreference,
 } from './components/theme/constants';
 import './styles/globals.css';
 
@@ -129,17 +134,36 @@ export default async function RootLayout({
     systemTheme,
   });
 
+  // Compute initial theme color CSS variables to prevent flash
+  const initialColor = dbThemeColor ?? DEFAULT_THEME_COLOR;
+  const textColorMap =
+    resolved === 'dark' ? THEME_TEXT_COLORS_DARK : THEME_TEXT_COLORS_LIGHT;
+  const themeStyles = {
+    '--color-theme-primary': THEME_COLOR_HEX[initialColor],
+    '--color-theme-text': textColorMap[initialColor],
+    '--color-theme-primary-contrast': THEME_CONTRAST_TEXT[initialColor],
+  } as React.CSSProperties;
+
   return (
     <html
       lang="en"
       suppressHydrationWarning
       className={resolved === 'dark' ? 'dark' : undefined}
+      style={themeStyles}
     >
       <head>
+        {/* Blocking script to apply theme color from localStorage before paint */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var c=localStorage.getItem('userThemeColor');if(c){var h={'blue':'#016cb8','yellow':'#f2d300','purple':'#4d2f93','red':'#e3000b','green':'#00b242'};var tl={'blue':'#016cb8','yellow':'#996f00','purple':'#4d2f93','red':'#c30009','green':'#008732'};var td={'blue':'#60a5fa','yellow':'#fbbf24','purple':'#a78bfa','red':'#f87171','green':'#4ade80'};var ct={'blue':'#ffffff','yellow':'#1a1600','purple':'#ffffff','red':'#ffffff','green':'#ffffff'};var d=document.documentElement.classList.contains('dark');var t=d?td:tl;if(h[c]){document.documentElement.style.setProperty('--color-theme-primary',h[c]);document.documentElement.style.setProperty('--color-theme-text',t[c]);document.documentElement.style.setProperty('--color-theme-primary-contrast',ct[c])}}}catch(e){}})()`,
+          }}
+        />
         <link rel="manifest" href="/manifest.json" />
         <meta
           name="theme-color"
-          content={resolved === 'dark' ? '#1f2937' : '#3b82f6'}
+          content={
+            resolved === 'dark' ? '#1f2937' : THEME_COLOR_HEX[initialColor]
+          }
         />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
