@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'http://localhost:3000',
+  'http://localhost:3001',
   'https://brick-party.com',
   'https://www.brick-party.com',
 ];
