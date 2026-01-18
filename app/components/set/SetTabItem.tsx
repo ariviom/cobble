@@ -1,64 +1,58 @@
 'use client';
 
 import { cn } from '@/app/components/ui/utils';
-import { removeTab, type OpenTab } from '@/app/store/open-tabs';
+import type { OpenTab } from '@/app/components/set/SetTabBar';
 import { X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 
 type SetTabItemProps = {
   tab: OpenTab;
   isActive: boolean;
   hasSearchParty: boolean;
+  /** Callback when tab is activated (for SPA mode). */
+  onActivate?: ((setNumber: string) => void) | undefined;
+  /** Callback when tab is closed (for SPA mode). */
+  onClose?: ((setNumber: string) => void) | undefined;
 };
 
-export function SetTabItem({ tab, isActive, hasSearchParty }: SetTabItemProps) {
-  const router = useRouter();
+export function SetTabItem({
+  tab,
+  isActive,
+  hasSearchParty,
+  onActivate,
+  onClose,
+}: SetTabItemProps) {
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      // In SPA mode, prevent navigation and use callback
+      if (onActivate) {
+        e.preventDefault();
+        if (!isActive) {
+          onActivate(tab.setNumber);
+        }
+      }
+      // In MPA mode (no onActivate), let the Link handle navigation
+      // but still prevent if already active
+      else if (isActive) {
+        e.preventDefault();
+      }
+    },
+    [isActive, onActivate, tab.setNumber]
+  );
 
   const handleClose = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
       e.preventDefault();
 
-      // If closing active tab, navigate to another tab
-      if (isActive) {
-        // Get current tabs from localStorage to find next tab
-        const storedTabs = localStorage.getItem('brick_party_open_tabs_v1');
-        if (storedTabs) {
-          try {
-            const tabs = JSON.parse(storedTabs) as OpenTab[];
-            const currentIndex = tabs.findIndex(
-              t => t.setNumber.toLowerCase() === tab.setNumber.toLowerCase()
-            );
-            const remainingTabs = tabs.filter(
-              t => t.setNumber.toLowerCase() !== tab.setNumber.toLowerCase()
-            );
-
-            if (remainingTabs.length > 0) {
-              // Navigate to next tab (or previous if last)
-              const nextIndex = Math.min(
-                currentIndex,
-                remainingTabs.length - 1
-              );
-              const nextTab = remainingTabs[nextIndex];
-              if (nextTab) {
-                router.push(`/sets/${nextTab.setNumber}`);
-              }
-            } else {
-              // No tabs left, go home
-              router.push('/');
-            }
-          } catch {
-            router.push('/');
-          }
-        }
+      // Let parent handle close logic
+      if (onClose) {
+        onClose(tab.setNumber);
       }
-
-      removeTab(tab.setNumber);
     },
-    [isActive, router, tab.setNumber]
+    [onClose, tab.setNumber]
   );
 
   // Truncate name for display
@@ -74,7 +68,7 @@ export function SetTabItem({ tab, isActive, hasSearchParty }: SetTabItemProps) {
       role="tab"
       aria-selected={isActive}
       aria-label={`${tab.setNumber}: ${tab.name}`}
-      {...(isActive ? { onClick: e => e.preventDefault() } : {})}
+      onClick={handleClick}
       className={cn(
         'group relative flex h-8 flex-shrink-0 items-center gap-2 rounded-md border-2 px-2 pr-7 transition-all',
         isActive

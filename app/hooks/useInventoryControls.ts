@@ -8,21 +8,10 @@ import type {
   SortKey,
   ViewType,
 } from '@/app/components/set/types';
-import {
-  getFiltersForSet,
-  hasTab,
-  updateTabFilters,
-} from '@/app/store/open-tabs';
 
 const STORAGE_KEY = 'ui:inventoryControls';
 
-type UseInventoryControlsOptions = {
-  /** Set number for per-tab filter persistence */
-  setNumber?: string;
-};
-
-export function useInventoryControls(options?: UseInventoryControlsOptions) {
-  const setNumber = options?.setNumber;
+export function useInventoryControls() {
   const [sortKey, setSortKeyState] = useState<SortKey>('color');
   const [sortDir, setSortDirState] = useState<'asc' | 'desc'>('asc');
   const [filter, setFilterState] = useState<InventoryFilter>({
@@ -35,53 +24,15 @@ export function useInventoryControls(options?: UseInventoryControlsOptions) {
   const [itemSize, setItemSizeState] = useState<ItemSize>('md');
   const [groupBy, setGroupByState] = useState<GroupBy>('none');
 
-  // Track if we've hydrated from tab state to avoid double-hydration
-  const hydratedFromTabRef = useRef(false);
-  // Track if we've hydrated from global storage
-  const hydratedFromGlobalRef = useRef(false);
-  // Debounce timer for tab filter updates
-  const tabUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track if we've hydrated from storage
+  const hydratedRef = useRef(false);
 
-  // Hydrate from tab state first if setNumber provided and tab exists
+  // Hydrate from localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!setNumber) return;
-    if (hydratedFromTabRef.current) return;
+    if (hydratedRef.current) return;
 
-    // Check if this set has a tab with saved filter state
-    if (hasTab(setNumber)) {
-      const tabFilters = getFiltersForSet(setNumber);
-      if (tabFilters) {
-        hydratedFromTabRef.current = true;
-        setSortKeyState(tabFilters.sortKey);
-        setSortDirState(tabFilters.sortDir);
-        setViewState(tabFilters.viewType);
-        setItemSizeState(tabFilters.itemSize);
-        setGroupByState(tabFilters.groupBy);
-        setFilterState({
-          display: tabFilters.display,
-          parents: tabFilters.selectedParents,
-          subcategoriesByParent: tabFilters.subcategoriesByParent,
-          colors: tabFilters.selectedColors,
-        });
-        return;
-      }
-    }
-    // Mark as checked even if no tab found
-    hydratedFromTabRef.current = true;
-  }, [setNumber]);
-
-  // Hydrate from global localStorage as fallback (only for global settings like view/itemSize)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (hydratedFromGlobalRef.current) return;
-    // Only use global storage if we didn't hydrate from tab
-    if (hydratedFromTabRef.current && setNumber && hasTab(setNumber)) {
-      hydratedFromGlobalRef.current = true;
-      return;
-    }
-
-    hydratedFromGlobalRef.current = true;
+    hydratedRef.current = true;
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
@@ -108,9 +59,9 @@ export function useInventoryControls(options?: UseInventoryControlsOptions) {
     } catch {
       // Ignore storage errors; fall back to defaults
     }
-  }, [setNumber]);
+  }, []);
 
-  // Persist to global localStorage (for settings that should persist across sessions)
+  // Persist to localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
@@ -128,46 +79,7 @@ export function useInventoryControls(options?: UseInventoryControlsOptions) {
     }
   }, [sortKey, sortDir, groupBy, view, itemSize, filter.display]);
 
-  // Sync to tab filter state with debouncing
-  const syncToTab = useCallback(() => {
-    if (!setNumber || !hasTab(setNumber)) return;
-
-    // Clear any pending timer
-    if (tabUpdateTimerRef.current) {
-      clearTimeout(tabUpdateTimerRef.current);
-    }
-
-    // Debounce the update to avoid excessive localStorage writes
-    tabUpdateTimerRef.current = setTimeout(() => {
-      updateTabFilters(setNumber, {
-        sortKey,
-        sortDir,
-        viewType: view,
-        itemSize,
-        groupBy,
-        display: filter.display,
-        selectedColors: filter.colors,
-        selectedParents: filter.parents,
-        subcategoriesByParent: filter.subcategoriesByParent,
-      });
-    }, 100);
-  }, [setNumber, sortKey, sortDir, view, itemSize, groupBy, filter]);
-
-  // Sync to tab whenever state changes
-  useEffect(() => {
-    syncToTab();
-  }, [syncToTab]);
-
-  // Cleanup debounce timer on unmount
-  useEffect(() => {
-    return () => {
-      if (tabUpdateTimerRef.current) {
-        clearTimeout(tabUpdateTimerRef.current);
-      }
-    };
-  }, []);
-
-  // Wrapped setters that update both local state and tab state
+  // Setters
   const setSortKey = useCallback(
     (value: SortKey | ((prev: SortKey) => SortKey)) => {
       setSortKeyState(value);

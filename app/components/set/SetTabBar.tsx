@@ -2,23 +2,37 @@
 
 import { SetTabItem } from '@/app/components/set/SetTabItem';
 import { cn } from '@/app/components/ui/utils';
-import { addTab, type OpenTab } from '@/app/store/open-tabs';
 import { getRecentSets, type RecentSetEntry } from '@/app/store/recent-sets';
 import { Plus, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+/** Tab data shape (kept for future tab bar implementation) */
+export type OpenTab = {
+  setNumber: string;
+  name: string;
+  imageUrl: string | null;
+  numParts: number;
+  year: number;
+};
+
 type SetTabBarProps = {
   tabs: OpenTab[];
   activeSetNumber: string;
   groupSessionSetNumber: string | null;
+  /** Callback when a tab is activated (for SPA mode). */
+  onActivateTab?: ((setNumber: string) => void) | undefined;
+  /** Callback when a tab is closed (for SPA mode). */
+  onCloseTab?: ((setNumber: string) => void) | undefined;
 };
 
 export function SetTabBar({
   tabs,
   activeSetNumber,
   groupSessionSetNumber,
+  onActivateTab,
+  onCloseTab,
 }: SetTabBarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [recentSets, setRecentSets] = useState<RecentSetEntry[]>([]);
@@ -72,17 +86,18 @@ export function SetTabBar({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isDropdownOpen]);
 
-  const handleOpenRecentSet = useCallback((entry: RecentSetEntry) => {
-    // Add the set as a tab (navigation happens via Link)
-    addTab({
-      setNumber: entry.setNumber,
-      name: entry.name,
-      imageUrl: entry.imageUrl,
-      numParts: entry.numParts,
-      year: entry.year,
-    });
-    setIsDropdownOpen(false);
-  }, []);
+  const handleOpenRecentSet = useCallback(
+    (entry: RecentSetEntry, e?: React.MouseEvent) => {
+      setIsDropdownOpen(false);
+
+      // In SPA mode, prevent Link navigation and use callback
+      if (onActivateTab) {
+        e?.preventDefault();
+        onActivateTab(entry.setNumber);
+      }
+    },
+    [onActivateTab]
+  );
 
   if (tabs.length === 0) {
     return null;
@@ -92,7 +107,7 @@ export function SetTabBar({
     <div
       data-testid="set-tab-bar"
       className={cn(
-        'flex w-full items-center',
+        'flex w-full max-w-full items-center',
         'border-b-2 border-subtle bg-card shadow-sm',
         'lg:col-span-full'
       )}
@@ -100,7 +115,7 @@ export function SetTabBar({
       <nav
         className={cn(
           'flex h-10 w-full items-center gap-1 overflow-x-auto px-2 no-scrollbar',
-          'lg:px-3 lg:pl-80'
+          'lg:px-3'
         )}
         aria-label="Open sets"
       >
@@ -116,6 +131,8 @@ export function SetTabBar({
               tab.setNumber.toLowerCase() ===
                 groupSessionSetNumber.toLowerCase()
             }
+            onActivate={onActivateTab}
+            onClose={onCloseTab}
           />
         ))}
 
@@ -173,7 +190,7 @@ export function SetTabBar({
                       <Link
                         href={`/sets/${entry.setNumber}`}
                         prefetch={true}
-                        onClick={() => handleOpenRecentSet(entry)}
+                        onClick={e => handleOpenRecentSet(entry, e)}
                         className={cn(
                           'flex w-full items-center gap-3 px-3 py-2 text-left transition-colors',
                           'hover:bg-card-muted'
@@ -190,7 +207,7 @@ export function SetTabBar({
                               className="size-full object-contain"
                             />
                           ) : (
-                            <div className="flex size-full items-center justify-center text-[10px] text-neutral-400">
+                            <div className="text-2xs flex size-full items-center justify-center text-neutral-400">
                               ?
                             </div>
                           )}
