@@ -104,7 +104,7 @@ export function OwnedQuantityControl({
         –
       </Button>
       <div
-        className={`relative items-center text-sm ${required > 99 ? 'min-w-20' : 'min-w-14'}`}
+        className={`relative items-center text-xs xs:text-sm ${required > 99 ? 'xs:min-w-20' : 'xs:min-w-14'}`}
       >
         <input
           type="text"

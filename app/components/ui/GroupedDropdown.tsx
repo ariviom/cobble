@@ -4,6 +4,7 @@ import { cn } from '@/app/components/ui/utils';
 import { cva, cx, type VariantProps } from 'class-variance-authority';
 import { Check } from 'lucide-react';
 import { forwardRef } from 'react';
+import { Checkbox } from './Checkbox';
 import { RowButton } from './RowButton';
 
 export type DropdownOption = {
@@ -215,8 +216,7 @@ export function CheckboxList({
             selected={selected}
             onClick={() => onToggle(option.key)}
           >
-            <input
-              type="checkbox"
+            <Checkbox
               checked={selected}
               onChange={() => {}}
               className="pointer-events-none"
