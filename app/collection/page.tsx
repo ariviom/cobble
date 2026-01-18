@@ -89,7 +89,7 @@ export default async function CollectionPage({
             <div className="mt-6">
               <a
                 href="/login"
-                className="text-theme-primary-contrast inline-flex items-center rounded-md bg-theme-primary px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-theme-primary/90"
+                className="inline-flex items-center rounded-md bg-theme-primary px-4 py-2 text-sm font-medium text-theme-primary-contrast shadow-sm transition-colors hover:bg-theme-primary/90"
               >
                 Sign in to manage your collection
               </a>
