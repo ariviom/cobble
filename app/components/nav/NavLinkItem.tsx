@@ -27,7 +27,7 @@ export function NavLinkItem({
 }: NavLinkItemProps) {
   const classes = cn(
     // Base styles - chunky nav items on theme background
-    'relative flex flex-col items-center gap-0.5 rounded-md px-3 py-2 transition-all duration-150 select-none lg:flex-row lg:gap-2 lg:px-4 lg:py-2.5',
+    'relative flex flex-1 flex-col items-center gap-0.5 rounded-md px-1.5 py-1.5 transition-all duration-150 select-none lg:flex-initial lg:flex-row lg:gap-2 lg:px-4 lg:py-2.5',
     active
       ? // Active: White pill with warm shadow - use fixed dark text color (doesn't invert in dark mode)
         'bg-white font-bold text-on-white shadow-[inset_0_-2px_0_0_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.1)]'
@@ -37,7 +37,7 @@ export function NavLinkItem({
   );
 
   const label = (
-    <span className="text-[10px] font-bold tracking-wide uppercase lg:text-sm lg:font-semibold lg:tracking-normal lg:normal-case">
+    <span className="text-[0.625rem] font-bold tracking-tight uppercase lg:text-sm lg:font-semibold lg:tracking-normal lg:normal-case">
       <span className="lg:hidden">{labelMobile}</span>
       <span className="hidden lg:inline">{labelDesktop ?? labelMobile}</span>
     </span>

@@ -59,7 +59,7 @@ export function Navigation({
         className
       )}
     >
-      <div className="relative flex h-nav-height w-full items-center px-4 lg:px-6">
+      <div className="relative flex h-nav-height w-full items-center px-3 lg:px-6">
         <div className="relative flex w-full items-center justify-around gap-x-1 lg:justify-center lg:gap-x-3">
           {/* Desktop brand - clean, minimal treatment on theme background */}
           <Link

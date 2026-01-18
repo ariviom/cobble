@@ -64,7 +64,7 @@ export function SetOwnershipAndCollectionsRow({
         className={cn(
           'status-row group flex transition-opacity',
           variant === 'default'
-            ? 'mt-0 gap-1.5 border-t-2 border-subtle bg-background-muted/50 p-2'
+            ? 'mt-0 gap-1 border-t-2 border-subtle bg-background-muted/50 p-1.5'
             : variant === 'inline'
               ? 'mt-0 gap-2'
               : 'mt-0 flex-col gap-1',
@@ -74,7 +74,7 @@ export function SetOwnershipAndCollectionsRow({
         )}
       >
         <StatusToggleButton
-          icon={<Check className="size-4" />}
+          icon={<Check className="size-3.5" />}
           label="Owned"
           active={isAuthenticated && status.owned}
           disabled={controlsDisabled}
@@ -85,7 +85,7 @@ export function SetOwnershipAndCollectionsRow({
           color="green"
         />
         <StatusToggleButton
-          icon={<Heart className="size-4" />}
+          icon={<Heart className="size-3.5" />}
           label="Wishlist"
           active={isAuthenticated && status.wantToBuild}
           disabled={controlsDisabled}
@@ -100,7 +100,7 @@ export function SetOwnershipAndCollectionsRow({
           color="orange"
         />
         <StatusToggleButton
-          icon={<Plus className="size-4" />}
+          icon={<Plus className="size-3.5" />}
           label="List"
           className={variant !== 'dropdown' ? 'ml-auto' : undefined}
           disabled={controlsDisabled}
@@ -125,7 +125,7 @@ export function SetOwnershipAndCollectionsRow({
         )}
       </div>
       {showAuthHint && (
-        <div className="bg-background-muted/50 px-4 py-2 text-sm font-medium text-foreground-muted">
+        <div className="bg-background-muted/50 px-3 py-1.5 text-xs font-medium text-foreground-muted">
           Sign in to track ownership and collections.
         </div>
       )}

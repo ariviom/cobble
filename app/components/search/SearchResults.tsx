@@ -257,7 +257,7 @@ export function SearchResults() {
         )}
         {!isMinifigLoading && !minifigError && results.length > 0 && (
           <div className="mt-2">
-            <div className="grid grid-cols-1 gap-x-2 gap-y-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {results.map((r: MinifigSearchResult) => (
                 <MinifigSearchResultItem
                   key={`${r.figNum}-${r.name}`}
@@ -386,7 +386,7 @@ export function SearchResults() {
         <div className="mt-2">
           <div
             data-item-size="md"
-            className="grid grid-cols-1 gap-x-2 gap-y-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+            className="grid grid-cols-1 gap-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
           >
             {results.map((r: SearchResult) => (
               <SearchResultListItem
