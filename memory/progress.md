@@ -142,6 +142,12 @@
     - Reduced `spareCache` TTL from 7 days → 24 hours (more appropriate for live Rebrickable API data).
     - Added `Cache-Control` header to `/api/catalog/versions` endpoint (60s max-age, 120s stale-while-revalidate).
   - Documented caching strategy in `memory/system-patterns.md` for future reference.
+- **Exclusive Pieces Feature** (January 2026):
+  - New page at `/exclusive-pieces` to discover parts that appear in exactly one LEGO set worldwide.
+  - Service layer (`app/lib/services/exclusivePieces.ts`) queries `rb_inventory_parts_public` to find globally unique part+color combinations.
+  - Supports two search modes: by theme (includes all sub-themes) or by specific set numbers (e.g., user's collection).
+  - API route at `/api/exclusive-pieces` with theme ID or set numbers as query params.
+  - Client page with theme selector dropdown and results grid showing part image, name, color, and the exclusive set.
 
 ## Planned / In Progress
 
