@@ -529,7 +529,7 @@ export function UserCollectionOverview({
                   <span className="text-xs font-medium text-foreground-muted">
                     List
                     {listsLoading && lists.length === 0 && (
-                      <span className="ml-1.5 text-[10px]">Syncing…</span>
+                      <span className="text-2xs ml-1.5">Syncing…</span>
                     )}
                   </span>
                   <Select
@@ -782,7 +782,7 @@ export function UserCollectionOverview({
                 <CollectionGroupHeading>{group.label}</CollectionGroupHeading>
                 <div
                   data-item-size="md"
-                  className="grid grid-cols-1 gap-x-2 gap-y-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+                  className="grid grid-cols-1 gap-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
                 >
                   {group.items.map(set => (
                     <SetDisplayCard
@@ -814,7 +814,7 @@ export function UserCollectionOverview({
               {groupedMinifigs.map(group => (
                 <div key={group.label} className="flex flex-col gap-2">
                   <CollectionGroupHeading>{group.label}</CollectionGroupHeading>
-                  <div className="grid grid-cols-1 gap-x-2 gap-y-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                     {group.items.map(fig => (
                       <MinifigCard
                         key={fig.figNum}

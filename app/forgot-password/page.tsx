@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
               <button
                 type="button"
                 onClick={() => setSuccess(false)}
-                className="font-medium text-theme-primary underline underline-offset-2"
+                className="font-medium text-link underline underline-offset-2 hover:text-link-hover"
               >
                 try again
               </button>
@@ -99,7 +99,7 @@ export default function ForgotPasswordPage() {
         <div className="flex justify-center">
           <Link
             href="/login"
-            className="text-xs font-medium text-theme-primary underline underline-offset-2"
+            className="text-xs font-medium text-link underline underline-offset-2 hover:text-link-hover"
           >
             Back to login
           </Link>
@@ -133,7 +133,7 @@ export default function ForgotPasswordPage() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-2">
             <label
               htmlFor="reset-email"
-              className="text-[11px] font-medium text-foreground"
+              className="text-2xs font-medium text-foreground"
             >
               Email
             </label>
@@ -164,7 +164,7 @@ export default function ForgotPasswordPage() {
           Remember your password?{' '}
           <Link
             href="/login"
-            className="font-medium text-theme-primary underline underline-offset-2"
+            className="font-medium text-link underline underline-offset-2 hover:text-link-hover"
           >
             Sign in
           </Link>
@@ -174,7 +174,7 @@ export default function ForgotPasswordPage() {
       <div className="flex justify-center">
         <Link
           href="/"
-          className="text-xs font-medium text-theme-primary underline underline-offset-2"
+          className="text-xs font-medium text-link underline underline-offset-2 hover:text-link-hover"
         >
           Home
         </Link>

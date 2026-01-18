@@ -1,6 +1,7 @@
 'use client';
 
 import { MinifigOwnershipAndCollectionsRow } from '@/app/components/minifig/MinifigOwnershipAndCollectionsRow';
+import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { useMinifigOwnershipState } from '@/app/hooks/useMinifigOwnershipState';
 import { getMinifigDisplayIds } from '@/app/lib/minifigIds';
@@ -48,9 +49,7 @@ export function MinifigSearchResultItem({
                   className="aspect-square h-full w-full overflow-hidden rounded-lg object-cover"
                 />
               ) : (
-                <div className="flex aspect-square items-center justify-center text-xs text-foreground-muted">
-                  No image
-                </div>
+                <ImagePlaceholder variant="simple" text="No image" />
               )}
             </div>
           </div>
@@ -65,7 +64,7 @@ export function MinifigSearchResultItem({
                   <span className="ml-1">• {numParts} parts</span>
                 )}
                 {(themeName || themePath) && (
-                  <div className="mt-1 truncate text-[11px]">
+                  <div className="text-2xs mt-1 truncate">
                     {themePath ?? themeName}
                   </div>
                 )}

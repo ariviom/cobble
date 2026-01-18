@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/app/components/ui/Card';
+import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { Modal } from '@/app/components/ui/Modal';
 import { MoreDropdown } from '@/app/components/ui/MoreDropdown';
 import { cn } from '@/app/components/ui/utils';
@@ -248,21 +249,19 @@ export function SetTopBar({
           'lg:col-start-2 lg:h-full'
         )}
       >
-        <div className="group set flex h-full w-full items-center gap-3 bg-card px-3 py-2 lg:py-3 lg:pr-3">
-          <div className="aspect-square max-h-full overflow-hidden rounded-md border-2 border-subtle bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+        <div className="group set relative flex h-full w-full items-center gap-3 bg-card px-3 py-2 lg:py-3 lg:pr-3">
+          <div className="size-16 flex-shrink-0 overflow-hidden rounded-md border-2 border-subtle bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
             {resolvedImageUrl ? (
               <Image
                 src={resolvedImageUrl}
                 alt="Set thumbnail"
-                width={240}
-                height={240}
-                className="h-full w-auto object-contain p-1 drop-shadow-sm transition-transform"
+                width={64}
+                height={64}
+                className="size-full object-contain p-1 drop-shadow-sm"
                 onError={handleImageError}
               />
             ) : (
-              <div className="flex size-[calc(var(--spacing-topnav-height)-1rem)] flex-shrink-0 items-center justify-center text-xs font-medium text-foreground-muted">
-                No Image
-              </div>
+              <ImagePlaceholder variant="thumbnail" />
             )}
           </div>
           <div className="flex min-w-0 flex-1 flex-col items-start text-left">
@@ -322,7 +321,7 @@ export function SetTopBar({
                   <Users className="size-3.5" />
                   Search Party
                   {searchParty.active && (
-                    <div className="absolute -top-2.5 right-[-14px] flex size-6 items-center justify-center rounded-full border-2 border-white bg-brand-yellow text-[11px] font-extrabold text-neutral-900 shadow-sm">
+                    <div className="text-2xs absolute -top-2.5 right-[-14px] flex size-6 items-center justify-center rounded-full border-2 border-white bg-brand-yellow font-extrabold text-neutral-900 shadow-sm">
                       {participantCount.toLocaleString()}
                     </div>
                   )}

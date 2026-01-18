@@ -105,7 +105,7 @@ export function MinifigOwnershipAndCollectionsRow({
         />
       </div>
       {showAuthHint && (
-        <div className="mt-1 text-[11px] text-foreground-muted">
+        <div className="text-2xs mt-1 text-foreground-muted">
           Sign in to track minifigure ownership and lists.
         </div>
       )}
@@ -116,7 +116,7 @@ export function MinifigOwnershipAndCollectionsRow({
       >
         <div className="flex flex-col gap-2 text-xs">
           {listsLoading && lists.length === 0 && (
-            <div className="text-[10px] text-foreground-muted">Loading…</div>
+            <div className="text-2xs text-foreground-muted">Loading…</div>
           )}
           {lists.length > 0 && (
             <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
@@ -171,7 +171,7 @@ export function MinifigOwnershipAndCollectionsRow({
             </button>
           </div>
           {listsError && (
-            <div className="mt-1 text-[10px] text-brand-red">{listsError}</div>
+            <div className="text-2xs mt-1 text-brand-red">{listsError}</div>
           )}
         </div>
       </Modal>

@@ -190,7 +190,7 @@ export default function SignupPage() {
               <button
                 type="button"
                 onClick={() => setSuccess(false)}
-                className="font-medium text-theme-primary underline underline-offset-2"
+                className="font-medium text-link underline underline-offset-2 hover:text-link-hover"
               >
                 try again
               </button>
@@ -202,7 +202,7 @@ export default function SignupPage() {
         <div className="flex justify-center">
           <Link
             href="/login"
-            className="text-xs font-medium text-theme-primary underline underline-offset-2"
+            className="text-xs font-medium text-link underline underline-offset-2 hover:text-link-hover"
           >
             Back to login
           </Link>
@@ -259,7 +259,7 @@ export default function SignupPage() {
           <form onSubmit={handleEmailSignup} className="flex flex-col gap-2">
             <label
               htmlFor="signup-email"
-              className="text-[11px] font-medium text-foreground"
+              className="text-2xs font-medium text-foreground"
             >
               Email
             </label>
@@ -275,7 +275,7 @@ export default function SignupPage() {
             />
             <label
               htmlFor="signup-password"
-              className="mt-2 text-[11px] font-medium text-foreground"
+              className="text-2xs mt-2 font-medium text-foreground"
             >
               Password
             </label>
@@ -291,7 +291,7 @@ export default function SignupPage() {
             />
             <label
               htmlFor="signup-confirm"
-              className="mt-2 text-[11px] font-medium text-foreground"
+              className="text-2xs mt-2 font-medium text-foreground"
             >
               Confirm password
             </label>
@@ -343,7 +343,7 @@ export default function SignupPage() {
           Already have an account?{' '}
           <Link
             href="/login"
-            className="font-medium text-theme-primary underline underline-offset-2"
+            className="font-medium text-link underline underline-offset-2 hover:text-link-hover"
           >
             Sign in
           </Link>
@@ -353,7 +353,7 @@ export default function SignupPage() {
       <div className="flex justify-center">
         <Link
           href="/"
-          className="text-xs font-medium text-theme-primary underline underline-offset-2"
+          className="text-xs font-medium text-link underline underline-offset-2 hover:text-link-hover"
         >
           Home
         </Link>

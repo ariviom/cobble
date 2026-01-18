@@ -232,7 +232,7 @@ function LoginForm() {
           <form onSubmit={handleEmailLogin} className="flex flex-col gap-2">
             <label
               htmlFor="login-email"
-              className="text-[11px] font-medium text-foreground"
+              className="text-2xs font-medium text-foreground"
             >
               Email
             </label>
@@ -248,7 +248,7 @@ function LoginForm() {
             />
             <label
               htmlFor="login-password"
-              className="mt-2 text-[11px] font-medium text-foreground"
+              className="text-2xs mt-2 font-medium text-foreground"
             >
               Password
             </label>
@@ -276,7 +276,7 @@ function LoginForm() {
             <div className="mt-2 flex justify-between text-xs">
               <Link
                 href="/signup"
-                className="font-medium text-theme-primary underline underline-offset-2"
+                className="font-medium text-link underline underline-offset-2 hover:text-link-hover"
               >
                 Create account
               </Link>
@@ -312,7 +312,7 @@ function LoginForm() {
 
         <Link
           href="/"
-          className="text-xs font-medium text-theme-primary underline underline-offset-2"
+          className="text-xs font-medium text-link underline underline-offset-2 hover:text-link-hover"
         >
           Home
         </Link>

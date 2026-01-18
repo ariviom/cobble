@@ -843,7 +843,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                     </Button>
                   </div>
                 )}
-                <div className="text-center text-[11px] text-foreground-muted">
+                <div className="text-2xs text-center text-foreground-muted">
                   Powered by{' '}
                   <a
                     href="https://brickognize.com/"

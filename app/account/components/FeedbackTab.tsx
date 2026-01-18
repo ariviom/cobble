@@ -218,7 +218,7 @@ export function FeedbackTab({ user }: FeedbackTabProps) {
             Prefer email? You can also reach us directly at{' '}
             <a
               href="mailto:stud@brick-party.com"
-              className="font-semibold text-theme-primary hover:underline"
+              className="font-semibold text-link hover:text-link-hover hover:underline"
             >
               stud@brick-party.com
             </a>

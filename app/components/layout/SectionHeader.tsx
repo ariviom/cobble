@@ -1,5 +1,5 @@
-import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/app/components/ui/utils';
+import type { HTMLAttributes, ReactNode } from 'react';
 
 export type SectionHeaderProps = {
   title: string;
@@ -33,7 +33,7 @@ export function SectionHeader({
       <div className="flex w-full items-start justify-between gap-3">
         <div className={cn('space-y-1', isCentered && 'w-full')}>
           {eyebrow ? (
-            <p className="text-[11px] font-semibold tracking-wide text-foreground-muted uppercase">
+            <p className="text-2xs font-semibold tracking-wide text-foreground-muted uppercase">
               {eyebrow}
             </p>
           ) : null}

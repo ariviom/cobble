@@ -144,7 +144,7 @@ function ResetPasswordForm() {
             <div className="mt-4 text-center">
               <Link
                 href="/forgot-password"
-                className="font-medium text-theme-primary underline underline-offset-2"
+                className="font-medium text-link underline underline-offset-2 hover:text-link-hover"
               >
                 Request a new reset link
               </Link>
@@ -155,7 +155,7 @@ function ResetPasswordForm() {
         <div className="flex justify-center">
           <Link
             href="/login"
-            className="text-xs font-medium text-theme-primary underline underline-offset-2"
+            className="text-xs font-medium text-link underline underline-offset-2 hover:text-link-hover"
           >
             Back to login
           </Link>
@@ -217,7 +217,7 @@ function ResetPasswordForm() {
           <form onSubmit={handleSubmit} className="flex flex-col gap-2">
             <label
               htmlFor="new-password"
-              className="text-[11px] font-medium text-foreground"
+              className="text-2xs font-medium text-foreground"
             >
               New password
             </label>
@@ -233,7 +233,7 @@ function ResetPasswordForm() {
             />
             <label
               htmlFor="confirm-password"
-              className="mt-2 text-[11px] font-medium text-foreground"
+              className="text-2xs mt-2 font-medium text-foreground"
             >
               Confirm password
             </label>
@@ -262,7 +262,7 @@ function ResetPasswordForm() {
       <div className="flex justify-center">
         <Link
           href="/login"
-          className="text-xs font-medium text-theme-primary underline underline-offset-2"
+          className="text-xs font-medium text-link underline underline-offset-2 hover:text-link-hover"
         >
           Back to login
         </Link>

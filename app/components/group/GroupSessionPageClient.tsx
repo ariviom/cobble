@@ -4,6 +4,7 @@ import { SetTopBar } from '@/app/components/nav/SetTopBar';
 import { Inventory } from '@/app/components/set/Inventory';
 import { InventoryControls } from '@/app/components/set/InventoryControls';
 import { InventoryProvider } from '@/app/components/set/InventoryProvider';
+import { Button } from '@/app/components/ui/Button';
 import { cn } from '@/app/components/ui/utils';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
 import { useOrigin } from '@/app/hooks/useOrigin';
@@ -275,8 +276,8 @@ export function GroupSessionPageClient({
           <InventoryControls />
         </header>
 
-        {/* Content - scrolls on desktop */}
-        <main className="lg:col-start-2 lg:overflow-auto">
+        {/* Content - scrolls on desktop, needs bottom padding for mobile nav */}
+        <main className="pt-[calc(var(--grid-row-tabs,0px)+var(--spacing-topnav-height)+var(--spacing-controls-height))] pb-[var(--spacing-nav-height)] lg:col-start-2 lg:overflow-auto lg:pt-0 lg:pb-0">
           <Inventory />
         </main>
       </div>
@@ -284,7 +285,7 @@ export function GroupSessionPageClient({
   ) : (
     <div
       className={cn(
-        'set-grid-layout min-h-[100dvh]',
+        'set-grid-layout min-h-[100dvh] overflow-x-hidden',
         'lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:overflow-hidden'
       )}
     >
@@ -310,8 +311,8 @@ export function GroupSessionPageClient({
         />
       </header>
 
-      {/* Join form */}
-      <main className="flex flex-1 items-center justify-center px-4 py-8 lg:col-start-2">
+      {/* Join form - needs bottom padding for mobile nav */}
+      <main className="flex flex-1 items-center justify-center px-4 py-8 pt-[var(--spacing-topnav-height)] pb-[var(--spacing-nav-height)] lg:col-start-2 lg:pt-0 lg:pb-0">
         <div className="w-full max-w-sm rounded-md border-2 border-subtle bg-card p-4 text-xs">
           <h1 className="text-sm font-semibold text-foreground">
             Join this Search Party session
@@ -321,7 +322,7 @@ export function GroupSessionPageClient({
             We&apos;ll remember it on this device so you stay recognized if you
             disconnect and rejoin.
           </p>
-          <label className="mt-4 block text-[11px] font-medium text-foreground">
+          <label className="text-2xs mt-4 block font-medium text-foreground">
             Name
           </label>
           <input
@@ -331,14 +332,15 @@ export function GroupSessionPageClient({
             className="mt-1 w-full rounded-md border-2 border-subtle bg-background px-2 py-1 text-xs"
             placeholder="e.g., Alice, Living room, iPad"
           />
-          <button
-            type="button"
-            className="mt-4 inline-flex h-8 w-full items-center justify-center rounded-md bg-theme-primary px-3 text-[11px] font-medium text-white hover:bg-theme-primary/90 disabled:opacity-60"
+          <Button
+            variant="primary"
+            size="sm"
+            className="mt-4 w-full"
             onClick={() => void handleJoin()}
             disabled={isJoining || !displayNameInput.trim() || !clientId}
           >
             {isJoining ? 'Joining…' : 'Join session'}
-          </button>
+          </Button>
         </div>
       </main>
     </div>
