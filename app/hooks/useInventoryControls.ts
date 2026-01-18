@@ -11,26 +11,62 @@ import type {
 
 const STORAGE_KEY = 'ui:inventoryControls';
 
-export function useInventoryControls() {
-  const [sortKey, setSortKeyState] = useState<SortKey>('color');
-  const [sortDir, setSortDirState] = useState<'asc' | 'desc'>('asc');
-  const [filter, setFilterState] = useState<InventoryFilter>({
+export type InventoryControlsState = {
+  sortKey: SortKey;
+  sortDir: 'asc' | 'desc';
+  filter: InventoryFilter;
+  view: ViewType;
+  itemSize: ItemSize;
+  groupBy: GroupBy;
+};
+
+export type UseInventoryControlsOptions = {
+  /** Initial state to use instead of defaults (for tab restoration) */
+  initialState?: Partial<InventoryControlsState> | undefined;
+  /** Skip localStorage hydration when using tab-specific state */
+  skipStorageHydration?: boolean;
+};
+
+function createDefaultFilter(): InventoryFilter {
+  return {
     display: 'all',
     parents: [],
     subcategoriesByParent: {},
     colors: [],
-  });
-  const [view, setViewState] = useState<ViewType>('list');
-  const [itemSize, setItemSizeState] = useState<ItemSize>('md');
-  const [groupBy, setGroupByState] = useState<GroupBy>('none');
+  };
+}
+
+export function useInventoryControls(options?: UseInventoryControlsOptions) {
+  const { initialState, skipStorageHydration = false } = options ?? {};
+
+  const [sortKey, setSortKeyState] = useState<SortKey>(
+    initialState?.sortKey ?? 'color'
+  );
+  const [sortDir, setSortDirState] = useState<'asc' | 'desc'>(
+    initialState?.sortDir ?? 'asc'
+  );
+  const [filter, setFilterState] = useState<InventoryFilter>(
+    initialState?.filter ?? createDefaultFilter()
+  );
+  const [view, setViewState] = useState<ViewType>(initialState?.view ?? 'list');
+  const [itemSize, setItemSizeState] = useState<ItemSize>(
+    initialState?.itemSize ?? 'md'
+  );
+  const [groupBy, setGroupByState] = useState<GroupBy>(
+    initialState?.groupBy ?? 'none'
+  );
 
   // Track if we've hydrated from storage
   const hydratedRef = useRef(false);
 
-  // Hydrate from localStorage
+  // Hydrate from localStorage (only for default/global controls, not tab-specific)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (hydratedRef.current) return;
+    if (skipStorageHydration) {
+      hydratedRef.current = true;
+      return;
+    }
 
     hydratedRef.current = true;
     try {
@@ -45,12 +81,17 @@ export function useInventoryControls() {
         display: InventoryFilter['display'];
       }>;
 
-      if (parsed.sortKey) setSortKeyState(parsed.sortKey);
-      if (parsed.sortDir) setSortDirState(parsed.sortDir);
-      if (parsed.groupBy) setGroupByState(parsed.groupBy);
-      if (parsed.view) setViewState(parsed.view);
-      if (parsed.itemSize) setItemSizeState(parsed.itemSize);
-      if (parsed.display) {
+      // Only apply storage values if no initial state was provided for that field
+      if (!initialState?.sortKey && parsed.sortKey)
+        setSortKeyState(parsed.sortKey);
+      if (!initialState?.sortDir && parsed.sortDir)
+        setSortDirState(parsed.sortDir);
+      if (!initialState?.groupBy && parsed.groupBy)
+        setGroupByState(parsed.groupBy);
+      if (!initialState?.view && parsed.view) setViewState(parsed.view);
+      if (!initialState?.itemSize && parsed.itemSize)
+        setItemSizeState(parsed.itemSize);
+      if (!initialState?.filter && parsed.display) {
         setFilterState(prev => ({
           ...prev,
           display: parsed.display!,
@@ -59,7 +100,7 @@ export function useInventoryControls() {
     } catch {
       // Ignore storage errors; fall back to defaults
     }
-  }, []);
+  }, [initialState, skipStorageHydration]);
 
   // Persist to localStorage
   useEffect(() => {

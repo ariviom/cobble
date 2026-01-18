@@ -25,6 +25,8 @@ type SetTabBarProps = {
   onActivateTab?: ((setNumber: string) => void) | undefined;
   /** Callback when a tab is closed (for SPA mode). */
   onCloseTab?: ((setNumber: string) => void) | undefined;
+  /** Callback when opening a new tab from recent sets dropdown (for SPA mode). */
+  onOpenNewTab?: ((tab: OpenTab) => void) | undefined;
 };
 
 export function SetTabBar({
@@ -33,6 +35,7 @@ export function SetTabBar({
   groupSessionSetNumber,
   onActivateTab,
   onCloseTab,
+  onOpenNewTab,
 }: SetTabBarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [recentSets, setRecentSets] = useState<RecentSetEntry[]>([]);
@@ -91,12 +94,22 @@ export function SetTabBar({
       setIsDropdownOpen(false);
 
       // In SPA mode, prevent Link navigation and use callback
-      if (onActivateTab) {
+      if (onOpenNewTab) {
+        e?.preventDefault();
+        // Convert RecentSetEntry to OpenTab
+        onOpenNewTab({
+          setNumber: entry.setNumber,
+          name: entry.name,
+          imageUrl: entry.imageUrl,
+          numParts: entry.numParts,
+          year: entry.year,
+        });
+      } else if (onActivateTab) {
         e?.preventDefault();
         onActivateTab(entry.setNumber);
       }
     },
-    [onActivateTab]
+    [onActivateTab, onOpenNewTab]
   );
 
   if (tabs.length === 0) {

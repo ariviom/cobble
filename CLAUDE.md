@@ -75,10 +75,11 @@ Brick Party is a Next.js web app for LEGO set piece tracking. Users enter a set 
 ```bash
 # Development
 npm run dev           # Start dev server (assume already running; don't auto-start)
-npm run build         # Production build
+npm run build         # Production build (only run when user requests - conflicts with dev server)
 npm run lint          # ESLint check
 npm run format        # Prettier + ESLint fix
 npm run format:check  # Check formatting without fixing
+npx tsc --noEmit      # Type-check without emitting (safe to run alongside dev server)
 
 # Testing
 npm test              # Run all tests (Vitest, watch mode)

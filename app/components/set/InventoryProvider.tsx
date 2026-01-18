@@ -2,6 +2,7 @@
 
 import { useGroupSessionChannel } from '@/app/hooks/useGroupSessionChannel';
 import type { MinifigStatus } from '@/app/hooks/useInventory';
+import type { InventoryControlsState } from '@/app/hooks/useInventoryControls';
 import { useInventoryPrices } from '@/app/hooks/useInventoryPrices';
 import { useInventoryViewModel } from '@/app/hooks/useInventoryViewModel';
 import { useSupabaseOwned } from '@/app/hooks/useSupabaseOwned';
@@ -97,6 +98,8 @@ export type InventoryContextValue = {
   setView: (view: ViewType) => void;
   setItemSize: (size: ItemSize) => void;
   setGroupBy: (group: GroupBy) => void;
+  /** Get current controls state for saving (tab state persistence) */
+  getControlsState: () => InventoryControlsState;
 
   // Derived
   sortedIndices: number[];
@@ -171,6 +174,8 @@ export type InventoryProviderProps = {
   setNumber: string;
   setName?: string;
   initialInventory?: InventoryRow[] | null;
+  /** Initial controls state for tab restoration */
+  initialControlsState?: Partial<InventoryControlsState> | undefined;
   enableCloudSync?: boolean;
   /** Whether this tab is currently visible (controls scroll restoration) */
   isActive?: boolean;
@@ -196,6 +201,7 @@ export function InventoryProvider({
   setNumber,
   setName,
   initialInventory,
+  initialControlsState,
   enableCloudSync = true,
   isActive = true,
   groupSessionId,
@@ -232,6 +238,7 @@ export function InventoryProvider({
     setView,
     setItemSize,
     setGroupBy,
+    getControlsState,
     sortedIndices,
     subcategoriesByParent,
     colorOptions,
@@ -240,6 +247,7 @@ export function InventoryProvider({
     gridSizes,
   } = useInventoryViewModel(setNumber, {
     initialRows: initialInventory ?? null,
+    initialControlsState,
   });
 
   // -------------------------------------------------------------------------
@@ -512,6 +520,7 @@ export function InventoryProvider({
       setView,
       setItemSize,
       setGroupBy,
+      getControlsState,
 
       // Derived
       sortedIndices,
@@ -587,6 +596,7 @@ export function InventoryProvider({
       setView,
       setItemSize,
       setGroupBy,
+      getControlsState,
       sortedIndices,
       colorOptions,
       parentOptions,

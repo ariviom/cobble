@@ -1,7 +1,5 @@
-import { LocalDataProviderBoundary } from '@/app/components/providers/LocalDataProviderBoundary';
-import { SetPageClient } from '@/app/components/set/SetPageClient';
+import { SetPageRedirector } from '@/app/components/set/SetPageRedirector';
 import { getSetSummaryLocal } from '@/app/lib/catalog';
-import { getSetInventoryRowsWithMeta } from '@/app/lib/services/inventory';
 import { getSetSummary } from '@/app/lib/rebrickable';
 import { notFound } from 'next/navigation';
 
@@ -13,32 +11,32 @@ type SetPageProps = {
   params: Promise<RouteParams>;
 };
 
+/**
+ * Entry point for direct set URLs (e.g., /sets/75192-1).
+ *
+ * This server component fetches the set summary, then renders a client
+ * component that adds the set to tabs and redirects to the SPA container.
+ */
 export default async function SetPage({ params }: SetPageProps) {
   const { setNumber } = await params;
   if (!setNumber) notFound();
 
-  // Prefer Supabase-backed catalog summary when available and prefetch inventory in parallel.
-  const [summary, inventory] = await Promise.all([
+  // Fetch set summary (no inventory prefetch - that happens in the SPA container)
+  const summary =
     (await getSetSummaryLocal(setNumber).catch(() => null)) ??
-      (await getSetSummary(setNumber).catch(() => null)),
-    getSetInventoryRowsWithMeta(setNumber).catch(() => null),
-  ]);
+    (await getSetSummary(setNumber).catch(() => null));
 
   if (!summary) notFound();
 
   return (
-    <LocalDataProviderBoundary>
-      <SetPageClient
-        key={summary.setNumber}
-        setNumber={summary.setNumber}
-        setName={summary.name}
-        year={summary.year}
-        imageUrl={summary.imageUrl}
-        numParts={summary.numParts}
-        themeId={summary.themeId ?? null}
-        themeName={summary.themeName ?? null}
-        initialInventory={inventory?.rows ?? null}
-      />
-    </LocalDataProviderBoundary>
+    <SetPageRedirector
+      setNumber={summary.setNumber}
+      setName={summary.name}
+      year={summary.year}
+      imageUrl={summary.imageUrl}
+      numParts={summary.numParts}
+      themeId={summary.themeId ?? null}
+      themeName={summary.themeName ?? null}
+    />
   );
 }

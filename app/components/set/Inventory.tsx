@@ -216,6 +216,7 @@ export function Inventory() {
         <div
           ref={scrollerRef}
           className="relative flex-1 overflow-auto bg-background"
+          data-inventory-scroller={setNumber}
           data-view={view}
           data-item-size={itemSize}
         >

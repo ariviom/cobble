@@ -14,9 +14,17 @@ import type {
   ViewType,
 } from '@/app/components/set/types';
 import { useInventory } from '@/app/hooks/useInventory';
-import { useInventoryControls } from '@/app/hooks/useInventoryControls';
+import {
+  useInventoryControls,
+  type InventoryControlsState,
+} from '@/app/hooks/useInventoryControls';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
-import { useMemo, type Dispatch, type SetStateAction } from 'react';
+import {
+  useCallback,
+  useMemo,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 
 export type InventoryViewModel = {
   // Raw data
@@ -52,6 +60,8 @@ export type InventoryViewModel = {
   setView: Dispatch<SetStateAction<ViewType>>;
   setItemSize: Dispatch<SetStateAction<ItemSize>>;
   setGroupBy: Dispatch<SetStateAction<GroupBy>>;
+  /** Get current controls state for saving (tab state persistence) */
+  getControlsState: () => InventoryControlsState;
 
   // Derived indices and metadata
   sizeByIndex: number[];
@@ -68,9 +78,15 @@ export type InventoryViewModel = {
   computeMissingRows: () => MissingRow[];
 };
 
+export type InventoryViewModelOptions = {
+  initialRows?: InventoryRow[] | null;
+  /** Initial controls state for tab restoration */
+  initialControlsState?: Partial<InventoryControlsState> | undefined;
+};
+
 export function useInventoryViewModel(
   setNumber: string,
-  options?: { initialRows?: InventoryRow[] | null }
+  options?: InventoryViewModelOptions
 ): InventoryViewModel {
   const {
     rows,
@@ -85,7 +101,7 @@ export function useInventoryViewModel(
     minifigEnrichmentError,
     retryMinifigEnrichment,
     computeMissingRows,
-  } = useInventory(setNumber, options);
+  } = useInventory(setNumber, { initialRows: options?.initialRows ?? null });
 
   const {
     sortKey,
@@ -100,7 +116,22 @@ export function useInventoryViewModel(
     setView,
     setItemSize,
     setGroupBy,
-  } = useInventoryControls();
+  } = useInventoryControls({
+    initialState: options?.initialControlsState,
+    skipStorageHydration: !!options?.initialControlsState,
+  });
+
+  const getControlsState = useCallback(
+    (): InventoryControlsState => ({
+      sortKey,
+      sortDir,
+      filter,
+      view,
+      itemSize,
+      groupBy,
+    }),
+    [sortKey, sortDir, filter, view, itemSize, groupBy]
+  );
 
   const {
     sizeByIndex,
@@ -316,6 +347,7 @@ export function useInventoryViewModel(
     setView,
     setItemSize,
     setGroupBy,
+    getControlsState,
     sizeByIndex,
     categoryByIndex,
     parentByIndex,
