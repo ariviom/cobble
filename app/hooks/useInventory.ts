@@ -72,10 +72,14 @@ async function fetchInventory(
         inventoryVersion = payload.versions?.inventory_parts ?? null;
       }
     } catch (err) {
-      console.warn(
-        'Failed to fetch inventory version (will fall back to TTL):',
-        err
-      );
+      // AbortError is expected during React strict mode cleanup - don't log it
+      const isAbort = err instanceof DOMException && err.name === 'AbortError';
+      if (!isAbort) {
+        console.warn(
+          'Failed to fetch inventory version (will fall back to TTL):',
+          err
+        );
+      }
     }
   }
 

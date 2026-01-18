@@ -100,7 +100,7 @@ export function useInventoryViewModel(
     setView,
     setItemSize,
     setGroupBy,
-  } = useInventoryControls({ setNumber });
+  } = useInventoryControls();
 
   const {
     sizeByIndex,

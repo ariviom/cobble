@@ -388,10 +388,10 @@ export default async function PublicProfilePage({
             <div className="flex flex-col gap-1">
               <h2 className="text-lg font-semibold">{title}</h2>
               <div className="flex flex-wrap items-center gap-3 text-xs text-foreground-muted">
-                <span className="rounded-full bg-card-muted px-2 py-0.5 font-mono text-[11px] text-foreground-muted">
+                <span className="text-2xs rounded-full bg-card-muted px-2 py-0.5 font-mono text-foreground-muted">
                   /collection/{handleToShow}
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                <span className="text-2xs inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-800">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   Lists public
                 </span>
