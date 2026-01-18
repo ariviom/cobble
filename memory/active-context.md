@@ -11,6 +11,14 @@
 
 All major December 2025 initiatives have been completed:
 
+- **Hybrid Scroll Restoration** - Replaced index-based scroll restoration with a platform-specific hybrid approach:
+  - **Desktop**: Persistent scroll containers (browser preserves scrollTop), only children unmount/remount. Zero restoration code needed.
+  - **Mobile**: Simple `window.scrollY` save/restore in memory map.
+  - Removed ~100 lines of scroll restoration code (scrollRegistry, scrollIndex tracking, double rAF hacks, grace periods).
+  - New files: `DesktopTabLayout.tsx`, `MobileTabLayout.tsx`, `DesktopSetTabContent.tsx`, `MobileSetTabContent.tsx`, `useIsDesktop.ts`
+  - Deleted: `app/lib/scrollRegistry.ts`
+  - Store schema: Removed `scrollIndex` and `scrollItemKey` from `TabFilterState`.
+- **SPA Tab Architecture** - Platform-aware rendering via `useIsDesktop()` hook. Desktop uses persistent containers with conditional children; mobile uses key-based remount. URL syncs via History API (`/sets?active=setNumber`).
 - **BrickLink Minifig Migration** - BrickLink is now the exclusive source of truth for minifig IDs, metadata, and component parts. Self-healing system in place.
 - **Minifig Cascade Fix** - Toggling parent minifigs correctly cascades to subparts.
 - **Shared Minifig Parts Fix** - Multiple minifigs sharing subparts correctly aggregate quantities.

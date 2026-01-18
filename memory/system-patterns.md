@@ -287,6 +287,83 @@ Default to TTL-only caching. Add version awareness only for catalog-derived serv
 - In dev-only verbose paths, gate with `if (process.env.NODE_ENV !== 'production') logger.debug(...)`.
 - Production builds emit JSON logs via `logger`; Next.js `removeConsole` strips raw console calls as a safety net.
 
+## SPA Tab Architecture
+
+The set inventory viewer uses an SPA (Single Page Application) architecture for tab management.
+
+### Key Design
+
+- **Key-based remount**: Only active tab renders; switching tabs unmounts old + mounts new
+- **Scroll restoration**: Index saved on unmount, restored via `scrollToIndex()` on mount
+- **URL sync**: URL reflects active tab (`/sets?active=setNumber`) via History API (no Next.js navigation)
+- **Entry points**: Direct URLs (`/sets/75192`) redirect to SPA container after adding the set to tabs
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `/app/sets/page.tsx` | SPA container, renders only active tab |
+| `/app/sets/[setNumber]/page.tsx` | Server component, redirects to SPA |
+| `/app/components/set/SetTabContent.tsx` | Tab content (InventoryProvider + layout) |
+| `/app/components/set/SetPageRedirector.tsx` | Handles redirect from /sets/[setNumber] |
+| `/app/hooks/useActiveTab.ts` | URL sync via History API |
+| `/app/store/open-tabs.ts` | Tab state persistence (localStorage) |
+
+### Flow
+
+1. User lands on `/sets/75192`:
+   - Server component fetches set summary
+   - `SetPageRedirector` adds to tabs + recent sets
+   - Redirects to `/sets?active=75192`
+
+2. User switches tabs:
+   - `onActivateTab` callback updates URL via `history.pushState`
+   - Old tab unmounts (saving scroll index), new tab mounts (restoring scroll index)
+   - Data cached in TanStack Query/Zustand; no refetch needed
+
+3. Browser back/forward:
+   - `popstate` event triggers `setActiveTab`
+   - URL → active tab sync without navigation
+
+### Benefits
+
+- **Deterministic scroll**: Fresh mount = fresh refs, no visibility timing races
+- **Simple architecture**: Conditional render instead of visibility toggle hacks
+- **Memory efficient**: Only one tab's DOM active; data cached at TanStack Query layer
+- **React Native portable**: Matches how React Navigation unmounts/remounts screens
+- **URL shareable**: Deep links still work via redirect
+
+### Scroll Restoration (Hybrid Approach)
+
+Scroll position is preserved using a **platform-specific hybrid approach** that eliminates timing issues with virtualization:
+
+| Platform | Strategy | Implementation |
+|----------|----------|----------------|
+| Desktop (lg+) | Persistent scroll containers | Browser preserves scrollTop; no restoration code needed |
+| Mobile | window.scrollY save/restore | Simple pixel-based save in memory map |
+
+**Desktop Architecture:**
+- Scroll containers stay mounted (CSS visibility toggle), only children unmount
+- When switching tabs, the container's `scrollTop` is already at the correct position
+- VirtualizedInventory receives external `scrollContainerRef` and reads scrollTop on mount
+- Zero restoration logic needed - browser handles it
+
+**Mobile Architecture:**
+- Uses document scroll (`window.scrollY`)
+- MobileTabLayout saves `window.scrollY` before tab switch
+- On new tab activation, restores via `window.scrollTo(0, savedY)`
+- Simple pixel-based restoration (no virtualizer timing issues)
+
+**Key Files:**
+- `app/components/set/DesktopTabLayout.tsx` - Persistent containers with conditional children
+- `app/components/set/MobileTabLayout.tsx` - window.scrollY save/restore
+- `app/hooks/useIsDesktop.ts` - Media query hook for lg breakpoint
+
+**Filter Reset:**
+- Both platforms reset scroll to top when filters change
+- Desktop: `scrollContainerRef.scrollTo({ top: 0 })`
+- Mobile: `window.scrollTo({ top: 0 })`
+
 ## Performance Notes
 
 - Inventory tables are virtualized to keep large sets responsive.
