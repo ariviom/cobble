@@ -82,6 +82,32 @@ export function InventoryControls() {
     };
   }, [openDropdownId]);
 
+  // Scroll to top when display filter, sort, or grouping changes
+  // Skip initial render by tracking if values have changed
+  const prevFilterRef = useRef({ display: filter.display, sortKey, groupBy });
+  useEffect(() => {
+    const prev = prevFilterRef.current;
+    const changed =
+      prev.display !== filter.display ||
+      prev.sortKey !== sortKey ||
+      prev.groupBy !== groupBy;
+
+    // Update ref for next comparison
+    prevFilterRef.current = { display: filter.display, sortKey, groupBy };
+
+    // Don't scroll on initial render, only on actual changes
+    if (!changed) return;
+
+    if (isDesktop) {
+      const scroller = document.querySelector(
+        `[data-inventory-scroller="${setNumber}"]`
+      );
+      if (scroller) scroller.scrollTop = 0;
+    } else {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [filter.display, sortKey, groupBy, isDesktop, setNumber]);
+
   const handleDropdownToggle = (id: string) => {
     if (isDesktop && (id === 'parent' || id === 'color')) {
       if (id === 'parent') setIsParentOpen(prev => !prev);

@@ -4,6 +4,7 @@ import { SetTabBar } from '@/app/components/set/SetTabBar';
 import { SetTabContainer } from '@/app/components/set/SetTabContainer';
 import { Spinner } from '@/app/components/ui/Spinner';
 import { cn } from '@/app/components/ui/utils';
+import { useDynamicTitle } from '@/app/hooks/useDynamicTitle';
 import { useIsDesktop } from '@/app/hooks/useIsDesktop';
 import {
   useOpenTabsStore,
@@ -11,7 +12,7 @@ import {
   type TabViewState,
 } from '@/app/store/open-tabs';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 /**
  * SPA container for multi-tab set views.
@@ -33,6 +34,17 @@ export default function SetsPage() {
   const closeTab = useOpenTabsStore(state => state.closeTab);
   const saveTabState = useOpenTabsStore(state => state.saveTabState);
   const openTab = useOpenTabsStore(state => state.openTab);
+
+  // Dynamic page title based on active tab
+  const activeTab = useMemo(
+    () => tabs.find(t => t.setNumber === activeSetNumber),
+    [tabs, activeSetNumber]
+  );
+  const pageTitle = useMemo(() => {
+    if (!activeTab) return null;
+    return `${activeTab.setNumber} ${activeTab.name}`;
+  }, [activeTab]);
+  useDynamicTitle(pageTitle);
 
   // Track the previous active tab for saving scroll state on switch
   const prevActiveRef = useRef<string | null>(null);
