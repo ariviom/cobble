@@ -1,7 +1,12 @@
 import type { InventoryRow } from '@/app/components/set/types';
-import { getSetMinifigsBl } from '@/app/lib/bricklink/minifigs';
+import { getBricklinkColorName } from '@/app/lib/bricklink/colors';
+import {
+  getSetMinifigsBl,
+  getBlPartImageUrl,
+} from '@/app/lib/bricklink/minifigs';
 import { LRUCache } from '@/app/lib/cache/lru';
 import { getSetInventoryLocal } from '@/app/lib/catalog';
+import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { getSetInventory } from '@/app/lib/rebrickable';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import { logger } from '@/lib/metrics';
@@ -12,8 +17,8 @@ export type InventoryResult = {
   minifigMeta?: {
     /** How many minifigs in the set */
     totalMinifigs: number;
-    /** Sync status: 'ok' | 'error' | 'pending' | null */
-    syncStatus: 'ok' | 'error' | 'pending' | null;
+    /** Sync status: 'ok' | 'error' | 'never_synced' | null */
+    syncStatus: 'ok' | 'error' | 'never_synced' | null;
     /** Whether a sync was triggered during this request */
     syncTriggered: boolean;
   };
@@ -168,92 +173,242 @@ export async function getSetInventoryRowsWithMeta(
   const blMinifigResult = await getSetMinifigsBl(setNumber);
 
   if (blMinifigResult.minifigs.length > 0) {
-    // Build lookup map by BL minifig ID
-    const blMinifigMap = new Map(
-      blMinifigResult.minifigs.map(m => [m.minifigNo, m])
-    );
+    const supabase = getCatalogWriteClient();
+    const allBlMinifigNos = blMinifigResult.minifigs.map(m => m.blMinifigId);
 
-    // Also build reverse lookup by RB fig ID (for matching existing rows)
-    const rbToBlMap = new Map<string, string>();
-    for (const m of blMinifigResult.minifigs) {
-      if (m.rbFigId) {
-        rbToBlMap.set(m.rbFigId.toLowerCase(), m.minifigNo);
-      }
+    // Batch-fetch all subparts for all minifigs in one query
+    const { data: allSubparts, error: subpartsErr } = await supabase
+      .from('bl_minifig_parts')
+      .select(
+        'bl_minifig_no, bl_part_id, bl_color_id, color_name, name, quantity'
+      )
+      .in('bl_minifig_no', allBlMinifigNos);
+
+    if (subpartsErr) {
+      logger.warn('inventory.batch_subparts_failed', {
+        setNumber,
+        error: subpartsErr.message,
+      });
     }
 
-    const matchedBlIds = new Set<string>();
+    // Group subparts by minifig
+    const subpartsByMinifig = new Map<
+      string,
+      Array<{
+        blPartId: string;
+        blColorId: number;
+        colorName: string | null;
+        name: string | null;
+        quantity: number;
+      }>
+    >();
+    for (const sp of allSubparts ?? []) {
+      const list = subpartsByMinifig.get(sp.bl_minifig_no) ?? [];
+      list.push({
+        blPartId: sp.bl_part_id,
+        blColorId: sp.bl_color_id,
+        colorName: sp.color_name,
+        name: sp.name,
+        quantity: sp.quantity ?? 1,
+      });
+      subpartsByMinifig.set(sp.bl_minifig_no, list);
+    }
 
-    // Update existing rows with BL data
-    const enrichedRows = rows.map(row => {
-      if (
-        row.parentCategory === 'Minifigure' &&
-        typeof row.partId === 'string' &&
-        row.partId.startsWith('fig:')
-      ) {
-        const rbFigId = row.partId.replace(/^fig:/, '').trim().toLowerCase();
-        const blMinifigNo = rbToBlMap.get(rbFigId);
-
-        if (blMinifigNo) {
-          matchedBlIds.add(blMinifigNo);
-          const blData = blMinifigMap.get(blMinifigNo);
-
-          // Return row with BL ID as primary, BL data enrichment
-          return {
-            ...row,
-            // Update partId to use BL ID
-            partId: `fig:${blMinifigNo}`,
-            // Use BL name if available
-            partName: blData?.name ?? row.partName,
-            // Use BL image if available
-            imageUrl: blData?.imageUrl ?? row.imageUrl,
-            // Store BL ID for Bricklink links
-            bricklinkFigId: blMinifigNo,
-          };
-        }
-      }
-      return row;
-    });
-
-    // Add any BL minifigs that weren't in RB inventory (rare but possible)
-    const unmatchedBlMinifigs = blMinifigResult.minifigs.filter(
-      m => !matchedBlIds.has(m.minifigNo)
+    // Build lookup map by BL minifig ID
+    const blMinifigMap = new Map(
+      blMinifigResult.minifigs.map(m => [m.blMinifigId, m])
     );
 
-    for (const blMinifig of unmatchedBlMinifigs) {
+    // Track child rows by key to handle shared parts across minifigs
+    const childRowsByKey = new Map<string, InventoryRow>();
+
+    // BrickLink is the source of truth for minifigs.
+    // Filter out ALL RB minifig rows - we'll replace with BL data.
+    // This ensures we never show legacy "fig-XXXXX" RB IDs.
+    const enrichedRows = rows.filter(row => {
+      // Keep all non-minifig rows
+      if (
+        row.parentCategory !== 'Minifigure' ||
+        typeof row.partId !== 'string' ||
+        !row.partId.startsWith('fig:')
+      ) {
+        return true;
+      }
+      // Filter OUT RB minifig rows - BL minifigs will be added below
+      return false;
+    });
+
+    // Add ALL BL minifigs as the authoritative source
+    for (const blMinifig of blMinifigResult.minifigs) {
       enrichedRows.push({
         setNumber,
-        partId: `fig:${blMinifig.minifigNo}`,
-        partName: blMinifig.name ?? blMinifig.minifigNo,
+        partId: `fig:${blMinifig.blMinifigId}`,
+        partName: blMinifig.name ?? blMinifig.blMinifigId,
         colorId: 0,
         colorName: '—',
         quantityRequired: blMinifig.quantity,
         imageUrl: blMinifig.imageUrl,
         partCategoryName: 'Minifig',
         parentCategory: 'Minifigure',
-        inventoryKey: `fig:${blMinifig.minifigNo}`,
-        componentRelations: [],
-        bricklinkFigId: blMinifig.minifigNo,
+        inventoryKey: `fig:${blMinifig.blMinifigId}`,
+        bricklinkFigId: blMinifig.blMinifigId,
       });
     }
 
-    // Identify minifigs needing enrichment
-    const allBlMinifigNos = blMinifigResult.minifigs.map(m => m.minifigNo);
+    // Build index of existing rows by inventoryKey for child row deduplication
+    // Include both primary key AND bricklinkPartId as alternative lookup keys
+    const existingRowsByKey = new Map<string, number>();
+    enrichedRows.forEach((row, idx) => {
+      const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
+      existingRowsByKey.set(key, idx);
+      // Also index by BrickLink part ID if available (for BL→RB matching)
+      if (row.bricklinkPartId && row.bricklinkPartId !== row.partId) {
+        const blKey = `${row.bricklinkPartId}:${row.colorId}`;
+        existingRowsByKey.set(blKey, idx);
+      }
+    });
+
+    // Create child rows for all subparts
+    // IMPORTANT: Multiply subpart quantities by minifig quantity to get total needed
+    for (const [blMinifigNo, subparts] of subpartsByMinifig) {
+      const parentKey = `fig:${blMinifigNo}`;
+      // Get how many of this minifig type are in the set
+      const minifigQty = blMinifigMap.get(blMinifigNo)?.quantity ?? 1;
+
+      for (const sp of subparts) {
+        const childKey = `${sp.blPartId}:${sp.blColorId}`;
+        const existingIdx = existingRowsByKey.get(childKey);
+        // Total quantity needed = per-minifig qty × number of minifigs
+        const totalQtyForThisMinifig = sp.quantity * minifigQty;
+
+        if (existingIdx != null) {
+          // Update existing row with subpart data
+          const existing = enrichedRows[existingIdx]!;
+          if (!existing.imageUrl) {
+            existing.imageUrl = getBlPartImageUrl(sp.blPartId, sp.blColorId);
+          }
+          if (!existing.bricklinkPartId && sp.blPartId !== existing.partId) {
+            existing.bricklinkPartId = sp.blPartId;
+          }
+          existing.parentCategory = existing.parentCategory ?? 'Minifigure';
+          existing.partCategoryName =
+            existing.partCategoryName ?? 'Minifigure Component';
+
+          // Track parent relationship
+          if (!existing.parentRelations) {
+            existing.parentRelations = [];
+          }
+          const alreadyLinked = existing.parentRelations.some(
+            rel => rel.parentKey === parentKey
+          );
+          if (!alreadyLinked) {
+            // Add total quantity needed for this minifig type (per-minifig × count)
+            existing.quantityRequired += totalQtyForThisMinifig;
+            existing.parentRelations.push({
+              parentKey,
+              quantity: sp.quantity, // Per-minifig qty (for relationship)
+            });
+          }
+        } else if (childRowsByKey.has(childKey)) {
+          // Child row already created by another minifig - update it
+          const childRow = childRowsByKey.get(childKey)!;
+          if (!childRow.parentRelations) {
+            childRow.parentRelations = [];
+          }
+          const alreadyLinked = childRow.parentRelations.some(
+            rel => rel.parentKey === parentKey
+          );
+          if (!alreadyLinked) {
+            // Add total quantity needed for this minifig type
+            childRow.quantityRequired += totalQtyForThisMinifig;
+            childRow.parentRelations.push({
+              parentKey,
+              quantity: sp.quantity, // Per-minifig qty (for relationship)
+            });
+          }
+        } else {
+          // Create new child row - use stored BL color name, static lookup, or fallback
+          const numColorId = Number(sp.blColorId);
+          const colorName =
+            sp.colorName ??
+            getBricklinkColorName(numColorId) ??
+            `Color ${numColorId}`;
+          const childRow: InventoryRow = {
+            setNumber,
+            partId: sp.blPartId,
+            partName: sp.name ?? sp.blPartId,
+            colorId: numColorId,
+            colorName,
+            // Total quantity = per-minifig qty × minifig count
+            quantityRequired: totalQtyForThisMinifig,
+            imageUrl: getBlPartImageUrl(sp.blPartId, numColorId),
+            parentCategory: 'Minifigure',
+            partCategoryName: 'Minifigure Component',
+            inventoryKey: childKey,
+            parentRelations: [{ parentKey, quantity: sp.quantity }], // Per-minifig qty
+            bricklinkPartId: sp.blPartId,
+          };
+          childRowsByKey.set(childKey, childRow);
+        }
+      }
+    }
+
+    // Append all new child rows
+    for (const childRow of childRowsByKey.values()) {
+      enrichedRows.push(childRow);
+      existingRowsByKey.set(childRow.inventoryKey, enrichedRows.length - 1);
+    }
+
+    // Build map of BL key → actual inventory key for componentRelations
+    // This handles the BL→RB ID mismatch (e.g., '3626bp01:1' → '3626c:1')
+    const blKeyToInventoryKey = new Map<string, string>();
+    for (const row of enrichedRows) {
+      if (
+        row.parentCategory === 'Minifigure' &&
+        !row.partId.startsWith('fig:')
+      ) {
+        const inventoryKey = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
+        // Map primary key to itself
+        blKeyToInventoryKey.set(inventoryKey, inventoryKey);
+        // Also map BrickLink key to the actual inventory key
+        if (row.bricklinkPartId && row.bricklinkPartId !== row.partId) {
+          const blKey = `${row.bricklinkPartId}:${row.colorId}`;
+          blKeyToInventoryKey.set(blKey, inventoryKey);
+        }
+      }
+    }
+
+    // Now add componentRelations to minifig rows using correct inventory keys
+    for (const row of enrichedRows) {
+      if (
+        row.parentCategory === 'Minifigure' &&
+        row.partId.startsWith('fig:')
+      ) {
+        const blMinifigNo = row.partId.replace(/^fig:/, '');
+        const subparts = subpartsByMinifig.get(blMinifigNo) ?? [];
+
+        if (subparts.length > 0) {
+          const componentRelations = subparts.map(sp => {
+            const blKey = `${sp.blPartId}:${sp.blColorId}`;
+            // Use the actual inventory key if we found a match, otherwise use BL key
+            const actualKey = blKeyToInventoryKey.get(blKey) ?? blKey;
+            return { key: actualKey, quantity: sp.quantity };
+          });
+          row.componentRelations = componentRelations;
+        }
+      }
+    }
+
+    // Identify minifigs still needing enrichment (only those without subparts in DB)
     const missingImages = blMinifigResult.minifigs
       .filter(m => !m.imageUrl)
-      .map(m => m.minifigNo);
+      .map(m => m.blMinifigId);
 
-    // For missing subparts, check if existing rows have componentRelations
-    const rowsByBlId = new Map(
-      enrichedRows
-        .filter(
-          r => r.parentCategory === 'Minifigure' && r.partId.startsWith('fig:')
-        )
-        .map(r => [r.partId.replace(/^fig:/, ''), r])
+    const missingSubparts = allBlMinifigNos.filter(
+      blId =>
+        !subpartsByMinifig.has(blId) ||
+        subpartsByMinifig.get(blId)!.length === 0
     );
-    const missingSubparts = allBlMinifigNos.filter(blId => {
-      const row = rowsByBlId.get(blId);
-      return !row?.componentRelations || row.componentRelations.length === 0;
-    });
 
     result = {
       rows: enrichedRows,

@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { getBricklinkColorNames } from '@/app/lib/bricklink/colors';
 import {
   getBlMinifigImageUrl,
   getBlPartImageUrl,
@@ -163,9 +164,6 @@ export async function enrichMinifigs(
 
   // Fetch subparts if requested
   if (includeSubparts) {
-    // Get color names for all colors we might encounter
-    const colorCache = new Map<number, string>();
-
     for (const blMinifigNo of trimmed) {
       // Skip if in backoff
       const backoffKey = `bl-parts:${blMinifigNo}`;
@@ -176,34 +174,39 @@ export async function enrichMinifigs(
 
       try {
         // getMinifigPartsBl is self-healing - triggers BL API fetch if missing
+        // Returns colorName from BL API (stored in bl_minifig_parts.color_name)
         const parts = await getMinifigPartsBl(blMinifigNo);
         clearFailedEnrichment(backoffKey);
 
         if (parts.length > 0) {
-          // Collect color IDs we need to look up
-          const colorIds = Array.from(new Set(parts.map(p => p.blColorId)));
-          const missingColorIds = colorIds.filter(id => !colorCache.has(id));
+          // Collect color IDs that need name lookup (where BL didn't provide a name)
+          // Coerce to numbers to handle potential string inputs from DB
+          const missingColorIds = parts
+            .filter(p => !p.colorName)
+            .map(p => Number(p.blColorId));
 
-          if (missingColorIds.length > 0) {
-            const { data: colors } = await supabase
-              .from('rb_colors')
-              .select('id, name')
-              .in('id', missingColorIds);
+          // Fast static lookup from BrickLink color mapping (no API call needed)
+          const colorNameLookup =
+            missingColorIds.length > 0
+              ? getBricklinkColorNames(missingColorIds)
+              : new Map<number, string>();
 
-            for (const color of colors ?? []) {
-              colorCache.set(color.id, color.name);
-            }
-          }
-
-          const subparts: MinifigSubpart[] = parts.map(p => ({
-            partId: p.blPartId,
-            name: p.name ?? p.blPartId,
-            colorId: p.blColorId,
-            colorName: colorCache.get(p.blColorId) ?? `Color ${p.blColorId}`,
-            quantity: p.quantity,
-            imageUrl: getBlPartImageUrl(p.blPartId, p.blColorId),
-            bricklinkPartId: p.blPartId, // Already BL ID
-          }));
+          const subparts: MinifigSubpart[] = parts.map(p => {
+            const numColorId = Number(p.blColorId);
+            return {
+              partId: p.blPartId,
+              name: p.name ?? p.blPartId,
+              colorId: numColorId,
+              // Use BL color name if available, else lookup from static map, else fallback
+              colorName:
+                p.colorName ??
+                colorNameLookup.get(numColorId) ??
+                `Color ${numColorId}`,
+              quantity: p.quantity,
+              imageUrl: getBlPartImageUrl(p.blPartId, numColorId),
+              bricklinkPartId: p.blPartId, // Already BL ID
+            };
+          });
 
           const prev = results.get(blMinifigNo)!;
           results.set(blMinifigNo, {
