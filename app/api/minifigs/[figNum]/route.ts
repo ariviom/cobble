@@ -1,11 +1,12 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
+import { getBricklinkColorNames } from '@/app/lib/bricklink/colors';
 import {
   getBlMinifigImageUrl,
+  getBlPartImageUrl,
   getMinifigMetaBl,
   getMinifigPartsBl,
   getSetsForMinifigBl,
-  mapBlToRbFigId,
 } from '@/app/lib/bricklink/minifigs';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { getSetSummary } from '@/app/lib/rebrickable';
@@ -15,8 +16,6 @@ import { NextRequest, NextResponse } from 'next/server';
 type MinifigMetaLight = {
   /** BrickLink minifig ID (primary) */
   blId: string;
-  /** Rebrickable fig_num (for backwards compatibility, may be null) */
-  figNum: string | null;
   imageUrl: string | null;
   name: string;
   numParts: number | null;
@@ -137,9 +136,6 @@ export async function GET(
       name = blSetMinifig?.name || blMinifigNo;
     }
 
-    // Get the RB fig_num for backwards compatibility (inventory lookups)
-    const rbFigNum = await mapBlToRbFigId(blMinifigNo);
-
     // Get sets that contain this minifig (using BL data)
     let sets: MinifigMetaResponse['sets'] = { count: 0, items: [] };
     let themeName: string | null = null;
@@ -220,44 +216,42 @@ export async function GET(
       partsCount = blParts.length;
 
       if (blParts.length > 0) {
-        // Get color names from rb_colors
-        const colorIds = Array.from(new Set(blParts.map(p => p.blColorId)));
-        const { data: colors } = await supabase
-          .from('rb_colors')
-          .select('id, name')
-          .in('id', colorIds);
+        // Get color names using static BrickLink color mapping (fast, no DB query)
+        // Note: rb_colors uses Rebrickable IDs which differ from BrickLink IDs
+        const colorIds = blParts
+          .filter(p => !p.colorName)
+          .map(p => Number(p.blColorId));
+        const colorMap = getBricklinkColorNames(colorIds);
 
-        const colorMap = new Map(colors?.map(c => [c.id, c.name]) ?? []);
-
-        subparts = blParts.map(p => ({
-          partId: p.blPartId, // Use BL part ID as primary
-          name: p.name ?? p.blPartId,
-          colorId: p.blColorId,
-          colorName: colorMap.get(p.blColorId) ?? `Color ${p.blColorId}`,
-          quantity: p.quantity,
-          imageUrl: null, // BL parts don't have cached images in our schema yet
-          bricklinkPartId: p.blPartId, // Already BL ID
-        }));
+        subparts = blParts.map(p => {
+          const numColorId = Number(p.blColorId);
+          return {
+            partId: p.blPartId, // Use BL part ID as primary
+            name: p.name ?? p.blPartId,
+            colorId: numColorId,
+            // Use color name from DB if available, else static BL mapping, else fallback
+            colorName:
+              p.colorName ?? colorMap.get(numColorId) ?? `Color ${numColorId}`,
+            quantity: p.quantity,
+            // Construct BrickLink part image URL with color
+            imageUrl: getBlPartImageUrl(p.blPartId, numColorId),
+            bricklinkPartId: p.blPartId, // Already BL ID
+          };
+        });
       }
     }
 
-    // Count parts for numParts if not available
+    // numParts comes from BL subparts count (already populated above if includeSubparts)
+    // If subparts weren't requested but we need numParts, fetch from bl_minifig_parts
     let numParts: number | null = partsCount;
-    if ((numParts === null || numParts === 0) && rbFigNum) {
-      // Try to get from RB catalog as fallback
-      const { data: rbMinifig } = await supabase
-        .from('rb_minifigs')
-        .select('num_parts')
-        .eq('fig_num', rbFigNum)
-        .maybeSingle();
-      if (rbMinifig?.num_parts) {
-        numParts = rbMinifig.num_parts;
-      }
+    if (numParts === null) {
+      // Quick count from bl_minifig_parts without fetching full data
+      const blParts = await getMinifigPartsBl(blMinifigNo);
+      numParts = blParts.length > 0 ? blParts.length : null;
     }
 
     const payload: MinifigMetaResponse = {
       blId: blMinifigNo,
-      figNum: rbFigNum,
       imageUrl,
       name,
       numParts,

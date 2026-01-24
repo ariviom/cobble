@@ -5,7 +5,6 @@ vi.mock('server-only', () => ({}));
 
 // Mock BrickLink minifigs module
 vi.mock('@/app/lib/bricklink/minifigs', () => ({
-  mapBlToRbFigId: vi.fn(),
   getSetsForMinifigBl: vi.fn(),
 }));
 
@@ -68,10 +67,7 @@ vi.mock('@/lib/metrics', () => ({
   },
 }));
 
-import {
-  getSetsForMinifigBl,
-  mapBlToRbFigId,
-} from '@/app/lib/bricklink/minifigs';
+import { getSetsForMinifigBl } from '@/app/lib/bricklink/minifigs';
 import { getSetsForPartLocal } from '@/app/lib/catalog';
 import {
   getPart,
@@ -84,7 +80,6 @@ import {
 } from '../handlers/minifig';
 import { handlePartIdentify } from '../handlers/part';
 
-const mockMapBlToRb = vi.mocked(mapBlToRbFigId);
 const mockGetSetsForMinifigBl = vi.mocked(getSetsForMinifigBl);
 const mockGetPart = vi.mocked(getPart);
 const mockGetPartColors = vi.mocked(getPartColorsForPart);
@@ -114,7 +109,6 @@ describe('handleMinifigIdentify', () => {
   });
 
   it('handles BrickLink minifig ID correctly', async () => {
-    mockMapBlToRb.mockResolvedValue('fig-000001');
     mockGetSetsForMinifigBl.mockResolvedValue([
       {
         setNumber: '75192-1',
@@ -133,43 +127,41 @@ describe('handleMinifigIdentify', () => {
 
     expect(result.part.isMinifig).toBe(true);
     expect(result.part.bricklinkFigId).toBe('sw0001');
+    expect(result.part.partNum).toBe('sw0001');
     expect(result.sets).toHaveLength(1);
   });
 
-  it('handles Rebrickable minifig ID correctly', async () => {
-    mockMapBlToRb.mockResolvedValue(null);
-    mockGetSetsForMinifigBl.mockResolvedValue([]);
-    // Mock the BL→RB lookup returning null (no mapping found)
-    mockMaybeSingle.mockResolvedValue({ data: null, error: null });
-
-    const result = await handleMinifigIdentify('fig:fig-000001');
-
-    expect(result.part.rebrickableFigId).toBe('fig-000001');
-    // BL ID should be null since it's an RB ID with no BL mapping
-    expect(result.part.bricklinkFigId).toBeNull();
-  });
-
-  it('handles unmapped minifig gracefully', async () => {
-    mockMapBlToRb.mockResolvedValue(null);
+  it('returns minifig ID as-is when no name found', async () => {
     mockGetSetsForMinifigBl.mockResolvedValue([]);
     mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 
-    // Use proper RB format (fig-NNNNNN) for the test
-    const result = await handleMinifigIdentify('fig:fig-999999');
+    const result = await handleMinifigIdentify('unknown123');
 
-    expect(result.part.rebrickableFigId).toBe('fig-999999');
-    expect(result.part.bricklinkFigId).toBeNull();
+    expect(result.part.bricklinkFigId).toBe('unknown123');
+    expect(result.part.name).toBe('unknown123');
+    expect(result.sets).toHaveLength(0);
   });
 
   it('strips fig: prefix correctly', async () => {
-    mockMapBlToRb.mockResolvedValue(null);
     mockGetSetsForMinifigBl.mockResolvedValue([]);
     mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 
-    const result = await handleMinifigIdentify('fig:fig-000001');
+    const result = await handleMinifigIdentify('fig:sw0001');
 
-    // For RB IDs, partNum should be the BL ID if available, otherwise the input
-    expect(result.part.rebrickableFigId).toBe('fig-000001');
+    expect(result.part.bricklinkFigId).toBe('sw0001');
+    expect(result.part.partNum).toBe('sw0001');
+  });
+
+  it('uses display name from BL catalog when available', async () => {
+    mockGetSetsForMinifigBl.mockResolvedValue([]);
+    mockMaybeSingle.mockResolvedValue({
+      data: { name: 'Han Solo (Hoth)' },
+      error: null,
+    });
+
+    const result = await handleMinifigIdentify('sw0343');
+
+    expect(result.part.name).toBe('Han Solo (Hoth)');
   });
 });
 

@@ -103,10 +103,10 @@ export const POST = withCsrfProtection(async function POST(
         }
 
         for (const minifig of blResult.minifigs) {
-          if (!minifig.minifigNo) continue;
+          if (!minifig.blMinifigId) continue;
 
           // Store BL minifig ID directly (FK constraint removed)
-          const blMinifigNo = minifig.minifigNo;
+          const blMinifigNo = minifig.blMinifigId;
 
           const entry = contributions.get(blMinifigNo) ?? { owned: 0 };
           entry.owned += minifig.quantity;
