@@ -115,6 +115,7 @@ export type Database = {
           bl_color_id: number;
           bl_minifig_no: string;
           bl_part_id: string;
+          color_name: string | null;
           last_refreshed_at: string | null;
           name: string | null;
           quantity: number;
@@ -123,6 +124,7 @@ export type Database = {
           bl_color_id: number;
           bl_minifig_no: string;
           bl_part_id: string;
+          color_name?: string | null;
           last_refreshed_at?: string | null;
           name?: string | null;
           quantity?: number;
@@ -131,6 +133,7 @@ export type Database = {
           bl_color_id?: number;
           bl_minifig_no?: string;
           bl_part_id?: string;
+          color_name?: string | null;
           last_refreshed_at?: string | null;
           name?: string | null;
           quantity?: number;
@@ -197,7 +200,6 @@ export type Database = {
           minifig_no: string;
           name: string | null;
           quantity: number;
-          rb_fig_id: string | null;
           set_num: string;
         };
         Insert: {
@@ -206,7 +208,6 @@ export type Database = {
           minifig_no: string;
           name?: string | null;
           quantity?: number;
-          rb_fig_id?: string | null;
           set_num: string;
         };
         Update: {
@@ -215,7 +216,6 @@ export type Database = {
           minifig_no?: string;
           name?: string | null;
           quantity?: number;
-          rb_fig_id?: string | null;
           set_num?: string;
         };
         Relationships: [
@@ -284,53 +284,6 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'bricklink_categories';
             referencedColumns: ['category_id'];
-          },
-        ];
-      };
-      bricklink_minifig_mappings: {
-        Row: {
-          bl_item_id: string;
-          confidence: number | null;
-          created_at: string;
-          manual_review: boolean | null;
-          manually_approved: boolean | null;
-          rb_fig_id: string;
-          review_notes: string | null;
-          reviewed_at: string | null;
-          source: string | null;
-          updated_at: string;
-        };
-        Insert: {
-          bl_item_id: string;
-          confidence?: number | null;
-          created_at?: string;
-          manual_review?: boolean | null;
-          manually_approved?: boolean | null;
-          rb_fig_id: string;
-          review_notes?: string | null;
-          reviewed_at?: string | null;
-          source?: string | null;
-          updated_at?: string;
-        };
-        Update: {
-          bl_item_id?: string;
-          confidence?: number | null;
-          created_at?: string;
-          manual_review?: boolean | null;
-          manually_approved?: boolean | null;
-          rb_fig_id?: string;
-          review_notes?: string | null;
-          reviewed_at?: string | null;
-          source?: string | null;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'bricklink_minifig_mappings_bl_item_id_fkey';
-            columns: ['bl_item_id'];
-            isOneToOne: false;
-            referencedRelation: 'bricklink_minifigs';
-            referencedColumns: ['item_id'];
           },
         ];
       };
