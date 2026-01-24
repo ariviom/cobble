@@ -1,8 +1,17 @@
 /**
- * Bricklink Minifig Data Access
+ * BrickLink Minifig Data Access
  *
- * This module provides direct access to Bricklink minifig data stored in Supabase.
- * It replaces the old RB→BL mapping logic with direct BL table queries.
+ * This module provides read-only access to BrickLink minifig data stored in Supabase.
+ * It is a pure data access layer that:
+ *
+ * 1. Reads cached data from Supabase tables
+ * 2. Delegates sync operations to minifigSync.ts (the orchestration layer)
+ * 3. Provides image URL helpers
+ *
+ * Architecture:
+ * - app/lib/sync/minifigSync.ts: Orchestration (when to sync, deduplication)
+ * - scripts/minifig-mapping-core.ts: BrickLink API execution
+ * - This module: Data access (reads from cache, delegates sync)
  *
  * Tables used:
  * - bl_set_minifigs: Minifigs per set (primary source)
@@ -15,9 +24,13 @@ import 'server-only';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { logger } from '@/lib/metrics';
 import {
-  triggerMinifigSync,
-  isSyncInProgress,
-  waitForSync,
+  triggerSetMinifigSync,
+  triggerMinifigPartsSync,
+  isSetSyncInProgress,
+  isPartsSyncInProgress,
+  waitForSetSync,
+  waitForPartsSync,
+  checkSetSyncStatus,
 } from '@/app/lib/sync/minifigSync';
 
 // =============================================================================
@@ -28,16 +41,16 @@ import {
  * Construct a BrickLink minifig image URL from the minifig ID.
  * BrickLink minifig images follow the pattern: /ItemImage/MN/0/{minifig_no}.png
  */
-export function getBlMinifigImageUrl(minifigNo: string): string {
-  return `https://img.bricklink.com/ItemImage/MN/0/${encodeURIComponent(minifigNo)}.png`;
+export function getBlMinifigImageUrl(blMinifigId: string): string {
+  return `https://img.bricklink.com/ItemImage/MN/0/${encodeURIComponent(blMinifigId)}.png`;
 }
 
 /**
  * Construct a BrickLink part image URL from the part ID and color ID.
  * BrickLink part images follow the pattern: /ItemImage/PN/{color_id}/{part_no}.png
  */
-export function getBlPartImageUrl(partNo: string, colorId: number): string {
-  return `https://img.bricklink.com/ItemImage/PN/${colorId}/${encodeURIComponent(partNo)}.png`;
+export function getBlPartImageUrl(blPartId: string, blColorId: number): string {
+  return `https://img.bricklink.com/ItemImage/PN/${blColorId}/${encodeURIComponent(blPartId)}.png`;
 }
 
 // =============================================================================
@@ -45,49 +58,29 @@ export function getBlPartImageUrl(partNo: string, colorId: number): string {
 // =============================================================================
 
 export type BlSetMinifig = {
-  minifigNo: string;
+  /** BrickLink minifig ID (e.g., "sw0001") */
+  blMinifigId: string;
   name: string | null;
   quantity: number;
   imageUrl: string | null;
-  rbFigId: string | null;
 };
 
 export type BlMinifigPart = {
+  /** BrickLink part ID */
   blPartId: string;
+  /** BrickLink color ID */
   blColorId: number;
+  /** Color name from BrickLink */
+  colorName: string | null;
   name: string | null;
   quantity: number;
 };
 
 export type SetMinifigResult = {
   minifigs: BlSetMinifig[];
-  syncStatus: 'ok' | 'error' | 'pending' | null;
+  syncStatus: 'ok' | 'error' | 'never_synced' | null;
   syncTriggered: boolean;
 };
-
-// =============================================================================
-// SET SYNC (delegates to minifigSync.ts for deduplication)
-// =============================================================================
-
-/**
- * Execute a sync for a set, deduplicating concurrent requests.
- * Returns true if sync completed successfully, false otherwise.
- *
- * Delegates to minifigSync.ts which is the single source of truth
- * for in-flight sync tracking. This prevents duplicate BrickLink
- * API calls when both this module and minifigSync.ts are used.
- */
-async function executeSetSyncDeduplicated(setNumber: string): Promise<boolean> {
-  // Check if already in progress (from any caller)
-  if (isSyncInProgress(setNumber)) {
-    logger.debug('bricklink.minifigs.join_existing_sync', { setNumber });
-    return waitForSync(setNumber);
-  }
-
-  // Delegate to the canonical sync module (skip cooldown for self-healing)
-  const result = await triggerMinifigSync(setNumber, { skipCooldown: true });
-  return result.success;
-}
 
 // =============================================================================
 // SET MINIFIGS (PRIMARY)
@@ -105,44 +98,38 @@ export async function getSetMinifigsBl(
   const supabase = getCatalogWriteClient();
 
   // Check sync status first
-  const { data: blSet, error: setErr } = await supabase
-    .from('bl_sets')
-    .select('minifig_sync_status')
-    .eq('set_num', setNumber)
-    .maybeSingle();
-
-  if (setErr) {
-    logger.error('bricklink.minifigs.get_sync_status_failed', {
-      setNumber,
-      error: setErr.message,
-    });
-  }
-
-  const syncStatus =
-    (blSet?.minifig_sync_status as 'ok' | 'error' | 'pending') ?? null;
+  const syncInfo = await checkSetSyncStatus(setNumber);
 
   // Self-healing: trigger sync if not OK
   let syncTriggered = false;
-  if (syncStatus !== 'ok') {
+  if (syncInfo.status !== 'ok') {
     logger.debug('bricklink.minifigs.triggering_self_heal', {
       setNumber,
-      currentStatus: syncStatus,
+      currentStatus: syncInfo.status,
     });
     syncTriggered = true;
-    const success = await executeSetSyncDeduplicated(setNumber);
-    if (!success) {
-      return {
-        minifigs: [],
-        syncStatus: 'error',
-        syncTriggered: true,
-      };
+
+    // If already in progress, wait for it
+    if (isSetSyncInProgress(setNumber)) {
+      await waitForSetSync(setNumber);
+    } else {
+      const result = await triggerSetMinifigSync(setNumber, {
+        skipCooldown: true,
+      });
+      if (!result.success) {
+        return {
+          minifigs: [],
+          syncStatus: 'error',
+          syncTriggered: true,
+        };
+      }
     }
   }
 
   // Fetch minifigs from bl_set_minifigs (ordered for deterministic results)
   const { data: minifigs, error: minifigErr } = await supabase
     .from('bl_set_minifigs')
-    .select('minifig_no, name, quantity, image_url, rb_fig_id')
+    .select('minifig_no, name, quantity, image_url')
     .eq('set_num', setNumber)
     .order('minifig_no', { ascending: true });
 
@@ -153,18 +140,17 @@ export async function getSetMinifigsBl(
     });
     return {
       minifigs: [],
-      syncStatus: syncTriggered ? 'ok' : syncStatus,
+      syncStatus: syncTriggered ? 'ok' : syncInfo.status,
       syncTriggered,
     };
   }
 
   const result: BlSetMinifig[] = (minifigs ?? []).map(m => ({
-    minifigNo: m.minifig_no,
+    blMinifigId: m.minifig_no,
     name: m.name,
     quantity: m.quantity ?? 1,
     // Use stored image URL or construct from BrickLink pattern
     imageUrl: m.image_url ?? getBlMinifigImageUrl(m.minifig_no),
-    rbFigId: m.rb_fig_id,
   }));
 
   return {
@@ -178,80 +164,26 @@ export async function getSetMinifigsBl(
 // MINIFIG PARTS
 // =============================================================================
 
-const inFlightPartsSyncs = new Map<string, Promise<boolean>>();
-
-/**
- * Fetch and cache minifig parts from BrickLink API.
- * Returns true if sync succeeded, false otherwise.
- */
-async function syncMinifigParts(blMinifigNo: string): Promise<boolean> {
-  const existing = inFlightPartsSyncs.get(blMinifigNo);
-  if (existing) {
-    return existing;
-  }
-
-  const syncPromise = (async () => {
-    const supabase = getCatalogWriteClient();
-
-    // Check if already synced
-    const { data: minifig } = await supabase
-      .from('bricklink_minifigs')
-      .select('parts_sync_status')
-      .eq('item_id', blMinifigNo)
-      .maybeSingle();
-
-    if (minifig?.parts_sync_status === 'ok') {
-      return true;
-    }
-
-    // Import dynamically to avoid circular dependencies
-    const { fetchAndCacheMinifigParts } = await import(
-      '@/scripts/minifig-mapping-core'
-    );
-
-    try {
-      // This function returns parts if it made an API call, null if already synced
-      const result = await fetchAndCacheMinifigParts(
-        supabase as Parameters<typeof fetchAndCacheMinifigParts>[0],
-        blMinifigNo,
-        '[bricklink:parts:on-demand]'
-      );
-      return result !== null || minifig?.parts_sync_status === 'ok';
-    } catch (err) {
-      logger.error('bricklink.minifigs.sync_parts_failed', {
-        blMinifigNo,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      return false;
-    } finally {
-      inFlightPartsSyncs.delete(blMinifigNo);
-    }
-  })();
-
-  inFlightPartsSyncs.set(blMinifigNo, syncPromise);
-  return syncPromise;
-}
-
 /**
  * Get component parts for a BrickLink minifig.
  * Self-heals by triggering API fetch if data is missing.
  */
 export async function getMinifigPartsBl(
-  blMinifigNo: string
+  blMinifigId: string
 ): Promise<BlMinifigPart[]> {
   const supabase = getCatalogWriteClient();
 
   // First try to get cached parts (ordered for deterministic results)
   const { data: parts, error: partsErr } = await supabase
     .from('bl_minifig_parts')
-    .select('bl_part_id, bl_color_id, name, quantity')
-    .eq('bl_minifig_no', blMinifigNo)
+    .select('bl_part_id, bl_color_id, color_name, name, quantity')
+    .eq('bl_minifig_no', blMinifigId)
     .order('bl_part_id', { ascending: true })
     .order('bl_color_id', { ascending: true });
 
   if (partsErr) {
     logger.error('bricklink.minifigs.get_parts_failed', {
-      blMinifigNo,
+      blMinifigId,
       error: partsErr.message,
     });
     return [];
@@ -262,30 +194,38 @@ export async function getMinifigPartsBl(
     return parts.map(p => ({
       blPartId: p.bl_part_id,
       blColorId: p.bl_color_id,
+      colorName: p.color_name,
       name: p.name,
       quantity: p.quantity ?? 1,
     }));
   }
 
-  // Self-heal: fetch parts from BrickLink API
-  logger.debug('bricklink.minifigs.self_heal_parts', { blMinifigNo });
-  const success = await syncMinifigParts(blMinifigNo);
+  // Self-heal: trigger parts sync via orchestration layer
+  logger.debug('bricklink.minifigs.self_heal_parts', { blMinifigId });
 
-  if (!success) {
-    return [];
+  // If already in progress, wait for it
+  if (isPartsSyncInProgress(blMinifigId)) {
+    await waitForPartsSync(blMinifigId);
+  } else {
+    const result = await triggerMinifigPartsSync(blMinifigId, {
+      skipCooldown: true,
+    });
+    if (!result.success) {
+      return [];
+    }
   }
 
   // Re-fetch after sync (ordered for deterministic results)
   const { data: newParts, error: newErr } = await supabase
     .from('bl_minifig_parts')
-    .select('bl_part_id, bl_color_id, name, quantity')
-    .eq('bl_minifig_no', blMinifigNo)
+    .select('bl_part_id, bl_color_id, color_name, name, quantity')
+    .eq('bl_minifig_no', blMinifigId)
     .order('bl_part_id', { ascending: true })
     .order('bl_color_id', { ascending: true });
 
   if (newErr) {
     logger.error('bricklink.minifigs.get_parts_after_sync_failed', {
-      blMinifigNo,
+      blMinifigId,
       error: newErr.message,
     });
     return [];
@@ -294,6 +234,7 @@ export async function getMinifigPartsBl(
   return (newParts ?? []).map(p => ({
     blPartId: p.bl_part_id,
     blColorId: p.bl_color_id,
+    colorName: p.color_name,
     name: p.name,
     quantity: p.quantity ?? 1,
   }));
@@ -304,7 +245,8 @@ export async function getMinifigPartsBl(
 // =============================================================================
 
 export type BlMinifigMeta = {
-  itemId: string;
+  /** BrickLink minifig ID */
+  blMinifigId: string;
   name: string;
   categoryId: number | null;
   itemYear: number | null;
@@ -314,19 +256,19 @@ export type BlMinifigMeta = {
  * Get metadata for a BrickLink minifig from the catalog.
  */
 export async function getMinifigMetaBl(
-  blMinifigNo: string
+  blMinifigId: string
 ): Promise<BlMinifigMeta | null> {
   const supabase = getCatalogWriteClient();
 
   const { data, error } = await supabase
     .from('bricklink_minifigs')
     .select('item_id, name, category_id, item_year')
-    .eq('item_id', blMinifigNo)
+    .eq('item_id', blMinifigId)
     .maybeSingle();
 
   if (error) {
     logger.error('bricklink.minifigs.get_meta_failed', {
-      blMinifigNo,
+      blMinifigId,
       error: error.message,
     });
     return null;
@@ -337,7 +279,7 @@ export async function getMinifigMetaBl(
   }
 
   return {
-    itemId: data.item_id,
+    blMinifigId: data.item_id,
     name: data.name,
     categoryId: data.category_id,
     itemYear: data.item_year,
@@ -358,15 +300,15 @@ export type FetchedMinifigMeta = {
  * Used for self-healing when catalog doesn't have the minifig.
  */
 export async function fetchMinifigMetaBl(
-  minifigNo: string
+  blMinifigId: string
 ): Promise<FetchedMinifigMeta | null> {
   try {
     // Dynamic import to avoid circular dependency
     const { blGetMinifig } = await import('@/app/lib/bricklink');
-    const response = await blGetMinifig(minifigNo);
+    const response = await blGetMinifig(blMinifigId);
 
     if (!response?.name) {
-      logger.debug('bricklink.minifigs.fetch_meta_no_name', { minifigNo });
+      logger.debug('bricklink.minifigs.fetch_meta_no_name', { blMinifigId });
       return null;
     }
 
@@ -376,7 +318,7 @@ export async function fetchMinifigMetaBl(
       .from('bricklink_minifigs')
       .upsert(
         {
-          item_id: minifigNo,
+          item_id: blMinifigId,
           name: response.name,
           category_id: response.category_id ?? null,
           item_year: response.year_released ?? null,
@@ -386,12 +328,12 @@ export async function fetchMinifigMetaBl(
 
     if (upsertErr) {
       logger.warn('bricklink.minifigs.fetch_meta_cache_failed', {
-        minifigNo,
+        blMinifigId,
         error: upsertErr.message,
       });
     } else {
       logger.debug('bricklink.minifigs.fetch_meta_cached', {
-        minifigNo,
+        blMinifigId,
         name: response.name,
       });
     }
@@ -402,7 +344,7 @@ export async function fetchMinifigMetaBl(
     };
   } catch (err) {
     logger.warn('bricklink.minifigs.fetch_meta_failed', {
-      minifigNo,
+      blMinifigId,
       error: err instanceof Error ? err.message : String(err),
     });
     return null;
@@ -411,39 +353,39 @@ export async function fetchMinifigMetaBl(
 
 /**
  * Fetch metadata for multiple minifigs from BrickLink API, with rate limiting.
- * Returns map of minifig_no -> { name, year }
+ * Returns map of blMinifigId -> { name, year }
  *
  * Self-heals by caching results in bricklink_minifigs for future loads.
  */
 export async function fetchMinifigMetaBatch(
-  minifigNos: string[],
+  blMinifigIds: string[],
   maxCalls = 100
 ): Promise<Map<string, FetchedMinifigMeta>> {
   const results = new Map<string, FetchedMinifigMeta>();
 
-  if (minifigNos.length === 0) {
+  if (blMinifigIds.length === 0) {
     return results;
   }
 
-  const toFetch = minifigNos.slice(0, maxCalls);
+  const toFetch = blMinifigIds.slice(0, maxCalls);
 
   logger.debug('bricklink.minifigs.batch_fetch_start', {
-    total: minifigNos.length,
+    total: blMinifigIds.length,
     fetching: toFetch.length,
-    capped: minifigNos.length > maxCalls,
+    capped: blMinifigIds.length > maxCalls,
   });
 
   // Fetch in parallel
   const fetchResults = await Promise.allSettled(
-    toFetch.map(async no => {
-      const meta = await fetchMinifigMetaBl(no);
-      return { no, meta };
+    toFetch.map(async blMinifigId => {
+      const meta = await fetchMinifigMetaBl(blMinifigId);
+      return { blMinifigId, meta };
     })
   );
 
   for (const result of fetchResults) {
     if (result.status === 'fulfilled' && result.value.meta) {
-      results.set(result.value.no, result.value.meta);
+      results.set(result.value.blMinifigId, result.value.meta);
     }
   }
 
@@ -453,62 +395,6 @@ export async function fetchMinifigMetaBatch(
   });
 
   return results;
-}
-
-// =============================================================================
-// REVERSE LOOKUP (BL → RB, for inventory compatibility)
-// =============================================================================
-
-const blToRbCache = new Map<string, string | null>();
-
-/**
- * Map a BrickLink minifig ID to a Rebrickable ID.
- * This is needed for inventory lookups that still use RB IDs.
- *
- * Checks:
- * 1. In-memory cache
- * 2. bl_set_minifigs.rb_fig_id
- * 3. bricklink_minifig_mappings table
- */
-export async function mapBlToRbFigId(
-  blMinifigNo: string
-): Promise<string | null> {
-  const cacheKey = blMinifigNo.toLowerCase();
-
-  if (blToRbCache.has(cacheKey)) {
-    return blToRbCache.get(cacheKey)!;
-  }
-
-  const supabase = getCatalogWriteClient();
-
-  // Check bl_set_minifigs first (most common source)
-  const { data: setMapping } = await supabase
-    .from('bl_set_minifigs')
-    .select('rb_fig_id')
-    .eq('minifig_no', blMinifigNo)
-    .not('rb_fig_id', 'is', null)
-    .limit(1)
-    .maybeSingle();
-
-  if (setMapping?.rb_fig_id) {
-    blToRbCache.set(cacheKey, setMapping.rb_fig_id);
-    return setMapping.rb_fig_id;
-  }
-
-  // Fallback to explicit mappings table
-  const { data: explicitMapping } = await supabase
-    .from('bricklink_minifig_mappings')
-    .select('rb_fig_id')
-    .eq('bl_item_id', blMinifigNo)
-    .maybeSingle();
-
-  if (explicitMapping?.rb_fig_id) {
-    blToRbCache.set(cacheKey, explicitMapping.rb_fig_id);
-    return explicitMapping.rb_fig_id;
-  }
-
-  blToRbCache.set(cacheKey, null);
-  return null;
 }
 
 // =============================================================================
@@ -537,16 +423,16 @@ const inFlightMinifigSupersets = new Map<string, Promise<MinifigSetInfo[]>>();
  * 4. Enrich with set details from rb_sets
  */
 export async function getSetsForMinifigBl(
-  blMinifigNo: string
+  blMinifigId: string
 ): Promise<MinifigSetInfo[]> {
-  const trimmed = blMinifigNo.trim();
+  const trimmed = blMinifigId.trim();
   if (!trimmed) return [];
 
   // Check for in-flight request
   const inFlight = inFlightMinifigSupersets.get(trimmed.toLowerCase());
   if (inFlight) {
     logger.debug('bricklink.minifigs.supersets_join_inflight', {
-      blMinifigNo: trimmed,
+      blMinifigId: trimmed,
     });
     return inFlight;
   }
@@ -562,7 +448,7 @@ export async function getSetsForMinifigBl(
 }
 
 async function getSetsForMinifigBlInternal(
-  blMinifigNo: string
+  blMinifigId: string
 ): Promise<MinifigSetInfo[]> {
   const supabase = getCatalogWriteClient();
 
@@ -570,11 +456,11 @@ async function getSetsForMinifigBlInternal(
   const { data: setMinifigs, error: setErr } = await supabase
     .from('bl_set_minifigs')
     .select('set_num, quantity')
-    .eq('minifig_no', blMinifigNo);
+    .eq('minifig_no', blMinifigId);
 
   if (setErr) {
     logger.error('bricklink.minifigs.get_sets_for_minifig_failed', {
-      blMinifigNo,
+      blMinifigId,
       error: setErr.message,
     });
     return [];
@@ -582,18 +468,18 @@ async function getSetsForMinifigBlInternal(
 
   // If no cached data, self-heal by calling BrickLink API
   if (!setMinifigs || setMinifigs.length === 0) {
-    logger.debug('bricklink.minifigs.supersets_self_heal', { blMinifigNo });
+    logger.debug('bricklink.minifigs.supersets_self_heal', { blMinifigId });
 
     try {
       // Dynamic import to avoid circular dependency
       const { blGetMinifigSupersets } = await import('@/app/lib/bricklink');
-      const supersets = await blGetMinifigSupersets(blMinifigNo);
+      const supersets = await blGetMinifigSupersets(blMinifigId);
 
       if (supersets.length > 0) {
         // Cache to bl_set_minifigs for future lookups
         const rows = supersets.map(s => ({
           set_num: s.setNumber,
-          minifig_no: blMinifigNo,
+          minifig_no: blMinifigId,
           quantity: s.quantity,
           // Note: name and image_url are for the minifig, not the set
           // We leave them null here; they get populated when the set is synced
@@ -608,12 +494,12 @@ async function getSetsForMinifigBlInternal(
 
         if (upsertErr) {
           logger.warn('bricklink.minifigs.supersets_cache_failed', {
-            blMinifigNo,
+            blMinifigId,
             error: upsertErr.message,
           });
         } else {
           logger.debug('bricklink.minifigs.supersets_cached', {
-            blMinifigNo,
+            blMinifigId,
             count: supersets.length,
           });
         }
@@ -626,7 +512,7 @@ async function getSetsForMinifigBlInternal(
       return [];
     } catch (err) {
       logger.error('bricklink.minifigs.supersets_api_failed', {
-        blMinifigNo,
+        blMinifigId,
         error: err instanceof Error ? err.message : String(err),
       });
       return [];
@@ -703,4 +589,31 @@ async function enrichSetsWithDetails(
   });
 
   return results;
+}
+
+// =============================================================================
+// LEGACY API COMPATIBILITY
+// =============================================================================
+
+// Re-export with old property names for backwards compatibility in inventory.ts
+export type LegacyBlSetMinifig = {
+  /** @deprecated Use blMinifigId instead */
+  minifigNo: string;
+  name: string | null;
+  quantity: number;
+  imageUrl: string | null;
+};
+
+/**
+ * Convert new type to legacy type for backwards compatibility.
+ */
+export function toLegacyBlSetMinifig(
+  minifig: BlSetMinifig
+): LegacyBlSetMinifig {
+  return {
+    minifigNo: minifig.blMinifigId,
+    name: minifig.name,
+    quantity: minifig.quantity,
+    imageUrl: minifig.imageUrl,
+  };
 }
