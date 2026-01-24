@@ -417,6 +417,7 @@ export function InventoryProvider({
 
   // -------------------------------------------------------------------------
   // Combined owned change handler (local + broadcast)
+  // Note: Minifig cascade (parent ↔ children sync) is handled in useSupabaseOwned
   // -------------------------------------------------------------------------
   const handleOwnedChange = useCallback(
     (key: string, nextOwned: number) => {
@@ -425,6 +426,7 @@ export function InventoryProvider({
       const clamped = clampOwned(nextOwned, maxQty);
       const prevOwned = ownedByKey[key] ?? 0;
 
+      // handleOwnedChangeBase handles minifig cascade (parent ↔ children)
       handleOwnedChangeBase(key, clamped);
 
       if (isInGroupSession) {

@@ -56,9 +56,7 @@ export default function SetsPage() {
       scrollTop = window.scrollY;
     }
 
-    if (scrollTop > 0) {
-      saveTabState(setNumber, { scrollTop });
-    }
+    saveTabState(setNumber, { scrollTop });
   }, [isDesktop, saveTabState]);
 
   // Handle tab activation
@@ -171,7 +169,7 @@ export default function SetsPage() {
     <div
       className={cn(
         'set-grid-layout min-h-[100dvh]',
-        'lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:min-h-0 lg:overflow-hidden'
+        'lg:h-[calc(100dvh-var(--spacing-nav-offset))] lg:min-h-0 lg:overflow-hidden'
       )}
       data-has-tabs="true"
     >

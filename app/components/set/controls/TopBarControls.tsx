@@ -6,7 +6,7 @@ import {
   DropdownTrigger,
   GroupedList,
   SingleSelectList,
-  formatMultiSelectLabel,
+  formatSelectionSubLabel,
 } from '@/app/components/ui/GroupedDropdown';
 import { RowButton } from '@/app/components/ui/RowButton';
 import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
@@ -100,8 +100,6 @@ export function TopBarControls({
   onOpenExportModal,
 }: Props) {
   const pricingEnabled = usePricingEnabled();
-  const getColorLabel = () =>
-    formatMultiSelectLabel('Colors', filter.colors || []);
 
   return (
     <>
@@ -306,14 +304,28 @@ export function TopBarControls({
         )}
       </div>
       {/* Sidebar Group Triggers */}
-      <div className="sidebar relative min-w-0 shrink-0 border-subtle lg:fixed lg:top-[calc(var(--spacing-nav-height)+var(--grid-row-tabs,0px))] lg:left-0 lg:h-[calc(100dvh-var(--spacing-nav-height)-var(--grid-row-tabs,0px))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-card">
+      <div className="sidebar relative min-w-0 shrink-0 border-subtle lg:fixed lg:top-[calc(var(--spacing-nav-offset)+var(--grid-row-tabs,0px))] lg:left-0 lg:h-[calc(100dvh-var(--spacing-nav-offset)-var(--grid-row-tabs,0px))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-card">
         <div className="flex flex-nowrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-0">
           {parentOptions.length > 0 ? (
             <div className="lg:relative">
               <DropdownTrigger
                 id="parent-trigger"
                 panelId="parent-panel"
-                label={formatMultiSelectLabel('Pieces', filter.parents || [])}
+                label={
+                  isDesktop
+                    ? 'Pieces'
+                    : filter.parents?.length
+                      ? `Pieces (${filter.parents.length})`
+                      : 'Pieces'
+                }
+                subLabel={
+                  isDesktop
+                    ? formatSelectionSubLabel(
+                        filter.parents || [],
+                        parentOptions
+                      )
+                    : undefined
+                }
                 labelIcon={<FolderTree size={16} />}
                 isOpen={isDesktop ? isParentOpen : openDropdownId === 'parent'}
                 onToggle={() => onToggleDropdown('parent')}
@@ -344,18 +356,16 @@ export function TopBarControls({
                 id="color-trigger"
                 panelId="color-panel"
                 label={
-                  isDesktop ? (
-                    <span>
-                      Colors
-                      {(filter.colors?.length || 0) > 0 ? (
-                        <span className="ml-2 text-sm text-foreground-muted">
-                          ({filter.colors!.join(', ')})
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : (
-                    getColorLabel()
-                  )
+                  isDesktop
+                    ? 'Colors'
+                    : filter.colors?.length
+                      ? `Colors (${filter.colors.length})`
+                      : 'Colors'
+                }
+                subLabel={
+                  isDesktop
+                    ? formatSelectionSubLabel(filter.colors || [], colorOptions)
+                    : undefined
                 }
                 labelIcon={<Palette size={16} />}
                 isOpen={isDesktop ? isColorOpen : openDropdownId === 'color'}

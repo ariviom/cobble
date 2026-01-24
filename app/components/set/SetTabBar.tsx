@@ -121,7 +121,7 @@ export function SetTabBar({
       data-testid="set-tab-bar"
       className={cn(
         'flex w-full max-w-full items-center',
-        'border-b-2 border-subtle bg-card shadow-sm',
+        'border-b border-subtle bg-card shadow-sm',
         'lg:col-span-full'
       )}
     >

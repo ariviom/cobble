@@ -250,7 +250,7 @@ export function GroupSessionPageClient({
       <div
         className={cn(
           'set-grid-layout min-h-[100dvh]',
-          'lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:overflow-hidden'
+          'lg:h-[calc(100dvh-var(--spacing-nav-offset))] lg:overflow-hidden'
         )}
       >
         {/* Mobile: sticky header | Desktop: lg:contents dissolves wrapper */}
@@ -286,7 +286,7 @@ export function GroupSessionPageClient({
     <div
       className={cn(
         'set-grid-layout min-h-[100dvh] overflow-x-hidden',
-        'lg:h-[calc(100dvh-var(--spacing-nav-height))] lg:overflow-hidden'
+        'lg:h-[calc(100dvh-var(--spacing-nav-offset))] lg:overflow-hidden'
       )}
     >
       {/* Mobile: sticky header | Desktop: lg:contents dissolves wrapper */}

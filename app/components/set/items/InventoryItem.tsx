@@ -146,7 +146,6 @@ function InventoryItemComponent({
             <OptimizedImage
               src={row.imageUrl}
               alt={row.partName}
-              loading="lazy"
               variant="inventoryThumb"
               className={`mx-auto aspect-square h-full w-full rounded-sm object-contain ${owned === row.quantityRequired ? 'ring-2 ring-success' : 'ring-1 ring-foreground-accent'}`}
               data-knockout="true"

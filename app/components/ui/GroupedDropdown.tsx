@@ -20,6 +20,8 @@ export type DropdownTriggerProps = {
   panelId: string;
   label: React.ReactNode;
   labelIcon?: React.ReactNode;
+  /** Subtle secondary text shown beneath the label (e.g., current selection) */
+  subLabel?: string | null | undefined;
   isOpen: boolean;
   onToggle: () => void;
   className?: string;
@@ -33,8 +35,9 @@ const triggerVariants = cva(
     variants: {
       variant: {
         default: '',
+        // min-w-0 overrides base min-w-max to allow truncation within fixed sidebar width
         sidebar:
-          'lg:sidebar:rounded-none lg:sidebar:border-x-0 lg:sidebar:border-t-0 lg:sidebar:border-b-2 lg:sidebar:border-subtle lg:sidebar:text-base lg:sidebar:w-full lg:sidebar:py-3.5 lg:sidebar:px-4 text-left lg:sidebar:hover:bg-theme-primary/10',
+          'lg:sidebar:rounded-none lg:sidebar:border-x-0 lg:sidebar:border-t-0 lg:sidebar:border-b-2 lg:sidebar:border-subtle lg:sidebar:text-base lg:sidebar:w-full lg:sidebar:min-w-0 lg:sidebar:py-3.5 lg:sidebar:px-4 text-left lg:sidebar:hover:bg-theme-primary/10',
       },
     },
     defaultVariants: {
@@ -47,7 +50,17 @@ export const DropdownTrigger = forwardRef<
   HTMLButtonElement,
   DropdownTriggerProps & VariantProps<typeof triggerVariants>
 >(function DropdownTrigger(
-  { id, panelId, label, labelIcon, isOpen, onToggle, className, variant },
+  {
+    id,
+    panelId,
+    label,
+    labelIcon,
+    subLabel,
+    isOpen,
+    onToggle,
+    className,
+    variant,
+  },
   ref
 ) {
   return (
@@ -62,9 +75,16 @@ export const DropdownTrigger = forwardRef<
       data-open={isOpen ? 'true' : undefined}
       onClick={onToggle}
     >
-      <span className="inline-flex items-center gap-2">
-        {labelIcon}
-        <span>{label}</span>
+      <span className="flex min-w-0 flex-1 flex-col items-start">
+        <span className="inline-flex w-full items-center gap-2">
+          {labelIcon}
+          <span>{label}</span>
+        </span>
+        {subLabel && (
+          <span className="inline-flex w-64 justify-start pl-6 text-xs font-normal text-foreground-muted">
+            (<span className="inline-block truncate">{subLabel}</span>)
+          </span>
+        )}
       </span>
     </button>
   );
@@ -284,6 +304,36 @@ export function formatMultiSelectLabel(
   if (count === 0) return defaultLabel;
   if (count === 1) return selected[0]!;
   return `${defaultLabel} (${count})`;
+}
+
+/**
+ * Formats a single selection label, handling special cases like emdash → Minifigures.
+ */
+function formatSelectionLabel(name: string): string {
+  if (name === '-' || name === '—') return 'Minifigures';
+  return name;
+}
+
+/**
+ * Formats selections for display as a sub-label beneath the main label.
+ * Returns null if no selections. Sorts by original list order and joins with commas.
+ * CSS truncation should handle overflow.
+ * @param selected - Array of selected item names
+ * @param allOptions - Original options list to determine display order
+ */
+export function formatSelectionSubLabel(
+  selected: string[],
+  allOptions: string[]
+): string | null {
+  const count = selected?.length || 0;
+  if (count === 0) return null;
+
+  // Sort selected items by their position in the original options list
+  const sorted = [...selected].sort(
+    (a, b) => allOptions.indexOf(a) - allOptions.indexOf(b)
+  );
+
+  return sorted.map(formatSelectionLabel).join(', ');
 }
 
 // Legacy ColorDropdownPanel removed in favor of CheckboxList inside DropdownPanelFrame

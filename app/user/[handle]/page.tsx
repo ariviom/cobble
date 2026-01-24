@@ -302,61 +302,35 @@ export default async function PublicProfilePage({
   > = {};
 
   if (allMinifigIds.length > 0) {
+    // user_minifigs.fig_num stores BrickLink IDs directly (e.g., sw0001)
+    // Look up metadata from bricklink_minifigs catalog
     const { data: minifigs } = await supabase
-      .from('rb_minifigs')
-      .select<'fig_num,name,num_parts'>('fig_num,name,num_parts')
-      .in('fig_num', allMinifigIds);
+      .from('bricklink_minifigs')
+      .select('item_id,name')
+      .in('item_id', allMinifigIds);
 
     minifigMeta = Object.fromEntries(
       (minifigs ?? []).map(fig => [
-        fig.fig_num,
+        fig.item_id,
         {
           name: fig.name,
-          num_parts: fig.num_parts,
+          num_parts: null, // BL catalog doesn't have num_parts
           image_url: null,
-          bl_id: null,
+          bl_id: fig.item_id, // Already a BL ID
         },
       ])
     );
 
-    // Load BrickLink IDs for these figs.
-    const { data: mappings, error: mapErr } = await supabase
-      .from('bricklink_minifig_mappings')
-      .select('rb_fig_id,bl_item_id')
-      .in('rb_fig_id', allMinifigIds);
-    if (!mapErr) {
-      for (const row of mappings ?? []) {
-        const rbId = row.rb_fig_id;
-        if (!rbId) continue;
-        const existing = minifigMeta[rbId];
-        minifigMeta[rbId] = {
-          name: existing?.name ?? null,
-          num_parts: existing?.num_parts ?? null,
-          image_url: existing?.image_url ?? null,
-          bl_id: row.bl_item_id ?? null,
+    // For any IDs not found in bricklink_minifigs, set bl_id to the ID itself
+    // (self-healing will populate the catalog on minifig page view)
+    for (const figId of allMinifigIds) {
+      if (!minifigMeta[figId]) {
+        minifigMeta[figId] = {
+          name: figId,
+          num_parts: null,
+          image_url: null,
+          bl_id: figId,
         };
-      }
-    }
-
-    // Per-set fallback for missing BL IDs
-    const missingForBl = allMinifigIds.filter(id => !minifigMeta[id]?.bl_id);
-    if (missingForBl.length > 0) {
-      const { data: setMap, error: setErr } = await supabase
-        .from('bl_set_minifigs')
-        .select('rb_fig_id,minifig_no')
-        .in('rb_fig_id', missingForBl);
-      if (!setErr) {
-        for (const row of setMap ?? []) {
-          const rbId = row.rb_fig_id;
-          if (!rbId) continue;
-          const existing = minifigMeta[rbId];
-          minifigMeta[rbId] = {
-            name: existing?.name ?? null,
-            num_parts: existing?.num_parts ?? null,
-            image_url: existing?.image_url ?? null,
-            bl_id: existing?.bl_id ?? row.minifig_no ?? null,
-          };
-        }
       }
     }
   }

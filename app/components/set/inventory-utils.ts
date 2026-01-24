@@ -1,5 +1,13 @@
 import type { InventoryRow } from './types';
 
+/**
+ * Get the inventory key for a row.
+ * Uses the explicit inventoryKey if set, otherwise derives from partId:colorId.
+ */
+export function getInventoryKey(row: InventoryRow): string {
+  return row.inventoryKey ?? `${row.partId}:${row.colorId}`;
+}
+
 export function clampOwned(value: number, required: number): number {
   const asNumber = Number(value);
   if (!Number.isFinite(asNumber)) return 0;

@@ -19,7 +19,7 @@ export function PageLayout({
     <>
       <main
         className={cn(
-          'min-h-screen w-full pb-[var(--spacing-nav-height)] lg:pt-[var(--spacing-nav-height)] lg:pb-0',
+          'min-h-screen w-full pb-[var(--spacing-nav-height)] lg:pt-[var(--spacing-nav-offset)] lg:pb-0',
           constrainHeight && 'lg:h-screen lg:overflow-hidden',
           className
         )}

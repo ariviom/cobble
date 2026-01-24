@@ -198,7 +198,7 @@ function SetTabContainerContent({
   useEffect(() => {
     if (loading) return;
     if (hasRestoredScroll.current) return;
-    if (typeof savedScrollTop !== 'number' || savedScrollTop === 0) return;
+    if (typeof savedScrollTop !== 'number') return;
 
     hasRestoredScroll.current = true;
 

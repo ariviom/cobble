@@ -101,7 +101,6 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
             <OptimizedImage
               src={row.imageUrl}
               alt={row.partName}
-              loading="lazy"
               variant="inventoryModal"
               className="h-24 w-24 rounded border border-subtle object-contain"
             />

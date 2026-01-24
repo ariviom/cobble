@@ -122,6 +122,7 @@
   --width-xl: 11.25rem; /* 180px */
 
   --spacing-nav-height: 4rem;
+  --spacing-nav-offset: 0; /* Mobile: nav at bottom, no top offset needed */
   --spacing-topnav-height: 6rem;
   --spacing-tab-bar-height: 2.5rem;
   --spacing-controls-height: 3.5rem;
@@ -232,6 +233,9 @@
 
 @media (min-width: 1024px) {
   :root {
+    --spacing-nav-offset: calc(
+      var(--spacing-nav-height) + 0.25rem
+    ); /* Nav height + 4px shadow/border */
     --spacing-topnav-height: 8rem;
   }
 }
