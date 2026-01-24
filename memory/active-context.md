@@ -11,6 +11,16 @@
 
 All major December 2025 initiatives have been completed:
 
+- **BrickLink-Only Minifig Architecture** - Removed unreliable RB↔BL minifig mapping heuristics:
+  - BrickLink is now the exclusive source of truth for minifig IDs (no RB→BL mapping)
+  - Dropped `bricklink_minifig_mappings` table and `rb_fig_id` column from `bl_set_minifigs`
+  - `minifigSync.ts` is now the single orchestrator for all sync operations (set-minifigs and minifig-parts)
+  - Centralized in-flight tracking prevents duplicate BrickLink API calls
+  - `inventory.ts` filters OUT RB minifig rows and replaces entirely with BL data
+  - Batch-fetches all minifig subparts in one query for performance
+  - Deleted scripts: `build-minifig-mappings-from-all-sets.ts`, `build-minifig-mappings-from-user-sets.ts`
+  - Removed unused `'pending'` from `SyncStatus` type
+  - Added `app/lib/bricklink/colors.ts` for BrickLink color name lookup
 - **Hybrid Scroll Restoration** - Replaced index-based scroll restoration with a platform-specific hybrid approach:
   - **Desktop**: Persistent scroll containers (browser preserves scrollTop), only children unmount/remount. Zero restoration code needed.
   - **Mobile**: Simple `window.scrollY` save/restore in memory map.

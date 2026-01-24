@@ -38,19 +38,15 @@
   - User data migration scripts:
     - `scripts/export-user-set-ids.ts` - Backup user sets before migration
     - `scripts/nuke-user-minifigs.ts` - Clear user minifig data for re-sync
-- **BrickLink Minifig Simplification (January 2026)**:
-  - **Part deduplication**: `getSetInventoryLocal()` in `app/lib/catalog/sets.ts` now filters minifig component parts from `rb_inventory_parts` using `rb_minifig_parts` (same source = internally consistent counts).
-  - **Simplified matching**: Replaced complex 5-stage fuzzy matching (~300 lines) in `scripts/minifig-mapping-core.ts` with position-based pairing. If RB count == BL count, pairs by position; otherwise matches by quantity first.
-  - **Replaced RB API calls**: Created `getSetsForMinifigBl()` in `app/lib/bricklink/minifigs.ts` to query `bl_set_minifigs` directly instead of calling Rebrickable API.
-  - **Self-healing minifig→sets lookup**: Added `blGetMinifigSupersets()` to call BrickLink `/items/MINIFIG/{no}/supersets` API. `getSetsForMinifigBl()` now self-heals by calling this API when no cached data exists, caching results to `bl_set_minifigs` for future lookups.
-  - Updated routes to use new function:
-    - `app/api/identify/sets/handlers/minifig.ts`
-    - `app/api/minifigs/[figNum]/route.ts`
-  - **Dead code cleanup (January 2026)**:
-    - Removed `getSetsForMinifig()` from `app/lib/rebrickable/minifigs.ts` (~130 lines) - replaced by `getSetsForMinifigBl()`
-    - Removed export from `app/lib/rebrickable/index.ts`
-    - Cleaned up unused mocks in `app/api/identify/sets/__tests__/handlers.test.ts`
-  - All 208 tests pass.
+- **BrickLink-Only Minifig Architecture (January 2026)**:
+  - **Removed RB↔BL mapping**: Dropped heuristic-based mappings that were unreliable. BrickLink is now the exclusive source of truth for minifig IDs.
+  - **Database cleanup**: Migration `20260119030048_drop_rb_minifig_mapping.sql` drops `bricklink_minifig_mappings` table and `rb_fig_id` column from `bl_set_minifigs`.
+  - **Centralized sync orchestration**: `app/lib/sync/minifigSync.ts` is now the single source of truth for all minifig sync operations (set-minifigs and minifig-parts) with centralized in-flight tracking.
+  - **Inventory service refactored**: `inventory.ts` now filters OUT all RB minifig rows and replaces entirely with BL data. Batch-fetches all minifig subparts in one query.
+  - **Deleted scripts**: `build-minifig-mappings-from-all-sets.ts`, `build-minifig-mappings-from-user-sets.ts` (mapping logic removed).
+  - **New color handling**: Added `app/lib/bricklink/colors.ts` for BrickLink color name lookup.
+  - **Type cleanup**: Removed unused `'pending'` from `SyncStatus`; renamed fields for clarity (`minifigNo` → `blMinifigId`).
+  - All 221 tests pass.
 - Supabase SSR & auth-aware surfaces:
   - `@supabase/ssr` wired for both browser (`getSupabaseBrowserClient`) and server (`getSupabaseAuthServerClient`) clients.
   - Root `middleware.ts` + `utils/supabase/middleware.ts` keep Supabase auth cookies synchronized for SSR.

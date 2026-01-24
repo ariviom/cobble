@@ -33,29 +33,26 @@
   - Set pages load inventories through Route Handlers that talk to the Rebrickable/Supabase catalog.
   - TanStack Query owns server data (inventories, prices); Zustand owns UI state and per-set owned quantities.
   - The `useInventoryViewModel` hook centralizes sorting, filtering, grouping, and derived totals so table components remain largely presentational.
-  - Minifigure parent rows are enriched server-side with BrickLink minifig IDs using:
-    - A per-set mapping table (`bl_set_minifigs`) that stores `set_num`, BrickLink `minifig_no`, and the corresponding Rebrickable `rb_fig_id`.
-    - A shared script module (`scripts/minifig-mapping-core.ts`) that:
-      - Calls BrickLink `/items/SET/{setNum}/subsets` to fetch minifigs.
-      - Loads Rebrickable inventories/minifigs for the same set from Supabase.
-      - **Simplified matching (January 2026)**: Uses position-based pairing instead of complex fuzzy matching. If RB count == BL count, pairs by position; otherwise matches by quantity first.
-      - Upserts mappings into `bl_set_minifigs` and a global `bricklink_minifig_mappings` cache.
-      - Optionally fetches minifig component parts via `/items/MINIFIG/{minifigNo}/subsets` and caches to `bl_minifig_parts`.
-  - **"Sets for minifig" lookups** use `getSetsForMinifigBl()` in `app/lib/bricklink/minifigs.ts`:
-    - Queries `bl_set_minifigs` directly instead of calling Rebrickable API.
-    - Enriches results with set details from `rb_sets`.
-    - Used by `/api/identify/sets/handlers/minifig.ts` and `/api/minifigs/[figNum]/route.ts`.
-    - **Batched mapping module** (`app/lib/minifigMappingBatched.ts`) that reduces DB round-trips:
-      - `getMinifigMappingsForSetBatched()` fetches mappings + sync status in a single parallel query (down from 6-8 sequential calls).
-      - Built-in request deduplication via `inFlightSyncs` Map prevents duplicate BrickLink API calls for concurrent requests.
-      - `getGlobalMinifigMappingsBatch()` efficiently looks up multiple fig IDs in one query.
-      - Legacy functions (`mapSetRebrickableFigsToBrickLinkOnDemand`, etc.) re-exported for backward compatibility.
-    - **Minifig sync module** (`app/lib/sync/minifigSync.ts`) separates read and write concerns:
-      - `checkSetSyncStatus()` is a pure read operation.
-      - `triggerMinifigSync()` explicitly triggers sync with deduplication and cooldown.
-      - Sync status tracking with `'ok' | 'error' | 'pending' | 'never_synced'` states.
-      - 60-second cooldown between syncs to prevent API hammering.
-    - The inventory service (`app/lib/services/inventory.ts`) uses the batched module and returns optional `minifigMappingMeta` with sync status, mapped/unmapped counts.
+  - **BrickLink as exclusive minifig source**: BrickLink is the sole source of truth for minifig IDs. No RB↔BL mapping is performed.
+  - **Minifig sync orchestration** (`app/lib/sync/minifigSync.ts`):
+    - Single source of truth for all minifig sync operations (set-minifigs and minifig-parts)
+    - Centralized in-flight tracking prevents duplicate BrickLink API calls
+    - Sync status: `'ok' | 'error' | 'never_synced'` (no 'pending')
+    - 60-second cooldown between syncs to prevent API hammering
+    - Key functions: `triggerSetMinifigSync()`, `triggerMinifigPartsSync()`, `checkSetSyncStatus()`
+  - **BrickLink API execution** (`scripts/minifig-mapping-core.ts`):
+    - `processSetForMinifigMapping()` syncs set minifigs from BL API
+    - `fetchAndCacheMinifigParts()` syncs minifig component parts
+    - Caches to `bl_set_minifigs` and `bl_minifig_parts` tables
+  - **Data access** (`app/lib/bricklink/minifigs.ts`):
+    - Read-only access to cached BL minifig data
+    - Delegates sync operations to minifigSync.ts
+    - `getSetMinifigsBl()` - minifigs for a set with self-healing
+    - `getSetsForMinifigBl()` - sets containing a minifig with self-healing
+  - **Inventory service** (`app/lib/services/inventory.ts`):
+    - Filters OUT all RB minifig rows, replaces entirely with BL data
+    - Batch-fetches all minifig subparts in one query for performance
+    - Returns optional `minifigMeta` with sync status
 - **Part ID Mapping** (RB → BL):
   - `part_id_mappings` table stores manual and auto-generated mappings with columns `rb_part_id`, `bl_part_id`, `source`, `confidence`.
   - Sources include: `'auto-suffix'` (automatic suffix stripping), `'minifig-component'` (from minifig part mapping), `'manual'`.
