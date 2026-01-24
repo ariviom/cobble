@@ -1,5 +1,6 @@
 'use client';
 
+import { isMinifigParentRow } from '@/app/components/set/inventory-utils';
 import type { InventoryRow } from '@/app/components/set/types';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
@@ -150,12 +151,7 @@ export function useSupabaseOwned({
 
         // Check if this row is a minifig parent with component relations
         if (row?.componentRelations && row.componentRelations.length > 0) {
-          const isMinifigParent =
-            row.parentCategory === 'Minifigure' &&
-            typeof row.partId === 'string' &&
-            row.partId.startsWith('fig:');
-
-          if (isMinifigParent) {
+          if (isMinifigParentRow(row)) {
             // Get current parent owned BEFORE updating
             const previousParentOwned = getOwned(setNumber, key);
             const parentDelta = nextOwned - previousParentOwned;
@@ -186,6 +182,52 @@ export function useSupabaseOwned({
               // Enqueue child for sync if cloud sync enabled
               if (enableCloudSync && userId) {
                 enqueueChange(child.key, newChildOwned);
+              }
+            }
+          }
+        }
+
+        // CASCADE UP: If this is a minifig subpart, update its parent(s)
+        // Calculate how many complete minifigs can be built from subparts
+        if (row?.parentRelations && row.parentRelations.length > 0) {
+          for (const parentRel of row.parentRelations) {
+            const parentRow = rowByKey.get(parentRel.parentKey);
+            if (!parentRow || !parentRow.componentRelations) continue;
+            if (!isMinifigParentRow(parentRow)) continue;
+
+            // Calculate how many complete minifigs can be built
+            const minifigQty = parentRow.quantityRequired;
+            let minComplete = minifigQty;
+
+            for (const childRel of parentRow.componentRelations) {
+              // Use the new value for the changed key, current value for others
+              const childOwned =
+                childRel.key === key
+                  ? nextOwned
+                  : getOwned(setNumber, childRel.key);
+
+              // How many complete minifigs can this component support?
+              const completeFromThis =
+                childRel.quantity > 0
+                  ? Math.floor(childOwned / childRel.quantity)
+                  : minifigQty;
+
+              minComplete = Math.min(minComplete, completeFromThis);
+            }
+
+            const newParentOwned = Math.max(
+              0,
+              Math.min(minComplete, minifigQty)
+            );
+            const currentParentOwned = getOwned(setNumber, parentRel.parentKey);
+
+            if (newParentOwned !== currentParentOwned) {
+              // Update parent (skip cascade to avoid infinite loop)
+              setOwned(setNumber, parentRel.parentKey, newParentOwned);
+
+              // Enqueue parent for sync if cloud sync enabled
+              if (enableCloudSync && userId) {
+                enqueueChange(parentRel.parentKey, newParentOwned);
               }
             }
           }

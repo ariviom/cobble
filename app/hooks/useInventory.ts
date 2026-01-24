@@ -11,7 +11,7 @@ import {
   setCachedInventory,
 } from '@/app/lib/localDb';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useMinifigEnrichment } from './useMinifigEnrichment';
 
 export type MinifigStatus = {
@@ -44,6 +44,19 @@ export type UseInventoryResult = {
   retryMinifigEnrichment: () => Promise<void>;
 };
 
+type FetchInventoryResult = {
+  rows: InventoryRow[];
+  /** Server-provided signal for what needs client-side enrichment */
+  minifigEnrichmentNeeded?: {
+    missingImages: string[];
+    missingSubparts: string[];
+  };
+  /** True if data came from IndexedDB cache (already enriched) */
+  fromCache: boolean;
+  /** Inventory version for cache validation */
+  inventoryVersion: string | null;
+};
+
 /**
  * Fetch inventory with local-first caching.
  *
@@ -56,7 +69,7 @@ export type UseInventoryResult = {
 async function fetchInventory(
   setNumber: string,
   signal?: AbortSignal
-): Promise<InventoryRow[]> {
+): Promise<FetchInventoryResult> {
   // Try to fetch catalog inventory version so we can validate local cache
   let inventoryVersion: string | null = null;
   if (isIndexedDBAvailable()) {
@@ -84,11 +97,12 @@ async function fetchInventory(
   }
 
   // Try local cache first (if IndexedDB is available)
+  // Cached data includes enriched minifig parts (cache is updated after enrichment)
   if (isIndexedDBAvailable()) {
     try {
       const cached = await getCachedInventory(setNumber, inventoryVersion);
       if (cached && cached.length > 0) {
-        return cached;
+        return { rows: cached, fromCache: true, inventoryVersion };
       }
     } catch (error) {
       console.warn('Failed to read inventory from cache:', error);
@@ -107,7 +121,7 @@ async function fetchInventory(
     rows: InventoryRow[];
     inventoryVersion?: string | null;
     minifigEnrichmentNeeded?: {
-      figNums: string[];
+      blMinifigNos: string[];
       missingImages: string[];
       missingSubparts: string[];
     };
@@ -123,26 +137,65 @@ async function fetchInventory(
     });
   }
 
-  return rows;
+  const result: FetchInventoryResult = {
+    rows,
+    fromCache: false,
+    inventoryVersion: responseVersion,
+  };
+  if (data.minifigEnrichmentNeeded) {
+    result.minifigEnrichmentNeeded = {
+      missingImages: data.minifigEnrichmentNeeded.missingImages,
+      missingSubparts: data.minifigEnrichmentNeeded.missingSubparts,
+    };
+  }
+  return result;
 }
 
 export function useInventory(
   setNumber: string,
   options?: { initialRows?: InventoryRow[] | null }
 ): UseInventoryResult {
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<FetchInventoryResult>({
     queryKey: ['inventory', setNumber],
     queryFn: ({ signal }) => fetchInventory(setNumber, signal),
     staleTime: 5 * 60 * 1000, // align with short-lived cache window
     gcTime: 60 * 60 * 1000,
     ...(options?.initialRows
-      ? { initialData: options.initialRows, initialDataUpdatedAt: Date.now() }
+      ? {
+          initialData: {
+            rows: options.initialRows,
+            fromCache: false,
+            inventoryVersion: null,
+          },
+          initialDataUpdatedAt: Date.now(),
+        }
       : {}),
   });
 
-  const baseRows = useMemo(() => data ?? [], [data]);
+  const baseRows = useMemo(() => data?.rows ?? [], [data?.rows]);
 
+  // Determine if client-side enrichment is needed based on server signal
+  // - If data is from cache, it's already BL-enriched (no enrichment needed)
+  // - If data is from server, use the server's signal
+  const enrichmentNeeded = useMemo(() => {
+    if (!data || data.fromCache) {
+      // Cached data is already enriched by the server
+      return { missingImages: [], missingSubparts: [] };
+    }
+    return (
+      data.minifigEnrichmentNeeded ?? { missingImages: [], missingSubparts: [] }
+    );
+  }, [data]);
+
+  // Compute which minifigs need client-side enrichment
+  // Use server's signal (missingImages + missingSubparts) rather than guessing
   const minifigData = useMemo(() => {
+    // Only include figNums that the server says need enrichment
+    const needsEnrichment = new Set<string>([
+      ...enrichmentNeeded.missingImages,
+      ...enrichmentNeeded.missingSubparts,
+    ]);
+
     const figNums: string[] = [];
     const existingData = new Map<
       string,
@@ -166,7 +219,11 @@ export function useInventory(
         row.partId.startsWith('fig:');
       if (!isFig) continue;
       const figNum = row.partId.replace(/^fig:/, '');
-      figNums.push(figNum);
+
+      // Only add to figNums if server says it needs enrichment
+      if (needsEnrichment.has(figNum)) {
+        figNums.push(figNum);
+      }
 
       const relations = row.componentRelations ?? [];
       const hasSubparts = relations.length > 0;
@@ -184,7 +241,7 @@ export function useInventory(
       });
     }
     return { figNums, existingData };
-  }, [baseRows]);
+  }, [baseRows, enrichmentNeeded]);
 
   const {
     enrichedData,
@@ -300,6 +357,29 @@ export function useInventory(
     return working;
   }, [baseRows, enrichedData]);
 
+  // Track previous enriching state to detect completion
+  const wasEnrichingRef = useRef(false);
+
+  // Update IndexedDB cache after enrichment completes
+  // This ensures subsequent loads get the enriched data directly
+  useEffect(() => {
+    const wasEnriching = wasEnrichingRef.current;
+    wasEnrichingRef.current = isEnriching;
+
+    // Enrichment just completed (was enriching, now not)
+    if (wasEnriching && !isEnriching && enrichedData.size > 0) {
+      // Update cache with enriched rows
+      if (isIndexedDBAvailable() && rows.length > 0) {
+        const inventoryVersion = data?.inventoryVersion ?? null;
+        setCachedInventory(setNumber, rows, {
+          inventoryVersion,
+        }).catch(error => {
+          console.warn('Failed to update cache after enrichment:', error);
+        });
+      }
+    }
+  }, [isEnriching, enrichedData.size, rows, setNumber, data?.inventoryVersion]);
+
   const keys = useMemo(
     () => rows.map(r => r.inventoryKey ?? `${r.partId}:${r.colorId}`),
     [rows]
@@ -354,19 +434,31 @@ export function useInventory(
         continue;
       }
 
+      // Calculate missing parts for this minifig type
+      // rel.quantity = parts per ONE minifig
+      // row.quantityRequired = how many of this minifig are in the set
+      const minifigQty = row.quantityRequired;
       let missingCount = 0;
+
       for (const rel of relations) {
         const childOwned = ownedByKey[rel.key] ?? 0;
         const childRow = rowByKey.get(rel.key);
 
-        // For shared parts, check if total owned meets total required
-        // (quantityRequired is now aggregated for shared parts)
-        const totalChildRequired = childRow?.quantityRequired ?? rel.quantity;
+        // Total parts needed for THIS minifig type (per-minifig × minifig count)
+        const neededForThisMinifig = rel.quantity * minifigQty;
 
-        if (childOwned < totalChildRequired) {
-          // Not enough to satisfy ALL parents (including this one)
-          // This parent's portion is considered missing
-          missingCount += rel.quantity;
+        // Total parts needed across ALL minifigs (from child row)
+        const totalChildRequired =
+          childRow?.quantityRequired ?? neededForThisMinifig;
+
+        // Total parts missing across all minifigs sharing this part
+        const totalMissing = Math.max(0, totalChildRequired - childOwned);
+
+        if (totalMissing > 0) {
+          // Proportionally attribute missing to this minifig type
+          // This handles shared parts fairly (e.g., if 2 minifig types share a part)
+          const share = neededForThisMinifig / totalChildRequired;
+          missingCount += Math.round(totalMissing * share);
         }
       }
 
