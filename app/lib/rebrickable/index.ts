@@ -55,7 +55,12 @@ export {
 export { getMinifigPartsCached, searchMinifigs } from './minifigs';
 
 // Themes & colors
-export { getColors, mapBrickLinkColorIdToRebrickableColorId } from './colors';
+export {
+  getColors,
+  getColorNameFromBrickLinkId,
+  getColorNamesFromBrickLinkIds,
+  mapBrickLinkColorIdToRebrickableColorId,
+} from './colors';
 export { getThemes } from './themes';
 
 // Utilities

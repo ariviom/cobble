@@ -363,7 +363,7 @@ export async function getSetInventoryLocal(
     setParts = setPartsFallback ?? [];
   }
 
-  let mainParts = setParts.filter(row => row && row.is_spare === false);
+  const mainParts = setParts.filter(row => row && row.is_spare === false);
   if (mainParts.length === 0) return [];
 
   // ==========================================================================
@@ -372,25 +372,14 @@ export async function getSetInventoryLocal(
   // filter out parts that belong to minifigs. This ensures parts only appear
   // once: either as a regular part OR as a minifig component, not both.
   // ==========================================================================
-  type MinifigComponentPart = {
-    fig_num: string;
-    part_num: string;
-    color_id: number;
-    quantity: number;
-  };
-  const minifigComponentKeys = new Set<string>();
-  const figPartsByFigEarly = new Map<
-    string,
-    Array<{ part_num: string; color_id: number; quantity: number }>
-  >();
+  // Track minifig parent info (components handled by inventory.ts via bl_minifig_parts)
   let figNumsEarly: string[] = [];
-  // Also track minifig quantities for later use
   let inventoryMinifigsEarly: Array<{ fig_num: string; quantity: number }> = [];
 
   if (inventoryCandidates.length > 0) {
     const selectedInventoryId = inventoryCandidates[0]!.id;
 
-    // Load minifigs for this set
+    // Load minifigs for this set (parent rows only - components come from BrickLink)
     const { data: invMinifigsData, error: invFigsEarlyError } = await supabase
       .from('rb_inventory_minifigs')
       .select('fig_num, quantity')
@@ -419,71 +408,13 @@ export async function getSetInventoryLocal(
       new Set(inventoryMinifigsEarly.map(f => f.fig_num))
     );
 
-    if (figNumsEarly.length > 0) {
-      // Load minifig component parts
-      const { data: figPartsEarly, error: figPartsEarlyError } = await supabase
-        .from('rb_minifig_parts')
-        .select('fig_num, part_num, color_id, quantity')
-        .in('fig_num', figNumsEarly);
-
-      if (figPartsEarlyError) {
-        throw new Error(
-          `Supabase getSetInventoryLocal rb_minifig_parts (early) failed: ${figPartsEarlyError.message}`
-        );
-      }
-
-      // Build the set of minifig component keys and the figPartsByFig map
-      for (const p of (figPartsEarly ?? []) as MinifigComponentPart[]) {
-        const fn =
-          typeof p.fig_num === 'string' && p.fig_num.trim().length > 0
-            ? p.fig_num.trim()
-            : null;
-        if (!fn) continue;
-        const partNum =
-          typeof p.part_num === 'string' && p.part_num.trim().length > 0
-            ? p.part_num.trim()
-            : null;
-        if (!partNum) continue;
-        const colorId =
-          typeof p.color_id === 'number' && Number.isFinite(p.color_id)
-            ? p.color_id
-            : 0;
-        const quantity =
-          typeof p.quantity === 'number' && Number.isFinite(p.quantity)
-            ? p.quantity
-            : 1;
-
-        // Add to component keys set (for filtering regular parts)
-        minifigComponentKeys.add(`${partNum}:${colorId}`);
-
-        // Add to figPartsByFig map (for later minifig processing)
-        if (!figPartsByFigEarly.has(fn)) figPartsByFigEarly.set(fn, []);
-        figPartsByFigEarly
-          .get(fn)!
-          .push({ part_num: partNum, color_id: colorId, quantity });
-      }
-    }
-  }
-
-  // Filter out minifig component parts from mainParts
-  // These parts will be shown under their parent minifig instead
-  const originalMainPartsCount = mainParts.length;
-  mainParts = mainParts.filter(row => {
-    const key = `${row.part_num}:${row.color_id}`;
-    return !minifigComponentKeys.has(key);
-  });
-
-  if (mainParts.length !== originalMainPartsCount) {
-    logger.debug('catalog.sets.filtered_minifig_components', {
-      setNumber: trimmedSet,
-      originalCount: originalMainPartsCount,
-      filteredCount: mainParts.length,
-      removedCount: originalMainPartsCount - mainParts.length,
-    });
+    // NOTE: Minifig component parts are NOT loaded here.
+    // They are loaded from bl_minifig_parts in inventory.ts to use BrickLink IDs exclusively.
+    // This avoids the RB/BL part ID and color ID mismatch issues.
   }
 
   // ==========================================================================
-  // END EARLY MINIFIG COMPONENT LOADING
+  // END EARLY MINIFIG LOADING (components deferred to inventory.ts)
   // ==========================================================================
 
   const partNums = Array.from(
@@ -647,20 +578,16 @@ export async function getSetInventoryLocal(
   for (const r of rows) {
     partRowMap.set(r.inventoryKey, r);
   }
-  const regularInventoryKeys = new Set(rows.map(r => r.inventoryKey));
 
-  // ---- Minifigs (parents + components) from catalog ----
-  // NOTE: We reuse figNumsEarly and figPartsByFigEarly from early loading above
-  // to avoid duplicate database queries. Only metadata and images need fetching.
+  // ---- Minifigs (parent rows only) ----
+  // Component parts are loaded from bl_minifig_parts in inventory.ts
+  // to use BrickLink IDs exclusively (avoids RB/BL part+color ID mismatch)
   const parentRows: InventoryRow[] = [];
-  const orphanComponents: InventoryRow[] = [];
-  const addedComponentKeys = new Set<string>();
 
   if (figNumsEarly.length > 0) {
-    // Reuse figNumsEarly from early loading
     const figNums = figNumsEarly;
 
-    // Fetch metadata and images (not loaded early)
+    // Fetch metadata and images for minifig parent rows
     const [figMetaRes, figImagesRes] = await Promise.all([
       supabase
         .from('rb_minifigs')
@@ -704,93 +631,7 @@ export async function getSetInventoryLocal(
       );
     }
 
-    // Reuse figPartsByFigEarly from early loading
-    const figPartsByFig = figPartsByFigEarly;
-
-    // Build figPartNums and figColorIds from figPartsByFigEarly
-    const figPartNums = new Set<string>();
-    const figColorIds = new Set<number>();
-    for (const parts of figPartsByFig.values()) {
-      for (const p of parts) {
-        figPartNums.add(p.part_num);
-        figColorIds.add(p.color_id);
-      }
-    }
-
-    // Fetch missing part metadata for minifig components not already loaded
-    const missingPartNums = Array.from(figPartNums).filter(
-      pn => !partMap.has(pn)
-    );
-    if (missingPartNums.length > 0) {
-      const { data: extraParts, error: extraPartsError } = await supabase
-        .from('rb_parts')
-        .select('part_num, name, part_cat_id, image_url, external_ids')
-        .in('part_num', missingPartNums);
-      if (extraPartsError) {
-        throw new Error(
-          `Supabase getSetInventoryLocal rb_parts (minifig components) failed: ${extraPartsError.message}`
-        );
-      }
-      for (const p of extraParts ?? []) {
-        partMap.set(p.part_num, {
-          part_num: p.part_num,
-          name: p.name,
-          part_cat_id: typeof p.part_cat_id === 'number' ? p.part_cat_id : null,
-          image_url:
-            typeof p.image_url === 'string' && p.image_url.trim().length > 0
-              ? p.image_url.trim()
-              : null,
-          external_ids: p.external_ids as Json,
-        });
-      }
-    }
-
-    // Fetch missing categories introduced by the extra parts
-    const missingCatIds = Array.from(
-      new Set(
-        Array.from(partMap.values())
-          .map(p => p.part_cat_id)
-          .filter(
-            (cid): cid is number =>
-              typeof cid === 'number' && !categoryMap.has(cid)
-          )
-      )
-    );
-    if (missingCatIds.length > 0) {
-      const { data: extraCats, error: extraCatsError } = await supabase
-        .from('rb_part_categories')
-        .select('id, name')
-        .in('id', missingCatIds);
-      if (extraCatsError) {
-        throw new Error(
-          `Supabase getSetInventoryLocal rb_part_categories (minifig components) failed: ${extraCatsError.message}`
-        );
-      }
-      for (const c of extraCats ?? []) {
-        categoryMap.set(c.id, { id: c.id, name: c.name });
-      }
-    }
-
-    // Fetch missing colors introduced by minifig components
-    const missingColorIds = Array.from(figColorIds).filter(
-      cid => !colorMap.has(cid)
-    );
-    if (missingColorIds.length > 0) {
-      const { data: extraColors, error: extraColorsError } = await supabase
-        .from('rb_colors')
-        .select('id, name')
-        .in('id', missingColorIds);
-      if (extraColorsError) {
-        throw new Error(
-          `Supabase getSetInventoryLocal rb_colors (minifig components) failed: ${extraColorsError.message}`
-        );
-      }
-      for (const c of extraColors ?? []) {
-        colorMap.set(c.id, { id: c.id, name: c.name });
-      }
-    }
-
-    // Use inventoryMinifigsEarly which was loaded in the early deduplication section
+    // Create parent rows for each minifig (componentRelations added by inventory.ts)
     for (const invFig of inventoryMinifigsEarly) {
       const figNum = invFig.fig_num;
       if (!figNum) continue;
@@ -811,82 +652,8 @@ export async function getSetInventoryLocal(
         partCategoryName: 'Minifig',
         parentCategory: 'Minifigure',
         inventoryKey: parentKey,
-        componentRelations: [],
+        // componentRelations populated by inventory.ts from bl_minifig_parts
       };
-
-      if (!parentRow.imageUrl) {
-        // Leave image null so the client enrichment pipeline can fetch an accurate URL.
-        parentRow.imageUrl = null;
-      }
-
-      const figParts = figPartsByFig.get(figNum) ?? [];
-      for (const component of figParts) {
-        const perParentQty = Math.max(1, Math.floor(component.quantity ?? 1));
-        const inventoryKey = `${component.part_num}:${component.color_id}`;
-        const existingRow = partRowMap.get(inventoryKey);
-
-        if (existingRow) {
-          const isRegular = regularInventoryKeys.has(inventoryKey);
-          if (!isRegular) {
-            existingRow.quantityRequired += perParentQty;
-          }
-          if (!existingRow.parentRelations) {
-            existingRow.parentRelations = [];
-          }
-          existingRow.parentRelations.push({
-            parentKey,
-            quantity: perParentQty,
-          });
-          parentRow.componentRelations!.push({
-            key: inventoryKey,
-            quantity: perParentQty,
-          });
-        } else {
-          const partMeta = partMap.get(component.part_num);
-          const catId =
-            typeof partMeta?.part_cat_id === 'number'
-              ? partMeta.part_cat_id
-              : undefined;
-          const catName =
-            typeof catId === 'number'
-              ? categoryMap.get(catId)?.name
-              : undefined;
-          const parentCategory =
-            catName != null ? mapCategoryNameToParent(catName) : 'Minifigure';
-          const bricklinkPartId = extractBricklinkPartId(
-            partMeta?.external_ids
-          );
-          const color =
-            typeof component.color_id === 'number'
-              ? colorMap.get(component.color_id)
-              : null;
-          const childRow: InventoryRow = {
-            setNumber: trimmedSet,
-            partId: component.part_num,
-            partName: partMeta?.name ?? component.part_num,
-            colorId: component.color_id,
-            colorName: color?.name ?? `Color ${component.color_id}`,
-            quantityRequired: perParentQty,
-            imageUrl: partMeta?.image_url ?? null,
-            ...(typeof catId === 'number' && { partCategoryId: catId }),
-            ...(catName && { partCategoryName: catName }),
-            ...(parentCategory && { parentCategory }),
-            inventoryKey,
-            parentRelations: [{ parentKey, quantity: perParentQty }],
-            ...(bricklinkPartId &&
-              bricklinkPartId !== component.part_num && { bricklinkPartId }),
-          };
-          parentRow.componentRelations!.push({
-            key: inventoryKey,
-            quantity: perParentQty,
-          });
-          partRowMap.set(inventoryKey, childRow);
-          if (!addedComponentKeys.has(inventoryKey)) {
-            orphanComponents.push(childRow);
-            addedComponentKeys.add(inventoryKey);
-          }
-        }
-      }
 
       parentRows.push(parentRow);
     }

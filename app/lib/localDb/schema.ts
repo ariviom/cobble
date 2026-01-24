@@ -70,6 +70,8 @@ export type CatalogSetPart = {
   quantityRequired: number;
   elementId: string | null;
   inventoryKey: string; // Compound key: `${partNum}:${colorId}`
+  /** Color-specific image URL (parts can have different images per color) */
+  imageUrl?: string | null;
   // Minifig-specific fields
   bricklinkFigId?: string | null;
   // Relations for minifig components
@@ -321,6 +323,37 @@ export class BrickPartyDB extends Dexie {
       uiState: 'key',
       recentSets: 'setNumber, visitedAt',
     });
+
+    // Version 7: Add imageUrl to catalogSetParts (per part+color).
+    // Clear inventory cache to fix incorrect images for same part in different colors.
+    this.version(7)
+      .stores({
+        catalogSets: 'setNumber, themeId, year, cachedAt',
+        catalogParts: 'partNum, categoryId, parentCategory, cachedAt',
+        catalogColors: 'id, cachedAt',
+        catalogSetParts:
+          '++id, setNumber, partNum, colorId, inventoryKey, [setNumber+inventoryKey], [setNumber+colorId]',
+        catalogSetMeta: 'setNumber, inventoryCachedAt, inventoryVersion',
+        catalogMinifigs: 'figNum, cachedAt',
+
+        localOwned:
+          '++id, setNumber, inventoryKey, [setNumber+inventoryKey], updatedAt',
+        localCollections: 'id, userId, type, updatedAt',
+        localCollectionItems: '++id, collectionId, itemType, itemId, addedAt',
+
+        syncQueue: '++id, userId, table, createdAt, retryCount',
+        meta: 'key',
+
+        uiState: 'key',
+        recentSets: 'setNumber, visitedAt',
+      })
+      .upgrade(tx => {
+        // Clear inventory cache so it gets rebuilt with per-color imageUrls
+        return Promise.all([
+          tx.table('catalogSetParts').clear(),
+          tx.table('catalogSetMeta').clear(),
+        ]);
+      });
   }
 }
 

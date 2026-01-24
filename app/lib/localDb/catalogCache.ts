@@ -89,7 +89,8 @@ export async function getCachedInventory(
         colorId: sp.colorId,
         colorName: sp.colorName || color?.name || `Color ${sp.colorId}`,
         quantityRequired: sp.quantityRequired,
-        imageUrl: part?.imageUrl ?? null,
+        // Prefer color-specific imageUrl from setPart, fall back to part imageUrl
+        imageUrl: sp.imageUrl ?? part?.imageUrl ?? null,
         elementId: sp.elementId,
         inventoryKey: sp.inventoryKey,
       };
@@ -168,6 +169,7 @@ export async function setCachedInventory(
         quantityRequired: row.quantityRequired,
         elementId: row.elementId ?? null,
         inventoryKey: row.inventoryKey,
+        imageUrl: row.imageUrl ?? null,
       };
       if (row.bricklinkFigId) setPart.bricklinkFigId = row.bricklinkFigId;
       if (row.parentRelations) setPart.parentRelations = row.parentRelations;
