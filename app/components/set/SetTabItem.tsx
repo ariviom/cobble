@@ -1,7 +1,7 @@
 'use client';
 
-import { cn } from '@/app/components/ui/utils';
 import type { OpenTab } from '@/app/components/set/SetTabBar';
+import { cn } from '@/app/components/ui/utils';
 import { X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -10,6 +10,8 @@ import { useCallback } from 'react';
 type SetTabItemProps = {
   tab: OpenTab;
   isActive: boolean;
+  /** Show a divider on the left side of this tab */
+  showDivider?: boolean;
   hasSearchParty: boolean;
   /** Callback when tab is activated (for SPA mode). */
   onActivate?: ((setNumber: string) => void) | undefined;
@@ -20,6 +22,7 @@ type SetTabItemProps = {
 export function SetTabItem({
   tab,
   isActive,
+  showDivider = false,
   hasSearchParty,
   onActivate,
   onClose,
@@ -62,66 +65,86 @@ export function SetTabItem({
   const tabUrl = `/sets/${tab.setNumber}`;
 
   return (
-    <Link
-      href={tabUrl}
-      prefetch={true}
-      role="tab"
-      aria-selected={isActive}
-      aria-label={`${tab.setNumber}: ${tab.name}`}
-      onClick={handleClick}
-      className={cn(
-        'group relative flex h-8 flex-shrink-0 items-center gap-2 rounded-md border-2 px-2 pr-7 transition-all',
-        isActive
-          ? 'border-theme-primary bg-theme-primary/10 text-foreground'
-          : 'border-transparent bg-transparent text-foreground-muted hover:border-subtle hover:bg-card-muted hover:text-foreground'
-      )}
-    >
-      {/* Set image */}
-      <div className="relative size-5 flex-shrink-0 overflow-hidden rounded">
-        {tab.imageUrl ? (
-          <Image
-            src={tab.imageUrl}
-            alt=""
-            width={20}
-            height={20}
-            className="size-full object-contain"
-          />
-        ) : (
-          <div className="flex size-full items-center justify-center bg-neutral-200 text-[8px] text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400">
-            ?
-          </div>
-        )}
-      </div>
-
-      {/* Set number and name */}
-      <div className="flex items-center gap-1.5 text-xs font-medium">
-        <span className="font-bold">{tab.setNumber}</span>
-        <span className="hidden text-foreground-muted sm:inline">
-          {displayName}
-        </span>
-      </div>
-
-      {/* Search Party indicator */}
-      {hasSearchParty && (
-        <span
-          className="absolute -top-1 -right-1 size-2.5 rounded-full bg-brand-blue"
-          title="Search Party active"
-        />
-      )}
-
-      {/* Close button */}
-      <button
-        type="button"
-        onClick={handleClose}
-        className={cn(
-          'absolute right-1 flex size-5 items-center justify-center rounded transition-opacity',
-          'text-foreground-muted hover:bg-neutral-200 hover:text-foreground dark:hover:bg-neutral-700',
-          isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        )}
-        aria-label={`Close ${tab.setNumber}`}
+    <>
+      <div
+        className={`flex h-11 items-end gap-4 py-1 lg:h-9 lg:min-w-fit ${isActive && 'fixed left-0 z-10 lg:static'}`}
       >
-        <X size={12} />
-      </button>
-    </Link>
+        <Link
+          href={tabUrl}
+          prefetch={true}
+          role="tab"
+          aria-selected={isActive}
+          aria-label={`${tab.setNumber}: ${tab.name}`}
+          onClick={handleClick}
+          className={cn(
+            'group relative flex h-full w-32 flex-shrink-0 items-center gap-2 px-3 pr-10 transition-colors lg:w-auto lg:pr-8',
+            isActive
+              ? 'rounded-t-sm bg-card text-foreground'
+              : 'rounded text-foreground-muted hover:rounded-md hover:border-transparent hover:bg-theme-primary/10 hover:text-foreground'
+          )}
+        >
+          {/* bridge to card background */}
+          {isActive && (
+            <div className="absolute inset-x-0 -bottom-2 h-2 bg-card" />
+          )}
+          {/* Set image */}
+          <div className="relative size-5 flex-shrink-0 overflow-hidden rounded">
+            {tab.imageUrl ? (
+              <Image
+                src={tab.imageUrl}
+                alt=""
+                width={20}
+                height={20}
+                className="size-full object-contain"
+              />
+            ) : (
+              <div className="flex size-full items-center justify-center bg-neutral-200 text-[8px] text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400">
+                ?
+              </div>
+            )}
+          </div>
+
+          {/* Set number and name */}
+          <div className="flex items-center gap-1.5 text-xs font-medium">
+            <span className="font-bold">{tab.setNumber}</span>
+            <span className="hidden text-foreground-muted lg:inline">
+              {displayName}
+            </span>
+          </div>
+
+          {/* Search Party indicator */}
+          {hasSearchParty && (
+            <span
+              className="absolute -top-1 -right-1 size-2.5 rounded-full bg-brand-blue"
+              title="Search Party active"
+            />
+          )}
+
+          {/* Close button - always visible */}
+          <button
+            type="button"
+            onClick={handleClose}
+            className={cn(
+              'absolute right-1.5 flex items-center justify-center rounded transition-colors',
+              'size-7 lg:size-5', // 28px mobile, 20px desktop
+              isActive
+                ? 'text-foreground-muted hover:bg-neutral-200 hover:text-foreground dark:hover:bg-neutral-700'
+                : 'text-foreground-muted/70 hover:bg-theme-primary/15 hover:text-foreground'
+            )}
+            aria-label={`Close ${tab.setNumber}`}
+          >
+            <X size={12} />
+          </button>
+        </Link>
+      </div>
+      <div
+        aria-hidden="true"
+        className="flex h-full min-h-11 w-4 items-center justify-center lg:min-h-9"
+      >
+        <div
+          className={`h-5 w-px bg-foreground-muted/30 lg:h-4 ${!showDivider && 'lg:hidden'} ${isActive && 'hidden'}`}
+        ></div>
+      </div>
+    </>
   );
 }

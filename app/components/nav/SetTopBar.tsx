@@ -203,7 +203,7 @@ export function SetTopBar({
     <>
       <div
         className={cn(
-          'flex w-full items-center justify-between',
+          'flex w-full items-center justify-between border-b border-subtle',
           'lg:col-start-2'
         )}
       >

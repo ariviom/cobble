@@ -57,46 +57,60 @@ export function SetTabBar({
     return null;
   }
 
+  // Find the index of the active tab for divider logic
+  const activeIndex = tabs.findIndex(
+    t => t.setNumber.toLowerCase() === activeSetNumber.toLowerCase()
+  );
+
   return (
     <div
       data-testid="set-tab-bar"
       className={cn(
-        'flex w-full max-w-full items-center',
-        'border-b border-subtle bg-card shadow-sm',
+        'flex w-full max-w-full items-center pr-11 pl-32 lg:pr-0 lg:pl-0',
+        'min-h-11 lg:min-h-9', // 44px mobile, 36px desktop
+        'bg-background',
         'lg:col-span-full'
       )}
     >
       <nav
-        className={cn(
-          'flex h-10 w-full items-center gap-1 overflow-x-auto px-2 no-scrollbar',
-          'lg:px-3'
-        )}
+        className="relative flex h-full w-full items-end overflow-x-auto px-1 no-scrollbar lg:px-0"
         aria-label="Open sets"
       >
-        {tabs.map(tab => (
-          <SetTabItem
-            key={tab.setNumber}
-            tab={tab}
-            isActive={
-              tab.setNumber.toLowerCase() === activeSetNumber.toLowerCase()
-            }
-            hasSearchParty={
-              groupSessionSetNumber !== null &&
-              tab.setNumber.toLowerCase() ===
-                groupSessionSetNumber.toLowerCase()
-            }
-            onActivate={onActivateTab}
-            onClose={onCloseTab}
-          />
-        ))}
+        <div className="absolute inset-x-0 bottom-0 h-px bg-subtle" />
+        {tabs.map((tab: OpenTab, index: number) => {
+          const isActive =
+            tab.setNumber.toLowerCase() === activeSetNumber.toLowerCase();
+          // Show divider if: not first tab, not active, and previous tab is not active
+          const showDivider =
+            index !== activeIndex - 1 &&
+            index !== activeIndex &&
+            index !== tabs.length - 1;
+
+          return (
+            <SetTabItem
+              key={tab.setNumber}
+              tab={tab}
+              isActive={isActive}
+              showDivider={showDivider}
+              hasSearchParty={
+                groupSessionSetNumber !== null &&
+                tab.setNumber.toLowerCase() ===
+                  groupSessionSetNumber.toLowerCase()
+              }
+              onActivate={onActivateTab}
+              onClose={onCloseTab}
+            />
+          );
+        })}
 
         {/* Add tab button */}
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
           className={cn(
-            'flex size-8 flex-shrink-0 items-center justify-center rounded-md border-2 transition-all',
-            'border-transparent text-foreground-muted hover:border-subtle hover:bg-card-muted hover:text-foreground'
+            'fixed right-0 mb-0.5 flex flex-shrink-0 items-center justify-center border-l border-subtle transition-all lg:sticky lg:right-0 lg:border-x lg:bg-background',
+            'size-11 pt-1 lg:size-9', // 36px mobile, 28px desktop
+            'text-foreground-muted/70 hover:bg-theme-primary/10 hover:text-foreground'
           )}
           aria-label="Open set in new tab"
         >

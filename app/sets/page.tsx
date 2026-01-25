@@ -198,12 +198,7 @@ export default function SetsPage() {
       </header>
 
       {/* Main content area - positioned in column 2, scroll happens inside inventory */}
-      <main
-        className={cn(
-          'relative col-span-full',
-          'lg:col-start-2 lg:row-start-2 lg:row-end-5 lg:flex lg:flex-col'
-        )}
-      >
+      <div className="relative col-span-full lg:col-start-2 lg:row-start-2 lg:row-end-5 lg:flex lg:flex-col">
         {/* Render a container for each tab */}
         {tabs.map(tab => {
           const isActive = tab.setNumber === activeSetNumber;
@@ -223,7 +218,7 @@ export default function SetsPage() {
             />
           );
         })}
-      </main>
+      </div>
     </div>
   );
 }
