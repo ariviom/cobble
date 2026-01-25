@@ -5,7 +5,7 @@ import { Button } from '@/app/components/ui/Button';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Modal } from '@/app/components/ui/Modal';
-import { Spinner } from '@/app/components/ui/Spinner';
+import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { Toast } from '@/app/components/ui/Toast';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
@@ -222,7 +222,7 @@ export function Inventory() {
         >
           {isLoading ? (
             <div className="flex h-full items-center justify-center">
-              <Spinner />
+              <BrickLoader />
             </div>
           ) : (
             <div

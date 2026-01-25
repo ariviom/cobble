@@ -9,7 +9,7 @@ import {
   useInventoryContext,
 } from '@/app/components/set/InventoryProvider';
 import type { InventoryRow } from '@/app/components/set/types';
-import { Spinner } from '@/app/components/ui/Spinner';
+import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
 import type { OpenTab, TabViewState } from '@/app/store/open-tabs';
 import { addRecentSet } from '@/app/store/recent-sets';
@@ -236,7 +236,7 @@ function SetTabContainerContent({
       {/* Inventory content */}
       {loading ? (
         <div className="flex h-[50vh] items-center justify-center">
-          <Spinner />
+          <BrickLoader />
         </div>
       ) : error ? (
         <div className="flex h-[50vh] flex-col items-center justify-center gap-4 text-center">

@@ -4,7 +4,7 @@ import { useOpenTabsStore } from '@/app/store/open-tabs';
 import { addRecentSet } from '@/app/store/recent-sets';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
-import { Spinner } from '@/app/components/ui/Spinner';
+import { BrickLoader } from '@/app/components/ui/BrickLoader';
 
 type SetPageRedirectorProps = {
   setNumber: string;
@@ -79,7 +79,7 @@ export function SetPageRedirector({
   // Show loading while redirecting
   return (
     <div className="flex h-[50vh] items-center justify-center">
-      <Spinner />
+      <BrickLoader />
     </div>
   );
 }

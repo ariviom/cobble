@@ -7,7 +7,7 @@ import {
 } from '@/app/components/set/items/InventoryItemModal';
 import { Checkbox } from '@/app/components/ui/Checkbox';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
-import { Spinner } from '@/app/components/ui/Spinner';
+import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
@@ -182,7 +182,7 @@ function PinnedSetSection({
 
   if (isLoading && rows.length === 0) {
     return (
-      <Spinner
+      <BrickLoader
         className="rounded border border-subtle bg-card p-3 text-sm text-foreground-muted"
         label={`Loading pinned pieces for ${title}…`}
       />

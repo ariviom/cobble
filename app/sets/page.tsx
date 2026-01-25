@@ -2,7 +2,7 @@
 
 import { SetTabBar } from '@/app/components/set/SetTabBar';
 import { SetTabContainer } from '@/app/components/set/SetTabContainer';
-import { Spinner } from '@/app/components/ui/Spinner';
+import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { cn } from '@/app/components/ui/utils';
 import { useDynamicTitle } from '@/app/hooks/useDynamicTitle';
 import { useIsDesktop } from '@/app/hooks/useIsDesktop';
@@ -163,7 +163,7 @@ export default function SetsPage() {
   if (isDesktop === undefined) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
-        <Spinner />
+        <BrickLoader />
       </div>
     );
   }
@@ -172,7 +172,7 @@ export default function SetsPage() {
   if (tabs.length === 0 || !activeSetNumber) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
-        <Spinner />
+        <BrickLoader />
       </div>
     );
   }

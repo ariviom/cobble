@@ -4,7 +4,7 @@ import { MinifigSearchResultItem } from '@/app/components/minifig/MinifigSearchR
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Select } from '@/app/components/ui/Select';
-import { Spinner } from '@/app/components/ui/Spinner';
+import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { AppError, throwAppErrorFromResponse } from '@/app/lib/domain/errors';
 import type {
   FilterType,
@@ -247,7 +247,7 @@ export function SearchResults() {
           <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background sm:hidden" />
         </div>
         {isMinifigLoading && (
-          <Spinner className="mt-2" label="Loading minifigure results…" />
+          <BrickLoader className="mt-2" label="Loading minifigure results…" />
         )}
         {minifigError && (
           <ErrorBanner
@@ -374,7 +374,7 @@ export function SearchResults() {
         <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background sm:hidden" />
       </div>
       {isSetLoading && (
-        <Spinner className="mt-2" label="Loading search results…" />
+        <BrickLoader className="mt-2" label="Loading search results…" />
       )}
       {setError && (
         <ErrorBanner

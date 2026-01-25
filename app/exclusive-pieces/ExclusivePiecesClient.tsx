@@ -5,7 +5,7 @@ import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { Select } from '@/app/components/ui/Select';
-import { Spinner } from '@/app/components/ui/Spinner';
+import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useUserLists } from '@/app/hooks/useUserLists';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
@@ -99,9 +99,9 @@ export default function ExclusivePiecesClient({ themes }: Props) {
     }
 
     if (triggeredTarget.type === 'wishlist') {
-      return Object.values(userSets)
-        .filter(s => s.status.wantToBuild)
-        .map(s => s.setNumber);
+      // Note: Wishlist is now tracked via user_lists (system list), not user_sets store
+      // This would need to fetch from the wishlist system list
+      return [];
     }
 
     if (triggeredTarget.type === 'list') {
@@ -249,9 +249,8 @@ export default function ExclusivePiecesClient({ themes }: Props) {
 
   const isAuthenticated = !!user;
   const ownedCount = Object.values(userSets).filter(s => s.status.owned).length;
-  const wishlistCount = Object.values(userSets).filter(
-    s => s.status.wantToBuild
-  ).length;
+  // Note: Wishlist is now tracked via user_lists (system list), not user_sets store
+  const wishlistCount = 0;
 
   return (
     <div className="container-default py-6">
@@ -397,7 +396,7 @@ export default function ExclusivePiecesClient({ themes }: Props) {
       {/* Loading State */}
       {isLoading && (
         <div className="py-16 text-center">
-          <Spinner label="Scanning the brick vault..." />
+          <BrickLoader label="Scanning the brick vault..." />
           <p className="mt-3 text-sm text-foreground-muted">
             Finding exclusive pieces in {getTargetLabel()}. This may take a
             moment.

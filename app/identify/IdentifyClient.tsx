@@ -22,7 +22,7 @@ import type {
 import { Button } from '@/app/components/ui/Button';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
-import { Spinner } from '@/app/components/ui/Spinner';
+import { BrickLoader } from '@/app/components/ui/BrickLoader';
 
 type IdentifyCacheEntry = IdentifyResponse & { cachedAt: number };
 
@@ -897,7 +897,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         <div className="grid gap-6 md:grid-cols-[1.4fr,1fr]">
           <div className="space-y-4">
             {part ? (
-              <Suspense fallback={<Spinner />}>
+              <Suspense fallback={<BrickLoader />}>
                 <IdentifyResultCard
                   part={part}
                   candidates={candidates}
@@ -914,7 +914,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             )}
           </div>
           <div className="space-y-4">
-            <Suspense fallback={<Spinner />}>
+            <Suspense fallback={<BrickLoader />}>
               <IdentifySetList
                 items={sets}
                 source={blPartId ? 'bl_supersets' : 'rb'}
