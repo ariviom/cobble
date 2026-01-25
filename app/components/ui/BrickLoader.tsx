@@ -22,24 +22,30 @@ type BrickLoaderProps = VariantProps<typeof brickLoaderVariants> & {
 
 type BrickColor = 'red' | 'yellow' | 'blue';
 
+/**
+ * Brick colors derived from brand palette (globals.css)
+ * - base: brand color (top face)
+ * - dark: 70% mix with black (right wall, stud sides)
+ * - medium: 85% mix with black (left wall)
+ */
 const BRICK_COLORS: Record<
   BrickColor,
   { base: string; dark: string; medium: string }
 > = {
   red: {
-    base: '#f2130d',
-    dark: '#bd2720',
-    medium: '#e6231a',
+    base: '#e3000b', // --color-brand-red
+    dark: '#9f0008',
+    medium: '#c1000a',
   },
   yellow: {
-    base: '#f2cb0d',
-    dark: '#bca117',
-    medium: '#e6c31a',
+    base: '#f2d300', // --color-brand-yellow
+    dark: '#a99400',
+    medium: '#ceb300',
   },
   blue: {
-    base: '#1c0df2',
-    dark: '#2d20bd',
-    medium: '#231ae6',
+    base: '#016cb8', // --color-brand-blue
+    dark: '#014c81',
+    medium: '#015c9c',
   },
 };
 
