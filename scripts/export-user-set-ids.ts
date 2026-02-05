@@ -46,7 +46,7 @@ async function main() {
   // Query all user_sets (single user system, so no user_id filter needed)
   const { data: userSets, error } = await supabase
     .from('user_sets')
-    .select('set_num, status, user_id')
+    .select('set_num, owned, user_id')
     .order('set_num');
 
   if (error) {
@@ -62,18 +62,20 @@ async function main() {
   // Get user ID (should be same for all rows in single-user system)
   const userId = userSets[0]?.user_id ?? null;
 
-  // Separate by status
+  // Extract owned sets (wishlist is now tracked via user_lists)
   const owned: string[] = [];
-  const wishlist: string[] = [];
 
-  for (const set of userSets) {
-    if (set.status === 'owned') {
+  for (const set of userSets as Array<{
+    set_num: string;
+    owned: boolean;
+    user_id: string;
+  }>) {
+    if (set.owned) {
       owned.push(set.set_num);
-    } else if (set.status === 'want') {
-      wishlist.push(set.set_num);
     }
-    // Ignore other statuses (if any)
   }
+  // Wishlist is now tracked via user_lists (system list), not user_sets
+  const wishlist: string[] = [];
 
   const exportData: ExportData = {
     exportedAt: new Date().toISOString(),

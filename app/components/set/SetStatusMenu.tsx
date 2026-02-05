@@ -2,11 +2,7 @@
 
 import { RowButton } from '@/app/components/ui/RowButton';
 import { cn } from '@/app/components/ui/utils';
-import {
-  EMPTY_SET_STATUS,
-  useUserSetsStore,
-  type SetStatusKey,
-} from '@/app/store/user-sets';
+import { EMPTY_SET_STATUS, useUserSetsStore } from '@/app/store/user-sets';
 import { MoreVertical } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -43,7 +39,7 @@ export function SetStatusMenu({
     const entry = state.sets[normKey];
     return entry?.status ?? EMPTY_SET_STATUS;
   });
-  const setStatus = useUserSetsStore(state => state.setStatus);
+  const setOwned = useUserSetsStore(state => state.setOwned);
   const clearAllStatusesForSet = useUserSetsStore(
     state => state.clearAllStatusesForSet
   );
@@ -63,12 +59,11 @@ export function SetStatusMenu({
     };
   }, [open]);
 
-  const handleToggle = (key: SetStatusKey) => {
-    const nextValue = !status[key];
-    setStatus({
+  const handleToggleOwned = () => {
+    const nextOwned = !status.owned;
+    setOwned({
       setNumber,
-      key,
-      value: nextValue,
+      owned: nextOwned,
       meta: {
         setNumber,
         name,
@@ -80,7 +75,7 @@ export function SetStatusMenu({
     });
   };
 
-  const hasAnyStatus = status.owned || status.wantToBuild;
+  const hasAnyStatus = status.owned;
 
   return (
     <div
@@ -119,23 +114,11 @@ export function SetStatusMenu({
             onClick={event => {
               event.preventDefault();
               event.stopPropagation();
-              handleToggle('owned');
+              handleToggleOwned();
               setOpen(false);
             }}
           >
             <span>Owned</span>
-          </RowButton>
-          <RowButton
-            size="sm"
-            selected={status.wantToBuild}
-            onClick={event => {
-              event.preventDefault();
-              event.stopPropagation();
-              handleToggle('wantToBuild');
-              setOpen(false);
-            }}
-          >
-            <span>Wishlist</span>
           </RowButton>
           <RowButton
             size="sm"

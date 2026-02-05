@@ -13,7 +13,7 @@ const CACHE_CONTROL = 'private, max-age=30, stale-while-revalidate=60';
 
 export type UserSetWithMeta = {
   setNumber: string;
-  status: 'owned' | 'want';
+  owned: boolean;
   name: string;
   year: number;
   numParts: number;
@@ -30,7 +30,7 @@ type UserSetRow = Tables<'user_sets'>;
 
 type UserSetRowWithMeta = {
   set_num: UserSetRow['set_num'];
-  status: UserSetRow['status'];
+  owned: UserSetRow['owned'];
   updated_at: UserSetRow['updated_at'];
   rb_sets: {
     name: string;
@@ -61,7 +61,7 @@ export async function GET() {
       .select(
         `
         set_num,
-        status,
+        owned,
         updated_at,
         rb_sets (
           name,
@@ -89,7 +89,7 @@ export async function GET() {
 
       return {
         setNumber: row.set_num,
-        status: row.status,
+        owned: row.owned,
         name: meta?.name ?? row.set_num,
         year: meta?.year ?? 0,
         numParts: meta?.num_parts ?? 0,

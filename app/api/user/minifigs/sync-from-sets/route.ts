@@ -65,8 +65,9 @@ export const POST = withCsrfProtection(async function POST(
 
     const { data: userSets, error: setsError } = await supabase
       .from('user_sets')
-      .select<'set_num,status'>('set_num,status')
-      .eq('user_id', user.id);
+      .select('set_num,owned')
+      .eq('user_id', user.id)
+      .eq('owned', true);
 
     if (setsError) {
       logger.error('user_minifigs.sync_from_sets.user_sets_failed', {
@@ -77,7 +78,7 @@ export const POST = withCsrfProtection(async function POST(
     }
 
     const sets = (userSets ?? []) as Array<
-      Pick<Tables<'user_sets'>, 'set_num' | 'status'>
+      Pick<Tables<'user_sets'>, 'set_num' | 'owned'>
     >;
 
     if (sets.length === 0) {
@@ -90,8 +91,7 @@ export const POST = withCsrfProtection(async function POST(
     let syncTriggeredCount = 0;
 
     for (const row of sets) {
-      const status = row.status as Enums<'set_status'>;
-      if (status !== 'owned') continue;
+      if (!row.owned) continue;
       if (!row.set_num) continue;
 
       try {

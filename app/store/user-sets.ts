@@ -3,16 +3,12 @@
 import { readStorage, writeStorage } from '@/app/lib/persistence/storage';
 import { create } from 'zustand';
 
-export type SetStatusKey = 'owned' | 'wantToBuild';
-
 export type SetStatus = {
   owned: boolean;
-  wantToBuild: boolean;
 };
 
 export const EMPTY_SET_STATUS: SetStatus = {
   owned: false,
-  wantToBuild: false,
 };
 
 export type UserSetMeta = {
@@ -47,14 +43,13 @@ type UserSetsState = {
    */
   sets: Record<string, UserSet>;
   /**
-   * Set or unset a specific status flag for a set.
-   * When all status flags become false, the set is removed from the store.
+   * Set or unset the owned flag for a set.
+   * When owned becomes false, the set is removed from the store.
    */
-  setStatus: (args: {
+  setOwned: (args: {
     meta?: UserSetMeta;
     setNumber: string;
-    key: SetStatusKey;
-    value: boolean;
+    owned: boolean;
   }) => void;
   /**
    * Clear all statuses for a given set, removing it from the store.
@@ -92,16 +87,14 @@ function normalizeKey(setNumber: string): string {
 }
 
 function coerceStatus(raw: unknown): SetStatus {
-  const obj = (raw ?? {}) as Partial<SetStatus> & { canBuild?: boolean };
-  const owned = !!obj.owned;
-  let wantToBuild = !!obj.wantToBuild || !!obj.canBuild;
-
-  // Enforce mutual exclusivity when hydrating persisted state.
-  if (owned) {
-    wantToBuild = false;
-  }
-
-  return { owned, wantToBuild };
+  // Handle legacy format with wantToBuild or canBuild
+  const obj = (raw ?? {}) as Partial<SetStatus> & {
+    wantToBuild?: boolean;
+    canBuild?: boolean;
+  };
+  // Legacy wantToBuild/canBuild values are ignored in the new model
+  // Sets on wishlist are now tracked via user_list_items
+  return { owned: !!obj.owned };
 }
 
 function parsePersisted(raw: string | null): Pick<UserSetsState, 'sets'> {
@@ -145,8 +138,8 @@ function parsePersisted(raw: string | null): Pick<UserSetsState, 'sets'> {
             : 0;
         const status = coerceStatus(v.status);
 
-        // Drop entries that have no active status flags.
-        if (!status.owned && !status.wantToBuild) {
+        // Drop entries that are not owned.
+        if (!status.owned) {
           continue;
         }
 
@@ -202,28 +195,13 @@ function loadInitialState(): Pick<UserSetsState, 'sets'> {
 
 export const useUserSetsStore = create<UserSetsState>(set => ({
   ...loadInitialState(),
-  setStatus: ({ meta, setNumber, key, value }) => {
+  setOwned: ({ meta, setNumber, owned }) => {
     const normKey = normalizeKey(setNumber);
     set(prevState => {
       const prevEntry = prevState.sets[normKey];
-      let nextStatus: SetStatus;
-      if (value) {
-        // Turning a status "on" makes it the sole active status.
-        nextStatus = {
-          owned: false,
-          wantToBuild: false,
-          [key]: true,
-        } as SetStatus;
-      } else {
-        // Turning a status "off" clears all flags, leaving the set untracked.
-        nextStatus = {
-          owned: false,
-          wantToBuild: false,
-        };
-      }
 
-      // If all flags are false, remove the entry entirely.
-      if (!nextStatus.owned && !nextStatus.wantToBuild) {
+      // If not owned, remove the entry entirely.
+      if (!owned) {
         const nextSets = { ...prevState.sets };
         delete nextSets[normKey];
         const nextState: UserSetsState = {
@@ -261,7 +239,7 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
 
       const nextEntry: UserSet = {
         ...baseMeta,
-        status: nextStatus,
+        status: { owned: true },
         lastUpdatedAt: Date.now(),
       };
 

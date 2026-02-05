@@ -4,8 +4,8 @@ import { Modal } from '@/app/components/ui/Modal';
 import { StatusToggleButton } from '@/app/components/ui/StatusToggleButton';
 import { cn } from '@/app/components/ui/utils';
 import type { MinifigOwnershipState } from '@/app/hooks/useMinifigOwnershipState';
-import { Check, Heart, ListPlus } from 'lucide-react';
-import { useState } from 'react';
+import { Check, Heart, ListPlus, Star } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 type MinifigOwnershipAndCollectionsRowProps = {
   ownership: MinifigOwnershipState;
@@ -51,6 +51,23 @@ export function MinifigOwnershipAndCollectionsRow({
     setShowCollections(true);
   };
 
+  // Sort lists: system lists (like Wishlist) first, then custom lists alphabetically
+  const sortedLists = useMemo(() => {
+    const system = lists.filter(l => l.isSystem);
+    const custom = lists.filter(l => !l.isSystem);
+    return [...system, ...custom];
+  }, [lists]);
+
+  // Build sublabel showing selected collection names
+  const selectedCollectionNames = useMemo(() => {
+    if (selectedListIds.length === 0) return null;
+    const names = lists
+      .filter(l => selectedListIds.includes(l.id))
+      .map(l => l.name);
+    if (names.length === 0) return null;
+    return names.join(', ');
+  }, [lists, selectedListIds]);
+
   return (
     <>
       <div
@@ -74,6 +91,8 @@ export function MinifigOwnershipAndCollectionsRow({
           }
           onClick={() => handleToggleStatus('owned')}
           variant="inline"
+          compact
+          className="pr-4"
         />
         <StatusToggleButton
           icon={<Heart className="size-4" />}
@@ -88,16 +107,19 @@ export function MinifigOwnershipAndCollectionsRow({
           }
           onClick={() => handleToggleStatus('want')}
           variant="inline"
+          compact
+          className="pr-4"
         />
         <StatusToggleButton
-          icon={<ListPlus className="size-4" />}
-          label="List"
+          label="Collection"
+          sublabel={selectedCollectionNames}
+          showChevron
           className="ml-auto"
           disabled={controlsDisabled}
           aria-busy={isAuthenticating}
           title={
             controlsDisabled
-              ? 'Sign in to organize minifigures in lists'
+              ? 'Sign in to organize minifigures in collections'
               : undefined
           }
           onClick={handleOpenCollections}
@@ -115,13 +137,14 @@ export function MinifigOwnershipAndCollectionsRow({
         onClose={() => setShowCollections(false)}
       >
         <div className="flex flex-col gap-2 text-xs">
-          {listsLoading && lists.length === 0 && (
+          {listsLoading && sortedLists.length === 0 && (
             <div className="text-2xs text-foreground-muted">Loading…</div>
           )}
-          {lists.length > 0 && (
+          {sortedLists.length > 0 && (
             <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
-              {lists.map(collection => {
+              {sortedLists.map(collection => {
                 const selected = selectedListIds.includes(collection.id);
+                const Icon = collection.isSystem ? Star : ListPlus;
                 return (
                   <button
                     key={collection.id}
@@ -138,7 +161,7 @@ export function MinifigOwnershipAndCollectionsRow({
                     }}
                   >
                     <span className="flex items-center gap-1">
-                      <ListPlus className="h-3 w-3" />
+                      <Icon className="h-3 w-3" />
                       <span className="truncate">{collection.name}</span>
                     </span>
                     {selected && (

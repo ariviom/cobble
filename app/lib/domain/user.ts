@@ -12,11 +12,9 @@ export type UserPreferences = {
   theme: 'light' | 'dark' | 'system';
 };
 
-export type UserSetStatus = 'owned' | 'wantToBuild';
-
 export type UserSetRecord = {
   userId: UserId;
   setNumber: string;
-  status: UserSetStatus;
+  owned: boolean;
   updatedAt: number;
 };

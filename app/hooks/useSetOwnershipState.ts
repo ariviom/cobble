@@ -4,7 +4,7 @@ import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
 import { useSetLists, type UserList } from '@/app/hooks/useSetLists';
 import { useSetStatus } from '@/app/hooks/useSetStatus';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import type { SetStatus, SetStatusKey } from '@/app/store/user-sets';
+import type { SetStatus } from '@/app/store/user-sets';
 
 type UseSetOwnershipStateArgs = {
   setNumber: string;
@@ -17,7 +17,7 @@ type UseSetOwnershipStateArgs = {
 
 export type SetOwnershipState = {
   status: SetStatus;
-  toggleStatus: (key: SetStatusKey) => void;
+  toggleOwned: () => void;
   lists: UserList[];
   selectedListIds: string[];
   listsLoading: boolean;
@@ -38,7 +38,7 @@ export function useSetOwnershipState({
 }: UseSetOwnershipStateArgs): SetOwnershipState {
   useHydrateUserSets();
   const { user, isLoading } = useSupabaseUser();
-  const { status, toggleStatus } = useSetStatus({
+  const { status, toggleOwned } = useSetStatus({
     setNumber,
     name,
     imageUrl,
@@ -57,7 +57,7 @@ export function useSetOwnershipState({
 
   return {
     status,
-    toggleStatus,
+    toggleOwned,
     lists,
     selectedListIds,
     listsLoading,

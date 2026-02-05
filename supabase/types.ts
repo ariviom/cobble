@@ -1230,9 +1230,9 @@ export type Database = {
           created_at: string;
           has_box: boolean;
           has_instructions: boolean;
+          owned: boolean;
           quantity: number;
           set_num: string;
-          status: Database['public']['Enums']['set_status'];
           updated_at: string;
           user_id: string;
         };
@@ -1240,9 +1240,9 @@ export type Database = {
           created_at?: string;
           has_box?: boolean;
           has_instructions?: boolean;
+          owned?: boolean;
           quantity?: number;
           set_num: string;
-          status: Database['public']['Enums']['set_status'];
           updated_at?: string;
           user_id: string;
         };
@@ -1250,9 +1250,9 @@ export type Database = {
           created_at?: string;
           has_box?: boolean;
           has_instructions?: boolean;
+          owned?: boolean;
           quantity?: number;
           set_num?: string;
-          status?: Database['public']['Enums']['set_status'];
           updated_at?: string;
           user_id?: string;
         };
@@ -1340,8 +1340,8 @@ export type Database = {
       };
       public_user_sets_view: {
         Row: {
+          owned: boolean | null;
           set_num: string | null;
-          status: Database['public']['Enums']['set_status'] | null;
           user_id: string | null;
         };
         Relationships: [

@@ -5,10 +5,12 @@ import { Input } from '@/app/components/ui/Input';
 import { Modal } from '@/app/components/ui/Modal';
 import { MoreDropdownButton } from '@/app/components/ui/MoreDropdown';
 import { StatusToggleButton } from '@/app/components/ui/StatusToggleButton';
+import { Toast } from '@/app/components/ui/Toast';
 import { cn } from '@/app/components/ui/utils';
 import type { SetOwnershipState } from '@/app/hooks/useSetOwnershipState';
-import { Check, ExternalLink, Heart, ListPlus, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { Check, ExternalLink, List, ListPlus, Plus, Star } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 type SetOwnershipAndCollectionsRowProps = {
   ownership: SetOwnershipState;
@@ -25,7 +27,7 @@ export function SetOwnershipAndCollectionsRow({
 }: SetOwnershipAndCollectionsRowProps) {
   const {
     status,
-    toggleStatus,
+    toggleOwned,
     lists,
     selectedListIds,
     listsLoading,
@@ -38,8 +40,19 @@ export function SetOwnershipAndCollectionsRow({
 
   const [showCollections, setShowCollections] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
+  const [mobileToast, setMobileToast] = useState<{
+    message: string;
+    variant: 'success' | 'error';
+  } | null>(null);
   const controlsDisabled = !isAuthenticated || isAuthenticating;
   const showAuthHint = !isAuthenticating && !isAuthenticated;
+
+  // Auto-hide mobile toast after 2 seconds
+  useEffect(() => {
+    if (!mobileToast) return;
+    const timer = setTimeout(() => setMobileToast(null), 2000);
+    return () => clearTimeout(timer);
+  }, [mobileToast]);
 
   const handleCreateCollection = () => {
     const trimmed = newCollectionName.trim();
@@ -48,15 +61,43 @@ export function SetOwnershipAndCollectionsRow({
     setNewCollectionName('');
   };
 
-  const handleToggleStatus = (key: 'owned' | 'wantToBuild') => {
+  const handleToggleOwned = () => {
     if (!isAuthenticated) return;
-    toggleStatus(key);
+    const willBeOwned = !status.owned;
+    toggleOwned();
+
+    // Show toast on mobile (when label is hidden)
+    const isMobile = window.matchMedia('(max-width: 639px)').matches;
+    if (isMobile) {
+      setMobileToast(
+        willBeOwned
+          ? { message: 'You own this set!', variant: 'success' }
+          : { message: 'Removed from owned sets', variant: 'error' }
+      );
+    }
   };
 
   const handleOpenCollections = () => {
     if (!isAuthenticated) return;
     setShowCollections(true);
   };
+
+  // Sort lists: system lists (like Wishlist) first, then custom lists alphabetically
+  const sortedLists = useMemo(() => {
+    const system = lists.filter(l => l.isSystem);
+    const custom = lists.filter(l => !l.isSystem);
+    return [...system, ...custom];
+  }, [lists]);
+
+  // Build sublabel showing selected collection names
+  const selectedCollectionNames = useMemo(() => {
+    if (selectedListIds.length === 0) return null;
+    const names = lists
+      .filter(l => selectedListIds.includes(l.id))
+      .map(l => l.name);
+    if (names.length === 0) return null;
+    return names.join(', ');
+  }, [lists, selectedListIds]);
 
   return (
     <>
@@ -80,29 +121,18 @@ export function SetOwnershipAndCollectionsRow({
           disabled={controlsDisabled}
           aria-busy={isAuthenticating}
           title={controlsDisabled ? 'Sign in to mark sets as owned' : undefined}
-          onClick={() => handleToggleStatus('owned')}
+          onClick={handleToggleOwned}
           variant={variant === 'dropdown' ? 'dropdown' : variant}
           color="green"
+          compact
+          hideLabelOnMobile
+          className="size-12 justify-center sm:h-12 sm:w-auto sm:justify-start sm:gap-2.5 sm:px-2.5 sm:pr-4"
         />
         <StatusToggleButton
-          icon={<Heart className="size-3.5" />}
-          label="Wishlist"
-          active={isAuthenticated && status.wantToBuild}
-          disabled={controlsDisabled}
-          aria-busy={isAuthenticating}
-          title={
-            controlsDisabled
-              ? 'Sign in to add sets to your wishlist'
-              : undefined
-          }
-          onClick={() => handleToggleStatus('wantToBuild')}
-          variant={variant === 'dropdown' ? 'dropdown' : variant}
-          color="orange"
-        />
-        <StatusToggleButton
-          icon={<Plus className="size-3.5" />}
-          label="List"
-          className={variant !== 'dropdown' ? 'ml-auto' : undefined}
+          icon={<List className="size-3.5" />}
+          label="Collections"
+          hideIconOnMobile
+          sublabel={selectedCollectionNames}
           disabled={controlsDisabled}
           aria-busy={isAuthenticating}
           title={
@@ -135,15 +165,16 @@ export function SetOwnershipAndCollectionsRow({
         onClose={() => setShowCollections(false)}
       >
         <div className="flex flex-col gap-4">
-          {listsLoading && lists.length === 0 && (
+          {listsLoading && sortedLists.length === 0 && (
             <div className="flex items-center justify-center py-4 text-sm text-foreground-muted">
               Loading collections…
             </div>
           )}
-          {lists.length > 0 && (
+          {sortedLists.length > 0 && (
             <div className="flex max-h-64 flex-col gap-2 overflow-y-auto pr-1">
-              {lists.map(collection => {
+              {sortedLists.map(collection => {
                 const selected = selectedListIds.includes(collection.id);
+                const Icon = collection.isSystem ? Star : ListPlus;
                 return (
                   <button
                     key={collection.id}
@@ -161,7 +192,7 @@ export function SetOwnershipAndCollectionsRow({
                     }}
                   >
                     <span className="flex items-center gap-2.5">
-                      <ListPlus className="h-4 w-4 shrink-0" />
+                      <Icon className="h-4 w-4 shrink-0" />
                       <span className="truncate">{collection.name}</span>
                     </span>
                     {selected && (
@@ -172,7 +203,7 @@ export function SetOwnershipAndCollectionsRow({
               })}
             </div>
           )}
-          {lists.length === 0 && !listsLoading && (
+          {sortedLists.length === 0 && !listsLoading && (
             <div className="py-4 text-center text-sm text-foreground-muted">
               No collections yet. Create one below!
             </div>
@@ -211,6 +242,15 @@ export function SetOwnershipAndCollectionsRow({
           )}
         </div>
       </Modal>
+      {mobileToast &&
+        createPortal(
+          <Toast
+            description={mobileToast.message}
+            variant={mobileToast.variant}
+            onClose={() => setMobileToast(null)}
+          />,
+          document.body
+        )}
     </>
   );
 }

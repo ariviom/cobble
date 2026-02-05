@@ -11,12 +11,6 @@ export type UserListSummary = {
   isSystem: boolean;
 };
 
-export type UseUserListsResult = {
-  lists: UserListSummary[];
-  isLoading: boolean;
-  error: string | null;
-};
-
 const STORAGE_KEY = 'brick_party_user_lists_cache_v1';
 
 type CacheShape = Record<
@@ -66,20 +60,31 @@ function setCachedLists(userId: string, lists: UserListSummary[]) {
   writeCache(root);
 }
 
+export type UseUserListsResult = {
+  /** All lists (system + custom) */
+  allLists: UserListSummary[];
+  /** Custom lists only (non-system) for display in dropdowns */
+  lists: UserListSummary[];
+  /** The Wishlist system list, if it exists */
+  wishlist: UserListSummary | null;
+  isLoading: boolean;
+  error: string | null;
+};
+
 /**
- * Fetch the current user's custom lists (non-system lists only).
- * Lists are sorted alphabetically for display in dropdowns.
+ * Fetch the current user's lists.
+ * Returns both all lists (including system) and custom lists only.
  */
 export function useUserLists(): UseUserListsResult {
   const { user } = useSupabaseUser();
   const cached = getCachedLists(user?.id ?? undefined);
-  const [lists, setLists] = useState<UserListSummary[]>(cached ?? []);
+  const [allLists, setAllLists] = useState<UserListSummary[]>(cached ?? []);
   const [isLoading, setIsLoading] = useState<boolean>(!!user && !cached);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
-      setLists([]);
+      setAllLists([]);
       setIsLoading(false);
       setError(null);
       return;
@@ -89,7 +94,7 @@ export function useUserLists(): UseUserListsResult {
     const supabase = getSupabaseBrowserClient();
     const existingCache = getCachedLists(user.id);
     if (existingCache && existingCache.length > 0) {
-      setLists(existingCache);
+      setAllLists(existingCache);
       setIsLoading(false);
     }
 
@@ -109,21 +114,19 @@ export function useUserLists(): UseUserListsResult {
 
       if (error) {
         console.error('useUserLists failed', error);
-        setLists(existingCache ?? []);
+        setAllLists(existingCache ?? []);
         setError(error.message ?? 'Failed to load lists');
         setIsLoading(false);
         return;
       }
 
       const rows = (data ?? []) as Array<Tables<'user_lists'>>;
-      const normalized = rows
-        .map(row => ({
-          id: row.id,
-          name: row.name,
-          isSystem: row.is_system,
-        }))
-        .filter(row => !row.isSystem);
-      setLists(normalized);
+      const normalized = rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        isSystem: row.is_system,
+      }));
+      setAllLists(normalized);
       setCachedLists(user.id, normalized);
       setIsLoading(false);
     };
@@ -135,5 +138,10 @@ export function useUserLists(): UseUserListsResult {
     };
   }, [user]);
 
-  return { lists, isLoading, error };
+  // Derive custom lists and wishlist from allLists
+  const lists = allLists.filter(list => !list.isSystem);
+  const wishlist =
+    allLists.find(list => list.isSystem && list.name === 'Wishlist') ?? null;
+
+  return { allLists, lists, wishlist, isLoading, error };
 }

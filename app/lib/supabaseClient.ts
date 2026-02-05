@@ -26,12 +26,11 @@ export function getSupabaseBrowserClient(): BrowserClient {
 
 /**
  * Get the redirect URL for OAuth callbacks.
- * In development: http://localhost:3000/account
- * In production: https://brick-party.com/account
+ * Uses window.location.origin to support any local port (3000, 3001, etc).
  */
 export function getAuthRedirectUrl(): string {
   if (typeof window !== 'undefined') {
-    return `${window.location.origin}/account`;
+    return window.location.origin;
   }
   // Fallback for server-side (shouldn't be used for OAuth)
   const origin =
@@ -39,5 +38,5 @@ export function getAuthRedirectUrl(): string {
     process.env.VERCEL_URL ||
     'http://localhost:3000';
   const protocol = origin.startsWith('http') ? '' : 'https://';
-  return `${protocol}${origin}/account`;
+  return `${protocol}${origin}`;
 }

@@ -88,13 +88,12 @@ export function useMinifigLists({
           Tables<'user_list_items'>
         >;
 
-        const normalizedLists: MinifigUserList[] = listRows
-          .map(row => ({
-            id: row.id,
-            name: row.name,
-            isSystem: row.is_system,
-          }))
-          .filter(list => !list.isSystem);
+        // Include system lists (like Wishlist) so they appear in the modal
+        const normalizedLists: MinifigUserList[] = listRows.map(row => ({
+          id: row.id,
+          name: row.name,
+          isSystem: row.is_system,
+        }));
 
         const selected = membershipRows.map(row => row.list_id);
 

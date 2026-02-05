@@ -1,25 +1,38 @@
 'use client';
 
 import { cn } from '@/app/components/ui/utils';
+import { ChevronDown } from 'lucide-react';
 import { ButtonHTMLAttributes, ReactNode } from 'react';
 
 export type StatusToggleButtonProps =
   ButtonHTMLAttributes<HTMLButtonElement> & {
-    icon: ReactNode;
+    icon?: ReactNode;
     label: string;
+    /** Optional sublabel shown below the main label in muted text */
+    sublabel?: string | null;
     active?: boolean;
     variant?: 'default' | 'inline' | 'dropdown';
     /** Color scheme for active state: green (owned), orange (wishlist), blue (lists) */
     colorScheme?: 'green' | 'orange' | 'blue';
     /** Alias for colorScheme */
     color?: 'green' | 'orange' | 'blue';
+    /** Show a chevron down icon on the right (for dropdown-like buttons) */
+    showChevron?: boolean;
+    /** Use w-fit instead of flex-1 for compact sizing */
+    compact?: boolean;
+    /** Hide the label text on mobile (icon-only), useful for space-constrained layouts */
+    hideLabelOnMobile?: boolean;
+    /** Hide the icon on mobile (text-only), useful for space-constrained layouts */
+    hideIconOnMobile?: boolean;
   };
 
 const baseStyles =
-  'inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-bold text-foreground-muted bg-card transition-all duration-150';
+  'inline-flex h-12 items-center gap-2.5 rounded-md px-2.5 text-xs font-bold text-foreground-muted bg-card transition-all duration-150';
 
 const defaultStyles =
   'flex-1 rounded-md border-2 border-subtle hover:bg-background-muted';
+
+const compactStyles = 'w-fit flex-none';
 
 const inlineStyles =
   'w-auto border-2 border-subtle flex-row hover:bg-background-muted hover:-translate-y-0.5 hover:shadow-sm';
@@ -82,6 +95,7 @@ function inferColorScheme(label: string): 'green' | 'orange' | 'blue' {
 export function StatusToggleButton({
   icon,
   label,
+  sublabel,
   active = false,
   className,
   onClick,
@@ -89,6 +103,10 @@ export function StatusToggleButton({
   variant = 'default',
   colorScheme,
   color,
+  showChevron = false,
+  compact = false,
+  hideLabelOnMobile = false,
+  hideIconOnMobile = false,
   ...props
 }: StatusToggleButtonProps) {
   const resolvedColorScheme = color ?? colorScheme ?? inferColorScheme(label);
@@ -107,6 +125,7 @@ export function StatusToggleButton({
           getDropdownHoverStyles(resolvedColorScheme),
         active && !disabled && getActiveStyles(resolvedColorScheme),
         disabled && disabledStyles,
+        compact && compactStyles,
         className
       )}
       onClick={event => {
@@ -118,8 +137,27 @@ export function StatusToggleButton({
       disabled={disabled}
       {...props}
     >
-      {icon}
-      <span>{label}</span>
+      {icon && (
+        <span className={cn(hideIconOnMobile && 'hidden sm:inline')}>
+          {icon}
+        </span>
+      )}
+      <span
+        className={cn(
+          'flex min-w-0 flex-col items-start',
+          hideLabelOnMobile && 'hidden sm:flex'
+        )}
+      >
+        <span>{label}</span>
+        {sublabel && (
+          <span className="max-w-[120px] truncate text-[10px] font-medium text-neutral-400">
+            {sublabel}
+          </span>
+        )}
+      </span>
+      {showChevron && (
+        <ChevronDown className="ml-auto size-3.5 shrink-0 text-foreground-muted" />
+      )}
     </button>
   );
 }

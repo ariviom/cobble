@@ -28,12 +28,6 @@ type HydrationEntry = {
 };
 const hydrationByUser = new Map<string, HydrationEntry>();
 
-function localStatusToDb(status: SetStatus): 'owned' | 'want' | null {
-  if (status.owned) return 'owned';
-  if (status.wantToBuild) return 'want';
-  return null;
-}
-
 async function syncLocalSetsToSupabase(
   userId: string,
   supabase: ReturnType<typeof getSupabaseBrowserClient>
@@ -41,8 +35,7 @@ async function syncLocalSetsToSupabase(
   try {
     const localSets = useUserSetsStore.getState().sets;
     const entries = Object.values(localSets).filter(
-      (entry): entry is UserSet =>
-        !!entry && (entry.status.owned || entry.status.wantToBuild)
+      (entry): entry is UserSet => !!entry && entry.status.owned
     );
 
     if (entries.length === 0) {
@@ -52,7 +45,7 @@ async function syncLocalSetsToSupabase(
     const upserts = entries.map(entry => ({
       user_id: userId,
       set_num: entry.setNumber,
-      status: localStatusToDb(entry.status) ?? 'want',
+      owned: true,
     }));
 
     if (upserts.length === 0) {
@@ -67,11 +60,8 @@ async function syncLocalSetsToSupabase(
   }
 }
 
-function mapDbStatusToLocal(status: 'owned' | 'want'): SetStatus {
-  if (status === 'owned') {
-    return { owned: true, wantToBuild: false };
-  }
-  return { owned: false, wantToBuild: true };
+function mapDbOwnedToLocal(owned: boolean): SetStatus {
+  return { owned };
 }
 
 export function useHydrateUserSets() {
@@ -151,7 +141,7 @@ export function useHydrateUserSets() {
 
             const entry: HydratedSetInput = {
               setNumber: row.setNumber,
-              status: mapDbStatusToLocal(row.status),
+              status: mapDbOwnedToLocal(row.owned),
               name: row.name,
               year: row.year,
               imageUrl: row.imageUrl,

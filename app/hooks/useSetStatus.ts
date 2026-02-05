@@ -4,13 +4,11 @@ import { useMemo } from 'react';
 import {
   EMPTY_SET_STATUS,
   type SetStatus,
-  type SetStatusKey,
   type UserSetMeta,
   useUserSetsStore,
 } from '@/app/store/user-sets';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import type { Enums } from '@/supabase/types';
 
 type UseSetStatusArgs = {
   setNumber: string;
@@ -23,7 +21,7 @@ type UseSetStatusArgs = {
 
 type UseSetStatusResult = {
   status: SetStatus;
-  toggleStatus: (key: SetStatusKey) => void;
+  toggleOwned: () => void;
 };
 
 export function useSetStatus({
@@ -41,7 +39,7 @@ export function useSetStatus({
     const entry = state.sets[normKey];
     return entry?.status ?? EMPTY_SET_STATUS;
   });
-  const setStatus = useUserSetsStore(state => state.setStatus);
+  const setOwned = useUserSetsStore(state => state.setOwned);
   const status = rawStatus;
 
   const meta: UserSetMeta = useMemo(
@@ -56,16 +54,11 @@ export function useSetStatus({
     [setNumber, name, year, imageUrl, numParts, themeId]
   );
 
-  function localKeyToDbStatus(key: SetStatusKey): Enums<'set_status'> {
-    return key === 'owned' ? 'owned' : 'want';
-  }
-
-  const toggleStatus = (key: SetStatusKey) => {
-    const nextValue = !status[key];
-    setStatus({
+  const toggleOwned = () => {
+    const nextOwned = !status.owned;
+    setOwned({
       setNumber,
-      key,
-      value: nextValue,
+      owned: nextOwned,
       meta,
     });
 
@@ -75,22 +68,21 @@ export function useSetStatus({
 
     const supabase = getSupabaseBrowserClient();
 
-    // When turning a status on, we store exactly that status.
-    // When turning a status off, we clear all flags and delete the row.
     void (async () => {
-      if (!nextValue) {
+      if (!nextOwned) {
+        // Delete the user_sets row when no longer owned
         await supabase
           .from('user_sets')
           .delete()
           .eq('user_id', user.id)
           .eq('set_num', setNumber);
       } else {
-        const dbStatus = localKeyToDbStatus(key);
+        // Upsert with owned = true
         await supabase.from('user_sets').upsert(
           {
             user_id: user.id,
             set_num: setNumber,
-            status: dbStatus,
+            owned: true,
           },
           { onConflict: 'user_id,set_num' }
         );
@@ -109,5 +101,5 @@ export function useSetStatus({
     })();
   };
 
-  return { status, toggleStatus };
+  return { status, toggleOwned };
 }
