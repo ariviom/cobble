@@ -68,6 +68,11 @@ export function DisplayTab({
     isLoading: isThemeLoading,
   } = useTheme();
 
+  // Inventory defaults (placeholder state - not persisted yet)
+  const [defaultInventoryView, setDefaultInventoryView] = useState<
+    'list' | 'grid'
+  >('list');
+
   const themeOptions = useMemo(
     () => [
       { label: 'System', value: 'system' as const },
@@ -339,12 +344,28 @@ export function DisplayTab({
                 Default inventory view
               </label>
               <div className="mt-2 flex gap-2">
-                <Button type="button" size="sm" variant="secondary">
+                <button
+                  type="button"
+                  onClick={() => setDefaultInventoryView('list')}
+                  className={`inline-flex items-center justify-center rounded-md border-2 px-4 py-2 text-sm font-semibold transition-all duration-150 ${
+                    defaultInventoryView === 'list'
+                      ? 'border-theme-primary bg-theme-primary text-white shadow-[0_3px_0_0] shadow-theme-shadow'
+                      : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
+                  }`}
+                >
                   List
-                </Button>
-                <Button type="button" size="sm" variant="secondary">
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDefaultInventoryView('grid')}
+                  className={`inline-flex items-center justify-center rounded-md border-2 px-4 py-2 text-sm font-semibold transition-all duration-150 ${
+                    defaultInventoryView === 'grid'
+                      ? 'border-theme-primary bg-theme-primary text-white shadow-[0_3px_0_0] shadow-theme-shadow'
+                      : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
+                  }`}
+                >
                   Grid
-                </Button>
+                </button>
               </div>
             </div>
 

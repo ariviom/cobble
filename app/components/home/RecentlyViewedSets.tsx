@@ -19,8 +19,8 @@ export function RecentlyViewedSets() {
       name: it.name,
       year: it.year,
       imageUrl: it.imageUrl,
-      // Reuse "quantity" field to display a count; here we use total parts in the set.
-      quantity: it.numParts,
+      quantity: 0, // Not used for recently viewed
+      numParts: it.numParts,
       themeId: it.themeId ?? null,
       themeName: it.themeName ?? null,
     }));

@@ -1,7 +1,7 @@
 'use client';
 
 import { MinifigCard } from '@/app/components/minifig/MinifigCard';
-import { SetDisplayCard } from '@/app/components/set/SetDisplayCard';
+import { SetDisplayCardWithControls } from '@/app/components/set/SetDisplayCardWithControls';
 import { CollectionGroupHeading } from '@/app/components/ui/CollectionGroupHeading';
 import { FilterBar } from '@/app/components/ui/FilterBar';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
@@ -14,7 +14,7 @@ import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import type { Tables } from '@/supabase/types';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type ThemeInfo = {
   id: number;
@@ -33,6 +33,16 @@ type CollectionType = 'sets' | 'minifigs';
 type ListMembership = {
   sets: string[];
   minifigs: string[];
+};
+
+// Set metadata fetched from rb_sets for items not in the user's store
+type ListSetInfo = {
+  setNumber: string;
+  name: string;
+  year: number | null;
+  imageUrl: string | null;
+  numParts: number | null;
+  themeId: number | null;
 };
 
 type ThemeMap = Map<number, ThemeInfo>;
@@ -126,12 +136,8 @@ function extractListId(value: ListFilter): string | null {
   return value.replace('list:', '');
 }
 
-function getPrimaryStatusLabel(status: {
-  owned: boolean;
-  wantToBuild: boolean;
-}): string {
+function getPrimaryStatusLabel(status: { owned: boolean }): string {
   if (status.owned) return 'Owned';
-  if (status.wantToBuild) return 'Wishlist';
   return 'Uncategorized';
 }
 
@@ -180,7 +186,12 @@ export function UserCollectionOverview({
   useHydrateUserSets();
   const { user } = useSupabaseUser();
   const setsRecord = useUserSetsStore(state => state.sets);
-  const { lists, isLoading: listsLoading, error: listsError } = useUserLists();
+  const {
+    lists,
+    wishlist,
+    isLoading: listsLoading,
+    error: listsError,
+  } = useUserLists();
   const {
     minifigs,
     isLoading: minifigsLoading,
@@ -201,6 +212,10 @@ export function UserCollectionOverview({
   const [listMembership, setListMembership] = useState<
     Record<string, ListMembership>
   >({});
+  // Set metadata for list items not in the user's store (e.g., wishlist-only sets)
+  const [listSetsInfo, setListSetsInfo] = useState<
+    Record<string, ListSetInfo[]>
+  >({});
   const [listMembershipLoading, setListMembershipLoading] = useState<
     string | null
   >(null);
@@ -210,14 +225,31 @@ export function UserCollectionOverview({
   const [listMembershipError, setListMembershipError] = useState<string | null>(
     null
   );
-  const selectedListId = useMemo(() => extractListId(listFilter), [listFilter]);
+  // For custom lists, extract the ID from the filter value.
+  // For wishlist, use the wishlist system list ID if available.
+  const selectedListId = useMemo(() => {
+    if (listFilter === 'wishlist') {
+      return wishlist?.id ?? null;
+    }
+    return extractListId(listFilter);
+  }, [listFilter, wishlist]);
 
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   // Sync the selected list from the ?list=<name> query param when present.
+  // Use a ref to track the previous searchParams to only react to actual URL changes,
+  // not re-runs caused by other dependency changes.
+  const prevSearchParamsRef = useRef<URLSearchParams | null>(null);
   useEffect(() => {
+    const currentParams = searchParams?.toString() ?? '';
+    const prevParams = prevSearchParamsRef.current?.toString() ?? '';
+
+    // Only sync from URL when searchParams actually changed (not when lists changed)
+    if (currentParams === prevParams) return;
+    prevSearchParamsRef.current = searchParams;
+
     const listName = searchParams?.get('list');
     if (!listName) return;
 
@@ -245,6 +277,7 @@ export function UserCollectionOverview({
     }
   }, [user]);
 
+  // Fetch list membership
   useEffect(() => {
     if (!user || !selectedListId) {
       return;
@@ -295,6 +328,7 @@ export function UserCollectionOverview({
         ...prev,
         [selectedListId]: membership,
       }));
+
       if (listMembershipErrorId === selectedListId) {
         setListMembershipError(null);
         setListMembershipErrorId(null);
@@ -310,6 +344,53 @@ export function UserCollectionOverview({
       cancelled = true;
     };
   }, [user, selectedListId, listMembership, listMembershipErrorId]);
+
+  // Fetch set metadata for list items not in the store (separate effect)
+  useEffect(() => {
+    if (!selectedListId) return;
+    const membership = listMembership[selectedListId];
+    if (!membership) return;
+    if (listSetsInfo[selectedListId]) return;
+
+    const setsNotInStore = membership.sets.filter(
+      setNum => !setsRecord[setNum.toLowerCase()]
+    );
+    if (setsNotInStore.length === 0) {
+      // No sets to fetch, mark as done with empty array
+      setListSetsInfo(prev => ({ ...prev, [selectedListId]: [] }));
+      return;
+    }
+
+    let cancelled = false;
+    const supabase = getSupabaseBrowserClient();
+    const run = async () => {
+      const { data: setsData } = await supabase
+        .from('rb_sets')
+        .select('set_num,name,year,image_url,num_parts,theme_id')
+        .in('set_num', setsNotInStore);
+
+      if (!cancelled && setsData) {
+        const fetchedSets: ListSetInfo[] = setsData.map(s => ({
+          setNumber: s.set_num,
+          name: s.name,
+          year: s.year,
+          imageUrl: s.image_url,
+          numParts: s.num_parts,
+          themeId: s.theme_id,
+        }));
+        setListSetsInfo(prev => ({
+          ...prev,
+          [selectedListId]: fetchedSets,
+        }));
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedListId, listMembership, listSetsInfo, setsRecord]);
 
   const sets = useMemo(
     () =>
@@ -377,18 +458,21 @@ export function UserCollectionOverview({
   }, [minifigs]);
 
   const filteredSets = useMemo(() => {
-    const customListId = selectedListId;
-    const membership = customListId ? listMembership[customListId]?.sets : null;
-    return sets.filter(set => {
+    const membership = selectedListId
+      ? listMembership[selectedListId]?.sets
+      : null;
+
+    // Start with sets from the store
+    const storeSets = sets.filter(set => {
       const { status } = set;
       if (listFilter === 'owned' && !status.owned) return false;
-      if (listFilter === 'wishlist' && !status.wantToBuild) return false;
-      if (customListId) {
+      // If wishlist is selected but no wishlist exists, show no sets.
+      if (listFilter === 'wishlist' && !selectedListId) return false;
+      if (selectedListId) {
         if (!membership || !membership.includes(set.setNumber)) {
           return false;
         }
       }
-
       if (themeFilter !== 'all') {
         if (typeof set.themeId !== 'number' || !Number.isFinite(set.themeId)) {
           return false;
@@ -398,14 +482,73 @@ export function UserCollectionOverview({
       }
       return true;
     });
-  }, [sets, listFilter, selectedListId, listMembership, themeFilter, themeMap]);
+
+    // When filtering by a list, also include sets not in the store
+    if (selectedListId && listSetsInfo[selectedListId]) {
+      const storeSetNums = new Set(
+        storeSets.map(s => s.setNumber.toLowerCase())
+      );
+      const additionalSets = listSetsInfo[selectedListId]
+        .filter(s => !storeSetNums.has(s.setNumber.toLowerCase()))
+        .filter(s => {
+          // Apply theme filter
+          if (themeFilter !== 'all') {
+            if (typeof s.themeId !== 'number' || !Number.isFinite(s.themeId)) {
+              return false;
+            }
+            const rootId = getRootThemeId(s.themeId, themeMap);
+            if (rootId !== themeFilter) return false;
+          }
+          return true;
+        })
+        .map(s => ({
+          setNumber: s.setNumber,
+          name: s.name,
+          year: s.year ?? 0,
+          imageUrl: s.imageUrl,
+          numParts: s.numParts ?? 0,
+          themeId: s.themeId,
+          status: { owned: false },
+          lastUpdatedAt: 0,
+        }));
+      return [...storeSets, ...additionalSets];
+    }
+
+    return storeSets;
+  }, [
+    sets,
+    listFilter,
+    selectedListId,
+    listMembership,
+    listSetsInfo,
+    themeFilter,
+    themeMap,
+  ]);
+
+  // Determine the label to use when viewing a specific list
+  const activeListName = useMemo(() => {
+    if (listFilter === 'wishlist') return 'Wishlist';
+    if (listFilter === 'owned') return 'Owned';
+    const customListId = extractListId(listFilter);
+    if (customListId) {
+      const match = lists.find(l => l.id === customListId);
+      return match?.name ?? null;
+    }
+    return null;
+  }, [listFilter, lists]);
 
   const grouped = useMemo(() => {
     const groups = new Map<string, typeof filteredSets>();
     for (const set of filteredSets) {
       let key: string;
       if (groupBy === 'status') {
-        key = getPrimaryStatusLabel(set.status);
+        // When viewing a specific list, use the list name as the group label
+        // instead of splitting by owned/uncategorized
+        if (activeListName) {
+          key = activeListName;
+        } else {
+          key = getPrimaryStatusLabel(set.status);
+        }
       } else {
         const themeName =
           typeof set.themeId === 'number' && Number.isFinite(set.themeId)
@@ -421,7 +564,7 @@ export function UserCollectionOverview({
     return Array.from(groups.entries())
       .map(([label, items]) => ({ label, items }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [filteredSets, groupBy, themeMap]);
+  }, [filteredSets, groupBy, themeMap, activeListName]);
 
   const filteredMinifigs = useMemo(() => {
     const customListId = selectedListId;
@@ -782,10 +925,10 @@ export function UserCollectionOverview({
                 <CollectionGroupHeading>{group.label}</CollectionGroupHeading>
                 <div
                   data-item-size="md"
-                  className="grid grid-cols-1 gap-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+                  className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
                 >
                   {group.items.map(set => (
-                    <SetDisplayCard
+                    <SetDisplayCardWithControls
                       key={set.setNumber}
                       setNumber={set.setNumber}
                       name={set.name}
@@ -814,7 +957,7 @@ export function UserCollectionOverview({
               {groupedMinifigs.map(group => (
                 <div key={group.label} className="flex flex-col gap-2">
                   <CollectionGroupHeading>{group.label}</CollectionGroupHeading>
-                  <div className="grid grid-cols-1 gap-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                     {group.items.map(fig => (
                       <MinifigCard
                         key={fig.figNum}

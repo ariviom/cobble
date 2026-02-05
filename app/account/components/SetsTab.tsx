@@ -39,14 +39,7 @@ export function SetsTab({
       ),
     [userSets]
   );
-  const wishlistCount = useMemo(
-    () =>
-      Object.values(userSets).reduce(
-        (acc, set) => (set.status.wantToBuild ? acc + 1 : acc),
-        0
-      ),
-    [userSets]
-  );
+  // Note: Wishlist is now tracked via user_lists (system list), not user_sets store
 
   // Minifig sync state
   const [syncOwnedMinifigsFromSets, setSyncOwnedMinifigsFromSets] =
@@ -162,21 +155,13 @@ export function SetsTab({
             </Alert>
           )}
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div className="mt-6">
             <div className="rounded-lg border-2 border-subtle bg-card-muted p-4">
               <p className="text-label font-semibold tracking-wide text-foreground-muted uppercase">
-                Owned
+                Owned Sets
               </p>
               <p className="text-heading-lg mt-1 font-bold text-foreground">
                 {ownedCount.toLocaleString()}
-              </p>
-            </div>
-            <div className="rounded-lg border-2 border-subtle bg-card-muted p-4">
-              <p className="text-label font-semibold tracking-wide text-foreground-muted uppercase">
-                Wishlist
-              </p>
-              <p className="text-heading-lg mt-1 font-bold text-foreground">
-                {wishlistCount.toLocaleString()}
               </p>
             </div>
           </div>

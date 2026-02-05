@@ -1,10 +1,10 @@
 'use client';
 
 import { MinifigSearchResultItem } from '@/app/components/minifig/MinifigSearchResultItem';
+import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Select } from '@/app/components/ui/Select';
-import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { AppError, throwAppErrorFromResponse } from '@/app/lib/domain/errors';
 import type {
   FilterType,
@@ -247,7 +247,9 @@ export function SearchResults() {
           <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background sm:hidden" />
         </div>
         {isMinifigLoading && (
-          <BrickLoader className="mt-2" label="Loading minifigure results…" />
+          <div className="mt-2 flex justify-center">
+            <BrickLoader label="Loading minifigure results…" />
+          </div>
         )}
         {minifigError && (
           <ErrorBanner
@@ -257,7 +259,7 @@ export function SearchResults() {
         )}
         {!isMinifigLoading && !minifigError && results.length > 0 && (
           <div className="mt-2">
-            <div className="grid grid-cols-1 gap-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {results.map((r: MinifigSearchResult) => (
                 <MinifigSearchResultItem
                   key={`${r.figNum}-${r.name}`}
@@ -374,7 +376,9 @@ export function SearchResults() {
         <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background sm:hidden" />
       </div>
       {isSetLoading && (
-        <BrickLoader className="mt-2" label="Loading search results…" />
+        <div className="mt-2 flex justify-center">
+          <BrickLoader label="Loading search results…" />
+        </div>
       )}
       {setError && (
         <ErrorBanner
@@ -386,7 +390,7 @@ export function SearchResults() {
         <div className="mt-2">
           <div
             data-item-size="md"
-            className="grid grid-cols-1 gap-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+            className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
           >
             {results.map((r: SearchResult) => (
               <SearchResultListItem

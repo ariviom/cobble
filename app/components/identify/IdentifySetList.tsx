@@ -29,7 +29,7 @@ export function IdentifySetList({ items, onRemoveItem, source }: Props) {
     <div className="mt-2">
       <div
         data-item-size="md"
-        className="grid grid-cols-1 gap-2 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+        className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
       >
         {items.map(it => (
           <IdentifySetListItem

@@ -16,7 +16,7 @@ type PublicSetSummary = {
   image_url: string | null;
   num_parts: number | null;
   theme_id: number | null;
-  status: 'owned' | 'want' | null;
+  owned: boolean;
 };
 
 type PublicMinifigSummary = {
@@ -60,9 +60,8 @@ function extractListId(value: CollectionFilter): string | null {
   return value.replace('list:', '');
 }
 
-function getPrimaryStatusLabel(status: 'owned' | 'want' | null): string {
-  if (status === 'owned') return 'Owned';
-  if (status === 'want') return 'Wishlist';
+function getPrimaryStatusLabel(owned: boolean): string {
+  if (owned) return 'Owned';
   return 'Collections';
 }
 
@@ -223,9 +222,9 @@ export function PublicUserCollectionOverview({
     const membership = selectedList ? new Set(selectedList.setNums) : null;
 
     return allSets.filter(set => {
-      const { status } = set;
-      if (collectionFilter === 'owned' && status !== 'owned') return false;
-      if (collectionFilter === 'wishlist' && status !== 'want') return false;
+      if (collectionFilter === 'owned' && !set.owned) return false;
+      // Wishlist is now tracked via user_lists (system list), not user_sets
+      if (collectionFilter === 'wishlist') return false;
       if (membership && !membership.has(set.set_num)) return false;
 
       if (themeFilter !== 'all') {
@@ -247,7 +246,7 @@ export function PublicUserCollectionOverview({
     for (const set of filteredSets) {
       let key: string;
       if (groupBy === 'status') {
-        key = getPrimaryStatusLabel(set.status);
+        key = getPrimaryStatusLabel(set.owned);
       } else {
         const themeName =
           typeof set.theme_id === 'number' && Number.isFinite(set.theme_id)

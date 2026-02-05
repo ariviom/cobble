@@ -8,11 +8,10 @@ import {
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 
 /**
- * Composite card used specifically for search and Identify results.
- * It composes the presentational SetDisplayCard with ownership/list controls,
- * so other contexts (like collection overviews) can render the bare card.
+ * Composite card that wraps SetDisplayCard with ownership/list controls.
+ * Used in search results, identify results, and collection views.
  */
-export function SetSearchResultCard(props: SetDisplayCardProps) {
+export function SetDisplayCardWithControls(props: SetDisplayCardProps) {
   const { setNumber, name, imageUrl, year, numParts, themeId } = props;
   const safeName = name && name.trim() ? name : setNumber;
 

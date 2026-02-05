@@ -2,9 +2,9 @@
 
 import { cardVariants } from '@/app/components/ui/Card';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
+import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { cn } from '@/app/components/ui/utils';
 import { getMinifigDisplayIds } from '@/app/lib/minifigIds';
-import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -85,7 +85,7 @@ export function MinifigCard({
         <div className="w-full">
           {/* Image area with gradient background matching SetDisplayCard */}
           <div className="relative w-full">
-            <div className="relative mx-auto w-full max-w-full p-3">
+            <div className="relative mx-auto w-full max-w-full p-2">
               {imageUrl ? (
                 <div className="relative aspect-square w-full overflow-hidden rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
                   <OptimizedImage
@@ -102,14 +102,14 @@ export function MinifigCard({
           </div>
 
           {/* Content area matching SetDisplayCard typography */}
-          <div className="flex items-start gap-2 px-4 py-3">
+          <div className="flex items-start gap-2 px-2 py-3 sm:px-3">
             <div className="min-w-0 flex-1">
               {themeName && (
                 <div className="mb-1 w-full truncate text-xs font-bold tracking-wide text-theme-text uppercase">
                   {themeName}
                 </div>
               )}
-              <div className="line-clamp-2 w-full overflow-hidden text-base leading-tight font-bold text-foreground">
+              <div className="line-clamp-2 w-full truncate overflow-hidden text-base leading-tight font-bold text-foreground">
                 {displayName}
               </div>
               <div className="mt-1.5 w-full text-sm font-semibold text-foreground-muted">

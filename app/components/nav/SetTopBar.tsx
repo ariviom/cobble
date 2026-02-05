@@ -208,7 +208,7 @@ export function SetTopBar({
         )}
       >
         <div className="group set relative flex w-full items-center gap-3 bg-card px-3 py-2 lg:pr-3">
-          <div className="size-16 flex-shrink-0 overflow-hidden rounded-md border-2 border-subtle bg-gradient-to-br from-neutral-100 to-neutral-200 lg:size-20 dark:from-neutral-800 dark:to-neutral-900">
+          <div className="size-20 flex-shrink-0 overflow-hidden rounded-md border-2 border-subtle bg-gradient-to-br from-neutral-100 to-neutral-200 lg:size-20 lg:size-24 dark:from-neutral-800 dark:to-neutral-900">
             {resolvedImageUrl ? (
               <Image
                 src={resolvedImageUrl}
@@ -249,7 +249,7 @@ export function SetTopBar({
               {isLoading ? 'Computing…' : `${ownedTotal} / ${numParts} parts`}
             </div>
             {searchParty && (
-              <div className="mt-1.5 lg:absolute lg:top-1/2 lg:right-12 lg:mt-0 lg:-translate-y-1/2">
+              <div className="mt-1.5">
                 <button
                   type="button"
                   aria-label="Search Party"
