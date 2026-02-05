@@ -1,6 +1,13 @@
 import { SearchBar } from '@/app/components/search/SearchBar';
 import { SearchResults } from '@/app/components/search/SearchResults';
+import { ThemedPageHeader } from '@/app/components/ui/ThemedPageHeader';
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
+
+export const metadata: Metadata = {
+  title: 'Search Sets & Minifigs | Brick Party',
+  description: 'Search for LEGO sets and minifigures by name or number',
+};
 
 type SearchPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -34,9 +41,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const initialType = extractInitialType(resolvedParams);
   return (
     <>
-      {/* Search Header - Bold blue banner */}
+      {/* Search Header - Bold banner with contrasting color */}
       <section className="relative overflow-hidden">
-        <div className="bg-brand-blue py-6 lg:py-8">
+        <ThemedPageHeader preferredColor="blue" className="py-6 lg:py-8">
           <div className="container-default">
             <div className="mb-6 text-center">
               <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-white lg:text-4xl">
@@ -55,7 +62,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               <div key={i} className="h-3 w-3 rounded-full bg-white" />
             ))}
           </div>
-        </div>
+        </ThemedPageHeader>
 
         {/* Yellow accent strip */}
         <div className="h-1.5 bg-brand-yellow" />

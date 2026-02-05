@@ -1,6 +1,7 @@
 import { RecentlyViewedSets } from '@/app/components/home/RecentlyViewedSets';
 import { PageLayout } from '@/app/components/layout/PageLayout';
 import { Button } from '@/app/components/ui/Button';
+import { ThemedPageHeader } from '@/app/components/ui/ThemedPageHeader';
 import { Camera, Search } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -11,7 +12,7 @@ export default function Home() {
       {/* Hero Section - Bold, LEGO-inspired design */}
       <section className="relative overflow-hidden">
         {/* Colored banner strip - like a LEGO box top */}
-        <div className="bg-brand-purple py-6 lg:py-10">
+        <ThemedPageHeader preferredColor="purple" className="py-6 lg:py-10">
           <div className="container-default">
             <div className="flex flex-col items-center text-center">
               {/* Logo + Brand - LARGE and bold */}
@@ -71,7 +72,7 @@ export default function Home() {
               <div key={i} className="h-4 w-4 rounded-full bg-white" />
             ))}
           </div>
-        </div>
+        </ThemedPageHeader>
 
         {/* Yellow accent strip below purple banner */}
         <div className="h-2 bg-brand-yellow" />

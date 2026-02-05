@@ -19,10 +19,11 @@ import type {
   IdentifyResponse,
   IdentifySet,
 } from '@/app/components/identify/types';
+import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { Button } from '@/app/components/ui/Button';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
-import { BrickLoader } from '@/app/components/ui/BrickLoader';
+import { ThemedPageHeader } from '@/app/components/ui/ThemedPageHeader';
 
 type IdentifyCacheEntry = IdentifyResponse & { cachedAt: number };
 
@@ -655,7 +656,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
       <>
         {/* Green Hero Banner */}
         <section className="relative overflow-hidden">
-          <div className="bg-brand-green py-6 lg:py-8">
+          <ThemedPageHeader preferredColor="green" className="py-6 lg:py-8">
             <div className="container-default">
               <div className="text-center">
                 <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-white lg:text-4xl">
@@ -672,7 +673,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                 <div key={i} className="h-3 w-3 rounded-full bg-white" />
               ))}
             </div>
-          </div>
+          </ThemedPageHeader>
           <div className="h-1.5 bg-brand-yellow" />
         </section>
 
@@ -710,7 +711,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
     <>
       {/* Green Hero Banner */}
       <section className="relative overflow-hidden">
-        <div className="bg-brand-green py-6 lg:py-8">
+        <ThemedPageHeader preferredColor="green" className="py-6 lg:py-8">
           <div className="container-default">
             <div className="text-center">
               <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-white lg:text-4xl">
@@ -727,7 +728,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
               <div key={i} className="h-3 w-3 rounded-full bg-white" />
             ))}
           </div>
-        </div>
+        </ThemedPageHeader>
         <div className="h-1.5 bg-brand-yellow" />
       </section>
 

@@ -3,8 +3,14 @@ import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient'
 import { DEFAULT_PRICING_PREFERENCES } from '@/app/lib/pricing';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
 import { loadUserMinifigSyncPreferences } from '@/app/lib/userMinifigSyncPreferences';
+import type { Metadata } from 'next';
 import type { Tables } from '@/supabase/types';
 import type { User } from '@supabase/supabase-js';
+
+export const metadata: Metadata = {
+  title: 'Account | Brick Party',
+  description: 'Manage your Brick Party account settings',
+};
 
 type UserProfileRow = Tables<'user_profiles'>;
 type UserId = UserProfileRow['user_id'];

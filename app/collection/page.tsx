@@ -1,8 +1,14 @@
 import { PageLayout } from '@/app/components/layout/PageLayout';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { buildUserHandle } from '@/app/lib/users';
+import type { Metadata } from 'next';
 import type { Tables } from '@/supabase/types';
 import { redirect } from 'next/navigation';
+
+export const metadata: Metadata = {
+  title: 'My Collection | Brick Party',
+  description: 'View and manage your LEGO set collection',
+};
 
 type SearchParams = Record<string, string | string[] | undefined>;
 

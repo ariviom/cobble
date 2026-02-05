@@ -8,10 +8,37 @@ import { fetchThemes } from '@/app/lib/services/themes';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import { buildUserHandle } from '@/app/lib/users';
+import type { Metadata } from 'next';
 import type { Tables } from '@/supabase/types';
 import { Lock } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ handle?: string | string[] }>;
+}): Promise<Metadata> {
+  const { handle } = await params;
+  const handleStr = Array.isArray(handle) ? handle[0] : handle;
+  if (!handleStr) {
+    return { title: 'Collection | Brick Party' };
+  }
+
+  const resolved = await resolvePublicUser(handleStr).catch(() => null);
+  if (resolved?.type === 'public') {
+    const displayName = resolved.profile.display_name || handleStr;
+    return {
+      title: `${displayName}'s Collection | Brick Party`,
+      description: `View ${displayName}'s LEGO set collection`,
+    };
+  }
+
+  return {
+    title: 'My Collection | Brick Party',
+    description: 'View and manage your LEGO set collection',
+  };
+}
 
 /**
  * Construct a BrickLink minifig image URL from the minifig ID.
@@ -37,7 +64,7 @@ type PublicSetSummary = {
   image_url: string | null;
   num_parts: number | null;
   theme_id: number | null;
-  status: 'owned' | 'want' | null;
+  owned: boolean;
 };
 
 type PublicMinifigSummary = {
@@ -245,7 +272,7 @@ export default async function CollectionHandlePage({
   ] = await Promise.all([
     supabase
       .from('public_user_sets_view')
-      .select<'set_num,status'>('set_num,status')
+      .select('set_num,owned')
       .eq('user_id', publicProfile.user_id),
     supabase
       .from('public_user_lists_view')
@@ -264,19 +291,18 @@ export default async function CollectionHandlePage({
       .eq('user_id', publicProfile.user_id),
   ]);
 
-  const setStatusMap = new Map<string, 'owned' | 'want'>();
-  for (const row of userSets ?? []) {
-    if (row.set_num && (row.status === 'owned' || row.status === 'want')) {
-      setStatusMap.set(row.set_num, row.status);
+  // Extract owned set numbers from the view
+  const ownedSetNums: string[] = [];
+  for (const row of (userSets ?? []) as Array<{
+    set_num: string | null;
+    owned: boolean | null;
+  }>) {
+    if (row.set_num && row.owned) {
+      ownedSetNums.push(row.set_num);
     }
   }
-
-  const ownedSetNums = Array.from(setStatusMap.entries())
-    .filter(([, status]) => status === 'owned')
-    .map(([setNum]) => setNum);
-  const wishlistSetNums = Array.from(setStatusMap.entries())
-    .filter(([, status]) => status === 'want')
-    .map(([setNum]) => setNum);
+  // Wishlist is now tracked via user_lists (system list), not user_sets
+  const wishlistSetNums: string[] = [];
 
   const listMembership = new Map<
     string,
@@ -320,9 +346,9 @@ export default async function CollectionHandlePage({
       )
       .in('set_num', allSetNums);
 
+    const ownedSet = new Set(ownedSetNums);
     setsById = Object.fromEntries(
       (sets ?? []).map(set => {
-        const status = setStatusMap.get(set.set_num) ?? null;
         return [
           set.set_num,
           {
@@ -332,7 +358,7 @@ export default async function CollectionHandlePage({
             image_url: set.image_url,
             num_parts: set.num_parts,
             theme_id: set.theme_id,
-            status,
+            owned: ownedSet.has(set.set_num),
           } satisfies PublicSetSummary,
         ];
       })
