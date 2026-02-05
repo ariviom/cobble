@@ -9,6 +9,17 @@
 
 ## Recently Completed (January 2026)
 
+- **Set Ownership Overhaul** (Group 1 from consolidation plan):
+  - Migrated from mutually exclusive `status` enum ('owned' | 'want') to boolean `owned` column
+  - Wishlist is now tracked as a system list in `user_lists` rather than a status
+  - Sets can now be BOTH owned AND on wishlist simultaneously
+  - Created migration `20260125035830_set_ownership_overhaul.sql`
+  - Updated store (`user-sets.ts`): `setStatus()` → `setOwned()`, simplified `SetStatus` type
+  - Updated hooks: `useSetStatus`, `useHydrateUserSets`, `useSetOwnershipState`
+  - Updated UI: `SetOwnershipAndCollectionsRow` now has single "Owned" toggle + "List" button
+  - Updated API routes, public views, and collection pages
+  - All 221 tests passing
+
 All major December 2025 initiatives have been completed:
 
 - **BrickLink-Only Minifig Architecture** - Removed unreliable RB↔BL minifig mapping heuristics:

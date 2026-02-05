@@ -1,11 +1,110 @@
 # Project Backlog
 
-**Last Updated:** January 15, 2026
+**Last Updated:** January 25, 2026
 **Purpose:** Consolidated list of all outstanding and planned work
 
 ---
 
-## High Priority (Blocking Launch)
+## In Progress
+
+### Set Ownership & Collection UI Overhaul
+
+**Status:** Complete
+
+- [x] Schema migration: `owned: boolean` + Wishlist as system list
+- [x] Database unique indexes fixed for upserts
+- [x] Collection page shows ownership controls on cards
+- [x] **UI polish for ownership controls** - button sizing, layout, mobile toast feedback
+
+### Loader Animation
+
+**Status:** Implemented, needs integration review
+
+- [x] New themed loader animation created
+- [ ] Review and standardize placement across loading states
+
+---
+
+## Quick Wins
+
+Small tasks that can be completed quickly.
+
+| Task                                           | Notes                                                                                                                              |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Search Party join UX                           | Better join modal instructions (where to enter code) + update join page                                                            |
+| ~~Search Party button missing in setTopBar~~   | ~~Fixed: Always pass searchParty prop, show loading state when clientId not ready~~                                                |
+| ~~Login redirect to home page~~                | ~~Fixed: Changed all auth redirects from /account to /~~                                                                           |
+| ~~Button contrast on matching backgrounds~~    | ~~Fixed: Created ThemedPageHeader component and useContrastingHeaderColor hook; updated home, search, identify pages~~             |
+| ~~Nav transition double-highlight~~            | ~~Fixed: Changed hover/active states to use subtle overlay instead of white background~~                                           |
+| ~~Bottom sheet overlap with tab bar~~          | ~~Fixed: Changed bottom-0 to bottom-[var(--spacing-nav-height)] on mobile~~                                                        |
+| ~~Disable color filters when pieces excluded~~ | ~~Fixed: Added availableColors computed from display/category filters, disabled/grayed unavailable color options~~                 |
+| ~~Page titles~~                                | ~~Fixed: Added metadata to search, identify, account, collection pages; added generateMetadata for dynamic set/collection titles~~ |
+
+---
+
+## Chunks of Work
+
+Larger features, in priority order.
+
+### 1. Identify Page Improvements
+
+**UX Improvements:**
+
+| Task                                | Effort | Notes                                              |
+| ----------------------------------- | ------ | -------------------------------------------------- |
+| Auto-search on photo confirm        | Low    | No additional button press required                |
+| Text link for mobile upload         | Low    | Add alongside camera button (not locked to camera) |
+| Better loading states               | Low    | Spinner + progress text                            |
+| Search history with part thumbnails | Medium | Store part images, not uploaded photos             |
+| Back button returns to results      | Medium | State preservation or URL-based                    |
+
+**Backend Improvements:**
+
+- [ ] Extract sub-pipelines into smaller pure helpers
+- [ ] Add per-request budget to cap external calls
+- [ ] Improve UX with clearer sub-states ("Identifying...", "Finding sets...", "Using BrickLink-only data")
+- [ ] Consider debouncing rapid candidate/color changes
+- [ ] Cache "identify → sets" resolutions in Supabase keyed by normalized part/color identifiers
+
+### 2. Sets Page & Navigation
+
+**Problem:** Wayfinding is confusing when viewing a set that isn't in your collection. Nothing is highlighted in the nav. Need a proper `/sets` landing page separate from `/collection`.
+
+**Deliverables:**
+
+- [ ] New `/sets` landing page with:
+  - Recently viewed sets (limit 4, using set cards with controls)
+  - Partially complete sets (sets with some pieces owned but not all)
+- [ ] Clear nav distinction between Sets (viewer) and Collection (user's owned/wishlisted)
+- [ ] Design for mobile (5 buttons) and desktop
+
+### 3. Implementation Review
+
+- [ ] Review and confirm BrickLink minifig migration implementation
+  - BrickLink is now exclusive source for minifig IDs/metadata/parts
+  - Verify data integrity and edge cases
+
+### 4. Scripts & Data Ingestion
+
+| Task                                      | Effort | Notes                                      |
+| ----------------------------------------- | ------ | ------------------------------------------ |
+| Ingestion script review                   | Low    | Documentation/audit of rebrickable scripts |
+| Ingest all minifigs and parts to database | High   | Full catalog coverage                      |
+| Set exclusive parts cache                 | Medium | New table + script for rarity indicators   |
+
+---
+
+## Bugs
+
+| Bug                          | Description                                                                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| BrickLink piece linking 404s | ID mismatch between Rebrickable and BrickLink causes "View on BrickLink" links to 404. Appears in part modal when viewing set inventory. |
+
+---
+
+## Pre-Public Launch
+
+Required before accepting paid users, but not blocking personal usage.
 
 ### Stripe UI/UX Enforcement
 
@@ -21,24 +120,27 @@
 - [ ] Usage counters table and enforcement logic
 
 **Feature flags to enforce** (seeds exist in `feature_flags` table):
-| Flag | Min Tier | Free Limit |
-|------|----------|------------|
-| `identify.unlimited` | Plus | TBD |
-| `lists.unlimited` | Plus | 3 lists |
-| `search_party.unlimited` | Plus | 2 runs/month |
-| `search_party.advanced` | Plus | - |
-| `bricklink.byo_key` | Pro | - |
-| `mocs.custom` | Pro | - |
+
+| Flag                     | Min Tier | Free Limit   |
+| ------------------------ | -------- | ------------ |
+| `identify.unlimited`     | Plus     | TBD          |
+| `lists.unlimited`        | Plus     | 3 lists      |
+| `search_party.unlimited` | Plus     | 2 runs/month |
+| `search_party.advanced`  | Plus     | -            |
+| `bricklink.byo_key`      | Pro      | -            |
+| `mocs.custom`            | Pro      | -            |
 
 See `docs/billing/stripe-subscriptions.md` for full spec.
 
+### Stripe Post-Foundation
+
+- [ ] Dunning/notifications: past_due/unpaid handling, email or in-app banners
+
 ---
 
-## Medium Priority (Post-Launch)
+## Backlog
 
-### Multi-Device Sync
-
-- [ ] Pull-on-login for multi-device sync (fetch user data from Supabase on new device)
+Technical debt and improvements to pull from when ready.
 
 ### Error Handling & UX
 
@@ -52,6 +154,7 @@ See `docs/billing/stripe-subscriptions.md` for full spec.
   - Reduce footprint where anon/auth client would work
   - Document reasoning for remaining service role usages
   - See `docs/dev/CURRENT_IMPROVEMENT_PLAN.md` for details
+- [ ] BrickLink API key security review - check allowed origins
 
 ### Auth & Session
 
@@ -71,26 +174,22 @@ See `docs/billing/stripe-subscriptions.md` for full spec.
 
 - [ ] Structured logging and basic metrics (per-route latency/error rates, cache hit/miss, external API throttling)
 
-### Stripe Post-Foundation
+### Multi-Device Sync
 
-- [ ] Dunning/notifications: past_due/unpaid handling, email or in-app banners
+- [ ] Pull-on-login for multi-device sync (fetch user data from Supabase on new device)
+- [ ] Recently viewed sync (store in Supabase)
 
----
+### Collection Page Enhancements
 
-## Low Priority (Nice-to-Have)
-
-### Identify Flow Improvements
-
-- [ ] Extract sub-pipelines from Identify backend into smaller pure helpers
-- [ ] Add per-request budget to cap external calls
-- [ ] Improve Identify UX with clearer sub-states ("Identifying...", "Finding sets...", "Using BrickLink-only data")
-- [ ] Consider debouncing rapid candidate/color changes
-- [ ] Cache "identify -> sets" resolutions in Supabase keyed by normalized part/color identifiers
+| Task                          | Effort | Notes                 |
+| ----------------------------- | ------ | --------------------- |
+| Search/filter on collection   | Medium | Text search + filters |
+| Combine parts lists           | High   | Multi-select + export |
+| Part list export for all sets | Medium | Extend export modal   |
 
 ### Architecture Refinement
 
 - [ ] Refactor Supabase-owned state into lower-level owned-persistence service + higher-level migration coordinator hook
-- [ ] Add lightweight telemetry/logging for Supabase write failures
 
 ### Testing
 
@@ -98,12 +197,22 @@ See `docs/billing/stripe-subscriptions.md` for full spec.
 - [ ] Expand automated tests around Identify and pricing flows (mocked RB/BL/Brickognize)
 - [ ] Add end-to-end validation for CSV exports against Rebrickable/BrickLink import rules
 
-### Stripe Future
+---
 
-- [ ] Yearly pricing surfaced in UI when ready
-- [ ] Multi-currency/localized pricing
-- [ ] Advanced tax/localization: per-country price availability if compliance requires
-- [ ] Analytics/observability: event logging, latency/failure metrics on webhook handler
+## Future Exploration
+
+Deferred features requiring research or significant scope.
+
+- Price history (requires persistent storage, API quota planning)
+- Marketplace scanner (significant scope, quota implications)
+- BYO BrickLink API key (Pro tier feature)
+- Custom MoC import (requires storage bucket setup)
+- Set instructions viewer (research external linking options)
+- Part rarity/exclusive indicators (display set-exclusive parts)
+- Yearly pricing surfaced in UI
+- Multi-currency/localized pricing
+- Advanced tax/localization
+- Stripe analytics/observability
 
 ---
 
@@ -111,6 +220,7 @@ See `docs/billing/stripe-subscriptions.md` for full spec.
 
 Major completed initiatives - see `docs/dev/archive/` for detailed plans:
 
+- **Set Ownership Schema Overhaul** (Jan 2026) - `owned: boolean` + Wishlist as system list, fixed unique indexes
 - **BrickLink Minifig Migration** (Dec 2025) - BL is now exclusive source for minifig IDs/metadata/parts
 - **Minifig Cascade Fix** (Dec 2025) - Toggling parent cascades to subparts correctly
 - **Shared Minifig Parts Fix** (Dec 2025) - Multiple minifigs sharing subparts aggregate quantities correctly

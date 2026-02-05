@@ -2,6 +2,9 @@
   "[typescript]": {
     "editor.defaultFormatter": "denoland.vscode-deno"
   },
+  "[svg]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
   "deno.enablePaths": ["supabase/functions"],
   "deno.lint": true,
   "deno.unstable": [
