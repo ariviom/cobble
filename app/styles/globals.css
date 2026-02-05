@@ -515,19 +515,28 @@ body {
 @utility container-narrow {
   max-width: var(--container-narrow);
   margin-inline: auto;
-  padding-inline: 1rem;
+  padding-inline: 0.75rem;
+  @media (min-width: 640px) {
+    padding-inline: 1rem;
+  }
 }
 
 @utility container-default {
   max-width: var(--container-default);
   margin-inline: auto;
-  padding-inline: 1rem;
+  padding-inline: 0.75rem;
+  @media (min-width: 640px) {
+    padding-inline: 1rem;
+  }
 }
 
 @utility container-wide {
   max-width: var(--container-wide);
   margin-inline: auto;
-  padding-inline: 1rem;
+  padding-inline: 0.75rem;
+  @media (min-width: 640px) {
+    padding-inline: 1rem;
+  }
 }
 
 /* Top positioning utility for tab bar height */

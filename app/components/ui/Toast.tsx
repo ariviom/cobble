@@ -2,12 +2,19 @@ import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { IconButton } from './IconButton';
-import {
-  getStatusContainerClasses,
-  getStatusIcon,
-  type StatusVariant,
-} from './statusIcons';
+import { getStatusIcon, type StatusVariant } from './statusIcons';
 import { cn } from './utils';
+
+// Matches StatusToggleButton active styles pattern (solid bg approximating tint on white/dark)
+const toastVariantStyles = {
+  success:
+    'bg-green-50 dark:bg-green-950 text-brand-green border-brand-green/40 shadow-[0_2px_0_0] shadow-brand-green/25',
+  error:
+    'bg-red-50 dark:bg-red-950 text-brand-red border-brand-red/40 shadow-[0_2px_0_0] shadow-brand-red/25',
+  warning:
+    'bg-orange-50 dark:bg-orange-950 text-brand-orange border-brand-orange/40 shadow-[0_2px_0_0] shadow-brand-orange/25',
+  info: 'bg-blue-50 dark:bg-blue-950 text-brand-blue border-brand-blue/40 shadow-[0_2px_0_0] shadow-brand-blue/25',
+} as const;
 
 type ToastVariant = 'info' | 'warning' | 'error' | 'success';
 
@@ -49,9 +56,8 @@ export function Toast({
         role={role}
         aria-live="polite"
         className={cn(
-          // Chunky left border like Card variants, bold shadow
-          'pointer-events-auto flex w-full max-w-lg items-start gap-3 rounded-lg border-2 border-l-4 border-subtle px-4 py-3 shadow-[0_4px_0_0_var(--color-shadow-depth)]',
-          getStatusContainerClasses(variant as StatusVariant)
+          'pointer-events-auto flex w-full max-w-lg items-start gap-3 rounded-lg border-2 px-4 py-3',
+          toastVariantStyles[variant]
         )}
       >
         <div className="mt-0.5">{getStatusIcon(variant as StatusVariant)}</div>

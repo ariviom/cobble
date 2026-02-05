@@ -6,11 +6,13 @@ import { forwardRef, useEffect, useRef, type InputHTMLAttributes } from 'react';
 type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'checked'> & {
   checked: boolean;
   indeterminate?: boolean;
+  /** Visual dimming without disabling interaction */
+  muted?: boolean;
 };
 
 export const RowCheckbox = forwardRef<HTMLInputElement, Props>(
   function RowCheckbox(
-    { checked, indeterminate, className, tabIndex, ...rest },
+    { checked, indeterminate, muted, className, tabIndex, ...rest },
     ref
   ) {
     const innerRef = useRef<HTMLInputElement | null>(null);
@@ -38,7 +40,8 @@ export const RowCheckbox = forwardRef<HTMLInputElement, Props>(
         readOnly
         tabIndex={tabIndex ?? -1}
         className={cn(
-          'size-5 cursor-pointer rounded-sm border-2 border-subtle bg-card accent-theme-primary',
+          'size-5 cursor-pointer rounded-sm border-2 border-subtle bg-card accent-theme-primary disabled:cursor-not-allowed disabled:opacity-50',
+          muted && 'opacity-50',
           className
         )}
         {...rest}

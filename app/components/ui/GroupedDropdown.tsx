@@ -26,6 +26,8 @@ export type DropdownTriggerProps = {
   onToggle: () => void;
   className?: string;
   variant?: 'default' | 'sidebar';
+  /** When disabled, the trigger is non-interactive and visually muted */
+  disabled?: boolean | undefined;
 };
 
 const triggerVariants = cva(
@@ -60,6 +62,7 @@ export const DropdownTrigger = forwardRef<
     onToggle,
     className,
     variant,
+    disabled,
   },
   ref
 ) {
@@ -68,12 +71,18 @@ export const DropdownTrigger = forwardRef<
       id={id}
       ref={ref}
       type="button"
-      className={cn(triggerVariants({ variant }), className)}
+      className={cn(
+        triggerVariants({ variant }),
+        disabled && 'pointer-events-none opacity-50',
+        className
+      )}
       aria-haspopup="menu"
       aria-expanded={isOpen}
       aria-controls={panelId}
+      aria-disabled={disabled || undefined}
       data-open={isOpen ? 'true' : undefined}
-      onClick={onToggle}
+      onClick={disabled ? undefined : onToggle}
+      disabled={disabled}
     >
       <span className="flex min-w-0 flex-1 flex-col items-start">
         <span className="inline-flex w-full items-center gap-2">
@@ -94,8 +103,8 @@ export const DropdownTrigger = forwardRef<
 
 // Generic dropdown frame that accepts arbitrary children
 const panelVariants = cva(
-  // base: mobile behaves like a sheet, desktop like a popover - chunky LEGO styling
-  'min-w-64 overflow-hidden rounded-lg border-2 border-subtle bg-card shadow-[0_4px_0_0_var(--color-shadow-depth)] fixed top-[calc(var(--spacing-topnav-height)+var(--spacing-controls-height))] bottom-0 z-50 overflow-y-auto lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40',
+  // base: mobile behaves like a sheet (above nav bar), desktop like a popover - chunky LEGO styling
+  'min-w-64 overflow-hidden rounded-lg border-2 border-subtle bg-card shadow-[0_4px_0_0_var(--color-shadow-depth)] fixed top-[calc(var(--spacing-topnav-height)+var(--spacing-controls-height))] bottom-[var(--spacing-nav-height)] z-50 overflow-y-auto lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40',
   {
     variants: {
       variant: {
