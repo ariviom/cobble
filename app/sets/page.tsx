@@ -1,5 +1,6 @@
 'use client';
 
+import { SetPageSkeleton } from '@/app/components/set/SetPageSkeleton';
 import { SetTabBar } from '@/app/components/set/SetTabBar';
 import { SetTabContainer } from '@/app/components/set/SetTabContainer';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
@@ -12,7 +13,7 @@ import {
   type TabViewState,
 } from '@/app/store/open-tabs';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * SPA container for multi-tab set views.
@@ -26,6 +27,12 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 export default function SetsPage() {
   const router = useRouter();
   const isDesktop = useIsDesktop();
+
+  // Track client-side mount to handle SSR → hydration transition
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const tabs = useOpenTabsStore(state => state.tabs);
   const activeSetNumber = useOpenTabsStore(state => state.activeSetNumber);
@@ -159,8 +166,13 @@ export default function SetsPage() {
     }
   }, [tabs.length, router]);
 
-  // Show loading state during SSR/hydration
-  if (isDesktop === undefined) {
+  // During SSR/hydration, isDesktop is undefined and tabs may be empty (no localStorage on server)
+  // We want to render the layout skeleton to avoid layout shift
+  const isHydrating = isDesktop === undefined || !hasMounted;
+
+  // No tabs - show empty state (will redirect)
+  // Only check this after mounting, since SSR won't have localStorage tabs
+  if (hasMounted && (tabs.length === 0 || !activeSetNumber)) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <BrickLoader />
@@ -168,13 +180,10 @@ export default function SetsPage() {
     );
   }
 
-  // No tabs - show empty state (will redirect)
-  if (tabs.length === 0 || !activeSetNumber) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <BrickLoader />
-      </div>
-    );
+  // During SSR/hydration when tabs aren't loaded yet, show skeleton layout
+  // This prevents layout shift when tabs populate from localStorage
+  if (isHydrating && tabs.length === 0) {
+    return <SetPageSkeleton />;
   }
 
   return (
@@ -189,7 +198,7 @@ export default function SetsPage() {
       <header className="sticky top-0 z-60 col-span-full bg-card lg:contents">
         <SetTabBar
           tabs={tabs}
-          activeSetNumber={activeSetNumber}
+          activeSetNumber={activeSetNumber ?? ''}
           groupSessionSetNumber={null}
           onActivateTab={handleActivateTab}
           onCloseTab={handleCloseTab}
@@ -215,6 +224,7 @@ export default function SetsPage() {
                 saveTabState(tab.setNumber, partialState);
               }}
               isDesktop={isDesktop}
+              isHydrating={isHydrating}
             />
           );
         })}

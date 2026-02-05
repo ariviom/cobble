@@ -59,11 +59,15 @@ type Props = {
   parentCounts?: Record<string, number>;
   subcategoriesByParent: Record<string, string[]>;
   colorOptions: string[];
+  /** Colors that have matching pieces after display/category filters (for disabling unavailable options) */
+  availableColors: Set<string>;
   onToggleColor: (color: string) => void;
   isDesktop: boolean;
   isParentOpen: boolean;
   isColorOpen: boolean;
   onOpenExportModal: () => void;
+  /** When true, sidebar triggers are disabled (data not yet loaded) */
+  isLoading?: boolean | undefined;
 };
 
 export function TopBarControls({
@@ -93,11 +97,13 @@ export function TopBarControls({
   parentCounts,
   subcategoriesByParent,
   colorOptions,
+  availableColors,
   onToggleColor,
   isDesktop,
   isParentOpen,
   isColorOpen,
   onOpenExportModal,
+  isLoading,
 }: Props) {
   const pricingEnabled = usePricingEnabled();
 
@@ -306,7 +312,8 @@ export function TopBarControls({
       {/* Sidebar Group Triggers */}
       <div className="sidebar relative min-w-0 shrink-0 border-subtle lg:fixed lg:top-[calc(var(--spacing-nav-offset)+var(--grid-row-tabs,0px))] lg:left-0 lg:h-[calc(100dvh-var(--spacing-nav-offset)-var(--grid-row-tabs,0px))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-card">
         <div className="flex flex-nowrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-0">
-          {parentOptions.length > 0 ? (
+          {/* Pieces: always show on desktop (disabled when loading), conditional on mobile */}
+          {(isDesktop || parentOptions.length > 0) && (
             <div className="lg:relative">
               <DropdownTrigger
                 id="parent-trigger"
@@ -330,27 +337,31 @@ export function TopBarControls({
                 isOpen={isDesktop ? isParentOpen : openDropdownId === 'parent'}
                 onToggle={() => onToggleDropdown('parent')}
                 variant="sidebar"
+                disabled={isLoading || parentOptions.length === 0}
               />
-              {(isDesktop ? isParentOpen : openDropdownId === 'parent') && (
-                <DropdownPanelFrame
-                  id="parent-panel"
-                  labelledBy="parent-trigger"
-                  isOpen={true}
-                  variant="sidebar"
-                >
-                  <SidebarCategoryPanel
-                    filter={filter}
-                    onChangeFilter={onChangeFilter}
-                    parentOptions={parentOptions}
-                    subcategoriesByParent={subcategoriesByParent}
-                    {...(parentCounts ? { parentCounts } : {})}
-                  />
-                </DropdownPanelFrame>
-              )}
+              {!isLoading &&
+                parentOptions.length > 0 &&
+                (isDesktop ? isParentOpen : openDropdownId === 'parent') && (
+                  <DropdownPanelFrame
+                    id="parent-panel"
+                    labelledBy="parent-trigger"
+                    isOpen={true}
+                    variant="sidebar"
+                  >
+                    <SidebarCategoryPanel
+                      filter={filter}
+                      onChangeFilter={onChangeFilter}
+                      parentOptions={parentOptions}
+                      subcategoriesByParent={subcategoriesByParent}
+                      {...(parentCounts ? { parentCounts } : {})}
+                    />
+                  </DropdownPanelFrame>
+                )}
             </div>
-          ) : null}
+          )}
 
-          {colorOptions && colorOptions.length > 0 ? (
+          {/* Colors: always show on desktop (disabled when loading), conditional on mobile */}
+          {(isDesktop || (colorOptions && colorOptions.length > 0)) && (
             <div className="lg:relative">
               <DropdownTrigger
                 id="color-trigger"
@@ -371,24 +382,31 @@ export function TopBarControls({
                 isOpen={isDesktop ? isColorOpen : openDropdownId === 'color'}
                 onToggle={() => onToggleDropdown('color')}
                 variant="sidebar"
+                disabled={
+                  isLoading || !colorOptions || colorOptions.length === 0
+                }
               />
-              {(isDesktop ? isColorOpen : openDropdownId === 'color') && (
-                <DropdownPanelFrame
-                  id="color-panel"
-                  labelledBy="color-trigger"
-                  isOpen={true}
-                  variant="sidebar"
-                >
-                  <SidebarColorPanel
-                    colorOptions={colorOptions}
-                    selectedColors={filter.colors || []}
-                    onToggleColor={onToggleColor}
-                    onClear={() => onChangeFilter({ ...filter, colors: [] })}
-                  />
-                </DropdownPanelFrame>
-              )}
+              {!isLoading &&
+                colorOptions &&
+                colorOptions.length > 0 &&
+                (isDesktop ? isColorOpen : openDropdownId === 'color') && (
+                  <DropdownPanelFrame
+                    id="color-panel"
+                    labelledBy="color-trigger"
+                    isOpen={true}
+                    variant="sidebar"
+                  >
+                    <SidebarColorPanel
+                      colorOptions={colorOptions}
+                      availableColors={availableColors}
+                      selectedColors={filter.colors || []}
+                      onToggleColor={onToggleColor}
+                      onClear={() => onChangeFilter({ ...filter, colors: [] })}
+                    />
+                  </DropdownPanelFrame>
+                )}
             </div>
-          ) : null}
+          )}
         </div>
       </div>
       <div className="lg:relative">

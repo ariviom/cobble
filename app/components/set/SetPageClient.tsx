@@ -71,9 +71,11 @@ export function SetPageClient({
         imageUrl,
         numParts,
         year,
+        themeId: themeId ?? null,
+        themeName: themeName ?? null,
       },
     ],
-    [setNumber, setName, imageUrl, numParts, year]
+    [setNumber, setName, imageUrl, numParts, year, themeId, themeName]
   );
 
   // Add to recent sets on mount
@@ -317,21 +319,17 @@ export function SetPageClient({
             year={year}
             numParts={numParts}
             themeId={themeId ?? null}
-            {...(clientId
-              ? {
-                  searchParty: {
-                    active: !!groupSession,
-                    loading: isSearchTogetherLoading,
-                    canHost: !!user,
-                    joinUrl,
-                    participants,
-                    totalPiecesFound,
-                    currentParticipantId: currentParticipant?.id ?? null,
-                    onStart: handleStartSearchTogether,
-                    onEnd: handleEndSearchTogether,
-                  },
-                }
-              : {})}
+            searchParty={{
+              active: !!groupSession,
+              loading: isSearchTogetherLoading || !clientId,
+              canHost: !!user && !!clientId,
+              joinUrl,
+              participants,
+              totalPiecesFound,
+              currentParticipantId: currentParticipant?.id ?? null,
+              onStart: handleStartSearchTogether,
+              onEnd: handleEndSearchTogether,
+            }}
           />
           <InventoryControls />
         </header>

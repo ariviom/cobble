@@ -14,6 +14,8 @@ export type OpenTab = {
   imageUrl: string | null;
   numParts: number;
   year: number;
+  themeId?: number | null;
+  themeName?: string | null;
 };
 
 type SetTabBarProps = {
@@ -82,9 +84,7 @@ export function SetTabBar({
             tab.setNumber.toLowerCase() === activeSetNumber.toLowerCase();
           // Show divider if: not first tab, not active, and previous tab is not active
           const showDivider =
-            index !== activeIndex - 1 &&
-            index !== activeIndex &&
-            index !== tabs.length - 1;
+            index !== activeIndex - 1 && index !== activeIndex;
 
           return (
             <SetTabItem
@@ -104,18 +104,24 @@ export function SetTabBar({
         })}
 
         {/* Add tab button */}
-        <button
-          type="button"
-          onClick={() => setIsModalOpen(true)}
+        <div
           className={cn(
-            'fixed right-0 mb-0.5 flex flex-shrink-0 items-center justify-center border-l border-subtle transition-all lg:sticky lg:right-0 lg:border-x lg:bg-background',
-            'size-11 pt-1 lg:size-9', // 36px mobile, 28px desktop
-            'text-foreground-muted/70 hover:bg-theme-primary/10 hover:text-foreground'
+            'fixed right-0 mb-0.5 flex flex-shrink-0 items-center justify-center border-l transition-all lg:sticky lg:right-0 lg:border-none lg:bg-background',
+            'size-11 pt-1 lg:size-9' // 36px mobile, 28px desktop
           )}
-          aria-label="Open set in new tab"
         >
-          <Plus size={16} />
-        </button>
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className={cn(
+              'lg:size-8flex-shrink-0 mb-1 flex size-6 items-center justify-center rounded transition-colors',
+              'text-foreground-muted/70 hover:bg-theme-primary/10 hover:text-foreground'
+            )}
+            aria-label="Open set in new tab"
+          >
+            <Plus size={16} />
+          </button>
+        </div>
       </nav>
 
       {/* Add tab modal */}

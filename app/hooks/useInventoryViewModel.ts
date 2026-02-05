@@ -73,6 +73,8 @@ export type InventoryViewModel = {
   gridSizes: string;
   subcategoriesByParent: Record<string, string[]>;
   colorOptions: string[];
+  /** Colors that have matching pieces after display/category filters (for disabling unavailable options) */
+  availableColors: Set<string>;
   countsByParent: Record<string, number>;
   parentOptions: string[];
   computeMissingRows: () => MissingRow[];
@@ -318,6 +320,46 @@ export function useInventoryViewModel(
     return counts;
   }, [rows, keys, filter, parentByIndex, ownedByKey]);
 
+  // Colors that have at least one matching piece after display and category filters
+  // (but before color filter is applied) - used to disable color options with no matches
+  const availableColors = useMemo(() => {
+    const selectedParents =
+      filter.parents && filter.parents.length > 0
+        ? new Set(filter.parents)
+        : null;
+
+    const available = new Set<string>();
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]!;
+      const key = keys[i]!;
+      const ownedValue = ownedByKey[key] ?? 0;
+
+      // Apply display filter
+      if (filter.display === 'missing') {
+        if (computeMissing(r.quantityRequired, ownedValue) === 0) continue;
+      } else if (filter.display === 'owned') {
+        if (ownedValue === 0) continue;
+      }
+
+      // Apply category filter
+      if (selectedParents) {
+        const parent = parentByIndex[i];
+        if (!selectedParents.has(parent)) continue;
+        const explicitSubs = filter.subcategoriesByParent?.[parent];
+        if (explicitSubs && explicitSubs.length > 0) {
+          const category = categoryByIndex[i] ?? 'Uncategorized';
+          if (!explicitSubs.includes(category)) continue;
+        }
+      }
+
+      // Don't apply color filter - we want to know what colors ARE available
+      available.add(r.colorName);
+    }
+
+    return available;
+  }, [rows, keys, filter, parentByIndex, categoryByIndex, ownedByKey]);
+
   const parentOptions = useMemo(
     () => Array.from(new Set(parentByIndex)).filter(Boolean).sort(),
     [parentByIndex]
@@ -357,6 +399,7 @@ export function useInventoryViewModel(
     gridSizes,
     subcategoriesByParent,
     colorOptions,
+    availableColors,
     countsByParent,
     parentOptions,
     computeMissingRows,

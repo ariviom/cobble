@@ -4,7 +4,7 @@ import { useOpenTabsStore } from '@/app/store/open-tabs';
 import { addRecentSet } from '@/app/store/recent-sets';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
-import { BrickLoader } from '@/app/components/ui/BrickLoader';
+import { SetPageSkeleton } from '@/app/components/set/SetPageSkeleton';
 
 type SetPageRedirectorProps = {
   setNumber: string;
@@ -49,6 +49,8 @@ export function SetPageRedirector({
       imageUrl,
       numParts,
       year,
+      themeId,
+      themeName,
     });
 
     // Add to recent sets
@@ -76,10 +78,6 @@ export function SetPageRedirector({
     router,
   ]);
 
-  // Show loading while redirecting
-  return (
-    <div className="flex h-[50vh] items-center justify-center">
-      <BrickLoader />
-    </div>
-  );
+  // Show skeleton layout while redirecting to prevent layout shift
+  return <SetPageSkeleton />;
 }

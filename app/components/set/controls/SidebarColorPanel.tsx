@@ -8,6 +8,8 @@ import { formatColorLabel } from '../utils/format';
 
 type Props = {
   colorOptions: string[];
+  /** Colors that have matching pieces after display/category filters (for disabling unavailable options) */
+  availableColors: Set<string>;
   selectedColors: string[];
   onToggleColor: (color: string) => void;
   onClear: () => void;
@@ -15,6 +17,7 @@ type Props = {
 
 export function SidebarColorPanel({
   colorOptions,
+  availableColors,
   selectedColors,
   onToggleColor,
   onClear,
@@ -25,15 +28,20 @@ export function SidebarColorPanel({
         <div>
           {(colorOptions || []).map(c => {
             const selected = selectedColors.includes(c);
+            const isAvailable = availableColors.has(c);
+            const isMuted = !isAvailable && !selected;
             return (
               <RowButton
                 key={c}
                 selected={selected}
                 onClick={() => onToggleColor(c)}
                 className="border-b border-foreground-accent"
+                muted={isMuted}
               >
-                <RowCheckbox checked={selected} />
-                <span>{formatColorLabel(c)}</span>
+                <RowCheckbox checked={selected} muted={isMuted} />
+                <span className={isMuted ? 'opacity-40' : ''}>
+                  {formatColorLabel(c)}
+                </span>
               </RowButton>
             );
           })}

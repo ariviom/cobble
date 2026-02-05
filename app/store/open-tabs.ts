@@ -20,6 +20,8 @@ export type OpenTab = {
   imageUrl: string | null;
   numParts: number;
   year: number;
+  themeId?: number | null;
+  themeName?: string | null;
 };
 
 export type TabViewState = {
@@ -155,6 +157,8 @@ function parsePersisted(
     if (Array.isArray(parsed.tabs)) {
       for (const t of parsed.tabs) {
         if (isValidOpenTab(t)) {
+          const rawThemeId = (t as OpenTab).themeId;
+          const rawThemeName = (t as OpenTab).themeName;
           tabs.push({
             setNumber: t.setNumber,
             name: t.name,
@@ -164,6 +168,10 @@ function parsePersisted(
                 : null,
             numParts: t.numParts,
             year: t.year,
+            ...(typeof rawThemeId === 'number' ? { themeId: rawThemeId } : {}),
+            ...(typeof rawThemeName === 'string'
+              ? { themeName: rawThemeName }
+              : {}),
           });
         }
       }
@@ -377,11 +385,26 @@ if (typeof window !== 'undefined') {
   window.addEventListener('storage', event => {
     if (event.key !== STORAGE_KEY) return;
     const next = parsePersisted(event.newValue);
-    useOpenTabsStore.setState(state => ({
-      ...state,
-      tabs: next.tabs,
-      activeSetNumber: next.activeSetNumber,
-      tabStates: next.tabStates,
-    }));
+    // Sync tabs list and view states, but NOT activeSetNumber.
+    // Each browser tab maintains its own active set independently
+    // to prevent infinite switching loops when multiple tabs are open.
+    useOpenTabsStore.setState(state => {
+      // If current active tab was closed in another browser tab, pick a new one
+      const activeStillExists = next.tabs.some(
+        t => t.setNumber.toLowerCase() === state.activeSetNumber?.toLowerCase()
+      );
+      const nextActiveSetNumber = activeStillExists
+        ? state.activeSetNumber
+        : next.tabs.length > 0
+          ? next.tabs[0].setNumber
+          : null;
+
+      return {
+        ...state,
+        tabs: next.tabs,
+        activeSetNumber: nextActiveSetNumber,
+        tabStates: next.tabStates,
+      };
+    });
   });
 }

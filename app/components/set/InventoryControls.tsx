@@ -5,7 +5,12 @@ import { useEffect, useRef, useState } from 'react';
 import { TopBarControls } from './controls/TopBarControls';
 import { useInventoryContext } from './InventoryProvider';
 
-export function InventoryControls() {
+type InventoryControlsProps = {
+  /** When true, sidebar triggers are disabled (data not yet loaded) */
+  isLoading?: boolean | undefined;
+};
+
+export function InventoryControls({ isLoading }: InventoryControlsProps) {
   const ctx = useInventoryContext();
   const {
     setNumber,
@@ -26,6 +31,7 @@ export function InventoryControls() {
     countsByParent,
     subcategoriesByParent,
     colorOptions,
+    availableColors,
     openExportModal,
     markAllMissing,
     markAllComplete,
@@ -196,11 +202,13 @@ export function InventoryControls() {
         parentCounts={countsByParent}
         subcategoriesByParent={subcategoriesByParent}
         colorOptions={colorOptions}
+        availableColors={availableColors}
         onToggleColor={handleToggleColor}
         isDesktop={isDesktop}
         isParentOpen={isParentOpen}
         isColorOpen={isColorOpen}
         onOpenExportModal={openExportModal}
+        isLoading={isLoading}
       />
     </div>
   );

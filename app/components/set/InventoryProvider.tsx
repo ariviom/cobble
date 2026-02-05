@@ -104,6 +104,8 @@ export type InventoryContextValue = {
   // Derived
   sortedIndices: number[];
   colorOptions: string[];
+  /** Colors that have matching pieces after display/category filters (for disabling unavailable options) */
+  availableColors: Set<string>;
   parentOptions: string[];
   subcategoriesByParent: Record<string, string[]>;
   countsByParent: Record<string, number>;
@@ -242,6 +244,7 @@ export function InventoryProvider({
     sortedIndices,
     subcategoriesByParent,
     colorOptions,
+    availableColors,
     countsByParent,
     parentOptions,
     gridSizes,
@@ -527,6 +530,7 @@ export function InventoryProvider({
       // Derived
       sortedIndices,
       colorOptions,
+      availableColors,
       parentOptions,
       subcategoriesByParent,
       countsByParent,
@@ -601,6 +605,7 @@ export function InventoryProvider({
       getControlsState,
       sortedIndices,
       colorOptions,
+      availableColors,
       parentOptions,
       subcategoriesByParent,
       countsByParent,

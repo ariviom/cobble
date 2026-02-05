@@ -17,6 +17,8 @@ type SetEntry = {
   year: number;
   imageUrl: string | null;
   numParts: number;
+  themeId?: number | null;
+  themeName?: string | null;
 };
 
 type AddTabContentProps = {
@@ -64,6 +66,7 @@ export function AddTabContent({
     const result: SetEntry[] = [];
 
     // Add user collection sets first (they take priority)
+    // Note: UserSet doesn't store themeName, only themeId
     Object.values(userSets).forEach(set => {
       const normKey = set.setNumber.toLowerCase();
       if (openSetNumbers.has(normKey) || seen.has(normKey)) return;
@@ -74,6 +77,8 @@ export function AddTabContent({
         year: set.year,
         imageUrl: set.imageUrl,
         numParts: set.numParts,
+        themeId: set.themeId ?? null,
+        themeName: null,
       });
     });
 
@@ -89,6 +94,8 @@ export function AddTabContent({
         year: set.year,
         imageUrl: set.imageUrl,
         numParts: set.numParts,
+        themeId: set.themeId ?? null,
+        themeName: set.themeName ?? null,
       });
     });
 
@@ -121,6 +128,8 @@ export function AddTabContent({
         imageUrl: set.imageUrl,
         numParts: set.numParts,
         year: set.year,
+        themeId: set.themeId ?? null,
+        themeName: set.themeName ?? null,
       });
       onClose();
     },
