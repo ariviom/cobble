@@ -32,10 +32,10 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Redirect authenticated users to account page
+  // Redirect authenticated users to home page
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/account');
+      router.push('/');
     }
   }, [authLoading, user, router]);
 
@@ -75,11 +75,8 @@ function LoginForm() {
         return;
       }
 
-      // Get redirect URL - automatically uses current origin
-      // In dev: http://localhost:3000/account
-      // In prod: https://brick-party.com/account
-      // IMPORTANT: This exact URL must be configured in Supabase Dashboard > Authentication > URL Configuration
-      // as an allowed redirect URL for OAuth to work.
+      // Get redirect URL - automatically uses current origin (any port in dev)
+      // IMPORTANT: The origin must be whitelisted in Supabase Dashboard > Authentication > URL Configuration
       const redirectUrl = getAuthRedirectUrl();
 
       // Log for debugging (remove in production if needed)
@@ -159,8 +156,8 @@ function LoginForm() {
         return;
       }
 
-      // Success - redirect to account page
-      router.push('/account');
+      // Success - redirect to home page
+      router.push('/');
     } catch (err) {
       const errorMessage =
         err instanceof Error
