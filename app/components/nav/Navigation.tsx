@@ -3,13 +3,13 @@
 import { NavLinkItem } from '@/app/components/nav/NavLinkItem';
 import { cn } from '@/app/components/ui/utils';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import { Camera, Home, Package, Search, User } from 'lucide-react';
+import { Camera, Layers, Package, Search, User } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export type NavigationTab =
-  | 'home'
+  | 'sets'
   | 'search'
   | 'collection'
   | 'identify'
@@ -31,18 +31,19 @@ export function Navigation({
   const isLoggedIn = !!user;
 
   const inferredTab: NavigationTab = (() => {
-    if (pathname === '/' || pathname.startsWith('/?')) return 'home';
+    if (
+      pathname === '/sets' ||
+      pathname.startsWith('/sets/') ||
+      pathname === '/'
+    )
+      return 'sets';
     if (pathname.startsWith('/search')) return 'search';
     if (pathname.startsWith('/identify')) return 'identify';
-    if (
-      pathname.startsWith('/collection') ||
-      pathname.startsWith('/sets/id') ||
-      pathname.startsWith('/set/')
-    )
+    if (pathname.startsWith('/collection') || pathname.startsWith('/set/'))
       return 'collection';
     if (pathname.startsWith('/account')) return 'profile';
     if (pathname.startsWith('/login')) return 'profile';
-    return 'home';
+    return 'sets';
   })();
 
   const currentTab: NavigationTab = activeTab ?? inferredTab;
@@ -63,7 +64,7 @@ export function Navigation({
         <div className="relative flex w-full items-center justify-around gap-x-1 lg:justify-center lg:gap-x-3">
           {/* Desktop brand - clean, minimal treatment on theme background */}
           <Link
-            href="/"
+            href="/sets"
             className="group hidden items-center gap-2 transition-all duration-150 hover:scale-[1.02] lg:absolute lg:top-1/2 lg:left-6 lg:flex lg:-translate-y-1/2"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-[inset_0_-2px_0_0_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.1)] transition-transform duration-150 group-hover:rotate-6">
@@ -80,13 +81,12 @@ export function Navigation({
             </h1>
           </Link>
           <NavLinkItem
-            className="lg:hidden"
-            icon={<Home className="h-5 w-5" />}
-            ariaLabel="Home"
-            labelMobile="Home"
-            href="/"
-            active={currentTab === 'home'}
-            onClick={handleTabClick('home')}
+            icon={<Layers className="h-5 w-5" />}
+            ariaLabel="Sets"
+            labelMobile="Sets"
+            href="/sets"
+            active={currentTab === 'sets'}
+            onClick={handleTabClick('sets')}
           />
           <NavLinkItem
             icon={<Package className="h-5 w-5" />}
