@@ -1,6 +1,7 @@
 'use client';
 
 import { SetDisplayCardWithControls } from '@/app/components/set/SetDisplayCardWithControls';
+import { MyCollectionSection } from '@/app/components/sets/MyCollectionSection';
 import { SetProgressCard } from '@/app/components/sets/SetProgressCard';
 import { HorizontalCardRail } from '@/app/components/ui/HorizontalCardRail';
 import { Button } from '@/app/components/ui/Button';
@@ -75,29 +76,32 @@ export function SetsLandingContent({
   return (
     <div className="min-h-screen pb-[var(--spacing-nav-height)] lg:pb-0">
       {/* Hero Section */}
-      <section className="bg-card px-4 py-6 lg:py-10">
+      <section className="bg-card px-4 pt-6 lg:pt-10">
         <div className="container-default flex flex-col items-center text-center">
-          <p className="mb-6 max-w-lg text-lg font-medium text-foreground-muted lg:text-xl">
-            Track your LEGO set inventory, find missing pieces, and export lists
-            for Rebrickable and BrickLink.
+          <p className="max-w-lg text-lg font-medium text-foreground-muted lg:text-xl">
+            Find your LEGO set by searching the catalog or snapping a photo of a
+            part to get started.
           </p>
-
-          <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/search">
-              <Button variant="primary" size="lg" className="gap-2 text-lg">
-                <Search className="h-5 w-5" />
-                Search Sets
-              </Button>
-            </Link>
-            <Link href="/identify">
-              <Button variant="secondary" size="lg" className="gap-2 text-lg">
-                <Camera className="h-5 w-5" />
-                Identify Parts
-              </Button>
-            </Link>
-          </div>
         </div>
       </section>
+
+      {/* Sticky CTA buttons */}
+      <div className="sticky top-11 z-50 bg-card px-4 pt-3 pb-4 lg:top-0">
+        <div className="container-default flex flex-wrap justify-center gap-4">
+          <Link href="/search">
+            <Button variant="primary" size="lg" className="gap-2 text-lg">
+              <Search className="h-5 w-5" />
+              Search Sets
+            </Button>
+          </Link>
+          <Link href="/identify">
+            <Button variant="secondary" size="lg" className="gap-2 text-lg">
+              <Camera className="h-5 w-5" />
+              Identify Parts
+            </Button>
+          </Link>
+        </div>
+      </div>
 
       {/* Recently Viewed */}
       <section className="py-8">
@@ -114,7 +118,7 @@ export function SetsLandingContent({
                 {recentSets.map(set => (
                   <div
                     key={set.setNumber}
-                    className="w-44 shrink-0 snap-start sm:w-52"
+                    className="w-56 shrink-0 snap-start sm:w-64"
                     onClick={e => handleSelectRecent(set, e)}
                   >
                     <SetDisplayCardWithControls
@@ -164,7 +168,7 @@ export function SetsLandingContent({
               {continueSets.map(set => (
                 <div
                   key={set.setNumber}
-                  className="w-44 shrink-0 snap-start sm:w-52"
+                  className="w-56 shrink-0 snap-start sm:w-64"
                   onClick={e => handleSelectContinue(set, e)}
                 >
                   <SetProgressCard
@@ -183,6 +187,9 @@ export function SetsLandingContent({
           </div>
         </section>
       )}
+
+      {/* My Collection — self-hides when empty */}
+      {user && <MyCollectionSection onSelectSet={onSelectSet} />}
 
       {/* Footer */}
       <footer className="mt-8 mb-8 border-t border-subtle px-4 pt-8">
