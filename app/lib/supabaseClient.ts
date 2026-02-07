@@ -26,11 +26,12 @@ export function getSupabaseBrowserClient(): BrowserClient {
 
 /**
  * Get the redirect URL for OAuth callbacks.
+ * Points to /auth/callback so the PKCE code exchange happens server-side.
  * Uses window.location.origin to support any local port (3000, 3001, etc).
  */
 export function getAuthRedirectUrl(): string {
   if (typeof window !== 'undefined') {
-    return window.location.origin;
+    return `${window.location.origin}/auth/callback`;
   }
   // Fallback for server-side (shouldn't be used for OAuth)
   const origin =
@@ -38,5 +39,5 @@ export function getAuthRedirectUrl(): string {
     process.env.VERCEL_URL ||
     'http://localhost:3000';
   const protocol = origin.startsWith('http') ? '' : 'https://';
-  return `${protocol}${origin}`;
+  return `${protocol}${origin}/auth/callback`;
 }

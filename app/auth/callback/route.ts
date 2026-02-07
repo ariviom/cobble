@@ -5,11 +5,11 @@ import type { NextRequest } from 'next/server';
 import type { Database } from '@/supabase/types';
 
 /**
- * Auth callback handler for Supabase email confirmation links.
+ * Auth callback handler for Supabase PKCE code exchange.
  *
- * When a user clicks a confirmation link (signup, password reset, magic link, etc.),
- * Supabase redirects them here with a `code` parameter. We exchange that code
- * for a session and then redirect to the appropriate page.
+ * Handles both OAuth redirects (Google sign-in) and email confirmation links
+ * (signup, password reset, magic link). Supabase redirects here with a `code`
+ * parameter which we exchange for a session, then redirect to the app.
  */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);

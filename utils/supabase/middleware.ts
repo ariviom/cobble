@@ -89,6 +89,9 @@ export async function updateSession(request: NextRequest) {
           getAll: () => request.cookies.getAll(),
           setAll: cookies => {
             for (const { name, value, options } of cookies) {
+              // Update request cookies so downstream server components
+              // (layout, pages) see the refreshed session in this same request.
+              request.cookies.set(name, value);
               response.cookies.set(name, value, options);
             }
           },
