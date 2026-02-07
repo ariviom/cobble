@@ -1,67 +1,37 @@
 'use client';
 
-import { AddTabContent } from '@/app/components/set/AddTabContent';
 import { SetTabItem } from '@/app/components/set/SetTabItem';
-import { Modal } from '@/app/components/ui/Modal';
 import { cn } from '@/app/components/ui/utils';
+import type { OpenTab } from '@/app/store/open-tabs';
 import { Plus } from 'lucide-react';
-import { useCallback, useState } from 'react';
-
-/** Tab data shape (kept for future tab bar implementation) */
-export type OpenTab = {
-  setNumber: string;
-  name: string;
-  imageUrl: string | null;
-  numParts: number;
-  year: number;
-  themeId?: number | null;
-  themeName?: string | null;
-};
 
 type SetTabBarProps = {
   tabs: OpenTab[];
-  activeSetNumber: string;
+  activeTabId: string;
   groupSessionSetNumber: string | null;
   /** Callback when a tab is activated (for SPA mode). */
-  onActivateTab?: ((setNumber: string) => void) | undefined;
+  onActivateTab?: ((id: string) => void) | undefined;
   /** Callback when a tab is closed (for SPA mode). */
-  onCloseTab?: ((setNumber: string) => void) | undefined;
-  /** Callback when opening a new tab from recent sets dropdown (for SPA mode). */
-  onOpenNewTab?: ((tab: OpenTab) => void) | undefined;
+  onCloseTab?: ((id: string) => void) | undefined;
+  /** Callback when the + button is clicked to open a new landing tab. */
+  onOpenLandingTab?: (() => void) | undefined;
 };
 
 export function SetTabBar({
   tabs,
-  activeSetNumber,
+  activeTabId,
   groupSessionSetNumber,
   onActivateTab,
   onCloseTab,
-  onOpenNewTab,
+  onOpenLandingTab,
 }: SetTabBarProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  const handleOpenSet = useCallback(
-    (tab: OpenTab) => {
-      if (onOpenNewTab) {
-        onOpenNewTab(tab);
-      } else if (onActivateTab) {
-        onActivateTab(tab.setNumber);
-      }
-    },
-    [onActivateTab, onOpenNewTab]
-  );
-
-  const handleCloseModal = useCallback(() => {
-    setIsModalOpen(false);
-  }, []);
-
   if (tabs.length === 0) {
     return null;
   }
 
   // Find the index of the active tab for divider logic
   const activeIndex = tabs.findIndex(
-    t => t.setNumber.toLowerCase() === activeSetNumber.toLowerCase()
+    t => t.id.toLowerCase() === activeTabId.toLowerCase()
   );
 
   return (
@@ -80,22 +50,21 @@ export function SetTabBar({
       >
         <div className="absolute inset-x-0 bottom-0 h-px bg-subtle" />
         {tabs.map((tab: OpenTab, index: number) => {
-          const isActive =
-            tab.setNumber.toLowerCase() === activeSetNumber.toLowerCase();
+          const isActive = tab.id.toLowerCase() === activeTabId.toLowerCase();
           // Show divider if: not first tab, not active, and previous tab is not active
           const showDivider =
             index !== activeIndex - 1 && index !== activeIndex;
 
           return (
             <SetTabItem
-              key={tab.setNumber}
+              key={tab.id}
               tab={tab}
               isActive={isActive}
               showDivider={showDivider}
               hasSearchParty={
+                tab.type === 'set' &&
                 groupSessionSetNumber !== null &&
-                tab.setNumber.toLowerCase() ===
-                  groupSessionSetNumber.toLowerCase()
+                tab.id.toLowerCase() === groupSessionSetNumber.toLowerCase()
               }
               onActivate={onActivateTab}
               onClose={onCloseTab}
@@ -112,26 +81,17 @@ export function SetTabBar({
         >
           <button
             type="button"
-            onClick={() => setIsModalOpen(true)}
+            onClick={onOpenLandingTab}
             className={cn(
               'lg:size-8flex-shrink-0 mb-1 flex size-6 items-center justify-center rounded transition-colors',
               'text-foreground-muted/70 hover:bg-theme-primary/10 hover:text-foreground'
             )}
-            aria-label="Open set in new tab"
+            aria-label="Open new tab"
           >
             <Plus size={16} />
           </button>
         </div>
       </nav>
-
-      {/* Add tab modal */}
-      <Modal open={isModalOpen} title="View Set" onClose={handleCloseModal}>
-        <AddTabContent
-          openTabs={tabs}
-          onOpenSet={handleOpenSet}
-          onClose={handleCloseModal}
-        />
-      </Modal>
     </div>
   );
 }

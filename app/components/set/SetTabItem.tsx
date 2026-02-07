@@ -1,8 +1,9 @@
 'use client';
 
-import type { OpenTab } from '@/app/components/set/SetTabBar';
 import { cn } from '@/app/components/ui/utils';
-import { X } from 'lucide-react';
+import type { OpenTab } from '@/app/store/open-tabs';
+import { isLandingTab } from '@/app/store/open-tabs';
+import { Layers, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback } from 'react';
@@ -14,9 +15,9 @@ type SetTabItemProps = {
   showDivider?: boolean;
   hasSearchParty: boolean;
   /** Callback when tab is activated (for SPA mode). */
-  onActivate?: ((setNumber: string) => void) | undefined;
+  onActivate?: ((id: string) => void) | undefined;
   /** Callback when tab is closed (for SPA mode). */
-  onClose?: ((setNumber: string) => void) | undefined;
+  onClose?: ((id: string) => void) | undefined;
 };
 
 export function SetTabItem({
@@ -27,13 +28,15 @@ export function SetTabItem({
   onActivate,
   onClose,
 }: SetTabItemProps) {
+  const isLanding = isLandingTab(tab);
+
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       // In SPA mode, prevent navigation and use callback
       if (onActivate) {
         e.preventDefault();
         if (!isActive) {
-          onActivate(tab.setNumber);
+          onActivate(tab.id);
         }
       }
       // In MPA mode (no onActivate), let the Link handle navigation
@@ -42,7 +45,7 @@ export function SetTabItem({
         e.preventDefault();
       }
     },
-    [isActive, onActivate, tab.setNumber]
+    [isActive, onActivate, tab.id]
   );
 
   const handleClose = useCallback(
@@ -52,17 +55,83 @@ export function SetTabItem({
 
       // Let parent handle close logic
       if (onClose) {
-        onClose(tab.setNumber);
+        onClose(tab.id);
       }
     },
-    [onClose, tab.setNumber]
+    [onClose, tab.id]
   );
 
+  // Landing tabs link to /sets; set tabs link to /sets/{id}
+  const tabUrl = isLanding ? '/sets' : `/sets/${tab.id}`;
+
+  // Landing tab display
+  if (isLanding) {
+    return (
+      <>
+        <div
+          className={`flex h-11 items-end gap-4 py-1 lg:h-9 lg:min-w-fit ${isActive && 'fixed left-0 z-10 lg:static'}`}
+        >
+          <Link
+            href={tabUrl}
+            prefetch={true}
+            role="tab"
+            aria-selected={isActive}
+            aria-label="Sets"
+            onClick={handleClick}
+            className={cn(
+              'group relative flex h-full w-32 flex-shrink-0 items-center gap-2 px-3 pr-10 transition-colors lg:w-auto lg:pr-8',
+              isActive
+                ? 'rounded-t-sm bg-card text-foreground'
+                : 'rounded text-foreground-muted hover:rounded-md hover:border-transparent hover:bg-theme-primary/10 hover:text-foreground'
+            )}
+          >
+            {/* bridge to card background */}
+            {isActive && (
+              <div className="absolute inset-x-0 -bottom-2 h-2 bg-card" />
+            )}
+            {/* Sets icon */}
+            <div className="flex size-5 flex-shrink-0 items-center justify-center">
+              <Layers size={16} />
+            </div>
+
+            {/* Label */}
+            <div className="flex items-center gap-1.5 text-xs font-medium">
+              <span className="font-bold">Sets</span>
+            </div>
+
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={handleClose}
+              className={cn(
+                'absolute right-1.5 flex items-center justify-center rounded transition-colors',
+                'size-7 lg:size-5',
+                isActive
+                  ? 'text-foreground-muted hover:bg-neutral-200 hover:text-foreground dark:hover:bg-neutral-700'
+                  : 'text-foreground-muted/70 hover:bg-theme-primary/15 hover:text-foreground'
+              )}
+              aria-label="Close tab"
+            >
+              <X size={12} />
+            </button>
+          </Link>
+        </div>
+        <div
+          aria-hidden="true"
+          className="flex h-full min-h-11 w-4 items-center justify-center lg:min-h-9"
+        >
+          <div
+            className={`h-5 w-px bg-foreground-muted/30 lg:h-4 ${!showDivider && 'lg:hidden'} ${isActive && 'hidden'}`}
+          ></div>
+        </div>
+      </>
+    );
+  }
+
+  // Set tab display
   // Truncate name for display
   const displayName =
     tab.name.length > 24 ? `${tab.name.slice(0, 22)}...` : tab.name;
-
-  const tabUrl = `/sets/${tab.setNumber}`;
 
   return (
     <>
@@ -74,7 +143,7 @@ export function SetTabItem({
           prefetch={true}
           role="tab"
           aria-selected={isActive}
-          aria-label={`${tab.setNumber}: ${tab.name}`}
+          aria-label={`${tab.id}: ${tab.name}`}
           onClick={handleClick}
           className={cn(
             'group relative flex h-full w-32 flex-shrink-0 items-center gap-2 px-3 pr-10 transition-colors lg:w-auto lg:pr-8',
@@ -106,7 +175,7 @@ export function SetTabItem({
 
           {/* Set number and name */}
           <div className="flex items-center gap-1.5 text-xs font-medium">
-            <span className="font-bold">{tab.setNumber}</span>
+            <span className="font-bold">{tab.id}</span>
             <span className="hidden text-foreground-muted lg:inline">
               {displayName}
             </span>
@@ -131,7 +200,7 @@ export function SetTabItem({
                 ? 'text-foreground-muted hover:bg-neutral-200 hover:text-foreground dark:hover:bg-neutral-700'
                 : 'text-foreground-muted/70 hover:bg-theme-primary/15 hover:text-foreground'
             )}
-            aria-label={`Close ${tab.setNumber}`}
+            aria-label={`Close ${tab.id}`}
           >
             <X size={12} />
           </button>

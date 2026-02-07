@@ -329,25 +329,12 @@ export function InventoryProvider({
   );
 
   // -------------------------------------------------------------------------
-  // Owned store (for bulk actions)
-  // -------------------------------------------------------------------------
-  const clearAllOwned = useOwnedStore(state => state.clearAll);
-  const markAllAsOwnedStore = useOwnedStore(state => state.markAllAsOwned);
-  const required = useMemo(() => rows.map(r => r.quantityRequired), [rows]);
-
-  const markAllMissing = useCallback(() => {
-    clearAllOwned(setNumber);
-  }, [clearAllOwned, setNumber]);
-
-  const markAllComplete = useCallback(() => {
-    markAllAsOwnedStore(setNumber, keys, required);
-  }, [markAllAsOwnedStore, setNumber, keys, required]);
-
-  // -------------------------------------------------------------------------
-  // Cloud sync (Supabase)
+  // Cloud sync (Supabase) + bulk actions
   // -------------------------------------------------------------------------
   const {
     handleOwnedChange: handleOwnedChangeBase,
+    markAllComplete,
+    markAllMissing,
     migration,
     isMigrating,
     confirmMigration,
@@ -358,6 +345,9 @@ export function InventoryProvider({
     keys,
     enableCloudSync,
   });
+
+  // Direct store access only for group session joiner cleanup (local-only)
+  const clearAllOwned = useOwnedStore(state => state.clearAll);
 
   // -------------------------------------------------------------------------
   // Group session (Search Party)

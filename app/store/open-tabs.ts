@@ -1,6 +1,10 @@
 'use client';
 
-import { readStorage, writeStorage } from '@/app/lib/persistence/storage';
+import {
+  readStorage,
+  removeStorage,
+  writeStorage,
+} from '@/app/lib/persistence/storage';
 import type {
   GroupBy,
   InventoryFilter,
@@ -14,8 +18,9 @@ import { create } from 'zustand';
 // Types
 // ---------------------------------------------------------------------------
 
-export type OpenTab = {
-  setNumber: string;
+export type SetTab = {
+  type: 'set';
+  id: string; // set number e.g. '75192-1'
   name: string;
   imageUrl: string | null;
   numParts: number;
@@ -23,6 +28,21 @@ export type OpenTab = {
   themeId?: number | null;
   themeName?: string | null;
 };
+
+export type LandingTab = {
+  type: 'landing';
+  id: string; // generated e.g. 'landing-1709234567890'
+};
+
+export type OpenTab = SetTab | LandingTab;
+
+export function isSetTab(tab: OpenTab): tab is SetTab {
+  return tab.type === 'set';
+}
+
+export function isLandingTab(tab: OpenTab): tab is LandingTab {
+  return tab.type === 'landing';
+}
 
 export type TabViewState = {
   scrollTop: number;
@@ -36,15 +56,17 @@ export type TabViewState = {
 
 type OpenTabsState = {
   tabs: OpenTab[];
-  activeSetNumber: string | null;
-  tabStates: Record<string, TabViewState>; // keyed by setNumber
+  activeTabId: string | null;
+  tabStates: Record<string, TabViewState>; // keyed by tab id
 
   // Actions
-  openTab: (tab: OpenTab) => void;
-  closeTab: (setNumber: string) => void;
-  setActiveTab: (setNumber: string) => void;
-  saveTabState: (setNumber: string, state: Partial<TabViewState>) => void;
-  getTabState: (setNumber: string) => TabViewState | undefined;
+  openTab: (tab: SetTab) => void;
+  closeTab: (id: string) => void;
+  setActiveTab: (id: string) => void;
+  openLandingTab: () => void;
+  replaceLandingWithSet: (landingTabId: string, setTab: SetTab) => void;
+  saveTabState: (id: string, state: Partial<TabViewState>) => void;
+  getTabState: (id: string) => TabViewState | undefined;
   getActiveTab: () => OpenTab | undefined;
 };
 
@@ -52,7 +74,8 @@ type OpenTabsState = {
 // Constants
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = 'brick_party_open_tabs_v1';
+const STORAGE_KEY_V1 = 'brick_party_open_tabs_v1';
+const STORAGE_KEY = 'brick_party_open_tabs_v2';
 const MAX_TABS = 10;
 
 // ---------------------------------------------------------------------------
@@ -81,25 +104,49 @@ export function createDefaultTabViewState(): TabViewState {
 }
 
 // ---------------------------------------------------------------------------
+// Landing tab ID generator
+// ---------------------------------------------------------------------------
+
+let landingCounter = 0;
+function generateLandingId(): string {
+  return `landing-${Date.now()}-${++landingCounter}`;
+}
+
+function createLandingTab(): LandingTab {
+  return { type: 'landing', id: generateLandingId() };
+}
+
+// ---------------------------------------------------------------------------
 // Persistence
 // ---------------------------------------------------------------------------
 
 type PersistedShape = {
   tabs: OpenTab[];
-  activeSetNumber: string | null;
+  activeTabId: string | null;
   tabStates: Record<string, TabViewState>;
 };
 
-function isValidOpenTab(obj: unknown): obj is OpenTab {
+function isValidSetTab(obj: unknown): obj is SetTab {
   if (!obj || typeof obj !== 'object') return false;
-  const t = obj as Partial<OpenTab>;
+  const t = obj as Partial<SetTab>;
   return (
-    typeof t.setNumber === 'string' &&
-    t.setNumber.length > 0 &&
+    t.type === 'set' &&
+    typeof t.id === 'string' &&
+    t.id.length > 0 &&
     typeof t.name === 'string' &&
     typeof t.numParts === 'number' &&
     typeof t.year === 'number'
   );
+}
+
+function isValidLandingTab(obj: unknown): obj is LandingTab {
+  if (!obj || typeof obj !== 'object') return false;
+  const t = obj as Partial<LandingTab>;
+  return t.type === 'landing' && typeof t.id === 'string' && t.id.length > 0;
+}
+
+function isValidOpenTab(obj: unknown): obj is OpenTab {
+  return isValidSetTab(obj) || isValidLandingTab(obj);
 }
 
 function isValidFilter(obj: unknown): obj is InventoryFilter {
@@ -131,20 +178,123 @@ function isValidTabViewState(obj: unknown): obj is TabViewState {
   );
 }
 
-function parsePersisted(
-  raw: string | null
-): Omit<
+// ---------------------------------------------------------------------------
+// v1 → v2 migration
+// ---------------------------------------------------------------------------
+
+type V1Tab = {
+  setNumber: string;
+  name: string;
+  imageUrl: string | null;
+  numParts: number;
+  year: number;
+  themeId?: number | null;
+  themeName?: string | null;
+};
+
+type V1Shape = {
+  tabs: V1Tab[];
+  activeSetNumber: string | null;
+  tabStates: Record<string, TabViewState>;
+};
+
+function migrateV1ToV2(): PersistedShape | null {
+  try {
+    const raw = readStorage(STORAGE_KEY_V1);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<V1Shape>;
+    if (!Array.isArray(parsed.tabs)) return null;
+
+    const tabs: OpenTab[] = [];
+    const tabStates: Record<string, TabViewState> = {};
+
+    for (const t of parsed.tabs) {
+      if (
+        t &&
+        typeof t === 'object' &&
+        typeof (t as V1Tab).setNumber === 'string' &&
+        (t as V1Tab).setNumber.length > 0
+      ) {
+        const v1 = t as V1Tab;
+        const setTab: SetTab = {
+          type: 'set',
+          id: v1.setNumber,
+          name: v1.name,
+          imageUrl:
+            typeof v1.imageUrl === 'string' || v1.imageUrl === null
+              ? v1.imageUrl
+              : null,
+          numParts: v1.numParts,
+          year: v1.year,
+          ...(typeof v1.themeId === 'number' ? { themeId: v1.themeId } : {}),
+          ...(typeof v1.themeName === 'string'
+            ? { themeName: v1.themeName }
+            : {}),
+        };
+        tabs.push(setTab);
+      }
+    }
+
+    // Migrate tab states (keys were setNumber, now id — same value for set tabs)
+    if (parsed.tabStates && typeof parsed.tabStates === 'object') {
+      for (const [key, state] of Object.entries(parsed.tabStates)) {
+        if (isValidTabViewState(state)) {
+          tabStates[key] = {
+            ...state,
+            scrollTop: (state as TabViewState).scrollTop ?? 0,
+          };
+        }
+      }
+    }
+
+    // Map activeSetNumber → activeTabId
+    let activeTabId: string | null = null;
+    if (
+      typeof parsed.activeSetNumber === 'string' &&
+      tabs.some(
+        t =>
+          isSetTab(t) &&
+          t.id.toLowerCase() === parsed.activeSetNumber?.toLowerCase()
+      )
+    ) {
+      activeTabId = parsed.activeSetNumber;
+    } else if (tabs.length > 0) {
+      activeTabId = tabs[0].id;
+    }
+
+    const v2: PersistedShape = { tabs, activeTabId, tabStates };
+
+    // Persist v2 and remove v1
+    writeStorage(STORAGE_KEY, JSON.stringify(v2));
+    removeStorage(STORAGE_KEY_V1);
+
+    return v2;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Parse persisted v2 data
+// ---------------------------------------------------------------------------
+
+type DataState = Omit<
   OpenTabsState,
   | 'openTab'
   | 'closeTab'
   | 'setActiveTab'
+  | 'openLandingTab'
+  | 'replaceLandingWithSet'
   | 'saveTabState'
   | 'getTabState'
   | 'getActiveTab'
-> {
-  const empty = {
+>;
+
+function parsePersisted(raw: string | null): DataState {
+  const empty: DataState = {
     tabs: [],
-    activeSetNumber: null,
+    activeTabId: null,
     tabStates: {},
   };
 
@@ -157,32 +307,34 @@ function parsePersisted(
     if (Array.isArray(parsed.tabs)) {
       for (const t of parsed.tabs) {
         if (isValidOpenTab(t)) {
-          const rawThemeId = (t as OpenTab).themeId;
-          const rawThemeName = (t as OpenTab).themeName;
-          tabs.push({
-            setNumber: t.setNumber,
-            name: t.name,
-            imageUrl:
-              typeof t.imageUrl === 'string' || t.imageUrl === null
-                ? t.imageUrl
-                : null,
-            numParts: t.numParts,
-            year: t.year,
-            ...(typeof rawThemeId === 'number' ? { themeId: rawThemeId } : {}),
-            ...(typeof rawThemeName === 'string'
-              ? { themeName: rawThemeName }
-              : {}),
-          });
+          if (isSetTab(t)) {
+            tabs.push({
+              type: 'set',
+              id: t.id,
+              name: t.name,
+              imageUrl:
+                typeof t.imageUrl === 'string' || t.imageUrl === null
+                  ? t.imageUrl
+                  : null,
+              numParts: t.numParts,
+              year: t.year,
+              ...(typeof t.themeId === 'number' ? { themeId: t.themeId } : {}),
+              ...(typeof t.themeName === 'string'
+                ? { themeName: t.themeName }
+                : {}),
+            });
+          } else {
+            tabs.push({ type: 'landing', id: t.id });
+          }
         }
       }
     }
 
     const tabStates: Record<string, TabViewState> = {};
     if (parsed.tabStates && typeof parsed.tabStates === 'object') {
-      for (const [setNumber, state] of Object.entries(parsed.tabStates)) {
+      for (const [id, state] of Object.entries(parsed.tabStates)) {
         if (isValidTabViewState(state)) {
-          // Ensure scrollTop has a default for backward compatibility
-          tabStates[setNumber] = {
+          tabStates[id] = {
             ...state,
             scrollTop: (state as TabViewState).scrollTop ?? 0,
           };
@@ -190,42 +342,48 @@ function parsePersisted(
       }
     }
 
-    // Validate activeSetNumber is in tabs
-    let activeSetNumber: string | null = null;
+    // Validate activeTabId is in tabs
+    let activeTabId: string | null = null;
     if (
-      typeof parsed.activeSetNumber === 'string' &&
-      tabs.some(
-        t => t.setNumber.toLowerCase() === parsed.activeSetNumber?.toLowerCase()
-      )
+      typeof parsed.activeTabId === 'string' &&
+      tabs.some(t => t.id.toLowerCase() === parsed.activeTabId?.toLowerCase())
     ) {
-      activeSetNumber = parsed.activeSetNumber;
+      activeTabId = parsed.activeTabId;
     } else if (tabs.length > 0) {
-      // Default to first tab if active is invalid
-      activeSetNumber = tabs[0].setNumber;
+      activeTabId = tabs[0].id;
     }
 
-    return { tabs, activeSetNumber, tabStates };
+    return { tabs, activeTabId, tabStates };
   } catch {
     return empty;
   }
 }
 
-function loadInitialState(): Omit<
-  OpenTabsState,
-  | 'openTab'
-  | 'closeTab'
-  | 'setActiveTab'
-  | 'saveTabState'
-  | 'getTabState'
-  | 'getActiveTab'
-> {
+function loadInitialState(): DataState {
   try {
+    // Try v2 first
     const raw = readStorage(STORAGE_KEY);
-    return parsePersisted(raw);
+    if (raw) return parsePersisted(raw);
+
+    // Try migrating from v1
+    const migrated = migrateV1ToV2();
+    if (migrated) {
+      return {
+        tabs: migrated.tabs,
+        activeTabId: migrated.activeTabId,
+        tabStates: migrated.tabStates,
+      };
+    }
+
+    return {
+      tabs: [],
+      activeTabId: null,
+      tabStates: {},
+    };
   } catch {
     return {
       tabs: [],
-      activeSetNumber: null,
+      activeTabId: null,
       tabStates: {},
     };
   }
@@ -235,7 +393,7 @@ function persistState(state: OpenTabsState): void {
   try {
     const payload: PersistedShape = {
       tabs: state.tabs,
-      activeSetNumber: state.activeSetNumber,
+      activeTabId: state.activeTabId,
       tabStates: state.tabStates,
     };
     writeStorage(STORAGE_KEY, JSON.stringify(payload));
@@ -251,13 +409,13 @@ function persistState(state: OpenTabsState): void {
 export const useOpenTabsStore = create<OpenTabsState>((set, get) => ({
   ...loadInitialState(),
 
-  openTab: (tab: OpenTab) => {
+  openTab: (tab: SetTab) => {
     const { tabs, tabStates } = get();
-    const normalizedSetNumber = tab.setNumber.toLowerCase();
+    const normalizedId = tab.id.toLowerCase();
 
-    // Check if tab already exists
+    // Check if a set tab with same id already exists
     const existingIndex = tabs.findIndex(
-      t => t.setNumber.toLowerCase() === normalizedSetNumber
+      t => isSetTab(t) && t.id.toLowerCase() === normalizedId
     );
 
     let nextTabs: OpenTab[];
@@ -273,84 +431,135 @@ export const useOpenTabsStore = create<OpenTabsState>((set, get) => ({
 
     // Initialize tab state if not exists
     const nextTabStates = { ...tabStates };
-    if (!nextTabStates[tab.setNumber]) {
-      nextTabStates[tab.setNumber] = createDefaultTabViewState();
+    if (!nextTabStates[tab.id]) {
+      nextTabStates[tab.id] = createDefaultTabViewState();
     }
 
     const nextState: OpenTabsState = {
       ...get(),
       tabs: nextTabs,
-      activeSetNumber: tab.setNumber,
+      activeTabId: tab.id,
       tabStates: nextTabStates,
     };
     set(nextState);
     persistState(nextState);
   },
 
-  closeTab: (setNumber: string) => {
-    const { tabs, activeSetNumber, tabStates } = get();
-    const normalizedSetNumber = setNumber.toLowerCase();
+  closeTab: (id: string) => {
+    const { tabs, activeTabId, tabStates } = get();
+    const normalizedId = id.toLowerCase();
 
-    const tabIndex = tabs.findIndex(
-      t => t.setNumber.toLowerCase() === normalizedSetNumber
-    );
+    const tabIndex = tabs.findIndex(t => t.id.toLowerCase() === normalizedId);
     if (tabIndex < 0) return;
 
     const nextTabs = tabs.filter((_, i) => i !== tabIndex);
 
     // Clean up tab state
     const nextTabStates = { ...tabStates };
-    delete nextTabStates[setNumber];
+    delete nextTabStates[id];
 
     // Determine new active tab if closing the active one
-    let nextActiveSetNumber = activeSetNumber;
-    if (activeSetNumber?.toLowerCase() === normalizedSetNumber) {
+    let nextActiveTabId = activeTabId;
+    if (activeTabId?.toLowerCase() === normalizedId) {
       if (nextTabs.length === 0) {
-        nextActiveSetNumber = null;
+        nextActiveTabId = null;
       } else if (tabIndex >= nextTabs.length) {
         // Was last tab, go to new last
-        nextActiveSetNumber = nextTabs[nextTabs.length - 1].setNumber;
+        nextActiveTabId = nextTabs[nextTabs.length - 1].id;
       } else {
         // Go to tab at same index (which is now the next tab)
-        nextActiveSetNumber = nextTabs[tabIndex].setNumber;
+        nextActiveTabId = nextTabs[tabIndex].id;
       }
     }
 
     const nextState: OpenTabsState = {
       ...get(),
       tabs: nextTabs,
-      activeSetNumber: nextActiveSetNumber,
+      activeTabId: nextActiveTabId,
       tabStates: nextTabStates,
     };
     set(nextState);
     persistState(nextState);
   },
 
-  setActiveTab: (setNumber: string) => {
+  setActiveTab: (id: string) => {
     const { tabs } = get();
-    const normalizedSetNumber = setNumber.toLowerCase();
+    const normalizedId = id.toLowerCase();
 
     // Verify tab exists
-    const exists = tabs.some(
-      t => t.setNumber.toLowerCase() === normalizedSetNumber
-    );
+    const exists = tabs.some(t => t.id.toLowerCase() === normalizedId);
     if (!exists) return;
 
     const nextState: OpenTabsState = {
       ...get(),
-      activeSetNumber: setNumber,
+      activeTabId: id,
     };
     set(nextState);
     persistState(nextState);
   },
 
-  saveTabState: (setNumber: string, state: Partial<TabViewState>) => {
+  openLandingTab: () => {
+    const { tabs } = get();
+    const landing = createLandingTab();
+    const nextTabs = [...tabs, landing].slice(-MAX_TABS);
+
+    const nextState: OpenTabsState = {
+      ...get(),
+      tabs: nextTabs,
+      activeTabId: landing.id,
+    };
+    set(nextState);
+    persistState(nextState);
+  },
+
+  replaceLandingWithSet: (landingTabId: string, setTab: SetTab) => {
+    const { tabs, tabStates } = get();
+
+    // Check if a set tab with same id already exists
+    const existingSetIndex = tabs.findIndex(
+      t => isSetTab(t) && t.id.toLowerCase() === setTab.id.toLowerCase()
+    );
+
+    let nextTabs: OpenTab[];
+    if (existingSetIndex >= 0) {
+      // Set tab already open — just remove the landing tab and activate the existing set tab
+      nextTabs = tabs
+        .filter(t => t.id !== landingTabId)
+        .map(t =>
+          isSetTab(t) && t.id.toLowerCase() === setTab.id.toLowerCase()
+            ? { ...t, ...setTab }
+            : t
+        );
+    } else {
+      // Replace landing tab in-place with the set tab
+      nextTabs = tabs.map(t => (t.id === landingTabId ? setTab : t));
+    }
+
+    // Initialize tab state if not exists
+    const nextTabStates = { ...tabStates };
+    if (!nextTabStates[setTab.id]) {
+      nextTabStates[setTab.id] = createDefaultTabViewState();
+    }
+    // Clean up landing tab state if any
+    delete nextTabStates[landingTabId];
+
+    const nextState: OpenTabsState = {
+      ...get(),
+      tabs: nextTabs,
+      activeTabId: setTab.id,
+      tabStates: nextTabStates,
+    };
+    set(nextState);
+    persistState(nextState);
+  },
+
+  saveTabState: (id: string, state: Partial<TabViewState>) => {
     const { tabStates } = get();
-    const existing = tabStates[setNumber] ?? createDefaultTabViewState();
+    const existing = tabStates[id] ?? createDefaultTabViewState();
 
     const nextTabStates = {
       ...tabStates,
-      [setNumber]: {
+      [id]: {
         ...existing,
         ...state,
       },
@@ -364,16 +573,14 @@ export const useOpenTabsStore = create<OpenTabsState>((set, get) => ({
     persistState(nextState);
   },
 
-  getTabState: (setNumber: string) => {
-    return get().tabStates[setNumber];
+  getTabState: (id: string) => {
+    return get().tabStates[id];
   },
 
   getActiveTab: () => {
-    const { tabs, activeSetNumber } = get();
-    if (!activeSetNumber) return undefined;
-    return tabs.find(
-      t => t.setNumber.toLowerCase() === activeSetNumber.toLowerCase()
-    );
+    const { tabs, activeTabId } = get();
+    if (!activeTabId) return undefined;
+    return tabs.find(t => t.id.toLowerCase() === activeTabId.toLowerCase());
   },
 }));
 
@@ -385,24 +592,24 @@ if (typeof window !== 'undefined') {
   window.addEventListener('storage', event => {
     if (event.key !== STORAGE_KEY) return;
     const next = parsePersisted(event.newValue);
-    // Sync tabs list and view states, but NOT activeSetNumber.
+    // Sync tabs list and view states, but NOT activeTabId.
     // Each browser tab maintains its own active set independently
     // to prevent infinite switching loops when multiple tabs are open.
     useOpenTabsStore.setState(state => {
       // If current active tab was closed in another browser tab, pick a new one
       const activeStillExists = next.tabs.some(
-        t => t.setNumber.toLowerCase() === state.activeSetNumber?.toLowerCase()
+        t => t.id.toLowerCase() === state.activeTabId?.toLowerCase()
       );
-      const nextActiveSetNumber = activeStillExists
-        ? state.activeSetNumber
+      const nextActiveTabId = activeStillExists
+        ? state.activeTabId
         : next.tabs.length > 0
-          ? next.tabs[0].setNumber
+          ? next.tabs[0].id
           : null;
 
       return {
         ...state,
         tabs: next.tabs,
-        activeSetNumber: nextActiveSetNumber,
+        activeTabId: nextActiveTabId,
         tabStates: next.tabStates,
       };
     });

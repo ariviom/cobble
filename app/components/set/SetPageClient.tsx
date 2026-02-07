@@ -1,7 +1,8 @@
 'use client';
 
 import { SetTopBar } from '@/app/components/nav/SetTopBar';
-import { SetTabBar, type OpenTab } from '@/app/components/set/SetTabBar';
+import { SetTabBar } from '@/app/components/set/SetTabBar';
+import type { OpenTab } from '@/app/store/open-tabs';
 import { Inventory } from '@/app/components/set/Inventory';
 import { InventoryControls } from '@/app/components/set/InventoryControls';
 import { InventoryProvider } from '@/app/components/set/InventoryProvider';
@@ -66,7 +67,8 @@ export function SetPageClient({
   const tabs: OpenTab[] = useMemo(
     () => [
       {
-        setNumber,
+        type: 'set' as const,
+        id: setNumber,
         name: setName,
         imageUrl,
         numParts,
@@ -308,7 +310,7 @@ export function SetPageClient({
           {showTabBar && (
             <SetTabBar
               tabs={tabs}
-              activeSetNumber={setNumber}
+              activeTabId={setNumber}
               groupSessionSetNumber={groupSession?.setNumber ?? null}
             />
           )}

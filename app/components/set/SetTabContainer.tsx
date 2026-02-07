@@ -15,7 +15,7 @@ import { useGroupClientId } from '@/app/hooks/useGroupClientId';
 import { useOrigin } from '@/app/hooks/useOrigin';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import type { OpenTab, TabViewState } from '@/app/store/open-tabs';
+import type { SetTab, TabViewState } from '@/app/store/open-tabs';
 import { addRecentSet } from '@/app/store/recent-sets';
 
 type GroupSessionState = {
@@ -32,7 +32,7 @@ type GroupParticipant = {
 };
 
 type SetTabContainerProps = {
-  tab: OpenTab;
+  tab: SetTab;
   isActive: boolean;
   savedScrollTop?: number;
   savedControlsState?: TabViewState;
@@ -112,7 +112,7 @@ export function SetTabContainer({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ setNumber: tab.setNumber }),
+        body: JSON.stringify({ setNumber: tab.id }),
       });
 
       const data = (await res.json()) as {
@@ -144,7 +144,7 @@ export function SetTabContainer({
       const created: GroupSessionState = {
         id: data.session.id,
         slug: data.session.slug,
-        setNumber: data.session.setNumber ?? tab.setNumber,
+        setNumber: data.session.setNumber ?? tab.id,
         isActive: data.session.isActive ?? true,
       };
       setGroupSession(created);
@@ -183,7 +183,7 @@ export function SetTabContainer({
     } finally {
       setIsSearchTogetherLoading(false);
     }
-  }, [user, clientId, isSearchTogetherLoading, tab.setNumber]);
+  }, [user, clientId, isSearchTogetherLoading, tab.id]);
 
   const handleEndSearchTogether = useCallback(async () => {
     if (!groupSession?.slug || !user) return;
@@ -314,7 +314,7 @@ export function SetTabContainer({
     const fetchInventory = async () => {
       try {
         const res = await fetch(
-          `/api/inventory?set=${encodeURIComponent(tab.setNumber)}`
+          `/api/inventory?set=${encodeURIComponent(tab.id)}`
         );
         if (!res.ok) {
           throw new Error('Failed to fetch inventory');
@@ -339,18 +339,13 @@ export function SetTabContainer({
     return () => {
       cancelled = true;
     };
-  }, [
-    isActive,
-    tab.setNumber,
-    inventoryData.rows.length,
-    inventoryData.loading,
-  ]);
+  }, [isActive, tab.id, inventoryData.rows.length, inventoryData.loading]);
 
   // Add to recent sets when tab becomes active
   useEffect(() => {
     if (isActive) {
       addRecentSet({
-        setNumber: tab.setNumber,
+        setNumber: tab.id,
         name: tab.name,
         year: tab.year,
         imageUrl: tab.imageUrl,
@@ -361,7 +356,7 @@ export function SetTabContainer({
     }
   }, [
     isActive,
-    tab.setNumber,
+    tab.id,
     tab.name,
     tab.year,
     tab.imageUrl,
@@ -381,35 +376,34 @@ export function SetTabContainer({
   return (
     <>
       <div
-        data-set-number={tab.setNumber}
+        data-set-number={tab.id}
         data-active={isActive}
         style={containerStyle}
         className="tab-container flex-col lg:min-h-0 lg:flex-1"
       >
-        {isActive && (
-          <InventoryProvider
-            setNumber={tab.setNumber}
-            setName={tab.name}
-            initialInventory={inventoryData.loading ? null : inventoryData.rows}
-            initialControlsState={savedControlsState}
-            enableCloudSync
+        <InventoryProvider
+          setNumber={tab.id}
+          setName={tab.name}
+          initialInventory={inventoryData.loading ? null : inventoryData.rows}
+          initialControlsState={savedControlsState}
+          enableCloudSync
+          isActive={isActive}
+          groupSessionId={groupSession?.id ?? null}
+          groupParticipantId={currentParticipant?.id ?? null}
+          groupClientId={clientId}
+          onParticipantPiecesDelta={handleParticipantPiecesDelta}
+        >
+          <SetTabContainerContent
+            tab={tab}
             isActive={isActive}
-            groupSessionId={groupSession?.id ?? null}
-            groupParticipantId={currentParticipant?.id ?? null}
-            groupClientId={clientId}
-            onParticipantPiecesDelta={handleParticipantPiecesDelta}
-          >
-            <SetTabContainerContent
-              tab={tab}
-              loading={inventoryData.loading || !!isHydrating}
-              error={inventoryData.error}
-              onSaveState={onSaveState}
-              savedScrollTop={savedScrollTop}
-              isDesktop={isDesktop}
-              searchParty={searchPartyProp}
-            />
-          </InventoryProvider>
-        )}
+            loading={inventoryData.loading || !!isHydrating}
+            error={inventoryData.error}
+            onSaveState={onSaveState}
+            savedScrollTop={savedScrollTop}
+            isDesktop={isDesktop}
+            searchParty={searchPartyProp}
+          />
+        </InventoryProvider>
       </div>
 
       {searchPartyError && (
@@ -424,7 +418,8 @@ export function SetTabContainer({
 }
 
 type SetTabContainerContentProps = {
-  tab: OpenTab;
+  tab: SetTab;
+  isActive: boolean;
   loading: boolean;
   error: string | null;
   onSaveState: (state: Partial<TabViewState>) => void;
@@ -445,6 +440,7 @@ type SetTabContainerContentProps = {
 
 function SetTabContainerContent({
   tab,
+  isActive,
   loading,
   error,
   onSaveState,
@@ -455,26 +451,40 @@ function SetTabContainerContent({
   const { setNumber, getControlsState } = useInventoryContext();
   const hasRestoredScroll = useRef(false);
 
-  // Save controls state on unmount (when tab becomes inactive)
+  // Save controls state when tab becomes inactive (or on unmount as fallback)
   const getControlsStateRef = useRef(getControlsState);
   getControlsStateRef.current = getControlsState;
 
   const onSaveStateRef = useRef(onSaveState);
   onSaveStateRef.current = onSaveState;
 
+  const saveControlsState = useCallback(() => {
+    const state = getControlsStateRef.current();
+    onSaveStateRef.current({
+      filter: state.filter,
+      sortKey: state.sortKey,
+      sortDir: state.sortDir,
+      view: state.view,
+      itemSize: state.itemSize,
+      groupBy: state.groupBy,
+    });
+  }, []);
+
+  const prevActiveRef = useRef(isActive);
+  useEffect(() => {
+    // Save state when transitioning from active → inactive
+    if (prevActiveRef.current && !isActive) {
+      saveControlsState();
+    }
+    prevActiveRef.current = isActive;
+  }, [isActive, saveControlsState]);
+
+  // Fallback: save on unmount (e.g. tab closed)
   useEffect(() => {
     return () => {
-      // Save controls state when unmounting
-      const state = getControlsStateRef.current();
-      onSaveStateRef.current({
-        filter: state.filter,
-        sortKey: state.sortKey,
-        sortDir: state.sortDir,
-        view: state.view,
-        itemSize: state.itemSize,
-        groupBy: state.groupBy,
-      });
+      saveControlsState();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Restore scroll position after inventory loads
@@ -506,7 +516,7 @@ function SetTabContainerContent({
       {/* Top bar with set info - always visible, sticky on mobile */}
       <div className="sticky top-10 z-50 shrink-0 bg-card lg:static">
         <SetTopBar
-          setNumber={tab.setNumber}
+          setNumber={tab.id}
           setName={tab.name}
           imageUrl={tab.imageUrl}
           year={tab.year}

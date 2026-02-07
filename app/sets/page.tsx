@@ -3,29 +3,32 @@
 import { SetPageSkeleton } from '@/app/components/set/SetPageSkeleton';
 import { SetTabBar } from '@/app/components/set/SetTabBar';
 import { SetTabContainer } from '@/app/components/set/SetTabContainer';
-import { BrickLoader } from '@/app/components/ui/BrickLoader';
+import { SetsLandingContent } from '@/app/components/sets/SetsLandingContent';
 import { cn } from '@/app/components/ui/utils';
 import { useDynamicTitle } from '@/app/hooks/useDynamicTitle';
 import { useIsDesktop } from '@/app/hooks/useIsDesktop';
 import {
   useOpenTabsStore,
-  type OpenTab,
+  isSetTab,
+  isLandingTab,
+  type SetTab,
   type TabViewState,
 } from '@/app/store/open-tabs';
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * SPA container for multi-tab set views.
  *
  * Architecture:
+ * - Supports two tab types: SetTab (inventory viewer) and LandingTab (home content)
  * - One container div per open tab
  * - Only the active tab has its children mounted (others have display:none)
  * - Scroll position saved from Inventory grid wrapper before tab switch
  * - Filter state saved on tab content unmount
+ * - "+" button creates a new landing tab (Chrome new-tab pattern)
+ * - Clicking a set from a landing tab replaces it in-place
  */
 export default function SetsPage() {
-  const router = useRouter();
   const isDesktop = useIsDesktop();
 
   // Track client-side mount to handle SSR → hydration transition
@@ -35,21 +38,37 @@ export default function SetsPage() {
   }, []);
 
   const tabs = useOpenTabsStore(state => state.tabs);
-  const activeSetNumber = useOpenTabsStore(state => state.activeSetNumber);
+  const activeTabId = useOpenTabsStore(state => state.activeTabId);
   const tabStates = useOpenTabsStore(state => state.tabStates);
   const setActiveTab = useOpenTabsStore(state => state.setActiveTab);
   const closeTab = useOpenTabsStore(state => state.closeTab);
   const saveTabState = useOpenTabsStore(state => state.saveTabState);
-  const openTab = useOpenTabsStore(state => state.openTab);
+  const openLandingTab = useOpenTabsStore(state => state.openLandingTab);
+  const replaceLandingWithSet = useOpenTabsStore(
+    state => state.replaceLandingWithSet
+  );
+
+  // Auto-create a landing tab if store hydrates with no tabs
+  const hasAutoCreatedRef = useRef(false);
+  useEffect(() => {
+    if (!hasMounted || hasAutoCreatedRef.current) return;
+    if (tabs.length === 0) {
+      hasAutoCreatedRef.current = true;
+      openLandingTab();
+    }
+  }, [hasMounted, tabs.length, openLandingTab]);
 
   // Dynamic page title based on active tab
   const activeTab = useMemo(
-    () => tabs.find(t => t.setNumber === activeSetNumber),
-    [tabs, activeSetNumber]
+    () => tabs.find(t => t.id === activeTabId),
+    [tabs, activeTabId]
   );
   const pageTitle = useMemo(() => {
     if (!activeTab) return null;
-    return `${activeTab.setNumber} ${activeTab.name}`;
+    if (isSetTab(activeTab)) {
+      return `${activeTab.id} ${activeTab.name}`;
+    }
+    return 'Sets';
   }, [activeTab]);
   useDynamicTitle(pageTitle);
 
@@ -57,16 +76,20 @@ export default function SetsPage() {
   const prevActiveRef = useRef<string | null>(null);
 
   // Save current tab's scroll position before switching
-  // The scroll container is the Inventory grid wrapper with data-inventory-scroller
   const saveCurrentScroll = useCallback(() => {
     if (!prevActiveRef.current) return;
 
-    const setNumber = prevActiveRef.current;
+    const id = prevActiveRef.current;
+
+    // Only save scroll for set tabs
+    const prevTab = tabs.find(t => t.id === id);
+    if (!prevTab || !isSetTab(prevTab)) return;
+
     let scrollTop = 0;
 
     if (isDesktop) {
       const scroller = document.querySelector(
-        `[data-inventory-scroller="${setNumber}"]`
+        `[data-inventory-scroller="${id}"]`
       );
       if (scroller) {
         scrollTop = scroller.scrollTop;
@@ -75,55 +98,71 @@ export default function SetsPage() {
       scrollTop = window.scrollY;
     }
 
-    saveTabState(setNumber, { scrollTop });
-  }, [isDesktop, saveTabState]);
+    saveTabState(id, { scrollTop });
+  }, [isDesktop, saveTabState, tabs]);
 
   // Handle tab activation
   const handleActivateTab = useCallback(
-    (setNumber: string) => {
+    (id: string) => {
       // Save current tab state before switching
       saveCurrentScroll();
 
       // Switch to new tab
-      setActiveTab(setNumber);
+      setActiveTab(id);
 
-      // Update URL
-      window.history.pushState(null, '', `/sets?active=${setNumber}`);
+      // Update URL: landing tabs get /sets, set tabs get /sets?active=id
+      const tab = tabs.find(t => t.id === id);
+      if (tab && isLandingTab(tab)) {
+        window.history.pushState(null, '', '/sets');
+      } else {
+        window.history.pushState(null, '', `/sets?active=${id}`);
+      }
     },
-    [saveCurrentScroll, setActiveTab]
+    [saveCurrentScroll, setActiveTab, tabs]
   );
 
   // Handle tab close
   const handleCloseTab = useCallback(
-    (setNumber: string) => {
-      closeTab(setNumber);
+    (id: string) => {
+      const remainingTabs = tabs.filter(t => t.id !== id);
 
-      // If we closed the last tab, redirect to home
-      const remainingTabs = tabs.filter(t => t.setNumber !== setNumber);
+      closeTab(id);
+
+      // If we closed the last tab, auto-create a new landing tab
       if (remainingTabs.length === 0) {
-        router.push('/');
+        openLandingTab();
+        window.history.pushState(null, '', '/sets');
       } else {
-        // URL will be updated by the store's activeSetNumber change
-        const newActive =
-          activeSetNumber === setNumber
-            ? remainingTabs[0]?.setNumber
-            : activeSetNumber;
-        if (newActive) {
-          window.history.pushState(null, '', `/sets?active=${newActive}`);
+        // URL will be updated based on the store's activeTabId change
+        const newActiveId =
+          activeTabId === id ? remainingTabs[0]?.id : activeTabId;
+        if (newActiveId) {
+          const newActiveTab = remainingTabs.find(t => t.id === newActiveId);
+          if (newActiveTab && isLandingTab(newActiveTab)) {
+            window.history.pushState(null, '', '/sets');
+          } else if (newActiveId) {
+            window.history.pushState(null, '', `/sets?active=${newActiveId}`);
+          }
         }
       }
     },
-    [closeTab, tabs, activeSetNumber, router]
+    [closeTab, tabs, activeTabId, openLandingTab]
   );
 
-  // Handle opening a new tab from dropdown (using recent set data)
-  const handleOpenRecentTab = useCallback(
-    (tab: OpenTab) => {
-      saveCurrentScroll();
-      openTab(tab);
-      window.history.pushState(null, '', `/sets?active=${tab.setNumber}`);
+  // Handle opening a new landing tab via "+" button
+  const handleOpenLandingTab = useCallback(() => {
+    saveCurrentScroll();
+    openLandingTab();
+    window.history.pushState(null, '', '/sets');
+  }, [saveCurrentScroll, openLandingTab]);
+
+  // Handle selecting a set from a landing tab's content
+  const handleSelectSetFromLanding = useCallback(
+    (landingTabId: string) => (setTab: SetTab) => {
+      replaceLandingWithSet(landingTabId, setTab);
+      window.history.pushState(null, '', `/sets?active=${setTab.id}`);
     },
-    [saveCurrentScroll, openTab]
+    [replaceLandingWithSet]
   );
 
   // Sync URL with active tab on mount and handle popstate
@@ -131,58 +170,53 @@ export default function SetsPage() {
     const params = new URLSearchParams(window.location.search);
     const activeFromUrl = params.get('active');
 
-    if (activeFromUrl && tabs.some(t => t.setNumber === activeFromUrl)) {
-      if (activeFromUrl !== activeSetNumber) {
+    if (activeFromUrl && tabs.some(t => t.id === activeFromUrl)) {
+      if (activeFromUrl !== activeTabId) {
         setActiveTab(activeFromUrl);
       }
-    } else if (activeSetNumber) {
-      window.history.replaceState(null, '', `/sets?active=${activeSetNumber}`);
+    } else if (activeTabId) {
+      const currentActive = tabs.find(t => t.id === activeTabId);
+      if (currentActive && isLandingTab(currentActive)) {
+        window.history.replaceState(null, '', '/sets');
+      } else if (currentActive) {
+        window.history.replaceState(null, '', `/sets?active=${activeTabId}`);
+      }
     }
 
     const handlePopState = () => {
       const params = new URLSearchParams(window.location.search);
       const active = params.get('active');
-      if (active && tabs.some(t => t.setNumber === active)) {
+      if (active && tabs.some(t => t.id === active)) {
         saveCurrentScroll();
         setActiveTab(active);
+      } else {
+        // No ?active= param — try to activate a landing tab
+        const landingTab = tabs.find(t => isLandingTab(t));
+        if (landingTab) {
+          saveCurrentScroll();
+          setActiveTab(landingTab.id);
+        }
       }
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [tabs, activeSetNumber, setActiveTab, saveCurrentScroll]);
+  }, [tabs, activeTabId, setActiveTab, saveCurrentScroll]);
 
   // Track active tab changes (scroll restoration is handled by SetTabContainerContent)
   useEffect(() => {
-    if (prevActiveRef.current !== activeSetNumber) {
-      prevActiveRef.current = activeSetNumber;
+    if (prevActiveRef.current !== activeTabId) {
+      prevActiveRef.current = activeTabId;
     }
-  }, [activeSetNumber]);
-
-  // Redirect to home if no tabs
-  useEffect(() => {
-    if (tabs.length === 0) {
-      router.push('/');
-    }
-  }, [tabs.length, router]);
+  }, [activeTabId]);
 
   // During SSR/hydration, isDesktop is undefined and tabs may be empty (no localStorage on server)
-  // We want to render the layout skeleton to avoid layout shift
   const isHydrating = isDesktop === undefined || !hasMounted;
 
-  // No tabs - show empty state (will redirect)
-  // Only check this after mounting, since SSR won't have localStorage tabs
-  if (hasMounted && (tabs.length === 0 || !activeSetNumber)) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <BrickLoader />
-      </div>
-    );
-  }
-
-  // During SSR/hydration when tabs aren't loaded yet, show skeleton layout
-  // This prevents layout shift when tabs populate from localStorage
-  if (isHydrating && tabs.length === 0) {
+  // During SSR/hydration, always show skeleton so server and client match
+  // (Zustand persist can hydrate tabs from localStorage before useEffect,
+  // causing a mismatch if we conditionally render based on tabs.length)
+  if (isHydrating) {
     return <SetPageSkeleton />;
   }
 
@@ -198,30 +232,47 @@ export default function SetsPage() {
       <header className="sticky top-0 z-60 col-span-full bg-card lg:contents">
         <SetTabBar
           tabs={tabs}
-          activeSetNumber={activeSetNumber ?? ''}
+          activeTabId={activeTabId ?? ''}
           groupSessionSetNumber={null}
           onActivateTab={handleActivateTab}
           onCloseTab={handleCloseTab}
-          onOpenNewTab={handleOpenRecentTab}
+          onOpenLandingTab={handleOpenLandingTab}
         />
       </header>
 
-      {/* Main content area - positioned in column 2, scroll happens inside inventory */}
-      <div className="relative col-span-full lg:col-start-2 lg:row-start-2 lg:row-end-5 lg:flex lg:flex-col">
-        {/* Render a container for each tab */}
-        {tabs.map(tab => {
-          const isActive = tab.setNumber === activeSetNumber;
-          const state = tabStates[tab.setNumber];
+      {/* Landing tabs — full-width, no sidebar */}
+      {tabs.map(tab => {
+        if (!isLandingTab(tab)) return null;
+        const isActive = tab.id === activeTabId;
+        return (
+          <div
+            key={tab.id}
+            style={{ display: isActive ? 'block' : 'none' }}
+            className="col-span-full lg:row-start-2 lg:row-end-5 lg:min-h-0 lg:overflow-auto"
+          >
+            <SetsLandingContent
+              onSelectSet={handleSelectSetFromLanding(tab.id)}
+              isActive={isActive}
+            />
+          </div>
+        );
+      })}
 
+      {/* Set tabs — positioned in column 2 (sidebar + main), scroll happens inside inventory */}
+      <div className="pointer-events-none relative col-span-full lg:col-start-2 lg:row-start-2 lg:row-end-5 lg:flex lg:flex-col [&>*]:pointer-events-auto">
+        {tabs.map(tab => {
+          if (!isSetTab(tab)) return null;
+          const isActive = tab.id === activeTabId;
+          const state = tabStates[tab.id];
           return (
             <SetTabContainer
-              key={tab.setNumber}
+              key={tab.id}
               tab={tab}
               isActive={isActive}
               savedScrollTop={state?.scrollTop}
               savedControlsState={state}
               onSaveState={(partialState: Partial<TabViewState>) => {
-                saveTabState(tab.setNumber, partialState);
+                saveTabState(tab.id, partialState);
               }}
               isDesktop={isDesktop}
               isHydrating={isHydrating}
