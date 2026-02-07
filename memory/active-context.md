@@ -3,9 +3,23 @@
 ## Current Focus
 
 - **Stripe UI/UX Enforcement** - Wire up billing UI (Account page, upgrade CTAs, inline upsells) and feature gating (SSR preload, API guards, usage counters).
-- **Multi-device sync** - Implement pull-on-login to fetch user data from Supabase on new device.
 - Keep the MVP flows (search, inventory, owned vs missing, CSV exports, optional pricing) stable.
 - Preserve anonymous/local-only experience while signed-in users sync to Supabase.
+
+## Recently Completed (February 2026)
+
+- **Cross-Device Sync: Recently Viewed & Continue Building**:
+  - New `user_recent_sets` table with RLS for cross-device recently viewed sync
+  - Added `found_count` column to `user_sets` with backfill migration
+  - New `/api/recent-sets` route (GET: pull with metadata join, POST: fire-and-forget push)
+  - `useSyncRecentSet` hook fires POST to cloud on set view (authenticated users only)
+  - `useRecentSets` hook merges local (localStorage) + cloud (Supabase) recent sets by newest `lastViewedAt`
+  - Wired sync into 3 call sites: `SetTabContainer`, `SetPageRedirector`, `SetPageClient`
+  - `/api/sync` now computes and updates `found_count` on affected `user_sets` after processing parts
+  - `/api/user-sets` returns `foundCount` in response; store and hydration updated
+  - `useCompletionStats` simplified: reads `foundCount` from user sets Zustand store instead of expensive paginated `user_set_parts` scan
+  - Removed `fetchCloudOwnedBySet` and `fetchCloudSetMeta` functions (no longer needed)
+  - All 243 tests passing, clean type check, no lint errors
 
 ## Recently Completed (January 2026)
 

@@ -153,12 +153,11 @@ See `docs/BACKLOG.md` for the full consolidated backlog.
 - Stripe UI/UX enforcement (Account page, upgrade CTAs, feature gating)
 
 **Medium priority:**
-- Multi-device sync (pull-on-login)
 - Error states hardening
 
 ## Status
 
-Core MVP is feature-complete: search, inventory, owned tracking, CSV exports, pricing, and identify flows are all working. Auth and Supabase persistence are wired up. **BrickLink is the exclusive source of truth for minifigure data** with self-healing capabilities. Main remaining work is Stripe UI/UX enforcement and multi-device sync.
+Core MVP is feature-complete: search, inventory, owned tracking, CSV exports, pricing, and identify flows are all working. Auth and Supabase persistence are wired up. **BrickLink is the exclusive source of truth for minifigure data** with self-healing capabilities. **Cross-device sync for recently viewed and continue building is implemented** (pending migration push). Main remaining work is Stripe UI/UX enforcement.
 
 ## Known Issues / Risks
 
