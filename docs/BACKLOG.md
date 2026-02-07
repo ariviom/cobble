@@ -204,7 +204,15 @@ Technical debt and improvements to pull from when ready.
 Deferred features requiring research or significant scope.
 
 - Price history (requires persistent storage, API quota planning)
-- Marketplace scanner (significant scope, quota implications)
+- Marketplace scanner / store finder — **Researched Feb 2026:**
+  - Rebrickable's store finder uses a **privileged BrickLink partnership API** (not public) for cross-store inventory search
+  - The public BrickLink API has no endpoint to search other stores' inventories — only price guides (which we already use) and own-store management
+  - BrickOwl has an **Affiliate API** (`GET /v1/affiliate/item_lots`) that returns cross-store inventory for opted-in stores, but requires affiliate partnership approval
+  - **Feasible alternatives:**
+    - Deep-link to BrickLink Easy Buy with pre-populated wanted list (high value, low effort)
+    - Deep-link to BrickOwl with exported wanted list
+    - Apply for BrickOwl Affiliate API for in-app store matching
+  - **Not feasible:** Replicating Rebrickable's full store-matching optimization without a BrickLink partnership
 - BYO BrickLink API key (Pro tier feature)
 - Custom MoC import (requires storage bucket setup)
 - Set instructions viewer (research external linking options)
