@@ -1203,20 +1203,6 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: 'user_set_parts_color_id_fkey';
-            columns: ['color_id'];
-            isOneToOne: false;
-            referencedRelation: 'rb_colors';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'user_set_parts_part_num_fkey';
-            columns: ['part_num'];
-            isOneToOne: false;
-            referencedRelation: 'rb_parts';
-            referencedColumns: ['part_num'];
-          },
-          {
             foreignKeyName: 'user_set_parts_set_num_fkey';
             columns: ['set_num'];
             isOneToOne: false;
@@ -1225,9 +1211,28 @@ export type Database = {
           },
         ];
       };
+      user_recent_sets: {
+        Row: {
+          last_viewed_at: string;
+          set_num: string;
+          user_id: string;
+        };
+        Insert: {
+          last_viewed_at?: string;
+          set_num: string;
+          user_id: string;
+        };
+        Update: {
+          last_viewed_at?: string;
+          set_num?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       user_sets: {
         Row: {
           created_at: string;
+          found_count: number;
           has_box: boolean;
           has_instructions: boolean;
           owned: boolean;
@@ -1238,6 +1243,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          found_count?: number;
           has_box?: boolean;
           has_instructions?: boolean;
           owned?: boolean;
@@ -1248,6 +1254,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          found_count?: number;
           has_box?: boolean;
           has_instructions?: boolean;
           owned?: boolean;
