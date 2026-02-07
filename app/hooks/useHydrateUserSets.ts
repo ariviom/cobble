@@ -147,6 +147,7 @@ export function useHydrateUserSets() {
               imageUrl: row.imageUrl,
               numParts: row.numParts,
               themeId: row.themeId,
+              foundCount: row.foundCount,
             };
 
             if (typeof updatedAt === 'number') {

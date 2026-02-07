@@ -20,6 +20,7 @@ export type UserSetWithMeta = {
   imageUrl: string | null;
   themeId: number | null;
   updatedAt: string | null;
+  foundCount: number;
 };
 
 export type UserSetsResponse = {
@@ -32,6 +33,7 @@ type UserSetRowWithMeta = {
   set_num: UserSetRow['set_num'];
   owned: UserSetRow['owned'];
   updated_at: UserSetRow['updated_at'];
+  found_count: number;
   rb_sets: {
     name: string;
     year: number | null;
@@ -63,6 +65,7 @@ export async function GET() {
         set_num,
         owned,
         updated_at,
+        found_count,
         rb_sets (
           name,
           year,
@@ -96,6 +99,7 @@ export async function GET() {
         imageUrl: meta?.image_url ?? null,
         themeId: meta?.theme_id ?? null,
         updatedAt: row.updated_at,
+        foundCount: row.found_count ?? 0,
       };
     });
 

@@ -23,6 +23,7 @@ export type UserSetMeta = {
 export type UserSet = UserSetMeta & {
   status: SetStatus;
   lastUpdatedAt: number;
+  foundCount: number;
 };
 
 export type HydratedSetInput = {
@@ -34,6 +35,7 @@ export type HydratedSetInput = {
   themeId?: number | null;
   status: SetStatus;
   updatedAt?: number;
+  foundCount?: number;
 };
 
 type UserSetsState = {
@@ -72,6 +74,7 @@ type PersistedUserSet = {
   themeId: number | null;
   status: SetStatus;
   lastUpdatedAt: number;
+  foundCount: number;
 };
 
 type PersistedShape = {
@@ -136,6 +139,10 @@ function parsePersisted(raw: string | null): Pick<UserSetsState, 'sets'> {
           Number.isFinite(v.lastUpdatedAt)
             ? v.lastUpdatedAt
             : 0;
+        const foundCount =
+          typeof v.foundCount === 'number' && Number.isFinite(v.foundCount)
+            ? v.foundCount
+            : 0;
         const status = coerceStatus(v.status);
 
         // Drop entries that are not owned.
@@ -152,6 +159,7 @@ function parsePersisted(raw: string | null): Pick<UserSetsState, 'sets'> {
           themeId,
           status,
           lastUpdatedAt,
+          foundCount,
         };
       }
     }
@@ -175,6 +183,7 @@ function persistState(state: UserSetsState): void {
         themeId: value.themeId,
         status: value.status,
         lastUpdatedAt: value.lastUpdatedAt,
+        foundCount: value.foundCount,
       };
       payload.sets[key] = entry;
     }
@@ -241,6 +250,7 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
         ...baseMeta,
         status: { owned: true },
         lastUpdatedAt: Date.now(),
+        foundCount: prevEntry?.foundCount ?? 0,
       };
 
       const nextSets: Record<string, UserSet> = {
@@ -313,6 +323,10 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
               : (existing?.themeId ?? null),
           status: entry.status ?? existing?.status ?? EMPTY_SET_STATUS,
           lastUpdatedAt: incomingUpdatedAt,
+          foundCount:
+            typeof entry.foundCount === 'number'
+              ? entry.foundCount
+              : (existing?.foundCount ?? 0),
         };
         mutated = true;
       }

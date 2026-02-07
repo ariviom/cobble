@@ -186,6 +186,42 @@ export const POST = withCsrfProtection(
         }
       }
 
+      // Update found_count for affected sets
+      const affectedSetNums = new Set<string>();
+      for (const u of userSetPartsUpserts) {
+        if (!u.payload.is_spare) affectedSetNums.add(u.payload.set_num);
+      }
+      for (const d of userSetPartsDeletes) {
+        if (!d.payload.is_spare) affectedSetNums.add(d.payload.set_num);
+      }
+
+      if (affectedSetNums.size > 0) {
+        for (const setNum of affectedSetNums) {
+          try {
+            const { data: aggData } = await supabase
+              .from('user_set_parts')
+              .select('owned_quantity')
+              .eq('user_id', user.id)
+              .eq('set_num', setNum)
+              .eq('is_spare', false)
+              .gt('owned_quantity', 0);
+
+            const foundCount = (aggData ?? []).reduce(
+              (sum, row) => sum + (row.owned_quantity ?? 0),
+              0
+            );
+
+            await supabase
+              .from('user_sets')
+              .update({ found_count: foundCount })
+              .eq('user_id', user.id)
+              .eq('set_num', setNum);
+          } catch {
+            // Non-critical — found_count will self-correct on next sync
+          }
+        }
+      }
+
       const response: SyncResponse = {
         success: failed.length === 0,
         processed,
