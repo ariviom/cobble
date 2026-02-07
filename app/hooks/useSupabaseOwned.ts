@@ -43,6 +43,8 @@ type UseSupabaseOwnedResult = {
     nextOwned: number,
     options?: HandleOwnedChangeOptions
   ) => void;
+  markAllComplete: () => void;
+  markAllMissing: () => void;
   migration: MigrationState | null;
   isMigrating: boolean;
   confirmMigration: () => Promise<void>;
@@ -315,6 +317,17 @@ export function useSupabaseOwned({
         return;
       }
 
+      // Filter out cloud entries whose keys don't match any current inventory
+      // key. Orphaned RB-keyed rows (from before the BrickLink migration)
+      // would otherwise inflate supabaseTotal and trigger false migration
+      // prompts.
+      const inventoryKeySet = new Set(keys);
+      for (const k of supabaseByKey.keys()) {
+        if (!inventoryKeySet.has(k)) {
+          supabaseByKey.delete(k);
+        }
+      }
+
       const localByKey = new Map<string, number>();
       for (const key of keys) {
         const owned = getOwned(setNumber, key);
@@ -393,15 +406,12 @@ export function useSupabaseOwned({
       }
 
       if (existingDecision === 'supabase_kept') {
-        // Apply cloud data to local store silently so views stay in sync.
-        const allKeys = keys;
-        const quantities: number[] = [];
-        for (const key of allKeys) {
-          const qtyFromCloud = supabaseByKey.get(key) ?? 0;
-          quantities.push(qtyFromCloud);
+        // Merge cloud data into local store — only overwrite keys that
+        // cloud actually has.  Leaves local marks for keys not in cloud
+        // (e.g. BrickLink minifig subparts) untouched.
+        for (const [key, qty] of supabaseByKey) {
+          setOwned(setNumber, key, qty);
         }
-        clearAll(setNumber);
-        markAllAsOwned(setNumber, allKeys, quantities);
         setHydrated(true);
         return;
       }
@@ -431,8 +441,7 @@ export function useSupabaseOwned({
     rows.length,
     keys,
     getOwned,
-    clearAll,
-    markAllAsOwned,
+    setOwned,
     setNumber,
     hydrated,
     isOwnedHydrated,
@@ -507,15 +516,10 @@ export function useSupabaseOwned({
         supabaseByKey.set(key, row.owned_quantity ?? 0);
       }
 
-      const allKeys = keys;
-      const quantities: number[] = [];
-      for (const key of allKeys) {
-        const qtyFromCloud = supabaseByKey.get(key) ?? 0;
-        quantities.push(qtyFromCloud);
+      // Merge cloud data — only overwrite keys cloud has, leave others.
+      for (const [key, qty] of supabaseByKey) {
+        setOwned(setNumber, key, qty);
       }
-
-      clearAll(setNumber);
-      markAllAsOwned(setNumber, allKeys, quantities);
 
       try {
         window.localStorage.setItem(
@@ -533,18 +537,47 @@ export function useSupabaseOwned({
     } finally {
       setMigration(null);
     }
+  }, [enableCloudSync, migrationDecisionKey, setOwned, setNumber, userId]);
+
+  // -------------------------------------------------------------------------
+  // Bulk actions — update local store efficiently + enqueue sync for each key
+  // -------------------------------------------------------------------------
+
+  const required = useMemo(() => rows.map(r => r.quantityRequired), [rows]);
+
+  const markAllComplete = useCallback(() => {
+    // Single bulk write for responsive local update
+    markAllAsOwned(setNumber, keys, required);
+
+    if (!enableCloudSync || !userId) return;
+    for (let i = 0; i < keys.length; i++) {
+      enqueueChange(keys[i]!, required[i]!);
+    }
   }, [
-    enableCloudSync,
-    keys,
-    migrationDecisionKey,
-    clearAll,
     markAllAsOwned,
     setNumber,
+    keys,
+    required,
+    enableCloudSync,
     userId,
+    enqueueChange,
   ]);
+
+  const markAllMissing = useCallback(() => {
+    // Enqueue zeros BEFORE clearing so we can read current values
+    if (enableCloudSync && userId) {
+      for (const key of keys) {
+        enqueueChange(key, 0);
+      }
+    }
+
+    clearAll(setNumber);
+  }, [clearAll, setNumber, keys, enableCloudSync, userId, enqueueChange]);
 
   return {
     handleOwnedChange,
+    markAllComplete,
+    markAllMissing,
     migration,
     isMigrating,
     confirmMigration,

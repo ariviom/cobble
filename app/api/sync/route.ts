@@ -142,12 +142,23 @@ export const POST = withCsrfProtection(
           });
 
         if (upsertError) {
-          // Mark all as failed
+          // Batch failed — retry each row individually so one bad row
+          // (e.g. BrickLink ID not in rb_parts) doesn't kill the batch.
           for (const u of userSetPartsUpserts) {
-            failed.push({
-              id: u.id,
-              error: `upsert_failed:${upsertError.message}`,
-            });
+            const { error: rowError } = await supabase
+              .from('user_set_parts')
+              .upsert([u.payload], {
+                onConflict: 'user_id,set_num,part_num,color_id,is_spare',
+              });
+
+            if (rowError) {
+              failed.push({
+                id: u.id,
+                error: `upsert_failed:${rowError.message}`,
+              });
+            } else {
+              processed++;
+            }
           }
         } else {
           processed += userSetPartsUpserts.length;

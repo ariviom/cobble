@@ -108,6 +108,23 @@ function flushAllPendingWrites() {
   }
 }
 
+/**
+ * Flush all pending writes and wait for them to complete.
+ * Use this before reading from IndexedDB to ensure consistency.
+ */
+export async function flushPendingWritesAsync(): Promise<void> {
+  for (const timer of writeTimers.values()) {
+    clearTimeout(timer);
+  }
+  writeTimers.clear();
+
+  const promises: Promise<void>[] = [];
+  for (const setNumber of pendingWrites.keys()) {
+    promises.push(flushWriteToIndexedDB(setNumber));
+  }
+  await Promise.all(promises);
+}
+
 function scheduleWrite(setNumber: string) {
   const existing = writeTimers.get(setNumber);
   if (existing) clearTimeout(existing);
