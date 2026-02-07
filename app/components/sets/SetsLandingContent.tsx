@@ -6,13 +6,14 @@ import { SetProgressCard } from '@/app/components/sets/SetProgressCard';
 import { HorizontalCardRail } from '@/app/components/ui/HorizontalCardRail';
 import { Button } from '@/app/components/ui/Button';
 import { useCompletionStats } from '@/app/hooks/useCompletionStats';
+import { useRecentSets } from '@/app/hooks/useRecentSets';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import { getRecentSets, removeRecentSet } from '@/app/store/recent-sets';
+import { removeRecentSet } from '@/app/store/recent-sets';
 import type { RecentSetEntry } from '@/app/store/recent-sets';
 import type { SetTab } from '@/app/store/open-tabs';
 import { Camera, Search } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 type SetsLandingContentProps = {
   /** When provided, clicking a set calls this instead of navigating via Link. */
@@ -25,16 +26,19 @@ export function SetsLandingContent({
   onSelectSet,
   isActive = true,
 }: SetsLandingContentProps) {
-  const [recentSets, setRecentSets] = useState<RecentSetEntry[]>([]);
+  const recentSets = useRecentSets(isActive);
+  const [removedSetNumbers, setRemovedSetNumbers] = useState<Set<string>>(
+    new Set()
+  );
   const { sets: continueSets } = useCompletionStats(isActive);
   const { user } = useSupabaseUser();
 
-  useEffect(() => {
-    setRecentSets(getRecentSets());
-  }, []);
+  const visibleRecentSets = recentSets.filter(
+    s => !removedSetNumbers.has(s.setNumber)
+  );
 
   const handleRemoveRecent = (setNumber: string) => {
-    setRecentSets(prev => prev.filter(it => it.setNumber !== setNumber));
+    setRemovedSetNumbers(prev => new Set(prev).add(setNumber));
     removeRecentSet(setNumber);
   };
 
@@ -106,7 +110,7 @@ export function SetsLandingContent({
       {/* Recently Viewed */}
       <section className="py-8">
         <div className="container-wide">
-          {recentSets.length > 0 ? (
+          {visibleRecentSets.length > 0 ? (
             <>
               <div className="mb-6 flex items-center justify-between">
                 <h2 className="text-section-title">
@@ -115,7 +119,7 @@ export function SetsLandingContent({
                 </h2>
               </div>
               <HorizontalCardRail>
-                {recentSets.map(set => (
+                {visibleRecentSets.map(set => (
                   <div
                     key={set.setNumber}
                     className="w-56 shrink-0 snap-start sm:w-64"

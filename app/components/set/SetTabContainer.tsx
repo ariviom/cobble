@@ -14,6 +14,7 @@ import { Toast } from '@/app/components/ui/Toast';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
 import { useOrigin } from '@/app/hooks/useOrigin';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import { useSyncRecentSet } from '@/app/hooks/useSyncRecentSet';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { SetTab, TabViewState } from '@/app/store/open-tabs';
 import { addRecentSet } from '@/app/store/recent-sets';
@@ -68,6 +69,7 @@ export function SetTabContainer({
   const clientId = useGroupClientId();
   const origin = useOrigin();
   const { user } = useSupabaseUser();
+  const syncRecentSet = useSyncRecentSet();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
   // Client-side inventory data fetching
@@ -353,6 +355,7 @@ export function SetTabContainer({
         themeId: tab.themeId ?? null,
         themeName: tab.themeName ?? null,
       });
+      syncRecentSet(tab.id);
     }
   }, [
     isActive,
@@ -363,6 +366,7 @@ export function SetTabContainer({
     tab.numParts,
     tab.themeId,
     tab.themeName,
+    syncRecentSet,
   ]);
 
   // Compute container style

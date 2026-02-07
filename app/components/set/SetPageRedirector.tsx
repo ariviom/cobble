@@ -1,5 +1,6 @@
 'use client';
 
+import { useSyncRecentSet } from '@/app/hooks/useSyncRecentSet';
 import { useOpenTabsStore } from '@/app/store/open-tabs';
 import { addRecentSet } from '@/app/store/recent-sets';
 import { useRouter } from 'next/navigation';
@@ -35,6 +36,7 @@ export function SetPageRedirector({
 }: SetPageRedirectorProps) {
   const router = useRouter();
   const openTab = useOpenTabsStore(state => state.openTab);
+  const syncRecentSet = useSyncRecentSet();
   const hasRedirected = useRef(false);
 
   useEffect(() => {
@@ -64,6 +66,7 @@ export function SetPageRedirector({
       themeId,
       themeName,
     });
+    syncRecentSet(setNumber);
 
     // Redirect to SPA container
     router.replace(`/sets?active=${encodeURIComponent(setNumber)}`);
@@ -76,6 +79,7 @@ export function SetPageRedirector({
     themeId,
     themeName,
     openTab,
+    syncRecentSet,
     router,
   ]);
 

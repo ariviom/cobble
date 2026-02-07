@@ -82,6 +82,7 @@ const USER_TABLES = new Set([
   'user_list_items',
   'group_sessions',
   'group_session_participants',
+  'user_recent_sets',
 ]);
 
 // =============================================================================

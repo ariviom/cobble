@@ -12,6 +12,7 @@ import { cn } from '@/app/components/ui/utils';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
 import { useOrigin } from '@/app/hooks/useOrigin';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import { useSyncRecentSet } from '@/app/hooks/useSyncRecentSet';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { addRecentSet } from '@/app/store/recent-sets';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -60,6 +61,7 @@ export function SetPageClient({
 
   const origin = useOrigin();
   const { user } = useSupabaseUser();
+  const syncRecentSet = useSyncRecentSet();
   const clientId = useGroupClientId();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
@@ -91,7 +93,17 @@ export function SetPageClient({
       themeId: themeId ?? null,
       themeName: themeName ?? null,
     });
-  }, [setNumber, setName, year, imageUrl, numParts, themeId, themeName]);
+    syncRecentSet(setNumber);
+  }, [
+    setNumber,
+    setName,
+    year,
+    imageUrl,
+    numParts,
+    themeId,
+    themeName,
+    syncRecentSet,
+  ]);
 
   const joinUrl = useMemo(() => {
     if (!groupSession || !groupSession.slug) return null;
