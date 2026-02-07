@@ -72,3 +72,9 @@ export {
   isMigrationComplete,
   setMigrationComplete,
 } from './metaStore';
+
+export {
+  getPartiallyCompleteSets,
+  getTotalPartsForSets,
+  type SetCompletionStats,
+} from './completionStats';

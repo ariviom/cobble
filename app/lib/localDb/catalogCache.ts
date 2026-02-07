@@ -231,7 +231,12 @@ export async function setCachedInventory(
         await db.catalogSetMeta.put({
           setNumber,
           inventoryCachedAt: now,
-          partCount: rows.length,
+          partCount: rows.filter(
+            r =>
+              !(
+                r.parentCategory === 'Minifigure' && r.partId.startsWith('fig:')
+              )
+          ).length,
           inventoryVersion: opts?.inventoryVersion ?? null,
         });
       }
