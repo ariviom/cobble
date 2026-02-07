@@ -340,6 +340,103 @@ describe('/api/sync', () => {
         expect(json.failed[0].id).toBe(1);
         expect(json.failed[0].error).toContain('upsert_failed');
       });
+
+      it('retries rows individually when batch upsert fails', async () => {
+        // First call (batch) fails, subsequent individual retries succeed
+        mockUpsert
+          .mockResolvedValueOnce({ error: { message: 'FK violation' } })
+          .mockResolvedValue({ error: null });
+
+        const operations = [
+          {
+            id: 1,
+            table: 'user_set_parts',
+            operation: 'upsert',
+            payload: {
+              set_num: '75192-1',
+              part_num: '3001',
+              color_id: 1,
+              owned_quantity: 3,
+            },
+          },
+          {
+            id: 2,
+            table: 'user_set_parts',
+            operation: 'upsert',
+            payload: {
+              set_num: '75192-1',
+              part_num: '3002',
+              color_id: 4,
+              owned_quantity: 1,
+            },
+          },
+        ];
+
+        const req = new NextRequest('http://localhost/api/sync', {
+          method: 'POST',
+          body: JSON.stringify({ operations }),
+        });
+
+        const res = await POST(req);
+
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.success).toBe(true);
+        expect(json.processed).toBe(2);
+        expect(json.failed).toBeUndefined();
+        // 1 batch call + 2 individual retries
+        expect(mockUpsert).toHaveBeenCalledTimes(3);
+      });
+
+      it('reports individual row failures when batch and some retries fail', async () => {
+        // Batch fails, first individual retry succeeds, second fails
+        mockUpsert
+          .mockResolvedValueOnce({ error: { message: 'FK violation' } })
+          .mockResolvedValueOnce({ error: null })
+          .mockResolvedValueOnce({
+            error: { message: 'part_num not in rb_parts' },
+          });
+
+        const operations = [
+          {
+            id: 1,
+            table: 'user_set_parts',
+            operation: 'upsert',
+            payload: {
+              set_num: '75192-1',
+              part_num: '3001',
+              color_id: 1,
+              owned_quantity: 3,
+            },
+          },
+          {
+            id: 2,
+            table: 'user_set_parts',
+            operation: 'upsert',
+            payload: {
+              set_num: '75192-1',
+              part_num: 'bad-part',
+              color_id: 4,
+              owned_quantity: 1,
+            },
+          },
+        ];
+
+        const req = new NextRequest('http://localhost/api/sync', {
+          method: 'POST',
+          body: JSON.stringify({ operations }),
+        });
+
+        const res = await POST(req);
+
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.success).toBe(false);
+        expect(json.processed).toBe(1);
+        expect(json.failed).toHaveLength(1);
+        expect(json.failed[0].id).toBe(2);
+        expect(json.failed[0].error).toContain('part_num not in rb_parts');
+      });
     });
   });
 });

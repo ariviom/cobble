@@ -2,11 +2,15 @@ import { renderHook, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { useSupabaseOwned } from '@/app/hooks/useSupabaseOwned';
 import { useOwnedStore } from '@/app/store/owned';
+import { enqueueOwnedChangeIfPossible } from '@/app/lib/ownedSync';
 import type { InventoryRow } from '@/app/components/set/types';
 
 // Mock useSupabaseUser hook
+const mockUseSupabaseUser = vi.fn(() => ({
+  user: null as { id: string } | null,
+}));
 vi.mock('@/app/hooks/useSupabaseUser', () => ({
-  useSupabaseUser: () => ({ user: null }),
+  useSupabaseUser: () => mockUseSupabaseUser(),
 }));
 
 // Mock supabase client
@@ -540,6 +544,198 @@ describe('useSupabaseOwned', () => {
       // Only that part should change
       expect(useOwnedStore.getState().getOwned(setNumber, '3001:1')).toBe(5);
       expect(useOwnedStore.getState().getOwned(setNumber, '3002:2')).toBe(0);
+    });
+  });
+
+  describe('Bulk actions', () => {
+    const bulkRows: InventoryRow[] = [
+      {
+        setNumber,
+        partId: '3001',
+        partName: 'Brick 2x4',
+        colorId: 1,
+        colorName: 'Red',
+        quantityRequired: 10,
+        imageUrl: null,
+        inventoryKey: '3001:1',
+      },
+      {
+        setNumber,
+        partId: '3002',
+        partName: 'Brick 2x3',
+        colorId: 2,
+        colorName: 'Blue',
+        quantityRequired: 5,
+        imageUrl: null,
+        inventoryKey: '3002:2',
+      },
+      {
+        setNumber,
+        partId: '3003',
+        partName: 'Brick 2x2',
+        colorId: 3,
+        colorName: 'Yellow',
+        quantityRequired: 8,
+        imageUrl: null,
+        inventoryKey: '3003:3',
+      },
+    ];
+    const bulkKeys = bulkRows.map(r => r.inventoryKey);
+
+    it('markAllComplete sets all keys to quantityRequired', () => {
+      const { result } = renderHook(() =>
+        useSupabaseOwned({
+          setNumber,
+          rows: bulkRows,
+          keys: bulkKeys,
+          enableCloudSync: false,
+        })
+      );
+
+      act(() => {
+        result.current.markAllComplete();
+      });
+
+      expect(useOwnedStore.getState().getOwned(setNumber, '3001:1')).toBe(10);
+      expect(useOwnedStore.getState().getOwned(setNumber, '3002:2')).toBe(5);
+      expect(useOwnedStore.getState().getOwned(setNumber, '3003:3')).toBe(8);
+    });
+
+    it('markAllMissing clears all owned to 0', () => {
+      // Pre-set owned values
+      act(() => {
+        useOwnedStore.getState().setOwned(setNumber, '3001:1', 5);
+        useOwnedStore.getState().setOwned(setNumber, '3002:2', 3);
+        useOwnedStore.getState().setOwned(setNumber, '3003:3', 8);
+      });
+
+      const { result } = renderHook(() =>
+        useSupabaseOwned({
+          setNumber,
+          rows: bulkRows,
+          keys: bulkKeys,
+          enableCloudSync: false,
+        })
+      );
+
+      act(() => {
+        result.current.markAllMissing();
+      });
+
+      expect(useOwnedStore.getState().getOwned(setNumber, '3001:1')).toBe(0);
+      expect(useOwnedStore.getState().getOwned(setNumber, '3002:2')).toBe(0);
+      expect(useOwnedStore.getState().getOwned(setNumber, '3003:3')).toBe(0);
+    });
+
+    describe('with cloud sync enabled', () => {
+      beforeEach(() => {
+        mockUseSupabaseUser.mockReturnValue({
+          user: { id: 'user-123' },
+        });
+      });
+
+      afterEach(() => {
+        mockUseSupabaseUser.mockReturnValue({ user: null });
+      });
+
+      it('markAllComplete enqueues sync for each key when cloud enabled', () => {
+        const { result } = renderHook(() =>
+          useSupabaseOwned({
+            setNumber,
+            rows: bulkRows,
+            keys: bulkKeys,
+            enableCloudSync: true,
+          })
+        );
+
+        act(() => {
+          result.current.markAllComplete();
+        });
+
+        const mockEnqueue = vi.mocked(enqueueOwnedChangeIfPossible);
+        // Should be called once per key
+        expect(mockEnqueue).toHaveBeenCalledTimes(3);
+        expect(mockEnqueue).toHaveBeenCalledWith(
+          expect.objectContaining({
+            setNumber,
+            key: '3001:1',
+            quantity: 10,
+            enableCloudSync: true,
+            userId: 'user-123',
+          })
+        );
+        expect(mockEnqueue).toHaveBeenCalledWith(
+          expect.objectContaining({
+            setNumber,
+            key: '3002:2',
+            quantity: 5,
+          })
+        );
+        expect(mockEnqueue).toHaveBeenCalledWith(
+          expect.objectContaining({
+            setNumber,
+            key: '3003:3',
+            quantity: 8,
+          })
+        );
+      });
+
+      it('markAllMissing enqueues zero for each key when cloud enabled', () => {
+        // Pre-set owned values
+        act(() => {
+          useOwnedStore.getState().setOwned(setNumber, '3001:1', 5);
+          useOwnedStore.getState().setOwned(setNumber, '3002:2', 3);
+        });
+
+        const { result } = renderHook(() =>
+          useSupabaseOwned({
+            setNumber,
+            rows: bulkRows,
+            keys: bulkKeys,
+            enableCloudSync: true,
+          })
+        );
+
+        act(() => {
+          result.current.markAllMissing();
+        });
+
+        const mockEnqueue = vi.mocked(enqueueOwnedChangeIfPossible);
+        expect(mockEnqueue).toHaveBeenCalledTimes(3);
+        for (const key of bulkKeys) {
+          expect(mockEnqueue).toHaveBeenCalledWith(
+            expect.objectContaining({
+              setNumber,
+              key,
+              quantity: 0,
+            })
+          );
+        }
+      });
+    });
+
+    it('bulk actions skip enqueue when cloud disabled', () => {
+      const { result } = renderHook(() =>
+        useSupabaseOwned({
+          setNumber,
+          rows: bulkRows,
+          keys: bulkKeys,
+          enableCloudSync: false,
+        })
+      );
+
+      act(() => {
+        result.current.markAllComplete();
+      });
+
+      const mockEnqueue = vi.mocked(enqueueOwnedChangeIfPossible);
+      expect(mockEnqueue).not.toHaveBeenCalled();
+
+      act(() => {
+        result.current.markAllMissing();
+      });
+
+      expect(mockEnqueue).not.toHaveBeenCalled();
     });
   });
 });
