@@ -22,6 +22,7 @@ import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { Button } from '@/app/components/ui/Button';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
+import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
 import { ThemedPageHeader } from '@/app/components/ui/ThemedPageHeader';
 
 type IdentifyCacheEntry = IdentifyResponse & { cachedAt: number };
@@ -726,7 +727,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
   if (!isAuthenticated) {
     return (
       <>
-        {/* Green Hero Banner */}
+        {/* Hero banner */}
         <section className="relative overflow-hidden">
           <ThemedPageHeader preferredColor="green" className="py-6 lg:py-8">
             <div className="container-default">
@@ -779,11 +780,11 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
 
   return (
     <>
-      {/* Green Hero Banner */}
+      {/* Hero banner with controls inside (matches Search page pattern) */}
       <section className="relative overflow-hidden">
         <ThemedPageHeader preferredColor="green" className="py-6 lg:py-8">
           <div className="container-default">
-            <div className="text-center">
+            <div className="mb-6 text-center">
               <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-white lg:text-4xl">
                 Identify Parts & Minifigs
               </h1>
@@ -791,7 +792,160 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                 Upload a photo or enter a part number to find sets
               </p>
             </div>
+
+            {/* Controls panel */}
+            <div className="mx-auto w-full max-w-md">
+              <SegmentedControl
+                segments={[
+                  { key: 'camera', label: 'Camera' },
+                  { key: 'part', label: 'Part / Minifig' },
+                ]}
+                value={mode}
+                onChange={key => setMode(key as 'camera' | 'part')}
+                size="md"
+                className="mb-4 w-full shadow-lg"
+              />
+
+              {/* Hidden file inputs */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={e => onFileChange(e.target.files?.[0] ?? null)}
+              />
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => onFileChange(e.target.files?.[0] ?? null)}
+              />
+
+              {mode === 'camera' ? (
+                <div className="space-y-4">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="relative block w-full overflow-hidden rounded-lg border-2 border-dashed border-white/40 bg-white/10 backdrop-blur-sm hover:border-white/60 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label="Upload or take a photo"
+                    disabled={isQuotaExhausted}
+                  >
+                    <div className="aspect-[5/2] w-full">
+                      {imagePreview ? (
+                        <div className="flex h-full items-center justify-center bg-black/20 p-2">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={imagePreview}
+                            alt=""
+                            className="max-h-full rounded object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/80">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            className="h-8 w-8"
+                            aria-hidden="true"
+                          >
+                            <path d="M9 2a1 1 0 0 0-.894.553L7.382 4H5a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-2.382l-.724-1.447A1 1 0 0 0 14 2H9Zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 .002 6.002A3 3 0 0 0 12 9Z" />
+                          </svg>
+                          <span className="text-sm font-medium">
+                            Upload or take a photo
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </button>
+
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => galleryInputRef.current?.click()}
+                      disabled={isQuotaExhausted}
+                      className="text-2xs text-white/40 underline underline-offset-2 hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Upload an image
+                    </button>
+                    {quota.status === 'metered' ? (
+                      <span className="text-xs text-white/60">
+                        {isQuotaExhausted
+                          ? 'No IDs left today'
+                          : `${quota.remaining}/${quota.limit} left today`}
+                      </span>
+                    ) : (
+                      <span className="text-2xs text-white/40">
+                        Powered by{' '}
+                        <a
+                          href="https://brickognize.com/"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline underline-offset-2 hover:text-white/70"
+                        >
+                          Brickognize
+                        </a>
+                      </span>
+                    )}
+                  </div>
+
+                  {(selectedFile || hasSearched) && (
+                    <div className="flex justify-center">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="lg"
+                        onClick={onClear}
+                        className="px-8 shadow-lg"
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Input
+                    value={partSearchInput}
+                    onChange={event => setPartSearchInput(event.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') onPartSearch();
+                    }}
+                    placeholder="e.g. 3001, cas432, fig-007"
+                    size="lg"
+                    className="w-full shadow-lg"
+                    aria-label="Part or minifig ID"
+                  />
+                  <div className="flex justify-center gap-2">
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="lg"
+                      onClick={onPartSearch}
+                      disabled={isLoading || !partSearchInput.trim()}
+                      className="px-8 shadow-lg"
+                    >
+                      {isLoading ? 'Searching…' : 'Search'}
+                    </Button>
+                    {partSearchInput && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="lg"
+                        onClick={() => setPartSearchInput('')}
+                        className="shadow-lg"
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
           {/* Decorative stud pattern */}
           <div className="pointer-events-none absolute top-3 right-0 left-0 flex justify-center gap-6 opacity-10">
             {[...Array(10)].map((_, i) => (
@@ -802,211 +956,60 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         <div className="h-1.5 bg-brand-yellow" />
       </section>
 
-      <section className="py-6">
-        <div className="mx-auto w-full max-w-7xl px-4">
-          <div className="mx-auto w-full max-w-xs">
-            <div className="mb-4 flex items-center justify-center gap-2">
-              <button
-                type="button"
-                className={`inline-flex flex-1 items-center justify-center rounded-md border-2 px-4 py-2.5 text-sm font-semibold transition-all duration-150 ${
-                  mode === 'camera'
-                    ? 'border-brand-green bg-brand-green text-white shadow-[0_3px_0_0] shadow-[#008c33]'
-                    : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
-                }`}
-                onClick={() => setMode('camera')}
-              >
-                Camera
-              </button>
-              <button
-                type="button"
-                className={`inline-flex flex-1 items-center justify-center rounded-md border-2 px-4 py-2.5 text-sm font-semibold transition-all duration-150 ${
-                  mode === 'part'
-                    ? 'border-brand-green bg-brand-green text-white shadow-[0_3px_0_0] shadow-[#008c33]'
-                    : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
-                }`}
-                onClick={() => setMode('part')}
-              >
-                Part / minifig
-              </button>
+      {/* Results — only render when there's something to show */}
+      {(part || loadingPhase || hasSearched || error) && (
+        <section className="container-wide py-6 lg:py-8">
+          {error && <ErrorBanner message={error} className="mb-4" />}
+
+          {/* Single loader when no results have arrived yet */}
+          {loadingPhase && !part && !hasSearched ? (
+            <div className="flex items-center justify-center py-12">
+              <BrickLoader label={LOADING_PHASE_LABELS[loadingPhase]} />
             </div>
+          ) : (
+            <>
+              {part && (
+                <Suspense fallback={<BrickLoader />}>
+                  <IdentifyResultCard
+                    part={part}
+                    candidates={candidates}
+                    colorOptions={colorOptions}
+                    selectedColorId={selectedColorId}
+                    onSelectCandidate={onSelectCandidate}
+                    onChangeColor={onChangeColor}
+                  />
+                </Suspense>
+              )}
 
-            {mode === 'camera' ? (
-              <>
-                {/* Camera input (capture=environment for mobile camera) */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={e => onFileChange(e.target.files?.[0] ?? null)}
-                />
-                {/* Gallery input (no capture — opens photo picker) */}
-                <input
-                  ref={galleryInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => onFileChange(e.target.files?.[0] ?? null)}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="relative block w-full max-w-xs overflow-hidden rounded-md border-2 border-dashed border-subtle bg-card-muted hover:bg-background-muted focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                  aria-label="Upload or take a photo"
-                  disabled={isQuotaExhausted}
-                >
-                  <div className="aspect-square w-full">
-                    {imagePreview ? (
-                      <div className="h-full w-full overflow-hidden rounded bg-card">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={imagePreview}
-                          alt=""
-                          className="h-full w-full object-cover"
+              {hasSearched && (
+                <>
+                  <div className="relative -mx-3 mt-4 mb-3">
+                    <div className="flex items-center gap-3 px-3">
+                      <span className="text-sm font-semibold text-foreground">
+                        {sets.length > 0
+                          ? `Found in ${sets.length} set${sets.length !== 1 ? 's' : ''}`
+                          : 'Sets'}
+                      </span>
+                      {loadingPhase && (
+                        <BrickLoader
+                          size="sm"
+                          label={LOADING_PHASE_LABELS[loadingPhase]}
                         />
-                      </div>
-                    ) : (
-                      <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-foreground-muted">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          className="h-12 w-12"
-                          aria-hidden="true"
-                        >
-                          <path d="M9 2a1 1 0 0 0-.894.553L7.382 4H5a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-2.382l-.724-1.447A1 1 0 0 0 14 2H9Zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 .002 6.002A3 3 0 0 0 12 9Z" />
-                        </svg>
-                        <div className="text-sm font-medium">
-                          Upload or take a photo
-                        </div>
-                        <div className="text-xs text-foreground-muted">
-                          Supports camera on mobile
-                        </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => galleryInputRef.current?.click()}
-                  disabled={isQuotaExhausted}
-                  className="mt-1.5 block w-full text-center text-xs text-foreground-muted underline underline-offset-2 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  or choose from gallery
-                </button>
-                {quota.status === 'metered' && (
-                  <div className="mt-2 text-center text-xs text-foreground-muted">
-                    {isQuotaExhausted
-                      ? 'No identifications remaining today. Upgrade to continue.'
-                      : `Identifications left today: ${quota.remaining}/${quota.limit}`}
-                  </div>
-                )}
-                {(selectedFile || hasSearched) && (
-                  <div className="mt-3 flex justify-center">
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      onClick={onClear}
-                      className="min-w-32"
-                    >
-                      Clear search
-                    </Button>
-                  </div>
-                )}
-                <div className="text-2xs text-center text-foreground-muted">
-                  Powered by{' '}
-                  <a
-                    href="https://brickognize.com/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline underline-offset-2"
-                  >
-                    Brickognize
-                  </a>
-                </div>
-              </>
-            ) : (
-              <>
-                <label className="mb-1 block text-xs font-medium text-foreground">
-                  Part or minifig ID (BrickLink or Rebrickable)
-                </label>
-                <Input
-                  value={partSearchInput}
-                  onChange={event => setPartSearchInput(event.target.value)}
-                  placeholder="e.g. 3001, cas432, fig-007"
-                  size="md"
-                  className="w-full"
-                />
-                <div className="mt-3 flex justify-center gap-2">
-                  <Button
-                    type="button"
-                    variant="primary"
-                    onClick={onPartSearch}
-                    disabled={isLoading || !partSearchInput.trim()}
-                    className="min-w-32"
-                  >
-                    {isLoading ? 'Searching…' : 'Search'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setPartSearchInput('')}
-                  >
-                    Clear
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto mb-12 flex w-full max-w-6xl flex-col gap-6 px-4 md:px-8">
-        {error && <ErrorBanner message={error} />}
-
-        <div className="grid gap-6 md:grid-cols-[1.4fr,1fr]">
-          <div className="space-y-4">
-            {part ? (
-              <Suspense fallback={<BrickLoader />}>
-                <IdentifyResultCard
-                  part={part}
-                  candidates={candidates}
-                  colorOptions={colorOptions}
-                  selectedColorId={selectedColorId}
-                  onSelectCandidate={onSelectCandidate}
-                  onChangeColor={onChangeColor}
-                />
-              </Suspense>
-            ) : loadingPhase ? (
-              <div className="flex items-center justify-center rounded-lg border-2 border-l-4 border-subtle border-l-brand-green bg-card p-8">
-                <BrickLoader label={LOADING_PHASE_LABELS[loadingPhase]} />
-              </div>
-            ) : (
-              <div className="rounded-lg border-2 border-l-4 border-subtle border-l-brand-green bg-card p-4 text-body text-foreground-muted">
-                Upload a photo or enter a part/minifig ID to see results.
-              </div>
-            )}
-          </div>
-          <div className="space-y-4">
-            {loadingPhase && !sets.length ? (
-              <div className="flex items-center justify-center rounded-lg border-2 border-subtle bg-card p-8">
-                <BrickLoader
-                  size="sm"
-                  label={LOADING_PHASE_LABELS[loadingPhase]}
-                />
-              </div>
-            ) : (
-              <Suspense fallback={<BrickLoader />}>
-                <IdentifySetList
-                  items={sets}
-                  source={blPartId ? 'bl_supersets' : 'rb'}
-                />
-              </Suspense>
-            )}
-          </div>
-        </div>
-      </section>
+                  <Suspense fallback={<BrickLoader />}>
+                    <IdentifySetList
+                      items={sets}
+                      source={blPartId ? 'bl_supersets' : 'rb'}
+                    />
+                  </Suspense>
+                </>
+              )}
+            </>
+          )}
+        </section>
+      )}
     </>
   );
 }

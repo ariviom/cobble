@@ -5,6 +5,9 @@ import { formatMinifigId } from '@/app/lib/minifigIds';
 import type { IdentifyCandidate, IdentifyPart } from './types';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
+import { Card } from '@/app/components/ui/Card';
+import { Select } from '@/app/components/ui/Select';
+import { cn } from '@/app/components/ui/utils';
 
 export function IdentifyResultCard({
   part,
@@ -52,7 +55,7 @@ export function IdentifyResultCard({
   const displayImageUrl = (isMinifig && meta?.imageUrl) || partSafe.imageUrl;
 
   return (
-    <div className="mb-4 overflow-hidden rounded-lg border-2 border-subtle bg-card p-4">
+    <Card variant="green" padding="sm">
       <div className="flex items-start gap-4">
         <div className="relative h-24 w-24 shrink-0 rounded bg-card-muted p-2">
           {displayImageUrl ? (
@@ -73,15 +76,19 @@ export function IdentifyResultCard({
             {showConfidence &&
               typeof partSafe.confidence === 'number' &&
               !Number.isNaN(partSafe.confidence) && (
-                <> • confidence {(partSafe.confidence * 100).toFixed(0)}%</>
+                <>
+                  {' '}
+                  &bull; confidence {(partSafe.confidence * 100).toFixed(0)}%
+                </>
               )}
           </div>
           <div className="mt-2 flex items-center gap-2">
             {typeof selectedColorId !== 'undefined' &&
               onChangeColor &&
               (colorOptions?.length ?? 0) > 1 && (
-                <select
-                  className="rounded-md border-2 border-subtle bg-card px-2 py-1 text-xs"
+                <Select
+                  size="sm"
+                  className="max-w-[180px]"
                   value={selectedColorId ?? ''}
                   onChange={e =>
                     onChangeColor(
@@ -95,25 +102,35 @@ export function IdentifyResultCard({
                       {c.name}
                     </option>
                   ))}
-                </select>
+                </Select>
               )}
           </div>
         </div>
       </div>
       {candidates.length > 1 && onSelectCandidate && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {candidates.slice(0, 5).map(c => (
-            <button
-              key={c.partNum}
-              onClick={() => onSelectCandidate(c)}
-              className="rounded-md border-2 border-subtle bg-card px-2 py-1 text-xs hover:bg-card-muted"
-              title={c.name}
-            >
-              {c.partNum} {(c.confidence * 100).toFixed(0)}%
-            </button>
-          ))}
+        <div className="mt-3 border-t border-subtle pt-3">
+          <div className="text-2xs mb-2 font-medium tracking-wide text-foreground-muted uppercase">
+            Other matches
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {candidates.slice(0, 5).map(c => (
+              <button
+                key={c.partNum}
+                onClick={() => onSelectCandidate(c)}
+                className={cn(
+                  'rounded-md border-2 px-2 py-1 text-xs transition-colors',
+                  c.partNum === partSafe.partNum
+                    ? 'border-theme-primary bg-theme-primary/10 text-foreground'
+                    : 'border-subtle bg-card text-foreground-muted hover:border-strong hover:bg-card-muted'
+                )}
+                title={c.name}
+              >
+                {c.partNum} {(c.confidence * 100).toFixed(0)}%
+              </button>
+            ))}
+          </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

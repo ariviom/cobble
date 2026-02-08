@@ -64,7 +64,7 @@ export function SegmentedControl({
           role="tab"
           aria-selected={seg.key === value}
           className={cx(
-            'relative z-10 rounded-sm px-3 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card-muted',
+            'relative z-10 flex-1 rounded-sm px-3 text-center font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card-muted',
             size === 'sm' ? 'py-1' : 'py-1.5',
             seg.key === value
               ? 'text-foreground'
