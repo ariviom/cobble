@@ -21,6 +21,8 @@
     "fetch:minifig-parts:user": "MINIFIG_PARTS_USER_FIRST=true tsx scripts/fetch-minifig-parts.ts",
     "backfill:image-hashes": "tsx scripts/backfill-image-hashes.ts",
     "sync:bricklink-minifigs": "tsx scripts/sync-bricklink-minifigs.ts",
+    "enrich:color-ids": "tsx scripts/enrich-color-external-ids.ts",
+    "backfill:rb-colors": "tsx scripts/backfill-rb-color-ids.ts",
     "generate-types": "npx supabase gen types typescript --schema public --project-id nrrunazjjrwxaonlvvhh > supabase/types.ts"
   },
   "dependencies": {

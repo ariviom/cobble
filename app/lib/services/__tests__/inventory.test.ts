@@ -164,6 +164,7 @@ function blPart(blPartId: string, blColorId: number, qty = 1): BlMinifigPart {
     colorName: `BLColor${blColorId}`,
     name: `Part ${blPartId}`,
     quantity: qty,
+    rbColorId: null,
   };
 }
 

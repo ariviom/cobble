@@ -229,7 +229,8 @@ async function isMinifigPartsSynced(
 export async function fetchAndCacheMinifigParts(
   supabase: SupabaseClient<Database>,
   blMinifigNo: string,
-  logPrefix: string
+  logPrefix: string,
+  blToRbColorMap?: Map<number, number>
 ): Promise<BlMinifigPartEntry[] | null> {
   // Check if already synced
   if (await isMinifigPartsSynced(supabase, blMinifigNo)) {
@@ -276,6 +277,7 @@ export async function fetchAndCacheMinifigParts(
       color_name: p.color_name,
       name: p.name,
       quantity: p.quantity,
+      rb_color_id: blToRbColorMap?.get(p.bl_color_id) ?? null,
       last_refreshed_at: new Date().toISOString(),
     }));
 

@@ -5,7 +5,7 @@ import { Readable } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import zlib from 'node:zlib';
 
-import type { Database } from '@/supabase/types';
+import type { Database, Json } from '@/supabase/types';
 
 // Load environment variables:
 // - In production: load ".env" only.
@@ -262,6 +262,74 @@ async function ingestColors(
     const { error } = await supabase.from('rb_colors').upsert(batch);
     if (error) throw error;
   }
+}
+
+/**
+ * Enrich rb_colors with external_ids from the Rebrickable API.
+ *
+ * The CSV doesn't include external_ids (BrickLink color mappings), so we
+ * fetch them from the API once after CSV ingestion. This is lightweight
+ * (~300 colors, 1-2 pages) and only runs when colors are ingested.
+ */
+async function enrichColorExternalIds(
+  supabase: ReturnType<typeof createClient<Database>>
+): Promise<void> {
+  const apiKey = process.env.REBRICKABLE_API;
+  if (!apiKey) {
+    log('Skipping color external_ids enrichment: REBRICKABLE_API not set');
+    return;
+  }
+
+  log('Enriching rb_colors with external_ids from Rebrickable API...');
+
+  type ApiColor = {
+    id: number;
+    name: string;
+    external_ids: Record<string, unknown> | null;
+  };
+  type ApiPage = { results: ApiColor[]; next: string | null };
+
+  const allColors: ApiColor[] = [];
+  let url: string | null =
+    `https://rebrickable.com/api/v3/lego/colors/?page_size=1000&key=${apiKey}`;
+
+  while (url) {
+    const res = await fetch(url);
+    if (!res.ok) {
+      log(`Color API enrichment failed: ${res.status} ${res.statusText}`);
+      return;
+    }
+    const page: ApiPage = (await res.json()) as ApiPage;
+    allColors.push(...page.results);
+    url = page.next;
+  }
+
+  log(`Fetched ${allColors.length} colors from API, updating external_ids...`);
+
+  // Batch update in chunks
+  const batchSize = 200;
+  let updated = 0;
+  for (let i = 0; i < allColors.length; i += batchSize) {
+    const chunk = allColors.slice(i, i + batchSize);
+    const rows = chunk
+      .filter(c => c.external_ids != null)
+      .map(c => ({
+        id: c.id,
+        name: c.name,
+        external_ids: c.external_ids as Json,
+      }));
+
+    if (rows.length > 0) {
+      const { error } = await supabase.from('rb_colors').upsert(rows);
+      if (error) {
+        log(`Failed to upsert color external_ids batch: ${error.message}`);
+      } else {
+        updated += rows.length;
+      }
+    }
+  }
+
+  log(`Enriched ${updated} colors with external_ids`);
 }
 
 async function ingestPartCategories(
@@ -660,6 +728,7 @@ async function main() {
       await ingestThemes(supabase, stream);
     } else if (info.source === 'colors') {
       await ingestColors(supabase, stream);
+      await enrichColorExternalIds(supabase);
     } else if (info.source === 'part_categories') {
       await ingestPartCategories(supabase, stream);
     } else if (info.source === 'parts') {

@@ -74,6 +74,8 @@ export type BlMinifigPart = {
   colorName: string | null;
   name: string | null;
   quantity: number;
+  /** Rebrickable color ID, mapped from bl_color_id at sync time. null if unmapped. */
+  rbColorId: number | null;
 };
 
 export type SetMinifigResult = {
@@ -176,7 +178,7 @@ export async function getMinifigPartsBl(
   // First try to get cached parts (ordered for deterministic results)
   const { data: parts, error: partsErr } = await supabase
     .from('bl_minifig_parts')
-    .select('bl_part_id, bl_color_id, color_name, name, quantity')
+    .select('bl_part_id, bl_color_id, color_name, name, quantity, rb_color_id')
     .eq('bl_minifig_no', blMinifigId)
     .order('bl_part_id', { ascending: true })
     .order('bl_color_id', { ascending: true });
@@ -197,6 +199,7 @@ export async function getMinifigPartsBl(
       colorName: p.color_name,
       name: p.name,
       quantity: p.quantity ?? 1,
+      rbColorId: p.rb_color_id ?? null,
     }));
   }
 
@@ -218,7 +221,7 @@ export async function getMinifigPartsBl(
   // Re-fetch after sync (ordered for deterministic results)
   const { data: newParts, error: newErr } = await supabase
     .from('bl_minifig_parts')
-    .select('bl_part_id, bl_color_id, color_name, name, quantity')
+    .select('bl_part_id, bl_color_id, color_name, name, quantity, rb_color_id')
     .eq('bl_minifig_no', blMinifigId)
     .order('bl_part_id', { ascending: true })
     .order('bl_color_id', { ascending: true });
@@ -237,6 +240,7 @@ export async function getMinifigPartsBl(
     colorName: p.color_name,
     name: p.name,
     quantity: p.quantity ?? 1,
+    rbColorId: p.rb_color_id ?? null,
   }));
 }
 

@@ -22,6 +22,7 @@ import {
   fetchAndCacheMinifigParts,
   processSetForMinifigMapping,
 } from './minifig-mapping-core';
+import { buildBlToRbColorMap } from './color-mapping';
 
 // Load environment variables with Next.js-style precedence
 dotenv.config();
@@ -231,6 +232,10 @@ async function phase2SyncMinifigParts(budget: number): Promise<number> {
 
   log('Phase 2: Finding minifigs needing parts sync...', { budget });
 
+  // Build BL→RB color map once for the entire phase
+  const blToRbColorMap = await buildBlToRbColorMap(supabase);
+  log('Phase 2: Loaded BL→RB color map', { entries: blToRbColorMap.size });
+
   const cooldownCutoff = new Date();
   cooldownCutoff.setDate(cooldownCutoff.getDate() - ERROR_COOLDOWN_DAYS);
   const cooldownIso = cooldownCutoff.toISOString();
@@ -293,7 +298,8 @@ async function phase2SyncMinifigParts(budget: number): Promise<number> {
       const result = await fetchAndCacheMinifigParts(
         supabase,
         minifigNo,
-        prefix
+        prefix,
+        blToRbColorMap
       );
 
       // fetchAndCacheMinifigParts returns null if already synced (shouldn't happen

@@ -189,7 +189,7 @@ export async function getSetInventoryRowsWithMeta(
     const { data: allSubparts, error: subpartsErr } = await supabase
       .from('bl_minifig_parts')
       .select(
-        'bl_minifig_no, bl_part_id, bl_color_id, color_name, name, quantity'
+        'bl_minifig_no, bl_part_id, bl_color_id, color_name, name, quantity, rb_color_id'
       )
       .in('bl_minifig_no', allBlMinifigNos);
 
@@ -209,6 +209,7 @@ export async function getSetInventoryRowsWithMeta(
         colorName: string | null;
         name: string | null;
         quantity: number;
+        rbColorId: number | null;
       }>
     >();
     for (const sp of allSubparts ?? []) {
@@ -219,6 +220,7 @@ export async function getSetInventoryRowsWithMeta(
         colorName: sp.color_name,
         name: sp.name,
         quantity: sp.quantity ?? 1,
+        rbColorId: sp.rb_color_id ?? null,
       });
       subpartsByMinifig.set(sp.bl_minifig_no, list);
     }
@@ -263,6 +265,7 @@ export async function getSetInventoryRowsWithMeta(
                 colorName: p.colorName,
                 name: p.name,
                 quantity: p.quantity,
+                rbColorId: p.rbColorId,
               }))
             );
           }
@@ -340,7 +343,8 @@ export async function getSetInventoryRowsWithMeta(
           sp.blPartId,
           sp.blColorId,
           rowsByCanonicalKey,
-          ctx
+          ctx,
+          sp.rbColorId
         );
         const canonicalKey = subpartIdentity.canonicalKey;
         const totalQtyForThisMinifig = sp.quantity * minifigQty;
@@ -445,7 +449,8 @@ export async function getSetInventoryRowsWithMeta(
               sp.blPartId,
               sp.blColorId,
               rowsByCanonicalKey,
-              ctx
+              ctx,
+              sp.rbColorId
             );
             return { key: spIdentity.canonicalKey, quantity: sp.quantity };
           });

@@ -119,6 +119,7 @@ export type Database = {
           last_refreshed_at: string | null;
           name: string | null;
           quantity: number;
+          rb_color_id: number | null;
         };
         Insert: {
           bl_color_id: number;
@@ -128,6 +129,7 @@ export type Database = {
           last_refreshed_at?: string | null;
           name?: string | null;
           quantity?: number;
+          rb_color_id?: number | null;
         };
         Update: {
           bl_color_id?: number;
@@ -137,6 +139,7 @@ export type Database = {
           last_refreshed_at?: string | null;
           name?: string | null;
           quantity?: number;
+          rb_color_id?: number | null;
         };
         Relationships: [];
       };
@@ -1173,6 +1176,24 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_recent_sets: {
+        Row: {
+          last_viewed_at: string;
+          set_num: string;
+          user_id: string;
+        };
+        Insert: {
+          last_viewed_at?: string;
+          set_num: string;
+          user_id: string;
+        };
+        Update: {
+          last_viewed_at?: string;
+          set_num?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       user_set_parts: {
         Row: {
           color_id: number;
@@ -1210,24 +1231,6 @@ export type Database = {
             referencedColumns: ['set_num'];
           },
         ];
-      };
-      user_recent_sets: {
-        Row: {
-          last_viewed_at: string;
-          set_num: string;
-          user_id: string;
-        };
-        Insert: {
-          last_viewed_at?: string;
-          set_num: string;
-          user_id: string;
-        };
-        Update: {
-          last_viewed_at?: string;
-          set_num?: string;
-          user_id?: string;
-        };
-        Relationships: [];
       };
       user_sets: {
         Row: {

@@ -2,6 +2,10 @@ import 'server-only';
 
 import type { InventoryRow } from '@/app/components/set/types';
 import {
+  getColorMaps,
+  getRbToBlColorMapFromDb,
+} from '@/app/lib/colors/colorMapping';
+import {
   createCatalogPartIdentity,
   createMatchedSubpartIdentity,
   createMinifigParentIdentity,
@@ -9,7 +13,6 @@ import {
   type PartIdentity,
 } from '@/app/lib/domain/partIdentity';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
-import { getColors } from '@/app/lib/rebrickable';
 import { logger } from '@/lib/metrics';
 
 // ---------------------------------------------------------------------------
@@ -26,38 +29,11 @@ export type ResolutionContext = {
 };
 
 // ---------------------------------------------------------------------------
-// RB → BL color map (cached, reusable)
+// RB → BL color map — re-export for backward compat
 // ---------------------------------------------------------------------------
 
-let rbToBlColorCache: { at: number; map: Map<number, number> } | null = null;
-const RB_BL_COLOR_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-
-export async function getRbToBlColorMap(): Promise<Map<number, number>> {
-  const now = Date.now();
-  if (rbToBlColorCache && now - rbToBlColorCache.at < RB_BL_COLOR_CACHE_TTL) {
-    return rbToBlColorCache.map;
-  }
-
-  const map = new Map<number, number>();
-  try {
-    const colors = await getColors();
-    for (const c of colors) {
-      const bl = (
-        c.external_ids as { BrickLink?: { ext_ids?: number[] } } | undefined
-      )?.BrickLink;
-      if (bl?.ext_ids && bl.ext_ids.length > 0) {
-        map.set(c.id, bl.ext_ids[0]!);
-      }
-    }
-  } catch (err) {
-    logger.warn('identityResolution.rb_bl_color_map_failed', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
-
-  rbToBlColorCache = { at: now, map };
-  return map;
-}
+/** @deprecated Use `getColorMaps()` or `getRbToBlColorMapFromDb()` directly. */
+export const getRbToBlColorMap = getRbToBlColorMapFromDb;
 
 // ---------------------------------------------------------------------------
 // Build resolution context
@@ -71,12 +47,8 @@ export async function getRbToBlColorMap(): Promise<Map<number, number>> {
 export async function buildResolutionContext(
   catalogRows: InventoryRow[]
 ): Promise<ResolutionContext> {
-  // 1. Color maps
-  const rbToBlColor = await getRbToBlColorMap();
-  const blToRbColor = new Map<number, number>();
-  for (const [rb, bl] of rbToBlColor) {
-    blToRbColor.set(bl, rb);
-  }
+  // 1. Color maps (both directions from DB in one call)
+  const { rbToBl: rbToBlColor, blToRb: blToRbColor } = await getColorMaps();
 
   // 2. Part mappings from catalog rows (already loaded via external_ids)
   const partMappings = new Map<string, string>();
@@ -176,11 +148,12 @@ export function resolveMinifigSubpartIdentity(
   blPartId: string,
   blColorId: number,
   catalogIndex: Map<string, number>,
-  ctx: ResolutionContext
+  ctx: ResolutionContext,
+  rbColorIdFromDb?: number | null
 ): PartIdentity {
   // Try to reverse-map BL IDs to RB IDs
   const rbPartId = ctx.blToRbPart.get(blPartId) ?? null;
-  const rbColorId = ctx.blToRbColor.get(blColorId) ?? null;
+  const rbColorId = rbColorIdFromDb ?? ctx.blToRbColor.get(blColorId) ?? null;
 
   if (rbPartId != null && rbColorId != null) {
     // Check if this RB key exists in the catalog index
