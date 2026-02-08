@@ -247,8 +247,8 @@ export function SearchResults() {
           <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background sm:hidden" />
         </div>
         {isMinifigLoading && (
-          <div className="mt-2 flex justify-center">
-            <BrickLoader label="Loading minifigure results…" />
+          <div className="flex justify-center py-12 text-center">
+            <BrickLoader />
           </div>
         )}
         {minifigError && (
@@ -376,8 +376,8 @@ export function SearchResults() {
         <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background sm:hidden" />
       </div>
       {isSetLoading && (
-        <div className="mt-2 flex justify-center">
-          <BrickLoader label="Loading search results…" />
+        <div className="flex justify-center py-12 text-center">
+          <BrickLoader />
         </div>
       )}
       {setError && (

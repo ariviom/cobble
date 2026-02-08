@@ -1,8 +1,34 @@
 'use client';
 
 import { cva, type VariantProps } from 'class-variance-authority';
+import { useEffect, useState } from 'react';
 
-const brickLoaderVariants = cva('relative', {
+const LOADING_MESSAGES = [
+  'Digging through the brick bin\u2026',
+  'Sorting studs by color\u2026',
+  'Checking under the couch cushions\u2026',
+  'Flipping through instruction booklets\u2026',
+  'Stepping on bricks so you don\u2019t have to\u2026',
+  'Asking the minifigs for directions\u2026',
+  'Raiding the parts drawer\u2026',
+  'Consulting the master builders\u2026',
+  'Counting every last stud\u2026',
+  'Untangling the Technic pins\u2026',
+  'Searching every baseplate\u2026',
+  'Peeking inside the mystery bags\u2026',
+];
+
+function pickRandom(exclude: number): number {
+  let next: number;
+  do {
+    next = Math.floor(Math.random() * LOADING_MESSAGES.length);
+  } while (next === exclude && LOADING_MESSAGES.length > 1);
+  return next;
+}
+
+const CYCLE_INTERVAL_MS = 3_000;
+
+const brickLoaderVariants = cva('relative flex flex-col items-center', {
   variants: {
     size: {
       sm: '[--brick-size:48px]',
@@ -108,6 +134,18 @@ function IsoBrick({ color }: { color: BrickColor }) {
  * - TOP: 1 (backmost)
  */
 export function BrickLoader({ size, label, className }: BrickLoaderProps) {
+  const [messageIndex, setMessageIndex] = useState(() => pickRandom(-1));
+
+  useEffect(() => {
+    if (label) return; // skip cycling when an explicit label is provided
+    const id = setInterval(() => {
+      setMessageIndex(prev => pickRandom(prev));
+    }, CYCLE_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [label]);
+
+  const displayLabel = label ?? LOADING_MESSAGES[messageIndex];
+
   return (
     <div
       className={brickLoaderVariants({ size, className })}
@@ -161,11 +199,9 @@ export function BrickLoader({ size, label, className }: BrickLoaderProps) {
         </div>
       </div>
 
-      {label ? (
-        <span className="mt-2 block text-center text-base font-medium text-foreground">
-          {label}
-        </span>
-      ) : null}
+      <span className="mt-3 block text-center text-sm text-foreground-muted">
+        {displayLabel}
+      </span>
     </div>
   );
 }

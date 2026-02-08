@@ -396,7 +396,7 @@ export default function ExclusivePiecesClient({ themes }: Props) {
       {/* Loading State */}
       {isLoading && (
         <div className="py-16 text-center">
-          <BrickLoader label="Scanning the brick vault..." />
+          <BrickLoader />
           <p className="mt-3 text-sm text-foreground-muted">
             Finding exclusive pieces in {getTargetLabel()}. This may take a
             moment.
