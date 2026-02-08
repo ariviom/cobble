@@ -12,10 +12,9 @@ import {
   type UnifiedSet,
 } from '@/app/hooks/useUnifiedSets';
 import type { SetTab } from '@/app/store/open-tabs';
-import { removeRecentSet } from '@/app/store/recent-sets';
 import { Camera, Search } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 
 type SetsLandingContentProps = {
   /** When provided, clicking a set calls this instead of navigating via Link. */
@@ -35,23 +34,10 @@ export function SetsLandingContent({
     searchQuery,
     setSearchQuery,
     filterOptions,
+    removeRecent,
     isLoading,
   } = useUnifiedSets(isActive);
   const { user } = useSupabaseUser();
-
-  const [removedSetNumbers, setRemovedSetNumbers] = useState<Set<string>>(
-    new Set()
-  );
-
-  const visibleSets =
-    activeFilter === 'recent'
-      ? sets.filter(s => !removedSetNumbers.has(s.setNumber))
-      : sets;
-
-  const handleRemoveRecent = (setNumber: string) => {
-    setRemovedSetNumbers(prev => new Set(prev).add(setNumber));
-    removeRecentSet(setNumber);
-  };
 
   const handleSelectSet = useCallback(
     (set: UnifiedSet, e: React.MouseEvent) => {
@@ -95,7 +81,7 @@ export function SetsLandingContent({
       </section>
 
       {/* Sticky CTA buttons */}
-      <div className="sticky top-11 z-50 container-default bg-card py-4 lg:top-0">
+      <div className="sticky top-11 z-50 bg-card px-4 py-4 lg:top-0">
         <div className="flex flex-wrap justify-center gap-4">
           <Button href="/search" variant="primary" size="lg" className="gap-2">
             <Search className="h-5 w-5" />
@@ -148,13 +134,11 @@ export function SetsLandingContent({
           </div>
 
           {/* Content */}
-          {isLoading &&
-          activeFilter !== 'recent' &&
-          visibleSets.length === 0 ? (
+          {isLoading && activeFilter !== 'recent' && sets.length === 0 ? (
             <div className="flex justify-center py-12">
               <Spinner label="Loading sets..." />
             </div>
-          ) : visibleSets.length === 0 ? (
+          ) : sets.length === 0 ? (
             activeFilter === 'recent' && !searchQuery.trim() ? (
               <p className="py-8 text-center text-body text-foreground-muted">
                 Sets you view will appear here.
@@ -178,7 +162,7 @@ export function SetsLandingContent({
             )
           ) : (
             <div className="grid grid-cols-2 gap-x-2 gap-y-4 md:grid-cols-3 lg:grid-cols-4">
-              {visibleSets.map(set => (
+              {sets.map(set => (
                 <div key={set.setNumber} onClick={e => handleSelectSet(set, e)}>
                   <SetDisplayCardWithControls
                     setNumber={set.setNumber}
@@ -191,7 +175,7 @@ export function SetsLandingContent({
                     totalParts={set.totalParts}
                     onRemove={
                       activeFilter === 'recent'
-                        ? () => handleRemoveRecent(set.setNumber)
+                        ? () => removeRecent(set.setNumber)
                         : undefined
                     }
                   />

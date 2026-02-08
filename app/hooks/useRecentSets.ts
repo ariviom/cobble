@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import { getRecentSets, type RecentSetEntry } from '@/app/store/recent-sets';
+import {
+  getRecentSets,
+  removeRecentSet,
+  type RecentSetEntry,
+} from '@/app/store/recent-sets';
 import type { RecentSetsResponse } from '@/app/api/recent-sets/route';
 
 /**
@@ -14,7 +18,7 @@ import type { RecentSetsResponse } from '@/app/api/recent-sets/route';
  * - Merges: for each set, takes the entry with the newer lastViewedAt
  * - On tab re-activation, re-reads local (picks up new views from set pages)
  */
-export function useRecentSets(isActive = true): RecentSetEntry[] {
+export function useRecentSets(isActive = true) {
   const [sets, setSets] = useState<RecentSetEntry[]>(() => getRecentSets());
   const { user } = useSupabaseUser();
   const cloudFetchedRef = useRef(false);
@@ -103,5 +107,12 @@ export function useRecentSets(isActive = true): RecentSetEntry[] {
     prevActiveRef.current = isActive;
   }, [isActive, mergeAndSet]);
 
-  return sets;
+  const remove = useCallback((setNumber: string) => {
+    removeRecentSet(setNumber);
+    setSets(prev =>
+      prev.filter(s => s.setNumber.toLowerCase() !== setNumber.toLowerCase())
+    );
+  }, []);
+
+  return { sets, remove };
 }

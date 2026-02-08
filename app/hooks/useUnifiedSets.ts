@@ -47,7 +47,7 @@ function normalizeKey(setNumber: string): string {
 
 export function useUnifiedSets(isActive = true) {
   const { user } = useSupabaseUser();
-  const recentSets = useRecentSets(isActive);
+  const { sets: recentSets, remove: removeRecent } = useRecentSets(isActive);
   const { sets: completionSets, isLoading: completionLoading } =
     useCompletionStats(isActive);
   const {
@@ -267,6 +267,7 @@ export function useUnifiedSets(isActive = true) {
     searchQuery,
     setSearchQuery,
     filterOptions,
+    removeRecent,
     isLoading: completionLoading || collectionLoading,
   };
 }
