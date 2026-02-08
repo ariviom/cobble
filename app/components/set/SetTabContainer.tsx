@@ -332,26 +332,27 @@ export function SetTabContainer({
         style={containerStyle}
         className="tab-container flex-col lg:min-h-0 lg:flex-1"
       >
-        <InventoryProvider
-          setNumber={tab.id}
-          setName={tab.name}
-          initialControlsState={savedControlsState}
-          enableCloudSync
-          isActive={isActive}
-          groupSessionId={groupSession?.id ?? null}
-          groupParticipantId={currentParticipant?.id ?? null}
-          groupClientId={clientId}
-          onParticipantPiecesDelta={handleParticipantPiecesDelta}
-        >
-          <SetTabContainerContent
-            tab={tab}
+        {isActive ? (
+          <InventoryProvider
+            setNumber={tab.id}
+            setName={tab.name}
+            initialControlsState={savedControlsState}
+            enableCloudSync
             isActive={isActive}
-            onSaveState={onSaveState}
-            savedScrollTop={savedScrollTop}
-            isDesktop={isDesktop}
-            searchParty={searchPartyProp}
-          />
-        </InventoryProvider>
+            groupSessionId={groupSession?.id ?? null}
+            groupParticipantId={currentParticipant?.id ?? null}
+            groupClientId={clientId}
+            onParticipantPiecesDelta={handleParticipantPiecesDelta}
+          >
+            <SetTabContainerContent
+              tab={tab}
+              onSaveState={onSaveState}
+              savedScrollTop={savedScrollTop}
+              isDesktop={isDesktop}
+              searchParty={searchPartyProp}
+            />
+          </InventoryProvider>
+        ) : null}
       </div>
 
       {searchPartyError && (
@@ -367,7 +368,6 @@ export function SetTabContainer({
 
 type SetTabContainerContentProps = {
   tab: SetTab;
-  isActive: boolean;
   onSaveState: (state: Partial<TabViewState>) => void;
   savedScrollTop?: number | undefined;
   isDesktop?: boolean | undefined;
@@ -386,7 +386,6 @@ type SetTabContainerContentProps = {
 
 function SetTabContainerContent({
   tab,
-  isActive,
   onSaveState,
   savedScrollTop,
   isDesktop,
@@ -396,7 +395,6 @@ function SetTabContainerContent({
   const { getControlsState } = useInventoryControls();
   const hasRestoredScroll = useRef(false);
 
-  // Save controls state when tab becomes inactive (or on unmount as fallback)
   const getControlsStateRef = useRef(getControlsState);
   getControlsStateRef.current = getControlsState;
 
@@ -415,16 +413,7 @@ function SetTabContainerContent({
     });
   }, []);
 
-  const prevActiveRef = useRef(isActive);
-  useEffect(() => {
-    // Save state when transitioning from active → inactive
-    if (prevActiveRef.current && !isActive) {
-      saveControlsState();
-    }
-    prevActiveRef.current = isActive;
-  }, [isActive, saveControlsState]);
-
-  // Fallback: save on unmount (e.g. tab closed)
+  // Save controls state on unmount (tab switch or tab close)
   useEffect(() => {
     return () => {
       saveControlsState();
