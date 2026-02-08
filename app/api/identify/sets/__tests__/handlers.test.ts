@@ -29,6 +29,17 @@ vi.mock('@/app/lib/bricklink', () => ({
   blGetPartSupersets: vi.fn(),
 }));
 
+// Mock BL fallback (used by handlePartIdentify when no RB sets found)
+vi.mock('@/app/lib/identify/blFallback', () => ({
+  fetchBLSupersetsFallback: vi.fn().mockResolvedValue({
+    sets: [],
+    partName: '',
+    partImage: null,
+    blAvailableColors: [],
+    source: 'bl_supersets',
+  }),
+}));
+
 // Mock Supabase - updated for BL queries
 const mockMaybeSingle = vi.fn();
 const mockLimit = vi.fn(() => ({ maybeSingle: mockMaybeSingle }));

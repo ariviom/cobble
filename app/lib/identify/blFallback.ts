@@ -18,14 +18,8 @@ import {
   buildBlAvailableColors,
   enrichSetsWithRebrickable,
 } from './enrichment';
-import {
-  ExternalCallBudget,
-  isBudgetError,
-  withBudget,
-  type BLFallbackResult,
-  type BLSet,
-  type BLSource,
-} from './types';
+import { PipelineBudget } from './budget';
+import { type BLFallbackResult, type BLSet, type BLSource } from './types';
 import { getSupabaseServiceRoleClient } from '../supabaseServiceRoleClient';
 
 type FetchOptions = {
@@ -91,7 +85,7 @@ function intersectSets(lists: BLSet[][]): BLSet[] {
 
 async function fetchSupersetsWithColorFallback(
   blId: string,
-  budget: ExternalCallBudget,
+  budget: PipelineBudget,
   colorVariantLimit: number,
   supersetLimit: number,
   initialColorId?: number
@@ -99,27 +93,36 @@ async function fetchSupersetsWithColorFallback(
   sets: BLSet[];
   subsets: Awaited<ReturnType<typeof blGetPartSubsets>>;
 }> {
-  let setsFromBL = toBLSet(
-    await withBudget(budget, () => blGetPartSupersets(blId, initialColorId))
+  const initialSupersets = await budget.withBudget(() =>
+    blGetPartSupersets(blId, initialColorId)
   );
+  if (initialSupersets === null) return { sets: [], subsets: [] };
+
+  let setsFromBL = toBLSet(initialSupersets);
   let subsets: Awaited<ReturnType<typeof blGetPartSubsets>> = [];
   if (setsFromBL.length >= supersetLimit)
     return { sets: setsFromBL.slice(0, supersetLimit), subsets };
 
-  try {
-    const colors = await withBudget(budget, () => blGetPartColors(blId));
+  // Try color-variant supersets
+  const colors = await budget.withBudget(() => blGetPartColors(blId));
+  if (colors !== null) {
     for (const c of (colors ?? []).slice(0, colorVariantLimit)) {
       if (typeof c?.color_id !== 'number') continue;
-      const supByColor = await withBudget(budget, () =>
+      const supByColor = await budget.withBudget(() =>
         blGetPartSupersets(blId, c.color_id)
       );
+      if (supByColor === null) break; // budget exhausted — return what we have
       setsFromBL = setsFromBL.concat(toBLSet(supByColor));
       if (setsFromBL.length >= supersetLimit) break;
     }
     if (setsFromBL.length >= supersetLimit)
       return { sets: setsFromBL.slice(0, supersetLimit), subsets };
+  }
 
-    subsets = await withBudget(budget, () => blGetPartSubsets(blId));
+  // Fetch subsets independently so it runs even when color variants fail
+  const subsetsResult = await budget.withBudget(() => blGetPartSubsets(blId));
+  if (subsetsResult !== null) {
+    subsets = subsetsResult;
     logger.debug('identify.bl_subsets_fetch', {
       blId,
       colorId: null,
@@ -136,18 +139,13 @@ async function fetchSupersetsWithColorFallback(
       }
     }
     for (const [colorId] of uniqColorIds) {
-      const supByColor = await withBudget(budget, () =>
+      const supByColor = await budget.withBudget(() =>
         blGetPartSupersets(blId, colorId)
       );
+      if (supByColor === null) break; // budget exhausted
       setsFromBL = setsFromBL.concat(toBLSet(supByColor));
       if (setsFromBL.length >= supersetLimit) break;
     }
-  } catch (err) {
-    if (isBudgetError(err)) throw err;
-    logger.warn('identify.bl_supersets_fallback_failed', {
-      blId,
-      error: err instanceof Error ? err.message : String(err),
-    });
   }
 
   logger.debug('identify.bl_supersets_fetch', {
@@ -244,7 +242,7 @@ async function upsertCachedSupersets(
 
 export async function fetchBLSupersetsFallback(
   blId: string,
-  budget: ExternalCallBudget,
+  budget: PipelineBudget,
   options?: FetchOptions
 ): Promise<BLFallbackResult> {
   const colorVariantLimit =
@@ -277,26 +275,22 @@ export async function fetchBLSupersetsFallback(
 
   const shouldRefresh = setsFromBL.length === 0;
 
-  try {
-    if (shouldRefresh) {
-      const result = await fetchSupersetsWithColorFallback(
-        blId,
-        budget,
-        colorVariantLimit,
-        supersetLimit,
-        blColorId
-      );
-      setsFromBL = result.sets;
-      subsets = result.subsets;
-      logger.debug('identify.bl_supersets_raw', {
-        blPart: blId,
-        setCount: setsFromBL.length,
-        subsetCount: subsets.length,
-        sample: setsFromBL[0] ?? null,
-      });
-    }
-  } catch (err) {
-    if (isBudgetError(err)) throw err;
+  if (shouldRefresh) {
+    const result = await fetchSupersetsWithColorFallback(
+      blId,
+      budget,
+      colorVariantLimit,
+      supersetLimit,
+      blColorId
+    );
+    setsFromBL = result.sets;
+    subsets = result.subsets;
+    logger.debug('identify.bl_supersets_raw', {
+      blPart: blId,
+      setCount: setsFromBL.length,
+      subsetCount: subsets.length,
+      sample: setsFromBL[0] ?? null,
+    });
   }
 
   // Deterministic intersection using subsets and our RB catalog
@@ -336,7 +330,6 @@ export async function fetchBLSupersetsFallback(
         }));
         if (mapped.length) perComponentSets.push(mapped);
       } catch (err) {
-        if (isBudgetError(err)) throw err;
         logger.warn('identify.bl_component_intersection_failed', {
           blId,
           component: comp.partNum,
@@ -370,18 +363,19 @@ export async function fetchBLSupersetsFallback(
       const partNo = sub?.item?.no;
       if (!partNo) continue;
       try {
-        let sup = await withBudget(budget, () =>
+        let sup = await budget.withBudget(() =>
           blGetPartSupersets(partNo, sub.color_id)
         );
+        if (sup === null) break; // budget exhausted
         if (!sup.length) {
-          sup = await withBudget(budget, () => blGetPartSupersets(partNo));
+          sup = await budget.withBudget(() => blGetPartSupersets(partNo));
+          if (sup === null) break; // budget exhausted
         }
         setsFromBL = setsFromBL.concat(toBLSet(sup));
         if (setsFromBL.length >= supersetLimit) {
           break;
         }
       } catch (err) {
-        if (isBudgetError(err)) throw err;
         logger.warn('identify.bl_subpart_supersets_failed', {
           blId,
           subPart: partNo,
@@ -446,7 +440,6 @@ export async function fetchBLSupersetsFallback(
         }
         if (setHitMap.size >= supersetLimit) break;
       } catch (err) {
-        if (isBudgetError(err)) throw err;
         logger.warn('identify.bl_component_fallback_failed', {
           blId,
           component: comp.partNum,
@@ -474,8 +467,8 @@ export async function fetchBLSupersetsFallback(
     }
   }
 
-  try {
-    const meta = await withBudget(budget, () => blGetPart(blId));
+  const meta = await budget.withBudget(() => blGetPart(blId));
+  if (meta !== null) {
     partName = meta?.name ?? partName;
     const metaWithImage = meta as { image_url?: unknown };
     partImage = normalizeBLImageUrl(
@@ -483,27 +476,17 @@ export async function fetchBLSupersetsFallback(
         ? metaWithImage.image_url
         : partImage
     );
-  } catch (err) {
-    if (isBudgetError(err)) throw err;
   }
 
   let blAvailableColors: BLFallbackResult['blAvailableColors'] = [];
-  try {
-    blAvailableColors = await buildBlAvailableColors(blId, budget);
-  } catch (err) {
-    if (isBudgetError(err)) throw err;
-  }
+  blAvailableColors = await buildBlAvailableColors(blId, budget);
 
   if (setsFromBL.length) {
-    try {
-      setsFromBL = await enrichSetsWithRebrickable(
-        setsFromBL,
-        budget,
-        enrichLimit
-      );
-    } catch (err) {
-      if (isBudgetError(err)) throw err;
-    }
+    setsFromBL = await enrichSetsWithRebrickable(
+      setsFromBL,
+      budget,
+      enrichLimit
+    );
   }
 
   if (process.env.NODE_ENV !== 'production') {

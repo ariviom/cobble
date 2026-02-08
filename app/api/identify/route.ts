@@ -5,17 +5,10 @@ import { z } from 'zod';
 
 import { errorResponse } from '@/app/lib/api/responses';
 import { LRUCache } from '@/app/lib/cache/lru';
-import {
-  extractCandidatePartNumbers,
-  identifyWithBrickognize,
-} from '@/app/lib/brickognize';
 import { EXTERNAL, IMAGE, RATE_LIMIT } from '@/app/lib/constants';
-import { ExternalCallBudget } from '@/app/lib/identify/types';
+import { PipelineBudget } from '@/app/lib/identify/budget';
+import { runIdentifyPipeline } from '@/app/lib/identify/pipeline';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
-import {
-  resolveCandidates,
-  resolveIdentifyResult,
-} from '@/app/lib/services/identify';
 import { getEntitlements, hasFeature } from '@/app/lib/services/entitlements';
 import {
   checkAndIncrementUsage,
@@ -41,14 +34,13 @@ const localIdentifyCache = new LRUCache<string, CachedIdentifyResponse>(
 );
 
 function getCachedResponse(cacheKey: string): CachedIdentifyResponse | null {
-  const entry = localIdentifyCache.get(cacheKey);
-  if (!entry) return null;
-  return entry;
+  return localIdentifyCache.get(cacheKey) ?? null;
 }
 
 function setCachedResponse(cacheKey: string, status: number, body: unknown) {
   localIdentifyCache.set(cacheKey, { status, body, cachedAt: Date.now() });
 }
+
 function isFileLike(value: unknown): value is Blob {
   if (!value || typeof value !== 'object') return false;
   return value instanceof Blob || value instanceof File;
@@ -62,18 +54,14 @@ const identifyBodySchema = z.object({
         typeof file.size === 'number' &&
         file.size > 0 &&
         file.size <= IMAGE.MAX_SIZE_BYTES,
-      {
-        message: 'image_must_be_between_1b_and_5mb',
-      }
+      { message: 'image_must_be_between_1b_and_5mb' }
     )
     .refine(
       file => {
         const type = (file as { type?: string }).type;
         return !type || ALLOWED_IMAGE_TYPES.has(type.toLowerCase());
       },
-      {
-        message: `image_type_must_be_one_of_${IMAGE.ALLOWED_TYPES.join(',')}`,
-      }
+      { message: `image_type_must_be_one_of_${IMAGE.ALLOWED_TYPES.join(',')}` }
     ),
   colorHint: z.preprocess(val => {
     if (val === null || val === undefined || val === '') return undefined;
@@ -88,32 +76,31 @@ const identifyBodySchema = z.object({
 
 export const POST = withCsrfProtection(async (req: NextRequest) => {
   try {
+    // Rate limit
     const clientIp = (await getClientIp(req)) ?? 'unknown';
     const ipLimit = await consumeRateLimit(`identify:ip:${clientIp}`, {
       windowMs: RATE_LIMIT.WINDOW_MS,
       maxHits: RATE_LIMIT.IDENTIFY_MAX,
     });
     if (!ipLimit.allowed) {
-      const retryAfterSeconds = ipLimit.retryAfterSeconds;
       return errorResponse('rate_limited', {
         status: 429,
-        headers: { 'Retry-After': String(retryAfterSeconds) },
-        details: { retryAfterSeconds },
+        headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+        details: { retryAfterSeconds: ipLimit.retryAfterSeconds },
       });
     }
 
+    // Auth
     const supabase = await getSupabaseAuthServerClient();
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
-
     if (userError || !user) {
-      return errorResponse('unauthorized', {
-        message: 'sign_in_required',
-      });
+      return errorResponse('unauthorized', { message: 'sign_in_required' });
     }
 
+    // Validation
     const form = await req.formData();
     const parsed = identifyBodySchema.safeParse({
       image: form.get('image'),
@@ -126,22 +113,20 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     }
     const { image, colorHint } = parsed.data;
 
-    // Hash image to dedupe identical uploads for the same user.
+    // Dedup via image hash
     const arrayBuf = await (image as Blob).arrayBuffer();
-    const imageBuffer = Buffer.from(arrayBuf);
     const imageHash = crypto
       .createHash('sha256')
-      .update(imageBuffer)
+      .update(Buffer.from(arrayBuf))
       .digest('hex');
     const cacheKey = `${user.id}:${imageHash}`;
 
+    // Cache check
     const cached = getCachedResponse(cacheKey);
     const entitlements = await getEntitlements(user.id);
     const hasUnlimited = hasFeature(entitlements, 'identify.unlimited');
 
-    // For cache hits, we don't increment quota but still verify user has access
     if (cached) {
-      // If user doesn't have unlimited, verify they haven't exceeded quota
       if (!hasUnlimited) {
         const usage = await getUsageStatus({
           userId: user.id,
@@ -166,7 +151,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       return NextResponse.json(cached.body, { status: cached.status });
     }
 
-    // For new requests, check and increment quota
+    // Quota
     if (!hasUnlimited) {
       const usage = await checkAndIncrementUsage({
         userId: user.id,
@@ -189,63 +174,27 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       }
     }
 
-    const externalBudget = new ExternalCallBudget(
-      EXTERNAL.EXTERNAL_CALL_BUDGET
+    // Pipeline
+    const budget = new PipelineBudget(EXTERNAL.EXTERNAL_CALL_BUDGET);
+    const result = await runIdentifyPipeline(
+      { image: image as Blob, colorHint },
+      budget
     );
 
-    const brickognizePayload = await identifyWithBrickognize(
-      image as unknown as Blob
-    );
-    if (process.env.NODE_ENV !== 'production') {
-      const payloadDiag = brickognizePayload as {
-        listing_id?: unknown;
-        items?: unknown[];
-      };
-      logger.debug('identify.brickognize_payload', {
-        listing_id: payloadDiag.listing_id,
-        items_len: Array.isArray(payloadDiag.items)
-          ? payloadDiag.items.length
-          : undefined,
-      });
-    }
-
-    const candidates = extractCandidatePartNumbers(brickognizePayload).sort(
-      (a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)
-    );
-    logger.debug('identify.candidates_extracted', {
-      count: candidates.length,
-      sample: candidates.slice(0, 3),
-    });
-    if (candidates.length === 0) {
-      return errorResponse('no_match');
-    }
-
-    const resolved = await resolveCandidates(candidates);
-    logger.debug('identify.candidates_resolved', {
-      count: resolved.length,
-      sample: resolved.slice(0, 3).map(c => ({
-        partNum: c.partNum,
-        bricklinkId: c.bricklinkId,
-        confidence: c.confidence,
-        colorId: c.colorId,
-      })),
-    });
-    if (!resolved.length) {
+    if (result.status === 'no_match') return errorResponse('no_match');
+    if (result.status === 'no_valid_candidate')
       return errorResponse('no_valid_candidate');
+
+    // Budget exhaustion with no useful results → 429
+    if (
+      budget.isExhausted &&
+      result.status === 'fallback' &&
+      !result.payload.sets.length
+    ) {
+      return errorResponse('budget_exceeded', { status: 429 });
     }
 
-    const result = await resolveIdentifyResult({
-      candidates: resolved,
-      ...(colorHint !== undefined ? { colorHint } : {}),
-      budget: externalBudget,
-    });
-
-    if (result.status === 'no_match') {
-      return errorResponse('no_match');
-    }
-    if (result.status === 'no_valid_candidate') {
-      return errorResponse('no_valid_candidate');
-    }
+    // Shape response
     if (result.status === 'fallback') {
       const body = {
         part: result.payload.part,
@@ -264,9 +213,6 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     setCachedResponse(cacheKey, 200, result.payload);
     return NextResponse.json(result.payload);
   } catch (err) {
-    if (err instanceof Error && err.message === 'external_budget_exhausted') {
-      return errorResponse('budget_exceeded', { status: 429 });
-    }
     logger.error('identify.failed', {
       error: err instanceof Error ? err.message : String(err),
     });

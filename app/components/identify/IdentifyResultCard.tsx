@@ -57,7 +57,7 @@ export function IdentifyResultCard({
   return (
     <Card variant="green" padding="sm">
       <div className="flex items-start gap-4">
-        <div className="relative h-24 w-24 shrink-0 rounded bg-card-muted p-2">
+        <div className="relative h-32 w-32 shrink-0 rounded bg-card-muted p-2">
           {displayImageUrl ? (
             <OptimizedImage
               src={displayImageUrl}
@@ -70,18 +70,31 @@ export function IdentifyResultCard({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium">{displayName}</div>
+          <div className="text-base font-semibold">{displayName}</div>
           <div className="mt-1 text-xs text-foreground-muted">
             {idLabel}
             {showConfidence &&
               typeof partSafe.confidence === 'number' &&
-              !Number.isNaN(partSafe.confidence) && (
+              !Number.isNaN(partSafe.confidence) &&
+              partSafe.confidence > 0 && (
                 <>
                   {' '}
                   &bull; confidence {(partSafe.confidence * 100).toFixed(0)}%
                 </>
               )}
           </div>
+          <a
+            href={
+              isMinifig
+                ? `https://www.bricklink.com/v2/catalog/catalogitem.page?M=${encodeURIComponent(part?.bricklinkFigId ?? rebrickableFigId ?? partNum)}`
+                : `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(partNum)}`
+            }
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-block text-xs text-foreground-muted underline underline-offset-2 hover:text-foreground"
+          >
+            View on BrickLink
+          </a>
           <div className="mt-2 flex items-center gap-2">
             {typeof selectedColorId !== 'undefined' &&
               onChangeColor &&

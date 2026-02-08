@@ -1,4 +1,5 @@
 import { errorResponse } from '@/app/lib/api/responses';
+import { LRUCache } from '@/app/lib/cache/lru';
 import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -6,7 +7,15 @@ import {
   handleMinifigIdentify,
   handlePartIdentify,
   looksLikeBricklinkFig,
+  type MinifigIdentifyResult,
+  type PartIdentifyResult,
 } from './handlers';
+
+/** Server-side cache for identify/sets results (10 min TTL, 200 entries). */
+const identifySetsCache = new LRUCache<
+  string,
+  PartIdentifyResult | MinifigIdentifyResult
+>(200, 10 * 60 * 1000);
 
 /**
  * GET /api/identify/sets
@@ -56,8 +65,13 @@ async function handleMinifigRequest(part: string) {
     });
   }
 
+  const cacheKey = `fig::${part}`;
+  const cached = identifySetsCache.get(cacheKey);
+  if (cached) return NextResponse.json(cached);
+
   try {
     const result = await handleMinifigIdentify(part);
+    identifySetsCache.set(cacheKey, result);
     return NextResponse.json(result);
   } catch (err) {
     logger.warn('identify.sets.minifig.failed', {
@@ -89,8 +103,13 @@ async function handlePartRequest(
       ? Number(blColorIdRaw)
       : undefined;
 
+  const cacheKey = `${part}::${colorId ?? ''}::${blColorId ?? ''}`;
+  const cached = identifySetsCache.get(cacheKey);
+  if (cached) return NextResponse.json(cached);
+
   try {
     const result = await handlePartIdentify(part, { colorId, blColorId });
+    identifySetsCache.set(cacheKey, result);
     return NextResponse.json(result);
   } catch (err) {
     logger.warn('identify.sets.failed', {

@@ -5,25 +5,17 @@ import { EXTERNAL } from '@/app/lib/constants';
 import { getColors, getSetSummary } from '@/app/lib/rebrickable';
 import { logger } from '@/lib/metrics';
 
-import {
-  ExternalCallBudget,
-  isBudgetError,
-  withBudget,
-  type BLAvailableColor,
-  type BLSet,
-} from './types';
+import { PipelineBudget } from './budget';
+import { type BLAvailableColor, type BLSet } from './types';
 
 export async function buildBlAvailableColors(
   blPartId: string,
-  budget: ExternalCallBudget
+  budget: PipelineBudget
 ): Promise<BLAvailableColor[]> {
-  let cols: BLColorEntry[] = [];
-  try {
-    cols = await withBudget(budget, () => blGetPartColors(blPartId));
-  } catch (err) {
-    if (isBudgetError(err)) throw err;
-  }
-  if (!cols.length) return [];
+  const cols: BLColorEntry[] | null = await budget.withBudget(() =>
+    blGetPartColors(blPartId)
+  );
+  if (!cols?.length) return [];
 
   // Map BL color ids to human-readable names via Rebrickable colors (cached in getColors()).
   const nameByBlId = new Map<number, string>();
@@ -44,7 +36,6 @@ export async function buildBlAvailableColors(
       }
     }
   } catch (err) {
-    if (isBudgetError(err)) throw err;
     logger.warn('identify.rb_colors_mapping_failed', {
       error: err instanceof Error ? err.message : String(err),
     });
@@ -58,28 +49,24 @@ export async function buildBlAvailableColors(
 
 export async function enrichSetsWithRebrickable(
   sets: BLSet[],
-  budget: ExternalCallBudget,
+  budget: PipelineBudget,
   limit: number = EXTERNAL.ENRICH_LIMIT
 ): Promise<BLSet[]> {
   const top = sets.slice(0, limit);
   const enriched = await Promise.all(
     top.map(async set => {
-      try {
-        const summary = await withBudget(budget, () =>
-          getSetSummary(set.setNumber)
-        );
-        return {
-          ...set,
-          year: summary.year ?? set.year,
-          imageUrl: summary.imageUrl ?? set.imageUrl,
-          numParts: summary.numParts ?? set.numParts ?? null,
-          themeId: summary.themeId ?? set.themeId ?? null,
-          themeName: summary.themeName ?? set.themeName ?? null,
-        };
-      } catch (err) {
-        if (isBudgetError(err)) throw err;
-        return set;
-      }
+      const summary = await budget.withBudget(() =>
+        getSetSummary(set.setNumber)
+      );
+      if (summary === null) return set; // budget exhausted
+      return {
+        ...set,
+        year: summary.year ?? set.year,
+        imageUrl: summary.imageUrl ?? set.imageUrl,
+        numParts: summary.numParts ?? set.numParts ?? null,
+        themeId: summary.themeId ?? set.themeId ?? null,
+        themeName: summary.themeName ?? set.themeName ?? null,
+      };
     })
   );
   return [...enriched, ...sets.slice(top.length)];

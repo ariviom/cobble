@@ -162,7 +162,7 @@ export function BrickLoader({ size, label, className }: BrickLoaderProps) {
       </div>
 
       {label ? (
-        <span className="mt-2 block text-center text-sm text-foreground-muted">
+        <span className="mt-2 block text-center text-base font-medium text-foreground">
           {label}
         </span>
       ) : null}

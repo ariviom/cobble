@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react';
 
+import { IdentifyHistory } from '@/app/components/identify/IdentifyHistory';
 import { IdentifyResultCard } from '@/app/components/identify/IdentifyResultCard';
 import { IdentifySetList } from '@/app/components/identify/IdentifySetList';
 import type {
@@ -20,10 +21,16 @@ import type {
 } from '@/app/components/identify/types';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { Button } from '@/app/components/ui/Button';
+import { Card } from '@/app/components/ui/Card';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
 import { ThemedPageHeader } from '@/app/components/ui/ThemedPageHeader';
+import { X } from 'lucide-react';
+import {
+  addRecentIdentify,
+  type IdentifySource,
+} from '@/app/store/recent-identifies';
 
 type IdentifyCacheEntry = IdentifyResponse & { cachedAt: number };
 
@@ -106,6 +113,39 @@ const LOADING_PHASE_LABELS: Record<NonNullable<LoadingPhase>, string> = {
   updating: 'Updating results…',
 };
 
+type TabState = {
+  part: IdentifyPart | null;
+  candidates: IdentifyCandidate[];
+  sets: IdentifySet[];
+  hasSearched: boolean;
+  error: string | null;
+  loadingPhase: LoadingPhase;
+  selectedColorId: number | null;
+  colors: Array<{ id: number; name: string }> | null;
+  blPartId: string | null;
+  blColors: Array<{ id: number; name: string }> | null;
+};
+
+const EMPTY_TAB: TabState = {
+  part: null,
+  candidates: [],
+  sets: [],
+  hasSearched: false,
+  error: null,
+  loadingPhase: null,
+  selectedColorId: null,
+  colors: null,
+  blPartId: null,
+  blColors: null,
+};
+
+function updateUrlParams(partNum: string, mode: 'camera' | 'part') {
+  const url = new URL(window.location.href);
+  url.searchParams.set('part', partNum);
+  url.searchParams.set('mode', mode);
+  window.history.pushState(null, '', url.toString());
+}
+
 type IdentifyPageProps = {
   initialQuota?: IdentifyQuota;
   isAuthenticated: boolean;
@@ -116,7 +156,6 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
   const isLoading = loadingPhase !== null;
   const [error, setError] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [part, setPart] = useState<IdentifyPart | null>(null);
   const [candidates, setCandidates] = useState<IdentifyCandidate[]>([]);
@@ -147,6 +186,47 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
   const candidateAbortRef = useRef<AbortController | null>(null);
   const searchParams = useSearchParams();
   const hasBootstrappedFromQueryRef = useRef(false);
+
+  // Per-tab result snapshots for show/hide on tab switch
+  const cameraSnapshotRef = useRef<TabState>({ ...EMPTY_TAB });
+  const textSnapshotRef = useRef<TabState>({ ...EMPTY_TAB });
+  const activeStateRef = useRef<TabState>({ ...EMPTY_TAB });
+  activeStateRef.current = {
+    part,
+    candidates,
+    sets,
+    hasSearched,
+    error,
+    loadingPhase,
+    selectedColorId,
+    colors,
+    blPartId,
+    blColors,
+  };
+
+  const recordHistory = useCallback(
+    (
+      partData: {
+        partNum: string;
+        name: string;
+        imageUrl: string | null;
+        isMinifig?: boolean;
+      },
+      setsCount: number,
+      source: IdentifySource
+    ) => {
+      addRecentIdentify({
+        partNum: partData.partNum,
+        name: partData.name,
+        imageUrl: partData.imageUrl,
+        isMinifig: partData.isMinifig ?? false,
+        setsFound: setsCount,
+        source,
+      });
+    },
+    []
+  );
+
   const refreshQuota = useCallback(async () => {
     if (!isAuthenticated) {
       setQuota({ status: 'unauthorized' });
@@ -215,6 +295,70 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         } else if (typeof blColorId === 'number') {
           url.searchParams.set('blColorId', String(blColorId));
         }
+
+        // Check client-side session cache before fetching
+        const cacheKey = `${url.pathname}${url.search}`;
+        const cachedData = getCachedIdentify(cacheKey);
+        if (cachedData) {
+          const payloadAny = cachedData as {
+            part?: {
+              partNum: string;
+              name: string;
+              imageUrl: string | null;
+              confidence?: number;
+              colorId?: number | null;
+              colorName?: string | null;
+              isMinifig?: boolean;
+              rebrickableFigId?: string | null;
+              bricklinkFigId?: string | null;
+            };
+            sets?: IdentifySet[];
+            availableColors?: Array<{ id: number; name: string }>;
+            selectedColorId?: number | null;
+          };
+          if (payloadAny.part) {
+            setPart({
+              partNum: payloadAny.part.partNum,
+              name: payloadAny.part.name,
+              imageUrl: payloadAny.part.imageUrl,
+              confidence: payloadAny.part.confidence ?? 0,
+              colorId: payloadAny.part.colorId ?? null,
+              colorName: payloadAny.part.colorName ?? null,
+              isMinifig: payloadAny.part.isMinifig ?? false,
+              rebrickableFigId: payloadAny.part.rebrickableFigId ?? null,
+              bricklinkFigId: payloadAny.part.bricklinkFigId ?? null,
+            });
+          }
+          setSets((payloadAny.sets as IdentifySet[]) ?? []);
+          if (Array.isArray(payloadAny.availableColors)) {
+            const opts = payloadAny.availableColors.filter(c => !!c?.name);
+            setColors(opts.map(c => ({ id: c.id, name: c.name })));
+          }
+          if (typeof payloadAny.selectedColorId !== 'undefined') {
+            setSelectedColorId(payloadAny.selectedColorId ?? null);
+          }
+          setBlPartId(null);
+          setBlColors(null);
+          if (payloadAny.part && (payloadAny.sets?.length ?? 0) > 0) {
+            recordHistory(
+              {
+                partNum: payloadAny.part.partNum,
+                name: payloadAny.part.name,
+                imageUrl: payloadAny.part.imageUrl,
+                isMinifig: payloadAny.part.isMinifig ?? false,
+              },
+              payloadAny.sets?.length ?? 0,
+              'text'
+            );
+          }
+          if (payloadAny.part) {
+            updateUrlParams(payloadAny.part.partNum, 'part');
+          }
+          setLoadingPhase(null);
+          setHasSearched(true);
+          return;
+        }
+
         const res = await fetch(url.toString(), { cache: 'no-store' });
         if (!res.ok) {
           throw new Error('identify_sets_failed');
@@ -277,8 +421,54 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
 
         setBlPartId(null);
         setBlColors(null);
-        setImagePreview(null);
-        setSelectedFile(null);
+
+        // Cache only when we got meaningful results (non-empty sets)
+        if ((payloadAny.sets?.length ?? 0) > 0)
+          setCachedIdentify(cacheKey, {
+            part: payloadAny.part
+              ? {
+                  partNum: payloadAny.part.partNum,
+                  name: payloadAny.part.name,
+                  imageUrl: payloadAny.part.imageUrl,
+                  confidence: payloadAny.part.confidence ?? 0,
+                  colorId: payloadAny.part.colorId ?? null,
+                  colorName: payloadAny.part.colorName ?? null,
+                  isMinifig: payloadAny.part.isMinifig ?? false,
+                  rebrickableFigId: payloadAny.part.rebrickableFigId ?? null,
+                  bricklinkFigId: payloadAny.part.bricklinkFigId ?? null,
+                }
+              : {
+                  partNum: '',
+                  name: '',
+                  imageUrl: null,
+                  confidence: 0,
+                  colorId: null,
+                  colorName: null,
+                },
+            candidates: [],
+            sets: (payloadAny.sets as IdentifySet[]) ?? [],
+            availableColors: payloadAny.availableColors ?? [],
+            selectedColorId: payloadAny.selectedColorId ?? null,
+          });
+
+        // Only record history when the lookup found sets — avoids overwriting
+        // a good entry (from image search) with degraded data from a failed
+        // part lookup (e.g., unresolvable BL assembly ID).
+        if (payloadAny.part && (payloadAny.sets?.length ?? 0) > 0) {
+          recordHistory(
+            {
+              partNum: payloadAny.part.partNum,
+              name: payloadAny.part.name,
+              imageUrl: payloadAny.part.imageUrl,
+              isMinifig: payloadAny.part.isMinifig ?? false,
+            },
+            payloadAny.sets?.length ?? 0,
+            'text'
+          );
+        }
+        if (payloadAny.part) {
+          updateUrlParams(payloadAny.part.partNum, 'part');
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -286,7 +476,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         setHasSearched(true);
       }
     },
-    []
+    [recordHistory]
   );
 
   const performImageSearch = useCallback(
@@ -335,6 +525,31 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           setBlColors(null);
           setLoadingPhase(null);
           setHasSearched(true);
+          if (data.part) {
+            // Ensure text-search cache is populated for history clicks
+            if (data.part.partNum) {
+              const textUrl = new URL(
+                '/api/identify/sets',
+                window.location.origin
+              );
+              textUrl.searchParams.set('part', data.part.partNum);
+              setCachedIdentify(
+                `${textUrl.pathname}${textUrl.search}`,
+                data as IdentifyResponse
+              );
+            }
+            recordHistory(
+              {
+                partNum: data.part.partNum,
+                name: data.part.name,
+                imageUrl: data.part.imageUrl,
+                isMinifig: data.part.isMinifig ?? false,
+              },
+              data.sets?.length ?? 0,
+              'camera'
+            );
+            updateUrlParams(data.part.partNum, 'camera');
+          }
           return;
         }
 
@@ -408,6 +623,28 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           }
         }
         setCachedIdentify(hashHex, data as IdentifyResponse);
+        // Also cache under the text-search URL key so history clicks are instant
+        if (data.part?.partNum) {
+          const textUrl = new URL('/api/identify/sets', window.location.origin);
+          textUrl.searchParams.set('part', data.part.partNum);
+          setCachedIdentify(
+            `${textUrl.pathname}${textUrl.search}`,
+            data as IdentifyResponse
+          );
+        }
+        if (data.part) {
+          recordHistory(
+            {
+              partNum: data.part.partNum,
+              name: data.part.name,
+              imageUrl: data.part.imageUrl,
+              isMinifig: data.part.isMinifig ?? false,
+            },
+            data.sets?.length ?? 0,
+            'camera'
+          );
+          updateUrlParams(data.part.partNum, 'camera');
+        }
         void refreshQuota();
       } catch (e) {
         if (searchRequestIdRef.current !== requestId) return;
@@ -419,23 +656,61 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         }
       }
     },
-    [refreshQuota]
+    [recordHistory, refreshQuota]
+  );
+
+  const restoreTabState = useCallback((state: TabState) => {
+    setPart(state.part);
+    setCandidates(state.candidates);
+    setSets(state.sets);
+    setHasSearched(state.hasSearched);
+    setError(state.error);
+    setLoadingPhase(state.loadingPhase);
+    setSelectedColorId(state.selectedColorId);
+    setColors(state.colors);
+    setBlPartId(state.blPartId);
+    setBlColors(state.blColors);
+  }, []);
+
+  const handleModeChange = useCallback(
+    (newMode: 'camera' | 'part') => {
+      if (newMode === mode) return;
+
+      // Snapshot outgoing tab
+      const snapshot = activeStateRef.current;
+      if (mode === 'camera') {
+        cameraSnapshotRef.current = snapshot;
+      } else {
+        textSnapshotRef.current = snapshot;
+      }
+
+      // Restore incoming tab
+      const incoming =
+        newMode === 'camera'
+          ? cameraSnapshotRef.current
+          : textSnapshotRef.current;
+      restoreTabState(incoming);
+
+      setMode(newMode);
+    },
+    [mode, restoreTabState]
   );
 
   const onFileChange = useCallback(
     (file: File | null) => {
       if (!file) return;
+      handleModeChange('camera');
       setError(null);
       setLoadingPhase(null);
       setHasSearched(false);
       setPart(null);
       setCandidates([]);
       setSets([]);
-      setSelectedFile(file);
+
       setSelectedColorId(null);
       setBlPartId(null);
       setBlColors(null);
-      setMode('camera');
+      setColors(null);
       const url = URL.createObjectURL(file);
       setImagePreview(url);
 
@@ -446,24 +721,11 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         void performImageSearch(file, url);
       }
     },
-    [quota, isAuthenticated, performImageSearch]
+    [handleModeChange, quota, isAuthenticated, performImageSearch]
   );
 
-  const onClear = useCallback(() => {
-    ++searchRequestIdRef.current; // discard any in-flight image search
-    setError(null);
-    setLoadingPhase(null);
+  const onClearImage = useCallback(() => {
     setImagePreview(null);
-    setSelectedFile(null);
-    setHasSearched(false);
-    setPart(null);
-    setCandidates([]);
-    setSets([]);
-    setSelectedColorId(null);
-    setColors(null);
-    setBlPartId(null);
-    setBlColors(null);
-    setPartSearchInput('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -712,6 +974,30 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
     hasBootstrappedFromQueryRef.current = true;
   }, [performPartLookup, searchParams]);
 
+  // Browser back/forward navigation
+  useEffect(() => {
+    const onPopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const partFromUrl = params.get('part');
+      const modeFromUrl = params.get('mode');
+      if (modeFromUrl === 'camera' || modeFromUrl === 'part') {
+        setMode(modeFromUrl);
+      }
+      if (partFromUrl && partFromUrl.trim() !== '') {
+        setError(null);
+        void performPartLookup({ partId: partFromUrl });
+      } else {
+        // Navigated back to empty state
+        setPart(null);
+        setCandidates([]);
+        setSets([]);
+        setHasSearched(false);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [performPartLookup]);
+
   useEffect(() => {
     if (!isAuthenticated) {
       setQuota({ status: 'unauthorized' });
@@ -724,34 +1010,197 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
   const isQuotaExhausted =
     quota.status === 'metered' && quota.remaining === 0 && isAuthenticated;
 
-  if (!isAuthenticated) {
-    return (
-      <>
-        {/* Hero banner */}
-        <section className="relative overflow-hidden">
-          <ThemedPageHeader preferredColor="green" className="py-6 lg:py-8">
-            <div className="container-default">
-              <div className="text-center">
-                <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-white lg:text-4xl">
-                  Identify Parts & Minifigs
-                </h1>
-                <p className="text-base text-white/80 lg:text-lg">
-                  Upload a photo or enter a part number to find sets
-                </p>
-              </div>
-            </div>
-            {/* Decorative stud pattern */}
-            <div className="pointer-events-none absolute top-3 right-0 left-0 flex justify-center gap-6 opacity-10">
-              {[...Array(10)].map((_, i) => (
-                <div key={i} className="h-3 w-3 rounded-full bg-white" />
-              ))}
-            </div>
-          </ThemedPageHeader>
-          <div className="h-1.5 bg-brand-yellow" />
-        </section>
+  const showResults = part || loadingPhase || hasSearched || error;
 
+  return (
+    <>
+      {/* Shared hero banner */}
+      <section className="relative overflow-hidden">
+        <ThemedPageHeader preferredColor="green" className="py-6 lg:py-8">
+          <div className="container-default">
+            <div
+              className={isAuthenticated ? 'mb-6 text-center' : 'text-center'}
+            >
+              <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-white lg:text-4xl">
+                Identify Parts & Minifigs
+              </h1>
+              <p className="text-base text-white/80 lg:text-lg">
+                Upload a photo or enter a part number to find sets
+              </p>
+            </div>
+
+            {/* Controls panel — authenticated only */}
+            {isAuthenticated && (
+              <div className="mx-auto w-full max-w-md">
+                <SegmentedControl
+                  segments={[
+                    { key: 'camera', label: 'Camera' },
+                    { key: 'part', label: 'Part / Minifig' },
+                  ]}
+                  value={mode}
+                  onChange={key => handleModeChange(key as 'camera' | 'part')}
+                  size="md"
+                  className="mb-4 w-full shadow-lg"
+                />
+
+                {/* Hidden file inputs */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={e => onFileChange(e.target.files?.[0] ?? null)}
+                />
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => onFileChange(e.target.files?.[0] ?? null)}
+                />
+
+                {mode === 'camera' ? (
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="relative block w-full overflow-hidden rounded-lg border-2 border-dashed border-white/40 bg-white/10 backdrop-blur-sm hover:border-white/60 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                        aria-label="Upload or take a photo"
+                        disabled={isQuotaExhausted}
+                      >
+                        <div className="aspect-[5/2] w-full">
+                          {imagePreview ? (
+                            <div className="flex h-full items-center justify-center bg-black/20 p-2">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={imagePreview}
+                                alt=""
+                                className="max-h-full rounded object-contain"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/80">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                className="h-8 w-8"
+                                aria-hidden="true"
+                              >
+                                <path d="M9 2a1 1 0 0 0-.894.553L7.382 4H5a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-2.382l-.724-1.447A1 1 0 0 0 14 2H9Zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 .002 6.002A3 3 0 0 0 12 9Z" />
+                              </svg>
+                              <span className="text-sm font-medium">
+                                Upload or take a photo
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                      {imagePreview && (
+                        <button
+                          type="button"
+                          onClick={onClearImage}
+                          className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-black/50 text-white/70 backdrop-blur-sm transition-colors hover:bg-black/70 hover:text-white"
+                          aria-label="Clear photo"
+                        >
+                          <X className="size-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => galleryInputRef.current?.click()}
+                        disabled={isQuotaExhausted}
+                        className="text-2xs text-white/40 underline underline-offset-2 hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Upload an image
+                      </button>
+                      {quota.status === 'metered' ? (
+                        <span className="text-xs text-white/60">
+                          {isQuotaExhausted
+                            ? 'No IDs left today'
+                            : `${quota.remaining}/${quota.limit} left today`}
+                        </span>
+                      ) : (
+                        <span className="text-2xs text-white/40">
+                          Powered by{' '}
+                          <a
+                            href="https://brickognize.com/"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline underline-offset-2 hover:text-white/70"
+                          >
+                            Brickognize
+                          </a>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        value={partSearchInput}
+                        onChange={event =>
+                          setPartSearchInput(event.target.value)
+                        }
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') onPartSearch();
+                        }}
+                        placeholder="e.g. 3001, cas432, fig-007"
+                        size="lg"
+                        className="w-full pr-10 shadow-lg"
+                        aria-label="Part or minifig ID"
+                      />
+                      {partSearchInput && (
+                        <button
+                          type="button"
+                          onClick={() => setPartSearchInput('')}
+                          className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full p-0.5 text-foreground-muted/50 transition-colors hover:text-foreground"
+                          aria-label="Clear input"
+                        >
+                          <X className="size-4" />
+                        </button>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="lg"
+                      onClick={onPartSearch}
+                      disabled={isLoading || !partSearchInput.trim()}
+                      className="shrink-0 shadow-lg"
+                    >
+                      {isLoading ? 'Searching…' : 'Search'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Decorative stud pattern */}
+          <div className="pointer-events-none absolute top-3 right-0 left-0 flex justify-center gap-6 opacity-10">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="h-3 w-3 rounded-full bg-white" />
+            ))}
+          </div>
+        </ThemedPageHeader>
+        <div className="h-1.5 bg-brand-yellow" />
+      </section>
+
+      {/* Unauthenticated: sign-in card */}
+      {!isAuthenticated && (
         <section className="container-default py-8">
-          <div className="mx-auto w-full max-w-3xl rounded-lg border-2 border-t-4 border-subtle border-t-brand-green bg-card p-6 text-center shadow-md">
+          <Card
+            variant="green"
+            padding="lg"
+            className="mx-auto max-w-3xl text-center shadow-md"
+          >
             <h2 className="mb-3 text-2xl font-bold">Sign In Required</h2>
             <p className="text-body text-foreground-muted">
               Sign in to use Identify and track your daily quota (5 per day on
@@ -772,192 +1221,27 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                 Powered by Brickognize
               </a>
             </div>
-          </div>
+          </Card>
         </section>
-      </>
-    );
-  }
+      )}
 
-  return (
-    <>
-      {/* Hero banner with controls inside (matches Search page pattern) */}
-      <section className="relative overflow-hidden">
-        <ThemedPageHeader preferredColor="green" className="py-6 lg:py-8">
-          <div className="container-default">
-            <div className="mb-6 text-center">
-              <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-white lg:text-4xl">
-                Identify Parts & Minifigs
-              </h1>
-              <p className="text-base text-white/80 lg:text-lg">
-                Upload a photo or enter a part number to find sets
-              </p>
-            </div>
+      {/* Authenticated: empty state */}
+      {isAuthenticated && !showResults && (
+        <section className="container-wide py-6 lg:py-8">
+          <Card variant="default" padding="lg">
+            <IdentifyHistory
+              source={mode === 'camera' ? 'camera' : 'text'}
+              onSelectPart={partNum => {
+                setError(null);
+                void performPartLookup({ partId: partNum });
+              }}
+            />
+          </Card>
+        </section>
+      )}
 
-            {/* Controls panel */}
-            <div className="mx-auto w-full max-w-md">
-              <SegmentedControl
-                segments={[
-                  { key: 'camera', label: 'Camera' },
-                  { key: 'part', label: 'Part / Minifig' },
-                ]}
-                value={mode}
-                onChange={key => setMode(key as 'camera' | 'part')}
-                size="md"
-                className="mb-4 w-full shadow-lg"
-              />
-
-              {/* Hidden file inputs */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={e => onFileChange(e.target.files?.[0] ?? null)}
-              />
-              <input
-                ref={galleryInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={e => onFileChange(e.target.files?.[0] ?? null)}
-              />
-
-              {mode === 'camera' ? (
-                <div className="space-y-4">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="relative block w-full overflow-hidden rounded-lg border-2 border-dashed border-white/40 bg-white/10 backdrop-blur-sm hover:border-white/60 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                    aria-label="Upload or take a photo"
-                    disabled={isQuotaExhausted}
-                  >
-                    <div className="aspect-[5/2] w-full">
-                      {imagePreview ? (
-                        <div className="flex h-full items-center justify-center bg-black/20 p-2">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={imagePreview}
-                            alt=""
-                            className="max-h-full rounded object-contain"
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/80">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                            className="h-8 w-8"
-                            aria-hidden="true"
-                          >
-                            <path d="M9 2a1 1 0 0 0-.894.553L7.382 4H5a3 3 0 0 0-3 3v9a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-2.382l-.724-1.447A1 1 0 0 0 14 2H9Zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 .002 6.002A3 3 0 0 0 12 9Z" />
-                          </svg>
-                          <span className="text-sm font-medium">
-                            Upload or take a photo
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </button>
-
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => galleryInputRef.current?.click()}
-                      disabled={isQuotaExhausted}
-                      className="text-2xs text-white/40 underline underline-offset-2 hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Upload an image
-                    </button>
-                    {quota.status === 'metered' ? (
-                      <span className="text-xs text-white/60">
-                        {isQuotaExhausted
-                          ? 'No IDs left today'
-                          : `${quota.remaining}/${quota.limit} left today`}
-                      </span>
-                    ) : (
-                      <span className="text-2xs text-white/40">
-                        Powered by{' '}
-                        <a
-                          href="https://brickognize.com/"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline underline-offset-2 hover:text-white/70"
-                        >
-                          Brickognize
-                        </a>
-                      </span>
-                    )}
-                  </div>
-
-                  {(selectedFile || hasSearched) && (
-                    <div className="flex justify-center">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="lg"
-                        onClick={onClear}
-                        className="px-8 shadow-lg"
-                      >
-                        Clear
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <Input
-                    value={partSearchInput}
-                    onChange={event => setPartSearchInput(event.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') onPartSearch();
-                    }}
-                    placeholder="e.g. 3001, cas432, fig-007"
-                    size="lg"
-                    className="w-full shadow-lg"
-                    aria-label="Part or minifig ID"
-                  />
-                  <div className="flex justify-center gap-2">
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="lg"
-                      onClick={onPartSearch}
-                      disabled={isLoading || !partSearchInput.trim()}
-                      className="px-8 shadow-lg"
-                    >
-                      {isLoading ? 'Searching…' : 'Search'}
-                    </Button>
-                    {partSearchInput && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="lg"
-                        onClick={() => setPartSearchInput('')}
-                        className="shadow-lg"
-                      >
-                        Clear
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Decorative stud pattern */}
-          <div className="pointer-events-none absolute top-3 right-0 left-0 flex justify-center gap-6 opacity-10">
-            {[...Array(10)].map((_, i) => (
-              <div key={i} className="h-3 w-3 rounded-full bg-white" />
-            ))}
-          </div>
-        </ThemedPageHeader>
-        <div className="h-1.5 bg-brand-yellow" />
-      </section>
-
-      {/* Results — only render when there's something to show */}
-      {(part || loadingPhase || hasSearched || error) && (
+      {/* Authenticated: results */}
+      {isAuthenticated && showResults && (
         <section className="container-wide py-6 lg:py-8">
           {error && <ErrorBanner message={error} className="mb-4" />}
 
@@ -983,20 +1267,18 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
 
               {hasSearched && (
                 <>
-                  <div className="relative -mx-3 mt-4 mb-3">
-                    <div className="flex items-center gap-3 px-3">
-                      <span className="text-sm font-semibold text-foreground">
-                        {sets.length > 0
-                          ? `Found in ${sets.length} set${sets.length !== 1 ? 's' : ''}`
-                          : 'Sets'}
-                      </span>
-                      {loadingPhase && (
-                        <BrickLoader
-                          size="sm"
-                          label={LOADING_PHASE_LABELS[loadingPhase]}
-                        />
-                      )}
-                    </div>
+                  <div className="mt-5 mb-2 flex items-center gap-2">
+                    <span className="text-xs font-semibold tracking-wide text-foreground-muted uppercase">
+                      {sets.length > 0
+                        ? `Found in ${sets.length} set${sets.length !== 1 ? 's' : ''}`
+                        : 'Sets'}
+                    </span>
+                    {loadingPhase && (
+                      <BrickLoader
+                        size="sm"
+                        label={LOADING_PHASE_LABELS[loadingPhase]}
+                      />
+                    )}
                   </div>
                   <Suspense fallback={<BrickLoader />}>
                     <IdentifySetList
@@ -1006,6 +1288,16 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                   </Suspense>
                 </>
               )}
+
+              <div className="mt-6 border-t border-subtle pt-5">
+                <IdentifyHistory
+                  source={mode === 'camera' ? 'camera' : 'text'}
+                  onSelectPart={partNum => {
+                    setError(null);
+                    void performPartLookup({ partId: partNum });
+                  }}
+                />
+              </div>
             </>
           )}
         </section>

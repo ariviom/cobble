@@ -7,7 +7,8 @@ export type ImageVariant =
   | 'minifigSearch'
   | 'setCard'
   | 'exclusivePieceThumb'
-  | 'exclusiveSetThumb';
+  | 'exclusiveSetThumb'
+  | 'recentIdentifyThumb';
 
 type ImageSizeConfig = {
   width: number;
@@ -75,6 +76,12 @@ const IMAGE_SIZES: Record<ImageVariant, ImageSizeConfig> = {
     width: 160,
     height: 160,
     sizes: '80px',
+    quality: 70,
+  },
+  recentIdentifyThumb: {
+    width: 128,
+    height: 128,
+    sizes: '112px',
     quality: 70,
   },
 };
