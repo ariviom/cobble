@@ -96,9 +96,9 @@ Larger features, in priority order.
 
 ## Bugs
 
-| Bug                          | Description                                                                                                                              |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| BrickLink piece linking 404s | ID mismatch between Rebrickable and BrickLink causes "View on BrickLink" links to 404. Appears in part modal when viewing set inventory. |
+| Bug                              | Description                                                                                                                            |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~BrickLink piece linking 404s~~ | ~~Fixed (Plan 08): On-demand validation in part detail modal auto-corrects bad mappings, negative caching prevents repeated lookups.~~ |
 
 ---
 
@@ -228,6 +228,7 @@ Deferred features requiring research or significant scope.
 
 Major completed initiatives - see `docs/dev/archive/` for detailed plans:
 
+- **Export Fixes & BL Validation** (Feb 2026) - BL export no longer makes per-part API calls; RB export minifig toggle; on-demand BL link validation with self-healing; negative caching in `part_id_mappings`
 - **Set Ownership Schema Overhaul** (Jan 2026) - `owned: boolean` + Wishlist as system list, fixed unique indexes
 - **BrickLink Minifig Migration** (Dec 2025) - BL is now exclusive source for minifig IDs/metadata/parts
 - **Minifig Cascade Fix** (Dec 2025) - Toggling parent cascades to subparts correctly

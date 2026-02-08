@@ -12,14 +12,20 @@ const RATE_LIMIT_PER_MINUTE =
   Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE ?? '', 10) || 60;
 const RATE_LIMIT_PER_MINUTE_USER =
   Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE_USER ?? '', 10) || 60;
+/** Negative-cache entries older than this are re-validated. */
+const NEGATIVE_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-async function checkMappingTable(partId: string): Promise<string | null> {
+type MappingLookup =
+  | { kind: 'found'; blPartId: string }
+  | { kind: 'not_found_cached' }
+  | { kind: 'miss' };
+
+async function checkMappingTable(partId: string): Promise<MappingLookup> {
   try {
-    // part_id_mappings requires service role
     const supabase = getCatalogWriteClient();
     const { data, error } = await supabase
       .from('part_id_mappings')
-      .select('bl_part_id')
+      .select('bl_part_id, source, updated_at')
       .eq('rb_part_id', partId)
       .maybeSingle();
 
@@ -28,16 +34,34 @@ async function checkMappingTable(partId: string): Promise<string | null> {
         partId,
         error: error.message,
       });
-      return null;
+      return { kind: 'miss' };
     }
 
-    return data?.bl_part_id ?? null;
+    if (!data) return { kind: 'miss' };
+
+    // Negative cache entry
+    if (data.source === 'bl-not-found') {
+      // Check if stale (older than 30 days) — treat as miss so we re-validate
+      if (data.updated_at) {
+        const age = Date.now() - new Date(data.updated_at).getTime();
+        if (age > NEGATIVE_CACHE_MAX_AGE_MS) {
+          return { kind: 'miss' };
+        }
+      }
+      return { kind: 'not_found_cached' };
+    }
+
+    if (data.bl_part_id) {
+      return { kind: 'found', blPartId: data.bl_part_id };
+    }
+
+    return { kind: 'miss' };
   } catch (err) {
     logger.error('parts.bricklink.mapping_error', {
       partId,
       error: err instanceof Error ? err.message : String(err),
     });
-    return null;
+    return { kind: 'miss' };
   }
 }
 
@@ -47,7 +71,6 @@ async function persistMapping(
   source: string
 ): Promise<void> {
   try {
-    // part_id_mappings requires service role
     const supabase = getCatalogWriteClient();
     const { error } = await supabase.from('part_id_mappings').upsert(
       {
@@ -136,10 +159,9 @@ async function resolveBrickLinkIdFromRebrickable(
 
 async function resolveBrickLinkId(partId: string): Promise<string | null> {
   // 1. Check mapping table first (includes previously auto-persisted mappings)
-  const cached = await checkMappingTable(partId);
-  if (cached) {
-    return cached;
-  }
+  const lookup = await checkMappingTable(partId);
+  if (lookup.kind === 'found') return lookup.blPartId;
+  if (lookup.kind === 'not_found_cached') return null;
 
   // 2. Try Rebrickable external_ids
   const fromRebrickable = await resolveBrickLinkIdFromRebrickable(partId);
@@ -160,6 +182,9 @@ async function resolveBrickLinkId(partId: string): Promise<string | null> {
       }
     }
   }
+
+  // 4. Nothing found — persist negative cache entry
+  await persistMapping(partId, '', 'bl-not-found');
 
   return null;
 }

@@ -8,6 +8,15 @@
 
 ## Recently Completed (February 2026)
 
+- **Export Fixes & On-Demand BL Validation (Plan 08)**:
+  - BL export: removed `mapToBrickLink()` fallback — `generateBrickLinkCsv()` is now synchronous, identity-only. Rows without BL IDs go to `unmapped` list. No HTTP calls during export (eliminates 429s).
+  - RB export: added `includeMinifigs` toggle (default: false). Filters out rows where `identity?.rowType` starts with `minifig_`. Warning shown when minifigs included about BL IDs.
+  - `blValidatePart()` in `bricklink.ts`: 404-safe validation that doesn't trip circuit breaker. Uses new `BrickLinkNotFoundError` + `safe404` option on `blGet`.
+  - Negative caching: `part_id_mappings` entries with `source = 'bl-not-found'` and `bl_part_id = ''`. 30-day re-validation window. `buildResolutionContext()` skips these entries.
+  - On-demand validation: new `/api/parts/bricklink/validate` route. Validates stored BL ID, tries fallback candidates (raw RB ID, suffix-stripped), self-heals by persisting corrected mappings (`source: 'auto-validate'`).
+  - `InventoryItemModal`: `useBricklinkValidation` hook with session-level cache. Shows "Checking BrickLink..." → validated link or "This part is not available on BrickLink".
+  - Tests updated: removed `mapToBrickLink` mock, all tests now use identity objects. 356 tests passing, clean tsc.
+
 - **SyncEngine — Extract Sync Worker to App Root (Plan 05)**:
   - Fixed critical bug: sync worker only ran on group page, owned changes from main sets page never synced to Supabase
   - Created `SyncWorker` class (`app/lib/sync/SyncWorker.ts`) — plain TS, no React dependency, extracts all sync logic from DataProvider

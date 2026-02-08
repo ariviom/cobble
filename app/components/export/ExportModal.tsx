@@ -55,6 +55,7 @@ export function ExportModal({
     'rebrickable' | 'bricklink' | 'pickABrick'
   >('rebrickable');
   const [missingOnly, setMissingOnly] = useState(true);
+  const [includeMinifigs, setIncludeMinifigs] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function downloadCsv(filename: string, csv: string) {
@@ -76,7 +77,7 @@ export function ExportModal({
     const filenameSuffix = missingOnly ? 'missing' : 'all';
 
     if (target === 'rebrickable') {
-      const csv = generateRebrickableCsv(rows);
+      const csv = generateRebrickableCsv(rows, { includeMinifigs });
       downloadCsv(`${setNumber}_${filenameSuffix}_rebrickable.csv`, csv);
       onClose();
       return;
@@ -97,38 +98,30 @@ export function ExportModal({
     const wantedName = setName
       ? `${setNumber} — ${setName} — mvp`
       : `${setNumber} — mvp`;
-    try {
-      const { csv, unmapped, exportedMinifigIds } = await generateBrickLinkCsv(
-        rows,
-        {
-          wantedListName: wantedName,
-          condition: 'U',
-        }
+    const { csv, unmapped, exportedMinifigIds } = generateBrickLinkCsv(rows, {
+      wantedListName: wantedName,
+      condition: 'U',
+    });
+    downloadCsv(`${setNumber}_${filenameSuffix}_bricklink.csv`, csv);
+
+    // Log confidence distribution for observability (fire-and-forget)
+    if (exportedMinifigIds.length > 0) {
+      void logExportConfidence(
+        setNumber,
+        exportedMinifigIds,
+        'bricklink',
+        missingOnly
       );
-      downloadCsv(`${setNumber}_${filenameSuffix}_bricklink.csv`, csv);
-
-      // Log confidence distribution for observability (fire-and-forget)
-      if (exportedMinifigIds.length > 0) {
-        void logExportConfidence(
-          setNumber,
-          exportedMinifigIds,
-          'bricklink',
-          missingOnly
-        );
-      }
-
-      if (unmapped.length > 0) {
-        setError(
-          `${unmapped.length} rows could not be mapped to BrickLink colors and were skipped.`
-        );
-        // Don't close - let user see the warning
-        return;
-      }
-      onClose();
-    } catch (err) {
-      setError('Failed to generate BrickLink export. Please try again.');
-      console.error('BrickLink export error:', err);
     }
+
+    if (unmapped.length > 0) {
+      setError(
+        `${unmapped.length} rows could not be mapped to BrickLink IDs and were skipped.`
+      );
+      // Don't close - let user see the warning
+      return;
+    }
+    onClose();
   }
 
   return (
@@ -176,6 +169,24 @@ export function ExportModal({
             </>
           )}
         </div>
+
+        {target === 'rebrickable' && (
+          <div className="flex flex-col gap-1.5">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={includeMinifigs}
+                onChange={() => setIncludeMinifigs(!includeMinifigs)}
+              />
+              Include minifig parts
+            </label>
+            {includeMinifigs && (
+              <p className="text-xs text-amber-600">
+                Minifig parts use BrickLink IDs which may not import correctly
+                into Rebrickable. You may need to manually edit these entries.
+              </p>
+            )}
+          </div>
+        )}
 
         {!isAuthenticated && (
           <div className="text-xs text-amber-600">

@@ -71,7 +71,7 @@ export async function buildResolutionContext(
       const supabase = getCatalogWriteClient();
       const { data, error } = await supabase
         .from('part_id_mappings')
-        .select('rb_part_id, bl_part_id')
+        .select('rb_part_id, bl_part_id, source')
         .in('rb_part_id', missingBlPartIds);
 
       if (error) {
@@ -80,7 +80,8 @@ export async function buildResolutionContext(
         });
       } else if (data) {
         for (const row of data) {
-          if (row.bl_part_id) {
+          // Skip negative-cache entries (bl-not-found) — treat as no mapping
+          if (row.bl_part_id && row.source !== 'bl-not-found') {
             partMappings.set(row.rb_part_id, row.bl_part_id);
           }
         }

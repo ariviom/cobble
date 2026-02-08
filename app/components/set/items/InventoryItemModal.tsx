@@ -7,6 +7,7 @@ import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import type { InventoryRow } from '../types';
 
 export type InventoryItemModalData = {
@@ -26,15 +27,103 @@ type Props = {
   data: InventoryItemModalData | null;
 };
 
+type BlValidation =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'valid'; blPartId: string }
+  | { status: 'not_found' };
+
+/** Session-level cache so we only validate each BL part ID once per page load. */
+const validationCache = new Map<string, 'valid' | 'not_found' | string>();
+
+function useBricklinkValidation(
+  blPartId: string | null,
+  rbPartId: string | null,
+  open: boolean,
+  isFigId: boolean
+): BlValidation {
+  const [state, setState] = useState<BlValidation>({ status: 'idle' });
+
+  useEffect(() => {
+    if (!open || isFigId || !blPartId) {
+      setState({ status: 'idle' });
+      return;
+    }
+
+    const cacheKey = `${blPartId}::${rbPartId ?? ''}`;
+    const cached = validationCache.get(cacheKey);
+    if (cached === 'valid') {
+      setState({ status: 'valid', blPartId });
+      return;
+    }
+    if (cached === 'not_found') {
+      setState({ status: 'not_found' });
+      return;
+    }
+    if (cached) {
+      // Cached corrected ID
+      setState({ status: 'valid', blPartId: cached });
+      return;
+    }
+
+    let cancelled = false;
+    setState({ status: 'loading' });
+
+    const params = new URLSearchParams({ blPartId });
+    if (rbPartId) params.set('rbPartId', rbPartId);
+
+    fetch(`/api/parts/bricklink/validate?${params.toString()}`)
+      .then(res => res.json())
+      .then((data: { validBlPartId: string | null; corrected: boolean }) => {
+        if (cancelled) return;
+        if (data.validBlPartId) {
+          const cacheValue =
+            data.validBlPartId === blPartId ? 'valid' : data.validBlPartId;
+          validationCache.set(cacheKey, cacheValue);
+          setState({ status: 'valid', blPartId: data.validBlPartId });
+        } else {
+          validationCache.set(cacheKey, 'not_found');
+          setState({ status: 'not_found' });
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // On error, show link as-is (don't block the user)
+        setState({ status: 'valid', blPartId });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [blPartId, rbPartId, open, isFigId]);
+
+  return state;
+}
+
 export function InventoryItemModal({ open, onClose, data }: Props) {
   const pricingEnabled = usePricingEnabled();
 
-  if (!data) return null;
+  // Derive values needed for validation hook (must be called unconditionally)
+  const row = data?.row;
+  const bricklinkColorId = data?.bricklinkColorId;
+  const isFigId =
+    typeof row?.partId === 'string' && row.partId.startsWith('fig:');
+  const storedBlPartId = isFigId
+    ? null
+    : (row?.identity?.blPartId ?? row?.bricklinkPartId ?? null);
+  const rbPartId = isFigId ? null : (row?.partId ?? null);
+
+  const blValidation = useBricklinkValidation(
+    storedBlPartId,
+    rbPartId,
+    open,
+    isFigId
+  );
+
+  if (!data || !row) return null;
 
   const {
-    row,
     pricingSource,
-    bricklinkColorId,
     isPricePending,
     canRequestPrice,
     hasPrice,
@@ -42,9 +131,6 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
     onRequestPrice,
   } = data;
 
-  // Derive display values from row
-  const isFigId =
-    typeof row.partId === 'string' && row.partId.startsWith('fig:');
   const isMinifig = row.parentCategory === 'Minifigure' && isFigId;
   const rebrickableFigId = isFigId
     ? row.partId.replace(/^fig:/, '')
@@ -53,9 +139,17 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
   const effectiveMinifigId = isMinifig
     ? (bricklinkFigId ?? rebrickableFigId)
     : rebrickableFigId;
+
+  // For display: use stored BL part ID
   const effectivePartId = isFigId
     ? row.partId
     : (row.identity?.blPartId ?? row.bricklinkPartId ?? row.partId);
+
+  // For BL link: use validated part ID when available
+  const validatedPartId =
+    !isFigId && blValidation.status === 'valid'
+      ? blValidation.blPartId
+      : effectivePartId;
 
   const minifigIdDisplay = formatMinifigId({
     bricklinkId: bricklinkFigId ?? null,
@@ -73,7 +167,7 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
         effectiveMinifigId ?? ''
       )}${linkHash}`
     : `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(
-        effectivePartId
+        validatedPartId
       )}${linkHash}`;
 
   const identifyPart = isMinifig
@@ -92,6 +186,8 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
         : {}),
     },
   };
+
+  const blLinkUnavailable = !isFigId && blValidation.status === 'not_found';
 
   return (
     <Modal open={open} onClose={onClose} title={row.partName}>
@@ -156,14 +252,22 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
             </div>
           )}
         </div>
-        <a
-          href={bricklinkUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-          className={buttonVariants({ variant: 'link' })}
-        >
-          View on BrickLink
-        </a>
+        {blLinkUnavailable ? (
+          <p className="text-foreground-muted italic">
+            This part is not available on BrickLink.
+          </p>
+        ) : blValidation.status === 'loading' ? (
+          <p className="text-foreground-muted italic">Checking BrickLink…</p>
+        ) : (
+          <a
+            href={bricklinkUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={buttonVariants({ variant: 'link' })}
+          >
+            View on BrickLink
+          </a>
+        )}
         <Link
           href={identifyHref}
           className={buttonVariants({ variant: 'link' })}

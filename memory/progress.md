@@ -139,6 +139,15 @@
     - Reduced `spareCache` TTL from 7 days → 24 hours (more appropriate for live Rebrickable API data).
     - Added `Cache-Control` header to `/api/catalog/versions` endpoint (60s max-age, 120s stale-while-revalidate).
   - Documented caching strategy in `memory/system-patterns.md` for future reference.
+- **Export Fixes & BL Validation** (February 2026):
+  - BL export: removed `mapToBrickLink()` fallback, `generateBrickLinkCsv()` is now synchronous/identity-only. Eliminates 429s.
+  - RB export: `includeMinifigs` toggle (default false) with warning. Filters `minifig_*` row types.
+  - `blValidatePart()`: 404-safe circuit breaker. New `BrickLinkNotFoundError` class, `safe404` option on `blGet`.
+  - Negative caching: `part_id_mappings` with `source = 'bl-not-found'`, 30-day re-validation.
+  - On-demand validation: `/api/parts/bricklink/validate` route, self-healing mappings (`auto-validate` source).
+  - `InventoryItemModal`: `useBricklinkValidation` hook with session-level cache. Validates BL links on modal open.
+  - Updated `buildResolutionContext()` to skip `bl-not-found` entries.
+  - 356 tests passing, clean tsc.
 - **Exclusive Pieces Feature** (January 2026):
   - New page at `/exclusive-pieces` to discover parts that appear in exactly one LEGO set worldwide.
   - Service layer (`app/lib/services/exclusivePieces.ts`) queries `rb_inventory_parts_public` to find globally unique part+color combinations.
@@ -166,6 +175,8 @@ Core MVP is feature-complete: search, inventory, owned tracking, CSV exports, pr
 - ID/color mapping mismatches between Rebrickable and BrickLink affecting CSV exports.
   - Mitigated by `part_id_mappings` table with auto-suffix fallback (e.g., `3957a` → `3957`).
   - Mitigated by minifig component part mapping pipeline for heads, torsos, legs, etc.
+  - Mitigated by on-demand BL validation with self-healing (Plan 08): corrects bad mappings, persists fixes, negative caching prevents repeated lookups.
+  - BL export no longer makes per-part API calls (identity-only); RB export excludes minifigs by default.
 - Large inventories (>1000 parts) may require careful virtualization and memoization to stay fast.
 - CSV specs must exactly match marketplace requirements to import successfully.
 - Debounced owned writes delay flush by ~500ms; acceptable trade-off for UI responsiveness.

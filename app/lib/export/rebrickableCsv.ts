@@ -15,9 +15,24 @@ export type MissingRow = {
   identity?: import('@/app/lib/domain/partIdentity').PartIdentity;
 };
 
+export type RebrickableOptions = {
+  /** Include minifig parents and subparts (default: false). */
+  includeMinifigs?: boolean;
+};
+
 // Rebrickable import spec generally supports headers: part_num,color_id,quantity
-export function generateRebrickableCsv(rows: MissingRow[]): string {
-  const filtered = rows.filter(r => r.quantityMissing > 0);
+export function generateRebrickableCsv(
+  rows: MissingRow[],
+  opts?: RebrickableOptions
+): string {
+  let filtered = rows.filter(r => r.quantityMissing > 0);
+
+  if (!opts?.includeMinifigs) {
+    filtered = filtered.filter(
+      r => !r.identity?.rowType.startsWith('minifig_')
+    );
+  }
+
   const headers = ['part_num', 'color_id', 'quantity'];
   const body = filtered.map(r => [r.partId, r.colorId, r.quantityMissing]);
   return toCsv(headers, body, /* includeBom */ true);

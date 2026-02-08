@@ -152,9 +152,23 @@ function recordFailure(): void {
   }
 }
 
+/** Thrown for 404 responses when `safe404` is enabled on blGet. */
+class BrickLinkNotFoundError extends Error {
+  constructor(path: string) {
+    super(`BrickLink 404: ${path}`);
+    this.name = 'BrickLinkNotFoundError';
+  }
+}
+
+type BlGetOptions = {
+  /** When true, 404 responses throw BrickLinkNotFoundError without counting as circuit breaker failures. */
+  safe404?: boolean;
+};
+
 async function blGet<T>(
   path: string,
-  params?: Record<string, string | number>
+  params?: Record<string, string | number>,
+  opts?: BlGetOptions
 ): Promise<T> {
   assertBreakerOpen();
   await acquireSlot();
@@ -197,12 +211,21 @@ async function blGet<T>(
   try {
     if (!res.ok) {
       const text = await res.text().catch(() => '');
+      // 404s with safe404 don't count as circuit breaker failures
+      if (opts?.safe404 && res.status === 404) {
+        recordSuccess();
+        throw new BrickLinkNotFoundError(url.pathname);
+      }
       recordFailure();
       throw new Error(`BrickLink ${res.status}: ${text.slice(0, 200)}`);
     }
     type BLResponse = { meta?: { code?: number; message?: string }; data: T };
     const json = (await res.json()) as BLResponse;
     if (json?.meta && json.meta.code && json.meta.code !== 200) {
+      if (opts?.safe404 && json.meta.code === 404) {
+        recordSuccess();
+        throw new BrickLinkNotFoundError(url.pathname);
+      }
       recordFailure();
       throw new Error(
         `BrickLink meta ${json.meta.code}: ${json.meta.message ?? 'error'}`
@@ -292,6 +315,26 @@ export async function blGetPart(no: string): Promise<BLPart> {
   return blGet<BLPart>(
     `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}`
   );
+}
+
+/**
+ * Validate whether a part exists on BrickLink.
+ * 404s are expected and do NOT count as circuit breaker failures.
+ */
+export async function blValidatePart(
+  no: string
+): Promise<'exists' | 'not_found' | 'error'> {
+  try {
+    await blGet<BLPart>(
+      `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(no)}`,
+      undefined,
+      { safe404: true }
+    );
+    return 'exists';
+  } catch (err) {
+    if (err instanceof BrickLinkNotFoundError) return 'not_found';
+    return 'error';
+  }
 }
 
 export type BLMinifig = {

@@ -55,12 +55,19 @@
     - Returns optional `minifigMeta` with sync status
 - **Part ID Mapping** (RB → BL):
   - `part_id_mappings` table stores manual and auto-generated mappings with columns `rb_part_id`, `bl_part_id`, `source`, `confidence`.
-  - Sources include: `'auto-suffix'` (automatic suffix stripping), `'minifig-component'` (from minifig part mapping), `'manual'`.
+  - Sources include: `'auto-suffix'` (automatic suffix stripping), `'minifig-component'` (from minifig part mapping), `'manual'`, `'auto-validate'` (on-demand BL validation), `'bl-not-found'` (negative cache).
+  - **Negative caching**: Entries with `source = 'bl-not-found'` and `bl_part_id = ''` indicate parts confirmed not on BrickLink. Re-validated after 30 days. `buildResolutionContext()` skips these entries.
   - `/api/parts/bricklink` route lookup order:
-    1. Check `part_id_mappings` table first.
+    1. Check `part_id_mappings` table first (returns cached positive, negative, or miss).
     2. Fall back to Rebrickable API's `external_ids.BrickLink`.
     3. For parts matching `/^\d+[a-z]$/i` (like `3957a`), try stripping the suffix and looking up base ID.
     4. If suffix stripping succeeds, auto-persist to `part_id_mappings` for future lookups.
+    5. If nothing found, persist negative cache entry (`bl-not-found`).
+  - `/api/parts/bricklink/validate` — on-demand validation endpoint:
+    - Validates stored BL part ID via `blValidatePart()` (404-safe, doesn't trip circuit breaker).
+    - Tries fallback candidates: raw RB part ID, suffix-stripped variants.
+    - Self-heals by persisting corrected mappings (`source: 'auto-validate'`).
+    - Called from `InventoryItemModal` when user opens part detail; session-level client cache prevents repeat calls.
   - `bl_minifig_parts` caches BrickLink minifig component parts; `bricklink_minifigs.parts_sync_status` tracks sync state.
   - Bulk mapping scripts have two phases:
     - Phase 1: Map minifigs for each set (1 BL API call per set).
@@ -265,6 +272,8 @@ Default to TTL-only caching. Add version awareness only for catalog-derived serv
 - **CSV export adapters**
   - Rebrickable CSV and BrickLink wanted-list CSV are implemented as adapters that map the same internal inventory model into provider-specific field sets.
   - BrickLink wanted lists are named `"{setNumber} — {setName} — mvp"`; condition defaults are accepted and per-row condition is deferred.
+  - **BL export** (`bricklinkCsv.ts`): Synchronous, identity-only. No HTTP calls during export. Rows without BL IDs go to `unmapped` list.
+  - **RB export** (`rebrickableCsv.ts`): `includeMinifigs` option (default: false). Filters rows where `identity?.rowType` starts with `minifig_`. Warning shown in `ExportModal` when minifigs included.
 - **BrickLink pricing**
   - Pricing is opt-in and triggered explicitly (per-row or at the set level) via UI actions.
   - Route Handlers call BrickLink price guide endpoints server-side; the UI surfaces aggregate ranges and per-part links without storing sensitive pricing settings client-side.
