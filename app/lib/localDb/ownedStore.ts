@@ -284,6 +284,76 @@ export async function importOwnedFromRecord(
 }
 
 /**
+ * Migrate owned data from legacy keys to canonical keys.
+ *
+ * For each migration: if canonical key has no owned data, check legacy keys,
+ * copy first match to canonical key, delete the old entry.
+ * Idempotent — safe to run multiple times.
+ *
+ * @returns Number of keys migrated
+ */
+export async function migrateOwnedKeys(
+  setNumber: string,
+  keyMigrations: Array<{ canonicalKey: string; legacyKeys: string[] }>
+): Promise<number> {
+  if (!isIndexedDBAvailable()) return 0;
+
+  try {
+    const db = getLocalDb();
+    let migrated = 0;
+
+    await db.transaction('rw', db.localOwned, async () => {
+      for (const { canonicalKey, legacyKeys } of keyMigrations) {
+        // Check if canonical key already has data
+        const existing = await db.localOwned
+          .where('[setNumber+inventoryKey]')
+          .equals([setNumber, canonicalKey])
+          .first();
+        if (existing && existing.quantity > 0) continue; // Already migrated
+
+        // Find first legacy key with data
+        for (const legacyKey of legacyKeys) {
+          if (legacyKey === canonicalKey) continue;
+          const legacy = await db.localOwned
+            .where('[setNumber+inventoryKey]')
+            .equals([setNumber, legacyKey])
+            .first();
+          if (legacy && legacy.quantity > 0) {
+            // Copy to canonical key
+            if (existing?.id) {
+              await db.localOwned.update(existing.id, {
+                quantity: legacy.quantity,
+                updatedAt: Date.now(),
+              });
+            } else {
+              await db.localOwned.add({
+                setNumber,
+                inventoryKey: canonicalKey,
+                quantity: legacy.quantity,
+                updatedAt: Date.now(),
+              });
+            }
+            // Delete old entry
+            if (legacy.id) {
+              await db.localOwned.delete(legacy.id);
+            }
+            migrated++;
+            break; // Use first match only
+          }
+        }
+      }
+    });
+
+    return migrated;
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to migrate owned keys:', error);
+    }
+    return 0;
+  }
+}
+
+/**
  * Export owned quantities to a Record (for sync to Supabase).
  */
 export async function exportOwnedToRecord(

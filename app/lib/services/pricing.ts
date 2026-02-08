@@ -13,6 +13,12 @@ export type PriceRequestItem = {
   key: string;
   partId: string;
   colorId: number;
+  /** Pre-resolved BrickLink part ID from identity (skips mapToBrickLink) */
+  blPartId?: string | undefined;
+  /** Pre-resolved BrickLink color ID from identity */
+  blColorId?: number | undefined;
+  /** Pre-resolved item type from identity */
+  itemType?: 'PART' | 'MINIFIG' | undefined;
 };
 
 export type PriceResponseEntry = {
@@ -54,22 +60,40 @@ export async function fetchBricklinkPrices(
     await Promise.all(
       batch.map(async item => {
         try {
-          const mapped = await mapToBrickLink(item.partId, item.colorId);
-          if (!mapped) {
-            if (process.env.NODE_ENV !== 'production') {
-              logEvent(`${logPrefix}.unmapped_item`, {
-                key: item.key,
-                partId: item.partId,
-                colorId: item.colorId,
-              });
+          // Fast path: use pre-resolved BL IDs from identity
+          let itemNo: string;
+          let blColorId: number | undefined;
+          let itemType: 'PART' | 'MINIFIG';
+
+          if (
+            item.blPartId != null &&
+            (item.blColorId != null || item.itemType === 'MINIFIG')
+          ) {
+            itemNo = item.blPartId;
+            blColorId = item.blColorId;
+            itemType = item.itemType ?? 'PART';
+          } else {
+            // Fallback: resolve via mapToBrickLink
+            const mapped = await mapToBrickLink(item.partId, item.colorId);
+            if (!mapped) {
+              if (process.env.NODE_ENV !== 'production') {
+                logEvent(`${logPrefix}.unmapped_item`, {
+                  key: item.key,
+                  partId: item.partId,
+                  colorId: item.colorId,
+                });
+              }
+              return;
             }
-            return;
+            itemNo = mapped.itemNo;
+            blColorId = mapped.colorId ?? undefined;
+            itemType = mapped.itemType;
           }
 
           const pg = await blGetPartPriceGuide(
-            mapped.itemNo,
-            mapped.colorId ?? undefined,
-            mapped.itemType,
+            itemNo,
+            blColorId,
+            itemType,
             effectivePrefs
           );
 
@@ -78,8 +102,8 @@ export async function fetchBricklinkPrices(
             minPrice: pg.minPriceUsed,
             maxPrice: pg.maxPriceUsed,
             currency: pg.currencyCode,
-            bricklinkColorId: mapped.colorId ?? null,
-            itemType: mapped.itemType,
+            bricklinkColorId: blColorId ?? null,
+            itemType,
             scopeLabel,
             pricingSource: 'real_time',
             lastUpdatedAt: null,

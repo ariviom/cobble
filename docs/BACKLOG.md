@@ -50,20 +50,20 @@ Larger features, in priority order.
 
 **UX Improvements:**
 
-| Task                                | Effort | Notes                                              |
-| ----------------------------------- | ------ | -------------------------------------------------- |
-| Auto-search on photo confirm        | Low    | No additional button press required                |
-| Text link for mobile upload         | Low    | Add alongside camera button (not locked to camera) |
-| Better loading states               | Low    | Spinner + progress text                            |
-| Search history with part thumbnails | Medium | Store part images, not uploaded photos             |
-| Back button returns to results      | Medium | State preservation or URL-based                    |
+| Task                                | Effort | Notes                                                       |
+| ----------------------------------- | ------ | ----------------------------------------------------------- |
+| ~~Auto-search on photo confirm~~    | Low    | ~~Done: auto-search on upload (f33c7a0)~~                   |
+| ~~Text link for mobile upload~~     | Low    | ~~Done: gallery picker (f33c7a0)~~                          |
+| ~~Better loading states~~           | Low    | ~~Done: loading phases with labeled BrickLoader (f33c7a0)~~ |
+| Search history with part thumbnails | Medium | Store part images, not uploaded photos                      |
+| Back button returns to results      | Medium | State preservation or URL-based                             |
 
 **Backend Improvements:**
 
 - [ ] Extract sub-pipelines into smaller pure helpers
 - [ ] Add per-request budget to cap external calls
-- [ ] Improve UX with clearer sub-states ("Identifying...", "Finding sets...", "Using BrickLink-only data")
-- [ ] Consider debouncing rapid candidate/color changes
+- [x] ~~Improve UX with clearer sub-states~~ — Done: three loading phases (identifying/finding-sets/updating) (f33c7a0)
+- [x] ~~Consider debouncing rapid candidate/color changes~~ — Done: 300ms debounce on color changes (f33c7a0)
 - [ ] Cache "identify → sets" resolutions in Supabase keyed by normalized part/color identifiers
 
 ### 2. Sets Page & Navigation

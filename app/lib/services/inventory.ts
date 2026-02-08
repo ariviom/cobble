@@ -7,44 +7,15 @@ import {
 import { LRUCache } from '@/app/lib/cache/lru';
 import { getSetInventoryLocal } from '@/app/lib/catalog';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
-import { getColors, getSetInventory } from '@/app/lib/rebrickable';
+import { getSetInventory } from '@/app/lib/rebrickable';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
+import {
+  buildResolutionContext,
+  resolveCatalogPartIdentity,
+  resolveMinifigParentIdentity,
+  resolveMinifigSubpartIdentity,
+} from '@/app/lib/services/identityResolution';
 import { logger } from '@/lib/metrics';
-
-// ---------------------------------------------------------------------------
-// RB → BL color ID mapping (cached, built from Rebrickable colors API)
-// ---------------------------------------------------------------------------
-
-let rbToBlColorCache: { at: number; map: Map<number, number> } | null = null;
-const RB_BL_COLOR_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-
-async function getRbToBlColorMap(): Promise<Map<number, number>> {
-  const now = Date.now();
-  if (rbToBlColorCache && now - rbToBlColorCache.at < RB_BL_COLOR_CACHE_TTL) {
-    return rbToBlColorCache.map;
-  }
-
-  const map = new Map<number, number>();
-  try {
-    const colors = await getColors();
-    for (const c of colors) {
-      const bl = (
-        c.external_ids as { BrickLink?: { ext_ids?: number[] } } | undefined
-      )?.BrickLink;
-      if (bl?.ext_ids && bl.ext_ids.length > 0) {
-        map.set(c.id, bl.ext_ids[0]!);
-      }
-    }
-  } catch (err) {
-    logger.warn('inventory.rb_bl_color_map_failed', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    // Return empty map — dedup will fall back to RB color IDs (existing behavior)
-  }
-
-  rbToBlColorCache = { at: now, map };
-  return map;
-}
 
 export type InventoryResult = {
   rows: InventoryRow[];
@@ -202,6 +173,17 @@ export async function getSetInventoryRowsWithMeta(
     rows = await getSetInventory(setNumber);
   }
 
+  // Build identity resolution context from catalog rows
+  const ctx = await buildResolutionContext(rows);
+
+  // Attach identity to catalog rows
+  for (const row of rows) {
+    if (!row.partId.startsWith('fig:')) {
+      row.identity = resolveCatalogPartIdentity(row, ctx);
+      row.inventoryKey = row.identity.canonicalKey;
+    }
+  }
+
   let result: InventoryResult = { rows };
 
   // Get minifigs directly from BrickLink (self-healing)
@@ -254,14 +236,12 @@ export async function getSetInventoryRowsWithMeta(
       blMinifigResult.minifigs.map(m => [m.blMinifigId, m])
     );
 
-    // Track child rows by key to handle shared parts across minifigs
+    // Track child rows by canonical key to handle shared parts across minifigs
     const childRowsByKey = new Map<string, InventoryRow>();
 
     // BrickLink is the source of truth for minifigs.
     // Filter out ALL RB minifig rows - we'll replace with BL data.
-    // This ensures we never show legacy "fig-XXXXX" RB IDs.
     const enrichedRows = rows.filter(row => {
-      // Keep all non-minifig rows
       if (
         row.parentCategory !== 'Minifigure' ||
         typeof row.partId !== 'string' ||
@@ -269,12 +249,12 @@ export async function getSetInventoryRowsWithMeta(
       ) {
         return true;
       }
-      // Filter OUT RB minifig rows - BL minifigs will be added below
       return false;
     });
 
     // Add ALL BL minifigs as the authoritative source
     for (const blMinifig of blMinifigResult.minifigs) {
+      const identity = resolveMinifigParentIdentity(blMinifig.blMinifigId);
       enrichedRows.push({
         setNumber,
         partId: `fig:${blMinifig.blMinifigId}`,
@@ -285,41 +265,40 @@ export async function getSetInventoryRowsWithMeta(
         imageUrl: blMinifig.imageUrl,
         partCategoryName: 'Minifig',
         parentCategory: 'Minifigure',
-        inventoryKey: `fig:${blMinifig.blMinifigId}`,
+        inventoryKey: identity.canonicalKey,
         bricklinkFigId: blMinifig.blMinifigId,
+        identity,
       });
     }
 
-    // Build RB→BL color mapping so we can index catalog rows with BL color IDs
-    // (catalog rows use RB color IDs, but BL minifig parts use BL color IDs)
-    const rbToBlColor = await getRbToBlColorMap();
-
-    // Build index of existing rows by inventoryKey for child row deduplication
-    // Include both primary key AND bricklinkPartId as alternative lookup keys
-    const existingRowsByKey = new Map<string, number>();
+    // Build single canonical key index for dedup
+    const rowsByCanonicalKey = new Map<string, number>();
     enrichedRows.forEach((row, idx) => {
-      const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
-      existingRowsByKey.set(key, idx);
-      // Also index by BrickLink part ID + BL color ID (for BL→RB matching)
-      if (row.bricklinkPartId && row.bricklinkPartId !== row.partId) {
-        const blColorId = rbToBlColor.get(row.colorId) ?? row.colorId;
-        const blKey = `${row.bricklinkPartId}:${blColorId}`;
-        existingRowsByKey.set(blKey, idx);
-      }
+      const key =
+        row.identity?.canonicalKey ??
+        row.inventoryKey ??
+        `${row.partId}:${row.colorId}`;
+      rowsByCanonicalKey.set(key, idx);
     });
 
-    // Create child rows for all subparts
+    // Create child rows for all subparts using identity resolution
     // IMPORTANT: Multiply subpart quantities by minifig quantity to get total needed
     for (const [blMinifigNo, subparts] of subpartsByMinifig) {
       const parentKey = `fig:${blMinifigNo}`;
-      // Get how many of this minifig type are in the set
       const minifigQty = blMinifigMap.get(blMinifigNo)?.quantity ?? 1;
 
       for (const sp of subparts) {
-        const childKey = `${sp.blPartId}:${sp.blColorId}`;
-        const existingIdx = existingRowsByKey.get(childKey);
-        // Total quantity needed = per-minifig qty × number of minifigs
+        // Resolve identity for this subpart
+        const subpartIdentity = resolveMinifigSubpartIdentity(
+          sp.blPartId,
+          sp.blColorId,
+          rowsByCanonicalKey,
+          ctx
+        );
+        const canonicalKey = subpartIdentity.canonicalKey;
         const totalQtyForThisMinifig = sp.quantity * minifigQty;
+
+        const existingIdx = rowsByCanonicalKey.get(canonicalKey);
 
         if (existingIdx != null) {
           // Update existing row with subpart data
@@ -330,11 +309,14 @@ export async function getSetInventoryRowsWithMeta(
           if (!existing.bricklinkPartId && sp.blPartId !== existing.partId) {
             existing.bricklinkPartId = sp.blPartId;
           }
+          // Attach identity if not already set (e.g. catalog row gets subpart identity enrichment)
+          if (!existing.identity) {
+            existing.identity = subpartIdentity;
+          }
           existing.parentCategory = existing.parentCategory ?? 'Minifigure';
           existing.partCategoryName =
             existing.partCategoryName ?? 'Minifigure Component';
 
-          // Track parent relationship
           if (!existing.parentRelations) {
             existing.parentRelations = [];
           }
@@ -342,16 +324,15 @@ export async function getSetInventoryRowsWithMeta(
             rel => rel.parentKey === parentKey
           );
           if (!alreadyLinked) {
-            // Add total quantity needed for this minifig type (per-minifig × count)
             existing.quantityRequired += totalQtyForThisMinifig;
             existing.parentRelations.push({
               parentKey,
-              quantity: sp.quantity, // Per-minifig qty (for relationship)
+              quantity: sp.quantity,
             });
           }
-        } else if (childRowsByKey.has(childKey)) {
+        } else if (childRowsByKey.has(canonicalKey)) {
           // Child row already created by another minifig - update it
-          const childRow = childRowsByKey.get(childKey)!;
+          const childRow = childRowsByKey.get(canonicalKey)!;
           if (!childRow.parentRelations) {
             childRow.parentRelations = [];
           }
@@ -359,15 +340,14 @@ export async function getSetInventoryRowsWithMeta(
             rel => rel.parentKey === parentKey
           );
           if (!alreadyLinked) {
-            // Add total quantity needed for this minifig type
             childRow.quantityRequired += totalQtyForThisMinifig;
             childRow.parentRelations.push({
               parentKey,
-              quantity: sp.quantity, // Per-minifig qty (for relationship)
+              quantity: sp.quantity,
             });
           }
         } else {
-          // Create new child row - use stored BL color name, static lookup, or fallback
+          // Create new child row
           const numColorId = Number(sp.blColorId);
           const colorName =
             sp.colorName ??
@@ -379,47 +359,30 @@ export async function getSetInventoryRowsWithMeta(
             partName: sp.name ?? sp.blPartId,
             colorId: numColorId,
             colorName,
-            // Total quantity = per-minifig qty × minifig count
             quantityRequired: totalQtyForThisMinifig,
             imageUrl: getBlPartImageUrl(sp.blPartId, numColorId),
             parentCategory: 'Minifigure',
             partCategoryName: 'Minifigure Component',
-            inventoryKey: childKey,
-            parentRelations: [{ parentKey, quantity: sp.quantity }], // Per-minifig qty
+            inventoryKey: canonicalKey,
+            parentRelations: [{ parentKey, quantity: sp.quantity }],
             bricklinkPartId: sp.blPartId,
+            identity: subpartIdentity,
           };
-          childRowsByKey.set(childKey, childRow);
+          childRowsByKey.set(canonicalKey, childRow);
         }
       }
     }
 
-    // Append all new child rows
+    // Append all new child rows and index them
     for (const childRow of childRowsByKey.values()) {
       enrichedRows.push(childRow);
-      existingRowsByKey.set(childRow.inventoryKey, enrichedRows.length - 1);
+      rowsByCanonicalKey.set(
+        childRow.identity?.canonicalKey ?? childRow.inventoryKey,
+        enrichedRows.length - 1
+      );
     }
 
-    // Build map of BL key → actual inventory key for componentRelations
-    // This handles the BL→RB ID mismatch (e.g., '3626bp01:1' → '3626c:1')
-    const blKeyToInventoryKey = new Map<string, string>();
-    for (const row of enrichedRows) {
-      if (
-        row.parentCategory === 'Minifigure' &&
-        !row.partId.startsWith('fig:')
-      ) {
-        const inventoryKey = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
-        // Map primary key to itself
-        blKeyToInventoryKey.set(inventoryKey, inventoryKey);
-        // Also map BrickLink key (with BL color ID) to the actual inventory key
-        if (row.bricklinkPartId && row.bricklinkPartId !== row.partId) {
-          const blColorId = rbToBlColor.get(row.colorId) ?? row.colorId;
-          const blKey = `${row.bricklinkPartId}:${blColorId}`;
-          blKeyToInventoryKey.set(blKey, inventoryKey);
-        }
-      }
-    }
-
-    // Now add componentRelations to minifig rows using correct inventory keys
+    // Build componentRelations using canonical keys directly
     for (const row of enrichedRows) {
       if (
         row.parentCategory === 'Minifigure' &&
@@ -430,17 +393,21 @@ export async function getSetInventoryRowsWithMeta(
 
         if (subparts.length > 0) {
           const componentRelations = subparts.map(sp => {
-            const blKey = `${sp.blPartId}:${sp.blColorId}`;
-            // Use the actual inventory key if we found a match, otherwise use BL key
-            const actualKey = blKeyToInventoryKey.get(blKey) ?? blKey;
-            return { key: actualKey, quantity: sp.quantity };
+            // Re-resolve to get canonical key (cheap — no DB calls)
+            const spIdentity = resolveMinifigSubpartIdentity(
+              sp.blPartId,
+              sp.blColorId,
+              rowsByCanonicalKey,
+              ctx
+            );
+            return { key: spIdentity.canonicalKey, quantity: sp.quantity };
           });
           row.componentRelations = componentRelations;
         }
       }
     }
 
-    // Identify minifigs still needing enrichment (only those without subparts in DB)
+    // Identify minifigs still needing enrichment
     const missingImages = blMinifigResult.minifigs
       .filter(m => !m.imageUrl)
       .map(m => m.blMinifigId);
@@ -465,7 +432,6 @@ export async function getSetInventoryRowsWithMeta(
       },
     };
   } else if (blMinifigResult.syncStatus === 'error') {
-    // Sync failed, return what we have from RB with error status
     result.minifigMeta = {
       totalMinifigs: 0,
       syncStatus: 'error',

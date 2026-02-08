@@ -62,6 +62,12 @@ export type InventoryRow = {
    * Used for constructing BrickLink URLs and pricing lookups.
    */
   bricklinkPartId?: string | null;
+  /**
+   * Unified part identity resolving RB↔BL ID differences. Populated
+   * server-side at inventory load time. Downstream consumers should prefer
+   * identity fields over ad-hoc key derivation.
+   */
+  identity?: import('@/app/lib/domain/partIdentity').PartIdentity;
 };
 
 export type SortKey = 'name' | 'color' | 'size' | 'category' | 'price';

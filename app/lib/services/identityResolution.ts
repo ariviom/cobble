@@ -1,0 +1,226 @@
+import 'server-only';
+
+import type { InventoryRow } from '@/app/components/set/types';
+import {
+  createCatalogPartIdentity,
+  createMatchedSubpartIdentity,
+  createMinifigParentIdentity,
+  createUnmatchedSubpartIdentity,
+  type PartIdentity,
+} from '@/app/lib/domain/partIdentity';
+import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
+import { getColors } from '@/app/lib/rebrickable';
+import { logger } from '@/lib/metrics';
+
+// ---------------------------------------------------------------------------
+// Resolution Context — all lookup data needed for identity resolution
+// ---------------------------------------------------------------------------
+
+export type ResolutionContext = {
+  rbToBlColor: Map<number, number>;
+  blToRbColor: Map<number, number>;
+  /** RB part ID → BL part ID (from catalog external_ids + part_id_mappings) */
+  partMappings: Map<string, string>;
+  /** BL part ID → RB part ID (reverse) */
+  blToRbPart: Map<string, string>;
+};
+
+// ---------------------------------------------------------------------------
+// RB → BL color map (cached, reusable)
+// ---------------------------------------------------------------------------
+
+let rbToBlColorCache: { at: number; map: Map<number, number> } | null = null;
+const RB_BL_COLOR_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+export async function getRbToBlColorMap(): Promise<Map<number, number>> {
+  const now = Date.now();
+  if (rbToBlColorCache && now - rbToBlColorCache.at < RB_BL_COLOR_CACHE_TTL) {
+    return rbToBlColorCache.map;
+  }
+
+  const map = new Map<number, number>();
+  try {
+    const colors = await getColors();
+    for (const c of colors) {
+      const bl = (
+        c.external_ids as { BrickLink?: { ext_ids?: number[] } } | undefined
+      )?.BrickLink;
+      if (bl?.ext_ids && bl.ext_ids.length > 0) {
+        map.set(c.id, bl.ext_ids[0]!);
+      }
+    }
+  } catch (err) {
+    logger.warn('identityResolution.rb_bl_color_map_failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  rbToBlColorCache = { at: now, map };
+  return map;
+}
+
+// ---------------------------------------------------------------------------
+// Build resolution context
+// ---------------------------------------------------------------------------
+
+/**
+ * Build all lookup maps needed for identity resolution.
+ * Extracts BL part IDs from catalog rows and batch-queries part_id_mappings
+ * for rows that are missing BL part IDs.
+ */
+export async function buildResolutionContext(
+  catalogRows: InventoryRow[]
+): Promise<ResolutionContext> {
+  // 1. Color maps
+  const rbToBlColor = await getRbToBlColorMap();
+  const blToRbColor = new Map<number, number>();
+  for (const [rb, bl] of rbToBlColor) {
+    blToRbColor.set(bl, rb);
+  }
+
+  // 2. Part mappings from catalog rows (already loaded via external_ids)
+  const partMappings = new Map<string, string>();
+  const missingBlPartIds: string[] = [];
+
+  for (const row of catalogRows) {
+    // Skip minifig parent rows
+    if (row.partId.startsWith('fig:')) continue;
+
+    if (row.bricklinkPartId) {
+      partMappings.set(row.partId, row.bricklinkPartId);
+    } else {
+      missingBlPartIds.push(row.partId);
+    }
+  }
+
+  // 3. Batch-query part_id_mappings for rows missing BL part IDs
+  if (missingBlPartIds.length > 0) {
+    try {
+      const supabase = getCatalogWriteClient();
+      const { data, error } = await supabase
+        .from('part_id_mappings')
+        .select('rb_part_id, bl_part_id')
+        .in('rb_part_id', missingBlPartIds);
+
+      if (error) {
+        logger.warn('identityResolution.part_id_mappings_failed', {
+          error: error.message,
+        });
+      } else if (data) {
+        for (const row of data) {
+          if (row.bl_part_id) {
+            partMappings.set(row.rb_part_id, row.bl_part_id);
+          }
+        }
+      }
+    } catch (err) {
+      logger.warn('identityResolution.part_id_mappings_error', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  // 4. Build reverse part map
+  const blToRbPart = new Map<string, string>();
+  for (const [rb, bl] of partMappings) {
+    blToRbPart.set(bl, rb);
+  }
+
+  return { rbToBlColor, blToRbColor, partMappings, blToRbPart };
+}
+
+// ---------------------------------------------------------------------------
+// Resolve individual identities
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a PartIdentity for a catalog part row.
+ */
+export function resolveCatalogPartIdentity(
+  row: InventoryRow,
+  ctx: ResolutionContext
+): PartIdentity {
+  const blPartId =
+    row.bricklinkPartId ?? ctx.partMappings.get(row.partId) ?? null;
+  const blColorId = ctx.rbToBlColor.get(row.colorId) ?? null;
+  const elementId = typeof row.elementId === 'string' ? row.elementId : null;
+
+  return createCatalogPartIdentity(
+    row.partId,
+    row.colorId,
+    blPartId,
+    blColorId,
+    elementId
+  );
+}
+
+/**
+ * Create a PartIdentity for a BL minifig parent row.
+ */
+export function resolveMinifigParentIdentity(
+  blMinifigId: string
+): PartIdentity {
+  return createMinifigParentIdentity(blMinifigId);
+}
+
+/**
+ * Resolve a BL minifig subpart to either a matched (catalog-backed) or
+ * unmatched identity.
+ *
+ * @param blPartId - BrickLink part ID from bl_minifig_parts
+ * @param blColorId - BrickLink color ID from bl_minifig_parts
+ * @param catalogIndex - Map of canonical keys to row indices in enrichedRows
+ * @param ctx - Resolution context with color/part maps
+ */
+export function resolveMinifigSubpartIdentity(
+  blPartId: string,
+  blColorId: number,
+  catalogIndex: Map<string, number>,
+  ctx: ResolutionContext
+): PartIdentity {
+  // Try to reverse-map BL IDs to RB IDs
+  const rbPartId = ctx.blToRbPart.get(blPartId) ?? null;
+  const rbColorId = ctx.blToRbColor.get(blColorId) ?? null;
+
+  if (rbPartId != null && rbColorId != null) {
+    // Check if this RB key exists in the catalog index
+    const rbKey = `${rbPartId}:${rbColorId}`;
+    if (catalogIndex.has(rbKey)) {
+      return createMatchedSubpartIdentity(
+        rbPartId,
+        rbColorId,
+        blPartId,
+        blColorId
+      );
+    }
+  }
+
+  // Also check if the BL part ID is the same as an RB part ID (common case)
+  if (rbColorId != null) {
+    const directKey = `${blPartId}:${rbColorId}`;
+    if (catalogIndex.has(directKey)) {
+      return createMatchedSubpartIdentity(
+        blPartId,
+        rbColorId,
+        blPartId,
+        blColorId
+      );
+    }
+  }
+
+  // Check if BL IDs directly match a catalog row (when IDs happen to be the same)
+  // This catches cases where the part ID is the same in both systems
+  const blKey = `${blPartId}:${blColorId}`;
+  if (catalogIndex.has(blKey)) {
+    // The catalog uses RB IDs, so if blKey matches, the IDs are the same
+    return createMatchedSubpartIdentity(
+      blPartId,
+      blColorId,
+      blPartId,
+      blColorId
+    );
+  }
+
+  // No match found — unmatched subpart
+  return createUnmatchedSubpartIdentity(blPartId, blColorId);
+}

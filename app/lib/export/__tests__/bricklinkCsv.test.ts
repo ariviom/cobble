@@ -2,6 +2,11 @@ import {
   generateBrickLinkCsv,
   type BrickLinkOptions,
 } from '@/app/lib/export/bricklinkCsv';
+import {
+  createCatalogPartIdentity,
+  createMinifigParentIdentity,
+  createUnmatchedSubpartIdentity,
+} from '@/app/lib/domain/partIdentity';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
 import { vi } from 'vitest';
 
@@ -216,5 +221,134 @@ describe('generateBrickLinkCsv', () => {
     const { exportedMinifigIds } = await generateBrickLinkCsv(rows, opts);
 
     expect(exportedMinifigIds).toEqual([]);
+  });
+
+  describe('identity fast path', () => {
+    it('uses identity BL IDs directly without calling mapToBrickLink', async () => {
+      const { mapToBrickLink } = await import(
+        '@/app/lib/mappings/rebrickableToBricklink'
+      );
+      (mapToBrickLink as ReturnType<typeof vi.fn>).mockClear();
+
+      const rows: MissingRow[] = [
+        {
+          setNumber: '1234-1',
+          partId: '3001',
+          colorId: 1,
+          quantityMissing: 3,
+          identity: createCatalogPartIdentity('3001', 1, 'BL-3001', 11, null),
+        },
+      ];
+      const opts: BrickLinkOptions = {
+        wantedListName: 'Test',
+        condition: 'N',
+      };
+
+      const { csv, unmapped } = await generateBrickLinkCsv(rows, opts);
+
+      expect(mapToBrickLink).not.toHaveBeenCalled();
+      expect(unmapped).toHaveLength(0);
+      const lines = csv
+        .replace(/^\uFEFF/, '')
+        .trim()
+        .split('\n');
+      expect(lines[1]).toBe('P,BL-3001,11,3,N,Test');
+    });
+
+    it('uses identity for minifig parent rows', async () => {
+      const { mapToBrickLink } = await import(
+        '@/app/lib/mappings/rebrickableToBricklink'
+      );
+      (mapToBrickLink as ReturnType<typeof vi.fn>).mockClear();
+
+      const rows: MissingRow[] = [
+        {
+          setNumber: '1234-1',
+          partId: 'fig:sw0001',
+          colorId: 0,
+          quantityMissing: 1,
+          identity: createMinifigParentIdentity('sw0001'),
+        },
+      ];
+      const opts: BrickLinkOptions = {
+        wantedListName: 'Test',
+        condition: 'N',
+      };
+
+      const { csv, unmapped, exportedMinifigIds } = await generateBrickLinkCsv(
+        rows,
+        opts
+      );
+
+      expect(mapToBrickLink).not.toHaveBeenCalled();
+      expect(unmapped).toHaveLength(0);
+      expect(exportedMinifigIds).toEqual(['sw0001']);
+      const lines = csv
+        .replace(/^\uFEFF/, '')
+        .trim()
+        .split('\n');
+      expect(lines[1]).toBe('M,sw0001,0,1,N,Test');
+    });
+
+    it('falls back to mapToBrickLink when identity lacks BL IDs', async () => {
+      const { mapToBrickLink } = await import(
+        '@/app/lib/mappings/rebrickableToBricklink'
+      );
+      (mapToBrickLink as ReturnType<typeof vi.fn>).mockClear();
+
+      const rows: MissingRow[] = [
+        {
+          setNumber: '1234-1',
+          partId: '3001',
+          colorId: 1,
+          quantityMissing: 2,
+          identity: createCatalogPartIdentity('3001', 1, null, null, null),
+        },
+      ];
+      const opts: BrickLinkOptions = {
+        wantedListName: 'Test',
+        condition: 'N',
+      };
+
+      const { csv } = await generateBrickLinkCsv(rows, opts);
+
+      expect(mapToBrickLink).toHaveBeenCalledTimes(1);
+      const lines = csv
+        .replace(/^\uFEFF/, '')
+        .trim()
+        .split('\n');
+      expect(lines[1]).toBe('P,BL-3001,1,2,N,Test');
+    });
+
+    it('uses identity for unmatched subparts', async () => {
+      const { mapToBrickLink } = await import(
+        '@/app/lib/mappings/rebrickableToBricklink'
+      );
+      (mapToBrickLink as ReturnType<typeof vi.fn>).mockClear();
+
+      const rows: MissingRow[] = [
+        {
+          setNumber: '1234-1',
+          partId: '973pb1234',
+          colorId: 11,
+          quantityMissing: 1,
+          identity: createUnmatchedSubpartIdentity('973pb1234', 11),
+        },
+      ];
+      const opts: BrickLinkOptions = {
+        wantedListName: 'Test',
+        condition: 'U',
+      };
+
+      const { csv, unmapped } = await generateBrickLinkCsv(rows, opts);
+
+      expect(mapToBrickLink).not.toHaveBeenCalled();
+      expect(unmapped).toHaveLength(0);
+      const lines = csv
+        .replace(/^\uFEFF/, '')
+        .trim()
+        .split('\n');
+      expect(lines[1]).toBe('P,973pb1234,11,1,U,Test');
+    });
   });
 });

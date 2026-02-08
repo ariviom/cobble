@@ -77,6 +77,8 @@ export type CatalogSetPart = {
   // Relations for minifig components
   parentRelations?: Array<{ parentKey: string; quantity: number }>;
   componentRelations?: Array<{ key: string; quantity: number }>;
+  /** Unified part identity for RB↔BL resolution (round-trips through cache) */
+  identity?: import('@/app/lib/domain/partIdentity').PartIdentity;
 };
 
 /**

@@ -4,12 +4,14 @@ import { isMinifigParentRow } from '@/app/components/set/inventory-utils';
 import type { InventoryRow } from '@/app/components/set/types';
 import { useOwnedSnapshot } from '@/app/hooks/useOwnedSnapshot';
 import { throwAppErrorFromResponse } from '@/app/lib/domain/errors';
+import { getLegacyKeys } from '@/app/lib/domain/partIdentity';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
 import {
   getCachedInventory,
   isIndexedDBAvailable,
   setCachedInventory,
 } from '@/app/lib/localDb';
+import { migrateOwnedKeys } from '@/app/lib/localDb/ownedStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
 import { useMinifigEnrichment } from './useMinifigEnrichment';
@@ -172,13 +174,16 @@ export function useInventory(
       : {}),
   });
 
-  // Deduplicate by inventoryKey — catches duplicates from server response or cache
+  // Deduplicate by canonical key — catches duplicates from server response or cache
   const baseRows = useMemo(() => {
     const raw = data?.rows ?? [];
     if (raw.length === 0) return raw;
     const seen = new Set<string>();
     return raw.filter(row => {
-      const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
+      const key =
+        row.identity?.canonicalKey ??
+        row.inventoryKey ??
+        `${row.partId}:${row.colorId}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -368,7 +373,10 @@ export function useInventory(
     // Final dedup safety net — catches any duplicates created by enrichment key mismatches
     const finalSeen = new Set<string>();
     return working.filter(row => {
-      const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
+      const key =
+        row.identity?.canonicalKey ??
+        row.inventoryKey ??
+        `${row.partId}:${row.colorId}`;
       if (finalSeen.has(key)) return false;
       finalSeen.add(key);
       return true;
@@ -399,7 +407,13 @@ export function useInventory(
   }, [isEnriching, enrichedData.size, rows, setNumber, data?.inventoryVersion]);
 
   const keys = useMemo(
-    () => rows.map(r => r.inventoryKey ?? `${r.partId}:${r.colorId}`),
+    () =>
+      rows.map(
+        r =>
+          r.identity?.canonicalKey ??
+          r.inventoryKey ??
+          `${r.partId}:${r.colorId}`
+      ),
     [rows]
   );
   const required = useMemo(() => rows.map(r => r.quantityRequired), [rows]);
@@ -409,6 +423,31 @@ export function useInventory(
     isHydrated: isOwnedHydrated,
     isStorageAvailable,
   } = useOwnedSnapshot(setNumber, keys);
+
+  // One-time migration of owned data from legacy BL keys to canonical keys
+  const migrationRanRef = useRef(false);
+  useEffect(() => {
+    if (migrationRanRef.current || !isOwnedHydrated || rows.length === 0)
+      return;
+    if (!isIndexedDBAvailable()) return;
+
+    const migrations = rows
+      .filter(r => r.identity && r.identity.rowType.includes('subpart'))
+      .map(r => ({
+        canonicalKey: r.identity!.canonicalKey,
+        legacyKeys: getLegacyKeys(r.identity!),
+      }))
+      .filter(m => m.legacyKeys.some(k => k !== m.canonicalKey));
+
+    if (migrations.length > 0) {
+      migrationRanRef.current = true;
+      migrateOwnedKeys(setNumber, migrations).catch(() => {
+        // Best-effort — failure is non-fatal
+      });
+    } else {
+      migrationRanRef.current = true;
+    }
+  }, [isOwnedHydrated, rows, setNumber]);
 
   const totals = useMemo(() => {
     let totalRequired = 0;
@@ -504,6 +543,7 @@ export function useInventory(
           colorId: r.colorId,
           quantityMissing: missing,
           elementId: r.elementId ?? null,
+          ...(r.identity ? { identity: r.identity } : {}),
         });
       }
     }

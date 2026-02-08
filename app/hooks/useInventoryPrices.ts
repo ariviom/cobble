@@ -110,6 +110,7 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
             bricklinkFigId: row.bricklinkFigId ?? null,
             isMinifig:
               typeof row.partId === 'string' && row.partId.startsWith('fig:'),
+            identity: row.identity,
           };
         })
         .filter(
@@ -121,16 +122,32 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
             colorId: number;
             bricklinkFigId: string | null;
             isMinifig: boolean;
+            identity: (typeof rows)[number]['identity'];
           } => Boolean(item)
         )
-        .map(item => ({
-          key: item.key,
-          colorId: item.colorId,
-          partId:
-            item.isMinifig && item.bricklinkFigId
-              ? `fig:${item.bricklinkFigId}`
-              : String(item.partId),
-        }));
+        .map(item => {
+          const base = {
+            key: item.key,
+            colorId: item.colorId,
+            partId:
+              item.isMinifig && item.bricklinkFigId
+                ? `fig:${item.bricklinkFigId}`
+                : String(item.partId),
+          };
+          // Thread BL IDs from identity when available
+          const id = item.identity;
+          if (id) {
+            return {
+              ...base,
+              ...(id.blPartId != null ? { blPartId: id.blPartId } : {}),
+              ...(id.blColorId != null ? { blColorId: id.blColorId } : {}),
+              ...(id.rowType === 'minifig_parent'
+                ? { itemType: 'MINIFIG' as const }
+                : { itemType: 'PART' as const }),
+            };
+          }
+          return base;
+        });
 
       if (!items.length) {
         setPendingKeys(prev => {

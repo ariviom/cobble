@@ -55,7 +55,7 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
     : rebrickableFigId;
   const effectivePartId = isFigId
     ? row.partId
-    : (row.bricklinkPartId ?? row.partId);
+    : (row.identity?.blPartId ?? row.bricklinkPartId ?? row.partId);
 
   const minifigIdDisplay = formatMinifigId({
     bricklinkId: bricklinkFigId ?? null,

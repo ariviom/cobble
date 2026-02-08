@@ -8,6 +8,28 @@
 
 ## Recently Completed (February 2026)
 
+- **Unified Part Identity (Plan 02)** — Resolved all RB↔BL ID reconciliation into a single `PartIdentity` object, created server-side once at inventory load time:
+  - **NEW** `app/lib/domain/partIdentity.ts` — `PartIdentity` type, 4 factory functions, `getLegacyKeys()`, `parseCanonicalKey()`
+  - **NEW** `app/lib/services/identityResolution.ts` — `ResolutionContext`, `buildResolutionContext()`, `resolveCatalogPartIdentity()`, `resolveMinifigSubpartIdentity()`
+  - **REFACTORED** `app/lib/services/inventory.ts` — Replaced dual-index dedup (`existingRowsByKey` + `blKeyToInventoryKey`) with single `rowsByCanonicalKey` map using identity resolution. Moved `getRbToBlColorMap()` to identity service.
+  - **UPDATED** `app/components/set/types.ts` — Added `identity?: PartIdentity` to `InventoryRow`
+  - **UPDATED** Client-side: `useInventory.ts`, `inventory-utils.ts`, `InventoryItem.tsx`, `InventoryItemModal.tsx` — All key derivations prefer `identity?.canonicalKey`
+  - **UPDATED** Exports: `bricklinkCsv.ts` fast path skips `mapToBrickLink()` when identity has BL IDs; `rebrickableCsv.ts` `MissingRow` extended with identity
+  - **UPDATED** Pricing: `useInventoryPrices.ts` → `route.ts` → `pricing.ts` thread BL IDs directly, fallback to `mapToBrickLink()`
+  - **UPDATED** Owned data: `migrateOwnedKeys()` in `ownedStore.ts` for legacy BL-keyed data; `parseInventoryKey()` handles `bl:` prefix
+  - **UPDATED** IndexedDB cache: `CatalogSetPart` + `catalogCache.ts` round-trip identity through cache
+  - 33 new tests (275 total passing), clean `tsc`, zero behavior change for existing flows
+  - Phase 7 (cleanup) deferred — fallback paths to `mapToBrickLink()` kept for stale cache safety
+
+- **Split InventoryProvider into 5 Focused Contexts** (0b19ce9):
+  - Replaced monolithic 58-field `InventoryContextValue` with 5 targeted contexts: Data (27), Controls (20), Pricing (3), Pinned (3), UI (7)
+  - Single provider component still orchestrates all hooks; only the distribution changes (5 separate `useMemo` + nested providers)
+  - Migrated all 5 consumers: `SetTopBar`, `SetTabContainer`, `PinnedPanel`, `InventoryControls`, `Inventory`
+  - Deleted old `useInventoryContext()` — consumers now use `useInventoryData()`, `useInventoryControls()`, `useInventoryPricing()`, `useInventoryPinned()`, `useInventoryUI()`
+  - Re-render isolation: toggling export modal no longer re-renders SetTopBar; price loads no longer re-render InventoryControls
+  - Part of architectural rewrite plans tracked in `memory/working/00-summary.md` (Plan 01 of 7)
+  - 6 files changed, 201 insertions, 152 deletions. 242/243 tests pass, clean tsc.
+
 - **Cross-Device Sync: Recently Viewed & Continue Building**:
   - New `user_recent_sets` table with RLS for cross-device recently viewed sync
   - Added `found_count` column to `user_sets` with backfill migration

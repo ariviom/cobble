@@ -11,6 +11,8 @@ export type MissingRow = {
    * LEGO Pick-a-Brick CSV export.
    */
   elementId?: string | null;
+  /** Unified part identity when available (from server-side resolution) */
+  identity?: import('@/app/lib/domain/partIdentity').PartIdentity;
 };
 
 // Rebrickable import spec generally supports headers: part_num,color_id,quantity

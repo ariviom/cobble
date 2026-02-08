@@ -2,10 +2,14 @@ import type { InventoryRow } from './types';
 
 /**
  * Get the inventory key for a row.
- * Uses the explicit inventoryKey if set, otherwise derives from partId:colorId.
+ * Prefers identity's canonical key, then explicit inventoryKey, then derived key.
  */
 export function getInventoryKey(row: InventoryRow): string {
-  return row.inventoryKey ?? `${row.partId}:${row.colorId}`;
+  return (
+    row.identity?.canonicalKey ??
+    row.inventoryKey ??
+    `${row.partId}:${row.colorId}`
+  );
 }
 
 export function clampOwned(value: number, required: number): number {

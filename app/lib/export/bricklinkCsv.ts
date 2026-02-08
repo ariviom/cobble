@@ -36,13 +36,41 @@ export async function generateBrickLinkCsv(
   const exportedMinifigIds: string[] = [];
 
   for (const r of filtered) {
+    // Fast path: use identity when available (no HTTP calls needed)
+    const id = r.identity;
+    if (id) {
+      if (id.rowType === 'minifig_parent' && id.blMinifigId) {
+        exportedMinifigIds.push(id.blMinifigId);
+        body.push([
+          'M',
+          id.blMinifigId,
+          0,
+          r.quantityMissing,
+          opts.condition ?? 'U',
+          `${opts.wantedListName}`,
+        ]);
+        continue;
+      }
+      if (id.blPartId != null && id.blColorId != null) {
+        body.push([
+          'P',
+          id.blPartId,
+          id.blColorId,
+          r.quantityMissing,
+          opts.condition ?? 'U',
+          `${opts.wantedListName}`,
+        ]);
+        continue;
+      }
+    }
+
+    // Fallback: use mapToBrickLink for rows without identity (stale cache)
     const mapped = await mapToBrickLink(r.partId, r.colorId);
     if (!mapped) {
       unmapped.push(r);
       continue;
     }
 
-    // Track minifig IDs for confidence logging
     if (mapped.itemType === 'MINIFIG' && r.partId.startsWith('fig:')) {
       exportedMinifigIds.push(r.partId.replace(/^fig:/, ''));
     }

@@ -29,6 +29,9 @@ const schema = z.object({
         key: z.string().min(1).max(200),
         partId: z.string().min(1).max(200),
         colorId: z.number().int(),
+        blPartId: z.string().min(1).max(200).optional(),
+        blColorId: z.number().int().optional(),
+        itemType: z.enum(['PART', 'MINIFIG']).optional(),
       })
     )
     .min(1)

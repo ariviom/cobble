@@ -49,10 +49,10 @@ function InventoryItemComponent({
   const effectiveMinifigId = isMinifig
     ? (bricklinkFigId ?? rebrickableFigId)
     : rebrickableFigId;
-  // For parts: use bricklinkPartId if available, otherwise fall back to partId
+  // For parts: prefer identity's blPartId, then bricklinkPartId, then partId
   const effectivePartId = isFigId
     ? row.partId
-    : (row.bricklinkPartId ?? row.partId);
+    : (row.identity?.blPartId ?? row.bricklinkPartId ?? row.partId);
   const minifigIdDisplay = formatMinifigId({
     bricklinkId: bricklinkFigId ?? null,
     rebrickableId: rebrickableFigId ?? row.partId,
