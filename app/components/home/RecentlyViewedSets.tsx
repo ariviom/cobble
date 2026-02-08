@@ -1,10 +1,10 @@
 'use client';
 
-import { buttonVariants } from '@/app/components/ui/Button';
 import { IdentifySetList } from '@/app/components/identify/IdentifySetList';
 import type { IdentifySet } from '@/app/components/identify/types';
+import { buttonVariants } from '@/app/components/ui/Button';
 import { getRecentSets, removeRecentSet } from '@/app/store/recent-sets';
-import { Search, Camera } from 'lucide-react';
+import { Camera, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
