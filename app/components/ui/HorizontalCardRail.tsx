@@ -88,10 +88,7 @@ export function HorizontalCardRail({ children, className }: Props) {
       )}
       <div
         ref={listRef}
-        className={cn(
-          'flex snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-visible scroll-smooth py-1 no-scrollbar',
-          hasOverflow ? 'px-12' : 'px-0'
-        )}
+        className="flex snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-visible scroll-smooth py-1 no-scrollbar"
       >
         {children}
       </div>
@@ -101,6 +98,13 @@ export function HorizontalCardRail({ children, className }: Props) {
           disabled={!canScrollRight}
           onClick={() => scrollByAmount('right')}
         />
+      )}
+      {/* Fade overlays for clipped cards — desktop only */}
+      {canScrollLeft && (
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-[5] hidden w-20 bg-gradient-to-r from-background to-transparent lg:block" />
+      )}
+      {canScrollRight && (
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-[5] hidden w-20 bg-gradient-to-l from-background to-transparent lg:block" />
       )}
     </div>
   );
