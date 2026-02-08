@@ -9,7 +9,13 @@ import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { Toast } from '@/app/components/ui/Toast';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
-import { useInventoryContext } from './InventoryProvider';
+import {
+  useInventoryData,
+  useInventoryControls,
+  useInventoryPricing,
+  useInventoryPinned,
+  useInventoryUI,
+} from './InventoryProvider';
 import { InventoryItem } from './items/InventoryItem';
 import {
   InventoryItemModal,
@@ -18,7 +24,6 @@ import {
 import { SearchPartyBanner } from './SearchPartyBanner';
 
 export function Inventory() {
-  const ctx = useInventoryContext();
   const {
     setNumber,
     setName,
@@ -31,30 +36,27 @@ export function Inventory() {
     isMinifigEnriching,
     minifigEnrichmentError,
     retryMinifigEnrichment,
-    view,
-    itemSize,
-    sortedIndices,
-    gridSizes,
-    pricesByKey,
-    pendingPriceKeys,
-    requestPricesForKeys,
     handleOwnedChange,
-    isPinned,
-    togglePinned,
     isInGroupSession,
     connectionState,
     hasConnectedOnce,
+    migration,
+    isMigrating,
+    confirmMigration,
+    keepCloudData,
+  } = useInventoryData();
+  const { view, itemSize, sortedIndices, gridSizes } = useInventoryControls();
+  const { pricesByKey, pendingPriceKeys, requestPricesForKeys } =
+    useInventoryPricing();
+  const { isPinned, togglePinned } = useInventoryPinned();
+  const {
     exportOpen,
     closeExportModal,
     getMissingRows,
     getAllRows,
     showEnrichmentToast,
     dismissEnrichmentToast,
-    migration,
-    isMigrating,
-    confirmMigration,
-    keepCloudData,
-  } = ctx;
+  } = useInventoryUI();
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null);

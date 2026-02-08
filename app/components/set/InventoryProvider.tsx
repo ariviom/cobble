@@ -55,11 +55,14 @@ type PriceSummary = {
   pricedItemCount: number;
 };
 
-export type InventoryContextValue = {
+// ---------------------------------------------------------------------------
+// Focused Context Types
+// ---------------------------------------------------------------------------
+
+export type InventoryDataContextValue = {
   // Identity
   setNumber: string;
   setName: string | undefined;
-
   // Data
   rows: InventoryRow[];
   keys: string[];
@@ -69,17 +72,14 @@ export type InventoryContextValue = {
   isMinifigEnriching: boolean;
   minifigEnrichmentError: Error | string | null;
   retryMinifigEnrichment: (() => void) | null;
-
-  // Totals (pre-computed, excludes minifig parent rows)
+  // Totals
   totalRequired: number;
   totalMissing: number;
   ownedTotal: number;
-
   // Owned state
   ownedByKey: Record<string, number>;
   handleOwnedChange: (key: string, nextOwned: number) => void;
   isOwnedHydrated: boolean;
-
   // Migration
   migration: {
     open: boolean;
@@ -89,8 +89,23 @@ export type InventoryContextValue = {
   isMigrating: boolean;
   confirmMigration: () => Promise<void>;
   keepCloudData: () => Promise<void>;
+  // Bulk actions
+  markAllMissing: () => void;
+  markAllComplete: () => void;
+  // Search Party
+  broadcastPieceDelta: (payload: {
+    key: string;
+    delta: number;
+    newOwned: number;
+  }) => void;
+  connectionState: 'disconnected' | 'connecting' | 'connected';
+  hasConnectedOnce: boolean;
+  isInGroupSession: boolean;
+  // Tab visibility
+  isActive: boolean;
+};
 
-  // UI Controls
+export type InventoryControlsContextValue = {
   sortKey: SortKey;
   sortDir: 'asc' | 'desc';
   filter: InventoryFilter;
@@ -103,72 +118,101 @@ export type InventoryContextValue = {
   setView: (view: ViewType) => void;
   setItemSize: (size: ItemSize) => void;
   setGroupBy: (group: GroupBy) => void;
-  /** Get current controls state for saving (tab state persistence) */
   getControlsState: () => InventoryControlsState;
-
-  // Derived
   sortedIndices: number[];
   colorOptions: string[];
-  /** Colors that have matching pieces after display/category filters (for disabling unavailable options) */
   availableColors: Set<string>;
   parentOptions: string[];
   subcategoriesByParent: Record<string, string[]>;
   countsByParent: Record<string, number>;
   gridSizes: string;
+};
 
-  // Pricing
+export type InventoryPricingContextValue = {
   pricesByKey: Record<string, PriceInfo> | null;
   pendingPriceKeys: Set<string> | null;
   requestPricesForKeys: ((keys: string[]) => void) | undefined;
+};
 
-  // Search Party
-  broadcastPieceDelta: (payload: {
-    key: string;
-    delta: number;
-    newOwned: number;
-  }) => void;
-  connectionState: 'disconnected' | 'connecting' | 'connected';
-  hasConnectedOnce: boolean;
-  isInGroupSession: boolean;
-
-  // Pinned
+export type InventoryPinnedContextValue = {
   isPinned: (key: string) => boolean;
   togglePinned: (key: string) => void;
   getPinnedCount: () => number;
+};
 
-  // Bulk actions
-  markAllMissing: () => void;
-  markAllComplete: () => void;
-
-  // Export helpers
-  getMissingRows: () => MissingRow[];
-  getAllRows: () => MissingRow[];
-
-  // Export modal
+export type InventoryUIContextValue = {
   exportOpen: boolean;
   openExportModal: () => void;
   closeExportModal: () => void;
-
-  // Enrichment toast
+  getMissingRows: () => MissingRow[];
+  getAllRows: () => MissingRow[];
   showEnrichmentToast: boolean;
   dismissEnrichmentToast: () => void;
-
-  // Tab visibility (for scroll restoration)
-  isActive: boolean;
 };
 
 // ---------------------------------------------------------------------------
-// Context
+// Focused Context Objects
 // ---------------------------------------------------------------------------
 
-const InventoryContext = createContext<InventoryContextValue | null>(null);
+const InventoryDataContext = createContext<InventoryDataContextValue | null>(
+  null
+);
+const InventoryControlsContext =
+  createContext<InventoryControlsContextValue | null>(null);
+const InventoryPricingContext =
+  createContext<InventoryPricingContextValue | null>(null);
+const InventoryPinnedContext =
+  createContext<InventoryPinnedContextValue | null>(null);
+const InventoryUIContext = createContext<InventoryUIContextValue | null>(null);
 
-export function useInventoryContext(): InventoryContextValue {
-  const ctx = useContext(InventoryContext);
+// ---------------------------------------------------------------------------
+// Focused Context Hooks
+// ---------------------------------------------------------------------------
+
+export function useInventoryData(): InventoryDataContextValue {
+  const ctx = useContext(InventoryDataContext);
   if (!ctx) {
     throw new Error(
-      'useInventoryContext must be used within an InventoryProvider'
+      'useInventoryData must be used within an InventoryProvider'
     );
+  }
+  return ctx;
+}
+
+export function useInventoryControls(): InventoryControlsContextValue {
+  const ctx = useContext(InventoryControlsContext);
+  if (!ctx) {
+    throw new Error(
+      'useInventoryControls must be used within an InventoryProvider'
+    );
+  }
+  return ctx;
+}
+
+export function useInventoryPricing(): InventoryPricingContextValue {
+  const ctx = useContext(InventoryPricingContext);
+  if (!ctx) {
+    throw new Error(
+      'useInventoryPricing must be used within an InventoryProvider'
+    );
+  }
+  return ctx;
+}
+
+export function useInventoryPinned(): InventoryPinnedContextValue {
+  const ctx = useContext(InventoryPinnedContext);
+  if (!ctx) {
+    throw new Error(
+      'useInventoryPinned must be used within an InventoryProvider'
+    );
+  }
+  return ctx;
+}
+
+export function useInventoryUI(): InventoryUIContextValue {
+  const ctx = useContext(InventoryUIContext);
+  if (!ctx) {
+    throw new Error('useInventoryUI must be used within an InventoryProvider');
   }
   return ctx;
 }
@@ -481,15 +525,13 @@ export function InventoryProvider({
   );
 
   // -------------------------------------------------------------------------
-  // Context value
+  // Focused context values
   // -------------------------------------------------------------------------
-  const value = useMemo<InventoryContextValue>(
+
+  const dataValue = useMemo<InventoryDataContextValue>(
     () => ({
-      // Identity
       setNumber,
       setName,
-
-      // Data
       rows,
       keys,
       isLoading,
@@ -498,81 +540,22 @@ export function InventoryProvider({
       isMinifigEnriching,
       minifigEnrichmentError,
       retryMinifigEnrichment,
-
-      // Totals
       totalRequired,
       totalMissing,
       ownedTotal,
-
-      // Owned
       ownedByKey,
       handleOwnedChange,
       isOwnedHydrated,
-
-      // Migration
       migration,
       isMigrating,
       confirmMigration,
       keepCloudData,
-
-      // UI Controls
-      sortKey,
-      sortDir,
-      filter,
-      view,
-      itemSize,
-      groupBy,
-      setSortKey,
-      setSortDir,
-      setFilter,
-      setView,
-      setItemSize,
-      setGroupBy,
-      getControlsState,
-
-      // Derived
-      sortedIndices,
-      colorOptions,
-      availableColors,
-      parentOptions,
-      subcategoriesByParent,
-      countsByParent,
-      gridSizes,
-
-      // Pricing
-      pricesByKey,
-      pendingPriceKeys: pendingKeys,
-      requestPricesForKeys: handlePricesForKeys,
-
-      // Search Party
+      markAllMissing,
+      markAllComplete,
       broadcastPieceDelta,
       connectionState,
       hasConnectedOnce,
       isInGroupSession,
-
-      // Pinned
-      isPinned,
-      togglePinned,
-      getPinnedCount,
-
-      // Bulk actions
-      markAllMissing,
-      markAllComplete,
-
-      // Export helpers
-      getMissingRows,
-      getAllRows,
-
-      // Export modal
-      exportOpen,
-      openExportModal,
-      closeExportModal,
-
-      // Enrichment toast
-      showEnrichmentToast,
-      dismissEnrichmentToast,
-
-      // Tab visibility
       isActive,
     }),
     [
@@ -596,6 +579,18 @@ export function InventoryProvider({
       isMigrating,
       confirmMigration,
       keepCloudData,
+      markAllMissing,
+      markAllComplete,
+      broadcastPieceDelta,
+      connectionState,
+      hasConnectedOnce,
+      isInGroupSession,
+      isActive,
+    ]
+  );
+
+  const controlsValue = useMemo<InventoryControlsContextValue>(
+    () => ({
       sortKey,
       sortDir,
       filter,
@@ -616,32 +611,81 @@ export function InventoryProvider({
       subcategoriesByParent,
       countsByParent,
       gridSizes,
+    }),
+    [
+      sortKey,
+      sortDir,
+      filter,
+      view,
+      itemSize,
+      groupBy,
+      setSortKey,
+      setSortDir,
+      setFilter,
+      setView,
+      setItemSize,
+      setGroupBy,
+      getControlsState,
+      sortedIndices,
+      colorOptions,
+      availableColors,
+      parentOptions,
+      subcategoriesByParent,
+      countsByParent,
+      gridSizes,
+    ]
+  );
+
+  const pricingValue = useMemo<InventoryPricingContextValue>(
+    () => ({
       pricesByKey,
-      pendingKeys,
-      handlePricesForKeys,
-      broadcastPieceDelta,
-      connectionState,
-      hasConnectedOnce,
-      isInGroupSession,
+      pendingPriceKeys: pendingKeys,
+      requestPricesForKeys: handlePricesForKeys,
+    }),
+    [pricesByKey, pendingKeys, handlePricesForKeys]
+  );
+
+  const pinnedValue = useMemo<InventoryPinnedContextValue>(
+    () => ({
       isPinned,
       togglePinned,
       getPinnedCount,
-      markAllMissing,
-      markAllComplete,
-      getMissingRows,
-      getAllRows,
+    }),
+    [isPinned, togglePinned, getPinnedCount]
+  );
+
+  const uiValue = useMemo<InventoryUIContextValue>(
+    () => ({
       exportOpen,
       openExportModal,
       closeExportModal,
+      getMissingRows,
+      getAllRows,
       showEnrichmentToast,
       dismissEnrichmentToast,
-      isActive,
+    }),
+    [
+      exportOpen,
+      openExportModal,
+      closeExportModal,
+      getMissingRows,
+      getAllRows,
+      showEnrichmentToast,
+      dismissEnrichmentToast,
     ]
   );
 
   return (
-    <InventoryContext.Provider value={value}>
-      {children}
-    </InventoryContext.Provider>
+    <InventoryDataContext.Provider value={dataValue}>
+      <InventoryControlsContext.Provider value={controlsValue}>
+        <InventoryPricingContext.Provider value={pricingValue}>
+          <InventoryPinnedContext.Provider value={pinnedValue}>
+            <InventoryUIContext.Provider value={uiValue}>
+              {children}
+            </InventoryUIContext.Provider>
+          </InventoryPinnedContext.Provider>
+        </InventoryPricingContext.Provider>
+      </InventoryControlsContext.Provider>
+    </InventoryDataContext.Provider>
   );
 }

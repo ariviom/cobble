@@ -8,7 +8,7 @@ import {
 import { Checkbox } from '@/app/components/ui/Checkbox';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
-import { useInventoryContext } from '@/app/components/set/InventoryProvider';
+import { useInventoryData } from '@/app/components/set/InventoryProvider';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
@@ -29,7 +29,7 @@ export function PinnedPanelContent({
   view,
   itemSize,
 }: PinnedPanelContentProps) {
-  const { handleOwnedChange: contextOwnedChange } = useInventoryContext();
+  const { handleOwnedChange: contextOwnedChange } = useInventoryData();
   const pinnedState = usePinnedStore();
   const { getPinnedKeysForSet, getPinnedSets, autoUnpin, showOtherSets } =
     pinnedState;

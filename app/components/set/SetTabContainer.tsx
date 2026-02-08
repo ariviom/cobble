@@ -6,7 +6,8 @@ import { Inventory } from '@/app/components/set/Inventory';
 import { InventoryControls } from '@/app/components/set/InventoryControls';
 import {
   InventoryProvider,
-  useInventoryContext,
+  useInventoryData,
+  useInventoryControls,
 } from '@/app/components/set/InventoryProvider';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { Toast } from '@/app/components/ui/Toast';
@@ -391,8 +392,8 @@ function SetTabContainerContent({
   isDesktop,
   searchParty,
 }: SetTabContainerContentProps) {
-  const { setNumber, isLoading, error, getControlsState } =
-    useInventoryContext();
+  const { setNumber, isLoading, error } = useInventoryData();
+  const { getControlsState } = useInventoryControls();
   const hasRestoredScroll = useRef(false);
 
   // Save controls state when tab becomes inactive (or on unmount as fallback)

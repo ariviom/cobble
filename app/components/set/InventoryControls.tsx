@@ -3,7 +3,12 @@
 import { useIsDesktop } from '@/app/hooks/useMediaQuery';
 import { useEffect, useRef, useState } from 'react';
 import { TopBarControls } from './controls/TopBarControls';
-import { useInventoryContext } from './InventoryProvider';
+import {
+  useInventoryData,
+  useInventoryControls as useControls,
+  useInventoryPinned,
+  useInventoryUI,
+} from './InventoryProvider';
 
 type InventoryControlsProps = {
   /** When true, sidebar triggers are disabled (data not yet loaded) */
@@ -11,10 +16,9 @@ type InventoryControlsProps = {
 };
 
 export function InventoryControls({ isLoading }: InventoryControlsProps) {
-  const ctx = useInventoryContext();
+  const { setNumber, setName, markAllMissing, markAllComplete } =
+    useInventoryData();
   const {
-    setNumber,
-    setName,
     view,
     setView,
     itemSize,
@@ -32,11 +36,9 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
     subcategoriesByParent,
     colorOptions,
     availableColors,
-    openExportModal,
-    markAllMissing,
-    markAllComplete,
-    getPinnedCount,
-  } = ctx;
+  } = useControls();
+  const { openExportModal } = useInventoryUI();
+  const { getPinnedCount } = useInventoryPinned();
 
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
