@@ -116,7 +116,7 @@ export function mergeLocalAndCloud(
     totalParts: number;
   }> = [];
   for (const [setNumber, { ownedCount, totalParts }] of mergedMap) {
-    if (ownedCount > 0 && totalParts > 0 && ownedCount < totalParts) {
+    if (ownedCount > 0 && totalParts > 0) {
       results.push({ setNumber, ownedCount, totalParts });
     }
   }

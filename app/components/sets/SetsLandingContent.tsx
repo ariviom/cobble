@@ -1,15 +1,17 @@
 'use client';
 
 import { SetDisplayCardWithControls } from '@/app/components/set/SetDisplayCardWithControls';
-import { MyCollectionSection } from '@/app/components/sets/MyCollectionSection';
-import { SetProgressCard } from '@/app/components/sets/SetProgressCard';
 import { Button } from '@/app/components/ui/Button';
-import { HorizontalCardRail } from '@/app/components/ui/HorizontalCardRail';
-import { useCompletionStats } from '@/app/hooks/useCompletionStats';
-import { useRecentSets } from '@/app/hooks/useRecentSets';
+import { Input } from '@/app/components/ui/Input';
+import { Spinner } from '@/app/components/ui/Spinner';
+import { cn } from '@/app/components/ui/utils';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import {
+  useUnifiedSets,
+  type UnifiedFilter,
+  type UnifiedSet,
+} from '@/app/hooks/useUnifiedSets';
 import type { SetTab } from '@/app/store/open-tabs';
-import type { RecentSetEntry } from '@/app/store/recent-sets';
 import { removeRecentSet } from '@/app/store/recent-sets';
 import { Camera, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -26,42 +28,33 @@ export function SetsLandingContent({
   onSelectSet,
   isActive = true,
 }: SetsLandingContentProps) {
-  const recentSets = useRecentSets(isActive);
+  const {
+    sets,
+    activeFilter,
+    setActiveFilter,
+    searchQuery,
+    setSearchQuery,
+    filterOptions,
+    isLoading,
+  } = useUnifiedSets(isActive);
+  const { user } = useSupabaseUser();
+
   const [removedSetNumbers, setRemovedSetNumbers] = useState<Set<string>>(
     new Set()
   );
-  const { sets: continueSets } = useCompletionStats(isActive);
-  const { user } = useSupabaseUser();
 
-  const visibleRecentSets = recentSets.filter(
-    s => !removedSetNumbers.has(s.setNumber)
-  );
+  const visibleSets =
+    activeFilter === 'recent'
+      ? sets.filter(s => !removedSetNumbers.has(s.setNumber))
+      : sets;
 
   const handleRemoveRecent = (setNumber: string) => {
     setRemovedSetNumbers(prev => new Set(prev).add(setNumber));
     removeRecentSet(setNumber);
   };
 
-  const handleSelectRecent = useCallback(
-    (set: RecentSetEntry, e: React.MouseEvent) => {
-      if (!onSelectSet) return; // let Link navigate normally
-      e.preventDefault();
-      onSelectSet({
-        type: 'set',
-        id: set.setNumber,
-        name: set.name,
-        imageUrl: set.imageUrl,
-        numParts: set.numParts,
-        year: set.year,
-        themeId: set.themeId ?? null,
-        themeName: set.themeName ?? null,
-      });
-    },
-    [onSelectSet]
-  );
-
-  const handleSelectContinue = useCallback(
-    (set: (typeof continueSets)[number], e: React.MouseEvent) => {
+  const handleSelectSet = useCallback(
+    (set: UnifiedSet, e: React.MouseEvent) => {
       if (!onSelectSet) return;
       e.preventDefault();
       onSelectSet({
@@ -71,11 +64,23 @@ export function SetsLandingContent({
         imageUrl: set.imageUrl,
         numParts: set.numParts,
         year: set.year,
-        themeId: set.themeId ?? null,
+        themeId: set.themeId,
       });
     },
     [onSelectSet]
   );
+
+  const emptyMessage = (() => {
+    if (searchQuery.trim()) return 'No sets match your search.';
+    switch (activeFilter) {
+      case 'recent':
+        return null; // handled with rich empty state below
+      case 'continue':
+        return 'Start marking pieces on a set to track your progress.';
+      default:
+        return 'No sets found.';
+    }
+  })();
 
   return (
     <div className="min-h-screen pb-[var(--spacing-nav-height)] lg:pb-0">
@@ -108,75 +113,74 @@ export function SetsLandingContent({
         </div>
       </div>
 
-      {/* Recently Viewed */}
+      {/* Unified sets grid */}
       <section className="py-8">
         <div className="container-wide">
-          {visibleRecentSets.length > 0 ? (
-            <>
-              <div className="mb-6 flex items-center justify-between">
-                <h2 className="text-section-title">
-                  <span className="text-foreground-muted">Recently</span>{' '}
-                  <span className="text-foreground">Viewed</span>
-                </h2>
-              </div>
-              <HorizontalCardRail>
-                {visibleRecentSets.map(set => (
-                  <div
-                    key={set.setNumber}
-                    className="w-56 shrink-0 snap-start sm:w-64"
-                    onClick={e => handleSelectRecent(set, e)}
-                  >
-                    <SetDisplayCardWithControls
-                      setNumber={set.setNumber}
-                      name={set.name}
-                      year={set.year}
-                      imageUrl={set.imageUrl}
-                      numParts={set.numParts}
-                      themeId={set.themeId ?? null}
-                      onRemove={() => handleRemoveRecent(set.setNumber)}
-                    />
-                  </div>
-                ))}
-              </HorizontalCardRail>
-            </>
-          ) : (
-            <p className="text-center text-body text-foreground-muted">
-              Sets you view will appear here.
-              {!user && (
-                <>
-                  {' '}
-                  <Link
-                    href="/login"
-                    className="font-medium text-theme-text underline underline-offset-2"
-                  >
-                    Sign in
-                  </Link>{' '}
-                  to sync your collection across devices.
-                </>
-              )}
-            </p>
-          )}
-        </div>
-      </section>
+          {/* Filter chips */}
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+            {filterOptions.map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setActiveFilter(opt.key as UnifiedFilter)}
+                className={cn(
+                  'shrink-0 rounded-full border-2 px-3 py-1 text-sm font-semibold transition-colors',
+                  activeFilter === opt.key
+                    ? 'border-theme-primary bg-theme-primary/10 text-theme-text'
+                    : 'border-subtle bg-card text-foreground-muted hover:border-theme-primary/50 hover:text-foreground'
+                )}
+              >
+                {opt.label}
+                <span className="ml-1.5 text-xs opacity-70">{opt.count}</span>
+              </button>
+            ))}
+          </div>
 
-      {/* Continue Building — hidden when empty */}
-      {continueSets.length > 0 && (
-        <section className="py-8">
-          <div className="container-wide">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-section-title">
-                <span className="text-foreground-muted">Continue</span>{' '}
-                <span className="text-foreground">Building</span>
-              </h2>
+          {/* Search input */}
+          <div className="relative mb-6">
+            <Search className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-foreground-muted" />
+            <Input
+              size="lg"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search by name or number..."
+              className="pl-11"
+            />
+          </div>
+
+          {/* Content */}
+          {isLoading &&
+          activeFilter !== 'recent' &&
+          visibleSets.length === 0 ? (
+            <div className="flex justify-center py-12">
+              <Spinner label="Loading sets..." />
             </div>
-            <HorizontalCardRail>
-              {continueSets.map(set => (
-                <div
-                  key={set.setNumber}
-                  className="w-56 shrink-0 snap-start sm:w-64"
-                  onClick={e => handleSelectContinue(set, e)}
-                >
-                  <SetProgressCard
+          ) : visibleSets.length === 0 ? (
+            activeFilter === 'recent' && !searchQuery.trim() ? (
+              <p className="py-8 text-center text-body text-foreground-muted">
+                Sets you view will appear here.
+                {!user && (
+                  <>
+                    {' '}
+                    <Link
+                      href="/login"
+                      className="font-medium text-theme-text underline underline-offset-2"
+                    >
+                      Sign in
+                    </Link>{' '}
+                    to sync your collection across devices.
+                  </>
+                )}
+              </p>
+            ) : (
+              <p className="py-8 text-center text-sm text-foreground-muted">
+                {emptyMessage}
+              </p>
+            )
+          ) : (
+            <div className="grid grid-cols-2 gap-x-2 gap-y-4 md:grid-cols-3 lg:grid-cols-4">
+              {visibleSets.map(set => (
+                <div key={set.setNumber} onClick={e => handleSelectSet(set, e)}>
+                  <SetDisplayCardWithControls
                     setNumber={set.setNumber}
                     name={set.name}
                     year={set.year}
@@ -185,16 +189,18 @@ export function SetsLandingContent({
                     themeId={set.themeId}
                     ownedCount={set.ownedCount}
                     totalParts={set.totalParts}
+                    onRemove={
+                      activeFilter === 'recent'
+                        ? () => handleRemoveRecent(set.setNumber)
+                        : undefined
+                    }
                   />
                 </div>
               ))}
-            </HorizontalCardRail>
-          </div>
-        </section>
-      )}
-
-      {/* My Collection — self-hides when empty */}
-      {user && <MyCollectionSection onSelectSet={onSelectSet} />}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Footer */}
       <footer className="mt-8 mb-8 border-t border-subtle px-4 pt-8">

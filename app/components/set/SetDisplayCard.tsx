@@ -7,6 +7,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
+import { X } from 'lucide-react';
 
 export type SetDisplayCardProps = {
   setNumber: string;
@@ -21,7 +22,11 @@ export type SetDisplayCardProps = {
    */
   themeLabel?: string | null;
   themeId?: number | null;
-  onRemove?: () => void;
+  onRemove?: (() => void) | undefined;
+  /** Tracked owned count — when > 0 with totalParts, renders a progress bar. */
+  ownedCount?: number;
+  /** Total parts for this set — used with ownedCount for the progress bar. */
+  totalParts?: number;
   className?: string;
   /**
    * Optional footer content rendered below the card body (for example,
@@ -39,6 +44,9 @@ export function SetDisplayCard({
   numParts,
   quantity,
   themeLabel,
+  onRemove,
+  ownedCount,
+  totalParts,
   className,
   children,
 }: SetDisplayCardProps) {
@@ -51,6 +59,13 @@ export function SetDisplayCard({
   } else if (typeof quantity === 'number' && Number.isFinite(quantity)) {
     metadataParts.push(`${quantity} pieces`);
   }
+
+  const hasTrackingProps =
+    typeof ownedCount === 'number' && typeof totalParts === 'number';
+  const showProgress = hasTrackingProps && ownedCount! > 0 && totalParts! > 0;
+  const progressPct = showProgress
+    ? Math.round((ownedCount! / totalParts!) * 100)
+    : 0;
 
   const [resolvedImageUrl, setResolvedImageUrl] = useState<string | null>(
     imageUrl ?? null
@@ -150,8 +165,49 @@ export function SetDisplayCard({
               </div>
             </div>
           </div>
+          {hasTrackingProps && (
+            <div className="px-2 pb-2 sm:px-3 sm:pb-3">
+              <div
+                className={cn(
+                  'h-2 w-full overflow-hidden rounded-full bg-background-muted',
+                  !showProgress && 'opacity-40'
+                )}
+              >
+                <div
+                  className="h-full rounded-full bg-theme-primary transition-[width] duration-300"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <p
+                className={cn(
+                  'mt-1 text-xs font-semibold',
+                  showProgress
+                    ? 'text-foreground-muted'
+                    : 'text-foreground-muted/50'
+                )}
+              >
+                {showProgress
+                  ? `${ownedCount} / ${totalParts} pieces`
+                  : 'No tracked pieces'}
+              </p>
+            </div>
+          )}
         </div>
       </Link>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={e => {
+            e.preventDefault();
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="absolute top-1 right-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-card/80 text-foreground-muted opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 hover:text-foreground"
+          aria-label="Remove"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
       {children}
     </div>
   );
