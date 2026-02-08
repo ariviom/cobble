@@ -206,22 +206,6 @@ Tests live in `__tests__/` directories alongside source files. Vitest with jsdom
 
 Path alias `@/*` maps to project root in both app code and tests.
 
-### Browser Automation Setup
-
-Chrome is installed in WSL for browser automation via the Chrome DevTools MCP.
-
-**To launch Chrome for testing** (Claude should run this automatically):
-
-```bash
-google-chrome --remote-debugging-port=9222 --headless=new --disable-gpu --no-sandbox &
-```
-
-Or for **visible browser** (when you want to watch):
-
-```bash
-google-chrome --remote-debugging-port=9222 --no-sandbox &
-```
-
 ## Key Directories
 
 - `app/api/` — Next.js Route Handlers (thin HTTP layer)
