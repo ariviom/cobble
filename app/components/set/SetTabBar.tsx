@@ -75,15 +75,15 @@ export function SetTabBar({
         {/* Add tab button */}
         <div
           className={cn(
-            'fixed right-0 mb-0.5 flex flex-shrink-0 items-center justify-center border-l transition-all lg:sticky lg:right-0 lg:border-none lg:bg-background',
-            'size-11 pt-1 lg:size-9' // 36px mobile, 28px desktop
+            'fixed right-0 mb-0.5 flex flex-shrink-0 items-center justify-center border-l border-subtle transition-all lg:sticky lg:right-0 lg:border-none lg:bg-background',
+            'size-11 pt-1.25 lg:size-9' // 36px mobile, 28px desktop
           )}
         >
           <button
             type="button"
             onClick={onOpenLandingTab}
             className={cn(
-              'lg:size-8flex-shrink-0 mb-1 flex size-6 items-center justify-center rounded transition-colors',
+              'mb-1 flex size-6 flex-shrink-0 items-center justify-center rounded transition-colors lg:size-8',
               'text-foreground-muted/70 hover:bg-theme-primary/10 hover:text-foreground'
             )}
             aria-label="Open new tab"
