@@ -35,10 +35,16 @@ export function Modal({ open, title, onClose, children }: Props) {
     >
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={e => {
+          e.stopPropagation();
+          onClose();
+        }}
         aria-hidden="true"
       />
-      <div className="relative w-full max-w-md overflow-hidden rounded-lg bg-card shadow-[0_8px_0_0_var(--color-shadow-depth)]">
+      <div
+        className="relative w-full max-w-md overflow-hidden rounded-lg bg-card shadow-[0_8px_0_0_var(--color-shadow-depth)]"
+        onClick={e => e.stopPropagation()}
+      >
         {/* Theme accent strip - flush with edge */}
         <div className="h-2 bg-theme-primary" />
         <div className="flex items-center justify-between border-b border-subtle px-5 py-4">

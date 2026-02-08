@@ -15,6 +15,8 @@ export type MinifigOwnershipState = {
   listsError: string | null;
   toggleList: (listId: string) => void;
   createList: (name: string) => void;
+  renameList: (listId: string, newName: string) => void;
+  deleteList: (listId: string) => void;
   isAuthenticated: boolean;
   isAuthenticating: boolean;
 };
@@ -35,6 +37,8 @@ export function useMinifigOwnershipState({
     error: listsError,
     toggleList,
     createList,
+    renameList,
+    deleteList,
   } = useMinifigLists({ figNum });
 
   return {
@@ -46,6 +50,8 @@ export function useMinifigOwnershipState({
     listsError,
     toggleList,
     createList,
+    renameList,
+    deleteList,
     isAuthenticated: !!user,
     isAuthenticating: isLoading,
   };

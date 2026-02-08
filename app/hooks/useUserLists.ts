@@ -60,6 +60,27 @@ function setCachedLists(userId: string, lists: UserListSummary[]) {
   writeCache(root);
 }
 
+/**
+ * Invalidate the useUserLists cache so the next render re-fetches from Supabase.
+ * Call this after renaming or deleting a list from other hooks.
+ */
+export function invalidateUserListsCache(userId?: string) {
+  if (userId) {
+    const root = readCache();
+    delete root[userId];
+    writeCache(root);
+  } else {
+    cache = null;
+    if (typeof window !== 'undefined') {
+      try {
+        window.sessionStorage.removeItem(STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
 export type UseUserListsResult = {
   /** All lists (system + custom) */
   allLists: UserListSummary[];

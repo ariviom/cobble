@@ -1,6 +1,7 @@
 'use client';
 
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import { invalidateUserListsCache } from '@/app/hooks/useUserLists';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { Tables } from '@/supabase/types';
 import { useEffect, useMemo, useState } from 'react';
@@ -18,6 +19,8 @@ export type UseSetListsResult = {
   error: string | null;
   toggleList: (listId: string) => void;
   createList: (name: string) => void;
+  renameList: (listId: string, newName: string) => void;
+  deleteList: (listId: string) => void;
 };
 
 type UseSetListsArgs = {
@@ -494,6 +497,94 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
       });
   };
 
+  const renameList = (listId: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!user || !trimmed) return;
+
+    const exists = lists.some(
+      l => l.id !== listId && l.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (exists) {
+      setError('A list with that name already exists.');
+      return;
+    }
+
+    // Optimistic update
+    setLists(prev => {
+      const next = prev.map(l =>
+        l.id === listId ? { ...l, name: trimmed } : l
+      );
+      // Update in-memory cache entries for this user
+      for (const [key, entry] of listCache.entries()) {
+        if (key.startsWith(`${user.id}::`)) {
+          listCache.set(key, { ...entry, lists: next, updatedAt: Date.now() });
+        }
+      }
+      // Update persisted state
+      updatePersistedUserState(user.id, prev => ({
+        lists: next,
+        listsUpdatedAt: Date.now(),
+        memberships: prev?.memberships ?? {},
+      }));
+      return next;
+    });
+
+    invalidateUserListsCache(user.id);
+
+    const supabase = getSupabaseBrowserClient();
+    void supabase
+      .from('user_lists')
+      .update({ name: trimmed })
+      .eq('id', listId)
+      .eq('user_id', user.id)
+      .then(({ error: err }) => {
+        if (err) {
+          console.error('Failed to rename list', err);
+          setError('Failed to rename list');
+        }
+      });
+  };
+
+  const deleteList = (listId: string) => {
+    if (!user) return;
+
+    // Optimistic update
+    setLists(prev => {
+      const next = prev.filter(l => l.id !== listId);
+      for (const [key, entry] of listCache.entries()) {
+        if (key.startsWith(`${user.id}::`)) {
+          listCache.set(key, {
+            lists: next,
+            selectedIds: entry.selectedIds.filter(id => id !== listId),
+            updatedAt: Date.now(),
+          });
+        }
+      }
+      updatePersistedUserState(user.id, prev => ({
+        lists: next,
+        listsUpdatedAt: Date.now(),
+        memberships: prev?.memberships ?? {},
+      }));
+      return next;
+    });
+    setSelectedListIds(prev => prev.filter(id => id !== listId));
+
+    invalidateUserListsCache(user.id);
+
+    const supabase = getSupabaseBrowserClient();
+    void supabase
+      .from('user_lists')
+      .delete()
+      .eq('id', listId)
+      .eq('user_id', user.id)
+      .then(({ error: err }) => {
+        if (err) {
+          console.error('Failed to delete list', err);
+          setError('Failed to delete list');
+        }
+      });
+  };
+
   return {
     lists,
     selectedListIds,
@@ -501,5 +592,7 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
     error,
     toggleList,
     createList,
+    renameList,
+    deleteList,
   };
 }

@@ -1,14 +1,13 @@
 'use client';
 
-import { Button } from '@/app/components/ui/Button';
-import { Input } from '@/app/components/ui/Input';
+import { CollectionsModalContent } from '@/app/components/collections/CollectionsModalContent';
 import { Modal } from '@/app/components/ui/Modal';
 import { MoreDropdownButton } from '@/app/components/ui/MoreDropdown';
 import { StatusToggleButton } from '@/app/components/ui/StatusToggleButton';
 import { Toast } from '@/app/components/ui/Toast';
 import { cn } from '@/app/components/ui/utils';
 import type { SetOwnershipState } from '@/app/hooks/useSetOwnershipState';
-import { Check, ExternalLink, List, ListPlus, Plus, Star } from 'lucide-react';
+import { Check, ExternalLink, List } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -34,12 +33,13 @@ export function SetOwnershipAndCollectionsRow({
     listsError,
     toggleList,
     createList,
+    renameList,
+    deleteList,
     isAuthenticating,
     isAuthenticated,
   } = ownership;
 
   const [showCollections, setShowCollections] = useState(false);
-  const [newCollectionName, setNewCollectionName] = useState('');
   const [mobileToast, setMobileToast] = useState<{
     message: string;
     variant: 'success' | 'error';
@@ -53,13 +53,6 @@ export function SetOwnershipAndCollectionsRow({
     const timer = setTimeout(() => setMobileToast(null), 2000);
     return () => clearTimeout(timer);
   }, [mobileToast]);
-
-  const handleCreateCollection = () => {
-    const trimmed = newCollectionName.trim();
-    if (!trimmed) return;
-    createList(trimmed);
-    setNewCollectionName('');
-  };
 
   const handleToggleOwned = () => {
     if (!isAuthenticated) return;
@@ -81,13 +74,6 @@ export function SetOwnershipAndCollectionsRow({
     if (!isAuthenticated) return;
     setShowCollections(true);
   };
-
-  // Sort lists: system lists (like Wishlist) first, then custom lists alphabetically
-  const sortedLists = useMemo(() => {
-    const system = lists.filter(l => l.isSystem);
-    const custom = lists.filter(l => !l.isSystem);
-    return [...system, ...custom];
-  }, [lists]);
 
   // Build sublabel showing selected collection names
   const selectedCollectionNames = useMemo(() => {
@@ -161,86 +147,19 @@ export function SetOwnershipAndCollectionsRow({
       )}
       <Modal
         open={showCollections}
-        title="Add to Collection"
+        title="Collections"
         onClose={() => setShowCollections(false)}
       >
-        <div className="flex flex-col gap-4">
-          {listsLoading && sortedLists.length === 0 && (
-            <div className="flex items-center justify-center py-4 text-sm text-foreground-muted">
-              Loading collections…
-            </div>
-          )}
-          {sortedLists.length > 0 && (
-            <div className="flex max-h-64 flex-col gap-2 overflow-y-auto pr-1">
-              {sortedLists.map(collection => {
-                const selected = selectedListIds.includes(collection.id);
-                const Icon = collection.isSystem ? Star : ListPlus;
-                return (
-                  <button
-                    key={collection.id}
-                    type="button"
-                    className={cn(
-                      'flex items-center justify-between rounded-md border-2 px-4 py-3 text-left text-sm font-bold transition-all duration-150',
-                      selected
-                        ? 'border-brand-blue bg-brand-blue/10 text-brand-blue shadow-[0_2px_0_0] shadow-brand-blue/20'
-                        : 'border-subtle bg-card text-foreground hover:-translate-y-0.5 hover:bg-background-muted hover:shadow-sm'
-                    )}
-                    onClick={event => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      toggleList(collection.id);
-                    }}
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span className="truncate">{collection.name}</span>
-                    </span>
-                    {selected && (
-                      <Check className="h-4 w-4 shrink-0 text-brand-blue" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {sortedLists.length === 0 && !listsLoading && (
-            <div className="py-4 text-center text-sm text-foreground-muted">
-              No collections yet. Create one below!
-            </div>
-          )}
-          <div className="flex items-end gap-2 border-t-2 border-subtle pt-4">
-            <div className="flex-1">
-              <label className="mb-1.5 block text-xs font-bold tracking-wide text-foreground-muted uppercase">
-                New Collection
-              </label>
-              <Input
-                value={newCollectionName}
-                onChange={event => setNewCollectionName(event.target.value)}
-                placeholder="Collection name"
-                size="md"
-              />
-            </div>
-            <Button
-              variant="primary"
-              size="md"
-              onClick={event => {
-                event.preventDefault();
-                event.stopPropagation();
-                handleCreateCollection();
-              }}
-              disabled={!newCollectionName.trim()}
-              className="gap-1.5"
-            >
-              <Plus className="h-4 w-4" />
-              Create
-            </Button>
-          </div>
-          {listsError && (
-            <div className="rounded-md border-2 border-danger/30 bg-danger-muted px-3 py-2 text-sm font-medium text-danger">
-              {listsError}
-            </div>
-          )}
-        </div>
+        <CollectionsModalContent
+          lists={lists}
+          selectedListIds={selectedListIds}
+          isLoading={listsLoading}
+          error={listsError}
+          onToggle={toggleList}
+          onCreate={createList}
+          onRename={renameList}
+          onDelete={deleteList}
+        />
       </Modal>
       {mobileToast &&
         createPortal(

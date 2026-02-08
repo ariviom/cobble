@@ -1,6 +1,7 @@
 'use client';
 
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import { invalidateUserListsCache } from '@/app/hooks/useUserLists';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { Tables } from '@/supabase/types';
 import { useEffect, useState } from 'react';
@@ -18,6 +19,8 @@ export type UseMinifigListsResult = {
   error: string | null;
   toggleList: (listId: string) => void;
   createList: (name: string) => void;
+  renameList: (listId: string, newName: string) => void;
+  deleteList: (listId: string) => void;
 };
 
 type UseMinifigListsArgs = {
@@ -244,6 +247,60 @@ export function useMinifigLists({
       });
   };
 
+  const renameList = (listId: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!user || !trimmed) return;
+
+    const exists = lists.some(
+      l => l.id !== listId && l.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (exists) {
+      setError('A list with that name already exists.');
+      return;
+    }
+
+    setLists(prev =>
+      prev.map(l => (l.id === listId ? { ...l, name: trimmed } : l))
+    );
+
+    invalidateUserListsCache(user.id);
+
+    const supabase = getSupabaseBrowserClient();
+    void supabase
+      .from('user_lists')
+      .update({ name: trimmed })
+      .eq('id', listId)
+      .eq('user_id', user.id)
+      .then(({ error: err }) => {
+        if (err) {
+          console.error('Failed to rename list', err);
+          setError('Failed to rename list');
+        }
+      });
+  };
+
+  const deleteList = (listId: string) => {
+    if (!user) return;
+
+    setLists(prev => prev.filter(l => l.id !== listId));
+    setSelectedListIds(prev => prev.filter(id => id !== listId));
+
+    invalidateUserListsCache(user.id);
+
+    const supabase = getSupabaseBrowserClient();
+    void supabase
+      .from('user_lists')
+      .delete()
+      .eq('id', listId)
+      .eq('user_id', user.id)
+      .then(({ error: err }) => {
+        if (err) {
+          console.error('Failed to delete list', err);
+          setError('Failed to delete list');
+        }
+      });
+  };
+
   return {
     lists,
     selectedListIds,
@@ -251,5 +308,7 @@ export function useMinifigLists({
     error,
     toggleList,
     createList,
+    renameList,
+    deleteList,
   };
 }

@@ -1,10 +1,11 @@
 'use client';
 
+import { CollectionsModalContent } from '@/app/components/collections/CollectionsModalContent';
 import { Modal } from '@/app/components/ui/Modal';
 import { StatusToggleButton } from '@/app/components/ui/StatusToggleButton';
 import { cn } from '@/app/components/ui/utils';
 import type { MinifigOwnershipState } from '@/app/hooks/useMinifigOwnershipState';
-import { Check, Heart, ListPlus, Star } from 'lucide-react';
+import { Check, Heart } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 type MinifigOwnershipAndCollectionsRowProps = {
@@ -25,21 +26,15 @@ export function MinifigOwnershipAndCollectionsRow({
     listsError,
     toggleList,
     createList,
+    renameList,
+    deleteList,
     isAuthenticating,
     isAuthenticated,
   } = ownership;
 
   const [showCollections, setShowCollections] = useState(false);
-  const [newCollectionName, setNewCollectionName] = useState('');
   const controlsDisabled = !isAuthenticated || isAuthenticating;
   const showAuthHint = !isAuthenticating && !isAuthenticated;
-
-  const handleCreateCollection = () => {
-    const trimmed = newCollectionName.trim();
-    if (!trimmed) return;
-    createList(trimmed);
-    setNewCollectionName('');
-  };
 
   const handleToggleStatus = (key: 'owned' | 'want') => {
     if (!isAuthenticated) return;
@@ -50,13 +45,6 @@ export function MinifigOwnershipAndCollectionsRow({
     if (!isAuthenticated) return;
     setShowCollections(true);
   };
-
-  // Sort lists: system lists (like Wishlist) first, then custom lists alphabetically
-  const sortedLists = useMemo(() => {
-    const system = lists.filter(l => l.isSystem);
-    const custom = lists.filter(l => !l.isSystem);
-    return [...system, ...custom];
-  }, [lists]);
 
   // Build sublabel showing selected collection names
   const selectedCollectionNames = useMemo(() => {
@@ -136,67 +124,16 @@ export function MinifigOwnershipAndCollectionsRow({
         title="Collections"
         onClose={() => setShowCollections(false)}
       >
-        <div className="flex flex-col gap-2 text-xs">
-          {listsLoading && sortedLists.length === 0 && (
-            <div className="text-2xs text-foreground-muted">Loading…</div>
-          )}
-          {sortedLists.length > 0 && (
-            <div className="flex max-h-56 flex-col gap-1 overflow-y-auto">
-              {sortedLists.map(collection => {
-                const selected = selectedListIds.includes(collection.id);
-                const Icon = collection.isSystem ? Star : ListPlus;
-                return (
-                  <button
-                    key={collection.id}
-                    type="button"
-                    className={cn(
-                      'flex items-center justify-between rounded px-2 py-1 text-left text-xs',
-                      'hover:bg-card-muted',
-                      selected && 'bg-theme-primary/5 text-theme-primary'
-                    )}
-                    onClick={event => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      toggleList(collection.id);
-                    }}
-                  >
-                    <span className="flex items-center gap-1">
-                      <Icon className="h-3 w-3" />
-                      <span className="truncate">{collection.name}</span>
-                    </span>
-                    {selected && (
-                      <Check className="h-3 w-3 shrink-0 text-theme-primary" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <div className="mt-1 flex items-center gap-1">
-            <input
-              type="text"
-              value={newCollectionName}
-              onChange={event => setNewCollectionName(event.target.value)}
-              placeholder="New collection name"
-              className="flex-1 rounded border border-subtle bg-card px-2 py-1 text-xs"
-            />
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 rounded border border-subtle bg-card px-2 py-1 text-xs hover:bg-card-muted"
-              onClick={event => {
-                event.preventDefault();
-                event.stopPropagation();
-                handleCreateCollection();
-              }}
-            >
-              <ListPlus className="h-3 w-3" />
-              <span>Create</span>
-            </button>
-          </div>
-          {listsError && (
-            <div className="text-2xs mt-1 text-brand-red">{listsError}</div>
-          )}
-        </div>
+        <CollectionsModalContent
+          lists={lists}
+          selectedListIds={selectedListIds}
+          isLoading={listsLoading}
+          error={listsError}
+          onToggle={toggleList}
+          onCreate={createList}
+          onRename={renameList}
+          onDelete={deleteList}
+        />
       </Modal>
     </>
   );

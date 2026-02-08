@@ -24,6 +24,8 @@ export type SetOwnershipState = {
   listsError: string | null;
   toggleList: (listId: string) => void;
   createList: (name: string) => void;
+  renameList: (listId: string, newName: string) => void;
+  deleteList: (listId: string) => void;
   isAuthenticated: boolean;
   isAuthenticating: boolean;
 };
@@ -53,6 +55,8 @@ export function useSetOwnershipState({
     error: listsError,
     toggleList,
     createList,
+    renameList,
+    deleteList,
   } = useSetLists({ setNumber });
 
   return {
@@ -64,6 +68,8 @@ export function useSetOwnershipState({
     listsError,
     toggleList,
     createList,
+    renameList,
+    deleteList,
     isAuthenticated: !!user,
     isAuthenticating: isLoading,
   };
