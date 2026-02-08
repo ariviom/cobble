@@ -14,7 +14,6 @@ import {
 import { migrateOwnedKeys } from '@/app/lib/localDb/ownedStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
-import { useMinifigEnrichment } from './useMinifigEnrichment';
 
 export type MinifigStatus = {
   state: 'complete' | 'missing' | 'unknown';
@@ -38,22 +37,11 @@ export type UseInventoryResult = {
   isOwnedHydrated: boolean;
   /** Whether IndexedDB is available (false = in-memory only, data will be lost) */
   isStorageAvailable: boolean;
-  /** Whether minifig enrichment is in progress */
-  isMinifigEnriching: boolean;
-  /** Last minifig enrichment error, if any */
-  minifigEnrichmentError: string | null;
-  /** Trigger a retry for minifig enrichment (best-effort) */
-  retryMinifigEnrichment: () => Promise<void>;
 };
 
 type FetchInventoryResult = {
   rows: InventoryRow[];
-  /** Server-provided signal for what needs client-side enrichment */
-  minifigEnrichmentNeeded?: {
-    missingImages: string[];
-    missingSubparts: string[];
-  };
-  /** True if data came from IndexedDB cache (already enriched) */
+  /** True if data came from IndexedDB cache */
   fromCache: boolean;
   /** Inventory version for cache validation */
   inventoryVersion: string | null;
@@ -99,7 +87,6 @@ async function fetchInventory(
   }
 
   // Try local cache first (if IndexedDB is available)
-  // Cached data includes enriched minifig parts (cache is updated after enrichment)
   if (isIndexedDBAvailable()) {
     try {
       const cached = await getCachedInventory(setNumber, inventoryVersion);
@@ -122,11 +109,6 @@ async function fetchInventory(
   const data = (await res.json()) as {
     rows: InventoryRow[];
     inventoryVersion?: string | null;
-    minifigEnrichmentNeeded?: {
-      blMinifigNos: string[];
-      missingImages: string[];
-      missingSubparts: string[];
-    };
   };
   const rows = data.rows;
   const responseVersion = data.inventoryVersion ?? inventoryVersion ?? null;
@@ -139,18 +121,11 @@ async function fetchInventory(
     });
   }
 
-  const result: FetchInventoryResult = {
+  return {
     rows,
     fromCache: false,
     inventoryVersion: responseVersion,
   };
-  if (data.minifigEnrichmentNeeded) {
-    result.minifigEnrichmentNeeded = {
-      missingImages: data.minifigEnrichmentNeeded.missingImages,
-      missingSubparts: data.minifigEnrichmentNeeded.missingSubparts,
-    };
-  }
-  return result;
 }
 
 export function useInventory(
@@ -175,7 +150,7 @@ export function useInventory(
   });
 
   // Deduplicate by canonical key — catches duplicates from server response or cache
-  const baseRows = useMemo(() => {
+  const rows = useMemo(() => {
     const raw = data?.rows ?? [];
     if (raw.length === 0) return raw;
     const seen = new Set<string>();
@@ -189,222 +164,6 @@ export function useInventory(
       return true;
     });
   }, [data?.rows]);
-
-  // Determine if client-side enrichment is needed based on server signal
-  // - If data is from cache, it's already BL-enriched (no enrichment needed)
-  // - If data is from server, use the server's signal
-  const enrichmentNeeded = useMemo(() => {
-    if (!data || data.fromCache) {
-      // Cached data is already enriched by the server
-      return { missingImages: [], missingSubparts: [] };
-    }
-    return (
-      data.minifigEnrichmentNeeded ?? { missingImages: [], missingSubparts: [] }
-    );
-  }, [data]);
-
-  // Compute which minifigs need client-side enrichment
-  // Use server's signal (missingImages + missingSubparts) rather than guessing
-  const minifigData = useMemo(() => {
-    // Only include figNums that the server says need enrichment
-    const needsEnrichment = new Set<string>([
-      ...enrichmentNeeded.missingImages,
-      ...enrichmentNeeded.missingSubparts,
-    ]);
-
-    const figNums: string[] = [];
-    const existingData = new Map<
-      string,
-      {
-        imageUrl: string | null;
-        hasSubparts: boolean;
-        hasSubpartImages: boolean;
-      }
-    >();
-
-    const rowByKey = new Map<string, InventoryRow>();
-    for (const row of baseRows) {
-      const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
-      if (key) rowByKey.set(key, row);
-    }
-
-    for (const row of baseRows) {
-      const isFig =
-        row.parentCategory === 'Minifigure' &&
-        typeof row.partId === 'string' &&
-        row.partId.startsWith('fig:');
-      if (!isFig) continue;
-      const figNum = row.partId.replace(/^fig:/, '');
-
-      // Only add to figNums if server says it needs enrichment
-      if (needsEnrichment.has(figNum)) {
-        figNums.push(figNum);
-      }
-
-      const relations = row.componentRelations ?? [];
-      const hasSubparts = relations.length > 0;
-      const hasSubpartImages =
-        hasSubparts &&
-        relations.every(rel => {
-          const child = rowByKey.get(rel.key);
-          return Boolean(child?.imageUrl);
-        });
-
-      existingData.set(figNum, {
-        imageUrl: row.imageUrl,
-        hasSubparts,
-        hasSubpartImages,
-      });
-    }
-    return { figNums, existingData };
-  }, [baseRows, enrichmentNeeded]);
-
-  const {
-    enrichedData,
-    isEnriching,
-    error: enrichmentError,
-    enrichFigs,
-  } = useMinifigEnrichment({
-    figNums: minifigData.figNums,
-    existingData: minifigData.existingData,
-    enabled: !isLoading && baseRows.length > 0,
-  });
-
-  const retryMinifigEnrichment = useMemo(
-    () => () => enrichFigs(minifigData.figNums),
-    [enrichFigs, minifigData.figNums]
-  );
-
-  const rows = useMemo(() => {
-    if (enrichedData.size === 0) return baseRows;
-
-    const working = baseRows.map(row => {
-      const inventoryKey = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
-      return { ...row, inventoryKey };
-    });
-    const indexByKey = new Map<string, number>();
-    working.forEach((row, idx) => {
-      if (row.inventoryKey) indexByKey.set(row.inventoryKey, idx);
-    });
-
-    for (let i = 0; i < working.length; i += 1) {
-      const row = working[i]!;
-      const isFig =
-        row.parentCategory === 'Minifigure' &&
-        typeof row.partId === 'string' &&
-        row.partId.startsWith('fig:');
-      if (!isFig) continue;
-
-      const figNum = row.partId.replace(/^fig:/, '');
-      const enrichment = enrichedData.get(figNum);
-      if (!enrichment) continue;
-
-      const parentKey = row.inventoryKey ?? `fig:${figNum}`;
-      // Update parent image / BL id
-      row.imageUrl = enrichment.imageUrl ?? row.imageUrl;
-      row.bricklinkFigId = enrichment.blId ?? row.bricklinkFigId ?? null;
-
-      // Attach component relations when missing
-      if (
-        (!row.componentRelations || row.componentRelations.length === 0) &&
-        enrichment.subparts
-      ) {
-        row.componentRelations = enrichment.subparts.map(sp => ({
-          key: `${sp.partId}:${sp.colorId}`,
-          quantity: sp.quantity,
-        }));
-      }
-
-      if (enrichment.subparts) {
-        for (const sp of enrichment.subparts) {
-          const childKey = `${sp.partId}:${sp.colorId}`;
-          const existingIdx = indexByKey.get(childKey);
-          if (existingIdx != null) {
-            const child = working[existingIdx]!;
-            if (sp.imageUrl) {
-              child.imageUrl = sp.imageUrl;
-            }
-            if (sp.bricklinkPartId && sp.bricklinkPartId !== child.partId) {
-              child.bricklinkPartId = sp.bricklinkPartId;
-            }
-            child.parentCategory = child.parentCategory ?? 'Minifigure';
-            child.partCategoryName =
-              child.partCategoryName ?? 'Minifigure Component';
-            if (!child.parentRelations) {
-              child.parentRelations = [];
-            }
-            const alreadyLinked = child.parentRelations.some(
-              rel => rel.parentKey === parentKey
-            );
-            if (!alreadyLinked) {
-              // This is a new parent for this child (shared part)
-              // Aggregate the quantity required
-              child.quantityRequired += sp.quantity;
-              child.parentRelations.push({
-                parentKey,
-                quantity: sp.quantity,
-              });
-            }
-          } else {
-            // Create a minimal child row so subparts are visible
-            const newRow: InventoryRow = {
-              setNumber: row.setNumber,
-              partId: sp.partId,
-              partName: sp.name ?? sp.partId,
-              colorId: sp.colorId,
-              colorName: sp.colorName ?? `Color ${sp.colorId}`,
-              quantityRequired: sp.quantity,
-              imageUrl: sp.imageUrl ?? null,
-              parentCategory: 'Minifigure',
-              partCategoryName: 'Minifigure Component',
-              inventoryKey: childKey,
-              parentRelations: [{ parentKey, quantity: sp.quantity }],
-            };
-            if (sp.bricklinkPartId && sp.bricklinkPartId !== sp.partId) {
-              newRow.bricklinkPartId = sp.bricklinkPartId;
-            }
-            working.push(newRow);
-            indexByKey.set(childKey, working.length - 1);
-          }
-        }
-      }
-    }
-
-    // Final dedup safety net — catches any duplicates created by enrichment key mismatches
-    const finalSeen = new Set<string>();
-    return working.filter(row => {
-      const key =
-        row.identity?.canonicalKey ??
-        row.inventoryKey ??
-        `${row.partId}:${row.colorId}`;
-      if (finalSeen.has(key)) return false;
-      finalSeen.add(key);
-      return true;
-    });
-  }, [baseRows, enrichedData]);
-
-  // Track previous enriching state to detect completion
-  const wasEnrichingRef = useRef(false);
-
-  // Update IndexedDB cache after enrichment completes
-  // This ensures subsequent loads get the enriched data directly
-  useEffect(() => {
-    const wasEnriching = wasEnrichingRef.current;
-    wasEnrichingRef.current = isEnriching;
-
-    // Enrichment just completed (was enriching, now not)
-    if (wasEnriching && !isEnriching && enrichedData.size > 0) {
-      // Update cache with enriched rows
-      if (isIndexedDBAvailable() && rows.length > 0) {
-        const inventoryVersion = data?.inventoryVersion ?? null;
-        setCachedInventory(setNumber, rows, {
-          inventoryVersion,
-        }).catch(error => {
-          console.warn('Failed to update cache after enrichment:', error);
-        });
-      }
-    }
-  }, [isEnriching, enrichedData.size, rows, setNumber, data?.inventoryVersion]);
 
   const keys = useMemo(
     () =>
@@ -564,8 +323,5 @@ export function useInventory(
     computeMissingRows,
     isOwnedHydrated,
     isStorageAvailable,
-    isMinifigEnriching: isEnriching,
-    minifigEnrichmentError: enrichmentError,
-    retryMinifigEnrichment,
   };
 }

@@ -3,6 +3,7 @@ import { getBricklinkColorName } from '@/app/lib/bricklink/colors';
 import {
   getSetMinifigsBl,
   getBlPartImageUrl,
+  getMinifigPartsBl,
 } from '@/app/lib/bricklink/minifigs';
 import { LRUCache } from '@/app/lib/cache/lru';
 import { getSetInventoryLocal } from '@/app/lib/catalog';
@@ -27,15 +28,6 @@ export type InventoryResult = {
     syncStatus: 'ok' | 'error' | 'never_synced' | null;
     /** Whether a sync was triggered during this request */
     syncTriggered: boolean;
-  };
-  /** Hints for client-side minifig enrichment */
-  minifigEnrichmentNeeded?: {
-    /** BL minifig IDs that need enrichment */
-    blMinifigNos: string[];
-    /** BL minifig IDs missing images */
-    missingImages: string[];
-    /** BL minifig IDs missing subparts */
-    missingSubparts: string[];
   };
   /** Spare-part enrichment metadata */
   spares?: {
@@ -231,6 +223,61 @@ export async function getSetInventoryRowsWithMeta(
       subpartsByMinifig.set(sp.bl_minifig_no, list);
     }
 
+    // Self-heal: fetch subparts for minifigs that came back empty
+    const missingSubpartMinifigs = allBlMinifigNos.filter(
+      id =>
+        !subpartsByMinifig.has(id) || subpartsByMinifig.get(id)!.length === 0
+    );
+
+    if (missingSubpartMinifigs.length > 0) {
+      logger.info('inventory.self_heal_missing_subparts', {
+        setNumber,
+        count: missingSubpartMinifigs.length,
+        minifigs: missingSubpartMinifigs,
+      });
+
+      const SELF_HEAL_TIMEOUT_MS = 10_000;
+      const healResults = await Promise.allSettled(
+        missingSubpartMinifigs.map(blId =>
+          Promise.race([
+            getMinifigPartsBl(blId).then(parts => ({ blId, parts })),
+            new Promise<never>((_, reject) =>
+              setTimeout(
+                () => reject(new Error('timeout')),
+                SELF_HEAL_TIMEOUT_MS
+              )
+            ),
+          ])
+        )
+      );
+
+      for (const result of healResults) {
+        if (result.status === 'fulfilled') {
+          const { blId, parts } = result.value;
+          if (parts.length > 0) {
+            subpartsByMinifig.set(
+              blId,
+              parts.map(p => ({
+                blPartId: p.blPartId,
+                blColorId: p.blColorId,
+                colorName: p.colorName,
+                name: p.name,
+                quantity: p.quantity,
+              }))
+            );
+          }
+        } else {
+          logger.warn('inventory.self_heal_subpart_failed', {
+            setNumber,
+            error:
+              result.reason instanceof Error
+                ? result.reason.message
+                : String(result.reason),
+          });
+        }
+      }
+    }
+
     // Build lookup map by BL minifig ID
     const blMinifigMap = new Map(
       blMinifigResult.minifigs.map(m => [m.blMinifigId, m])
@@ -407,28 +454,12 @@ export async function getSetInventoryRowsWithMeta(
       }
     }
 
-    // Identify minifigs still needing enrichment
-    const missingImages = blMinifigResult.minifigs
-      .filter(m => !m.imageUrl)
-      .map(m => m.blMinifigId);
-
-    const missingSubparts = allBlMinifigNos.filter(
-      blId =>
-        !subpartsByMinifig.has(blId) ||
-        subpartsByMinifig.get(blId)!.length === 0
-    );
-
     result = {
       rows: enrichedRows,
       minifigMeta: {
         totalMinifigs: blMinifigResult.minifigs.length,
         syncStatus: blMinifigResult.syncStatus,
         syncTriggered: blMinifigResult.syncTriggered,
-      },
-      minifigEnrichmentNeeded: {
-        blMinifigNos: allBlMinifigNos,
-        missingImages: Array.from(new Set(missingImages)),
-        missingSubparts: Array.from(new Set(missingSubparts)),
       },
     };
   } else if (blMinifigResult.syncStatus === 'error') {

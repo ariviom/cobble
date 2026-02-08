@@ -6,7 +6,6 @@ import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Modal } from '@/app/components/ui/Modal';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
-import { Toast } from '@/app/components/ui/Toast';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
 import {
@@ -33,9 +32,6 @@ export function Inventory() {
     minifigStatusByKey,
     isLoading,
     error,
-    isMinifigEnriching,
-    minifigEnrichmentError,
-    retryMinifigEnrichment,
     handleOwnedChange,
     isInGroupSession,
     connectionState,
@@ -49,14 +45,8 @@ export function Inventory() {
   const { pricesByKey, pendingPriceKeys, requestPricesForKeys } =
     useInventoryPricing();
   const { isPinned, togglePinned } = useInventoryPinned();
-  const {
-    exportOpen,
-    closeExportModal,
-    getMissingRows,
-    getAllRows,
-    showEnrichmentToast,
-    dismissEnrichmentToast,
-  } = useInventoryUI();
+  const { exportOpen, closeExportModal, getMissingRows, getAllRows } =
+    useInventoryUI();
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null);
@@ -162,7 +152,6 @@ export function Inventory() {
           isPinned={isPinned(key)}
           onTogglePinned={() => togglePinned(key)}
           onShowMoreInfo={() => setSelectedItemKey(key)}
-          isEnriching={isMinifigEnriching}
         />
       );
     },
@@ -175,7 +164,6 @@ export function Inventory() {
       handleOwnedChange,
       isPinned,
       togglePinned,
-      isMinifigEnriching,
     ]
   );
 
@@ -241,31 +229,6 @@ export function Inventory() {
           )}
         </div>
       )}
-
-      {/* Enrichment toasts */}
-      <div className="flex items-center gap-3">
-        {showEnrichmentToast &&
-        isMinifigEnriching &&
-        !minifigEnrichmentError ? (
-          <Toast
-            title="Enriching minifigs…"
-            description="Fetching images and subparts."
-            variant="info"
-            onClose={dismissEnrichmentToast}
-          />
-        ) : null}
-        {showEnrichmentToast && minifigEnrichmentError ? (
-          <Toast
-            title="Minifig enrichment failed"
-            description="Some minifigure images could not be loaded."
-            variant="warning"
-            {...(retryMinifigEnrichment
-              ? { actionLabel: 'Retry', onAction: retryMinifigEnrichment }
-              : {})}
-            onClose={dismissEnrichmentToast}
-          />
-        ) : null}
-      </div>
 
       {/* Export Modal */}
       <ExportModal

@@ -108,10 +108,8 @@ describe('useInventory', () => {
       expect(result.current.rows.length).toBe(2);
     });
 
-    // Simulate enrichment by mocking the enrichment hook
-    // In reality, this would be triggered by useMinifigEnrichment
-    // For this test, we verify the aggregation logic works when
-    // enriched data is provided
+    // Verify the aggregation logic works when
+    // server-enriched data is provided
 
     // The aggregation happens in the useMemo when enrichedData contains
     // subparts for multiple parents sharing the same part

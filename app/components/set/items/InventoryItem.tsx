@@ -23,8 +23,6 @@ type Props = {
   isPinned?: boolean;
   onTogglePinned?: () => void;
   onShowMoreInfo?: () => void;
-  /** Whether minifig enrichment is currently running (for loading states) */
-  isEnriching?: boolean;
 };
 
 function InventoryItemComponent({
@@ -35,7 +33,6 @@ function InventoryItemComponent({
   isPinned,
   onTogglePinned,
   onShowMoreInfo,
-  isEnriching = false,
 }: Props) {
   const { user, isLoading } = useAuth();
   const isAuthenticated = !!user && !isLoading;
@@ -85,8 +82,6 @@ function InventoryItemComponent({
         : {}),
     },
   };
-  const showImageLoader = isEnriching && isMinifig && !row.imageUrl;
-
   const handleOpenMoreInfo = () => {
     onShowMoreInfo?.();
   };
@@ -150,8 +145,6 @@ function InventoryItemComponent({
               className={`mx-auto aspect-square h-full w-full rounded-sm object-contain ${owned === row.quantityRequired ? 'ring-2 ring-success' : 'ring-1 ring-foreground-accent'}`}
               data-knockout="true"
             />
-          ) : showImageLoader ? (
-            <div className="h-full w-full animate-pulse rounded-lg bg-card-muted" />
           ) : (
             <ImagePlaceholder variant="inventory" />
           )}
@@ -221,8 +214,7 @@ function areEqual(prev: Props, next: Props) {
     prev.owned === next.owned &&
     prev.missing === next.missing &&
     prev.bricklinkColorId === next.bricklinkColorId &&
-    prev.isPinned === next.isPinned &&
-    prev.isEnriching === next.isEnriching
+    prev.isPinned === next.isPinned
   );
 }
 

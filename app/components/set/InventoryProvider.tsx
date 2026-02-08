@@ -69,9 +69,6 @@ export type InventoryDataContextValue = {
   isLoading: boolean;
   error: Error | string | null;
   minifigStatusByKey: Map<string, MinifigStatus>;
-  isMinifigEnriching: boolean;
-  minifigEnrichmentError: Error | string | null;
-  retryMinifigEnrichment: (() => void) | null;
   // Totals
   totalRequired: number;
   totalMissing: number;
@@ -146,8 +143,6 @@ export type InventoryUIContextValue = {
   closeExportModal: () => void;
   getMissingRows: () => MissingRow[];
   getAllRows: () => MissingRow[];
-  showEnrichmentToast: boolean;
-  dismissEnrichmentToast: () => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -277,9 +272,6 @@ export function InventoryProvider({
     totalMissing,
     ownedTotal,
     isOwnedHydrated,
-    isMinifigEnriching,
-    minifigEnrichmentError,
-    retryMinifigEnrichment,
     sortKey,
     sortDir,
     filter,
@@ -311,26 +303,6 @@ export function InventoryProvider({
   const [exportOpen, setExportOpen] = useState(false);
   const openExportModal = useCallback(() => setExportOpen(true), []);
   const closeExportModal = useCallback(() => setExportOpen(false), []);
-
-  // -------------------------------------------------------------------------
-  // Enrichment toast state
-  // -------------------------------------------------------------------------
-  const [toastDismissedForCycle, setToastDismissedForCycle] = useState(false);
-  const [prevIsEnriching, setPrevIsEnriching] = useState(false);
-
-  if (isMinifigEnriching && !prevIsEnriching) {
-    setPrevIsEnriching(true);
-    setToastDismissedForCycle(false);
-  } else if (!isMinifigEnriching && prevIsEnriching) {
-    setPrevIsEnriching(false);
-  }
-
-  const showEnrichmentToast =
-    (isMinifigEnriching || !!minifigEnrichmentError) && !toastDismissedForCycle;
-
-  const dismissEnrichmentToast = useCallback(() => {
-    setToastDismissedForCycle(true);
-  }, []);
 
   // -------------------------------------------------------------------------
   // Pricing
@@ -537,9 +509,6 @@ export function InventoryProvider({
       isLoading,
       error,
       minifigStatusByKey,
-      isMinifigEnriching,
-      minifigEnrichmentError,
-      retryMinifigEnrichment,
       totalRequired,
       totalMissing,
       ownedTotal,
@@ -566,9 +535,6 @@ export function InventoryProvider({
       isLoading,
       error,
       minifigStatusByKey,
-      isMinifigEnriching,
-      minifigEnrichmentError,
-      retryMinifigEnrichment,
       totalRequired,
       totalMissing,
       ownedTotal,
@@ -661,18 +627,8 @@ export function InventoryProvider({
       closeExportModal,
       getMissingRows,
       getAllRows,
-      showEnrichmentToast,
-      dismissEnrichmentToast,
     }),
-    [
-      exportOpen,
-      openExportModal,
-      closeExportModal,
-      getMissingRows,
-      getAllRows,
-      showEnrichmentToast,
-      dismissEnrichmentToast,
-    ]
+    [exportOpen, openExportModal, closeExportModal, getMissingRows, getAllRows]
   );
 
   return (

@@ -183,6 +183,24 @@ describe('GET /api/inventory', () => {
       expect(json.spares).toEqual(mockSpares);
     });
 
+    it('does not include minifigEnrichmentNeeded in response', async () => {
+      mockGetSetInventory.mockResolvedValue({
+        rows: [createMockRow()],
+        minifigMeta: {
+          totalMinifigs: 2,
+          syncStatus: 'ok' as const,
+          syncTriggered: false,
+        },
+      });
+
+      const req = new NextRequest('http://localhost/api/inventory?set=75192-1');
+      const res = await GET(req);
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.minifigEnrichmentNeeded).toBeUndefined();
+    });
+
     it('sets cache control headers', async () => {
       mockGetSetInventory.mockResolvedValue({
         rows: [],

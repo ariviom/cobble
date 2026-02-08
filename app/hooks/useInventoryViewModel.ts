@@ -45,12 +45,6 @@ export type InventoryViewModel = {
   isOwnedHydrated: boolean;
   /** Whether IndexedDB is available (false = in-memory only, data will be lost) */
   isStorageAvailable: boolean;
-  /** Whether minifig enrichment is running */
-  isMinifigEnriching: boolean;
-  /** Last enrichment error, if any */
-  minifigEnrichmentError: string | null;
-  /** Retry hook for minifig enrichment */
-  retryMinifigEnrichment: () => Promise<void>;
 
   // UI controls
   sortKey: SortKey;
@@ -107,9 +101,6 @@ export function useInventoryViewModel(
     ownedTotal,
     isOwnedHydrated,
     isStorageAvailable,
-    isMinifigEnriching,
-    minifigEnrichmentError,
-    retryMinifigEnrichment,
     computeMissingRows,
   } = useInventory(setNumber, { initialRows: options?.initialRows ?? null });
 
@@ -385,9 +376,6 @@ export function useInventoryViewModel(
     ownedTotal,
     isOwnedHydrated,
     isStorageAvailable,
-    isMinifigEnriching,
-    minifigEnrichmentError,
-    retryMinifigEnrichment,
     sortKey,
     sortDir,
     filter,

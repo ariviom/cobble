@@ -8,6 +8,14 @@
 
 ## Recently Completed (February 2026)
 
+- **Server-Driven Inventory — Eliminate Client-Side Minifig Enrichment (Plan 03)**:
+  - Server now self-heals missing minifig subparts via `getMinifigPartsBl()` with 10s timeout per minifig
+  - Removed entire client enrichment pipeline: `useMinifigEnrichment.ts`, `/api/minifigs/enrich/route.ts`, `minifigEnrichment.ts` (~419 lines deleted)
+  - Removed `minifigEnrichmentNeeded` from `InventoryResult` type and API response
+  - Simplified `useInventory.ts`: removed enrichment merge, IndexedDB re-cache effect, enrichment state (~190 lines removed)
+  - Cleaned up `useInventoryViewModel`, `InventoryProvider`, `Inventory`, `InventoryItem` — removed enrichment toast, `isEnriching` prop
+  - Net ~690 lines removed. All tests pass, clean tsc, clean lint.
+
 - **Unified Part Identity (Plan 02)** — Resolved all RB↔BL ID reconciliation into a single `PartIdentity` object, created server-side once at inventory load time:
   - **NEW** `app/lib/domain/partIdentity.ts` — `PartIdentity` type, 4 factory functions, `getLegacyKeys()`, `parseCanonicalKey()`
   - **NEW** `app/lib/services/identityResolution.ts` — `ResolutionContext`, `buildResolutionContext()`, `resolveCatalogPartIdentity()`, `resolveMinifigSubpartIdentity()`
