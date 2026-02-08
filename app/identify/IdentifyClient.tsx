@@ -97,13 +97,22 @@ type IdentifyQuota =
   | { status: 'unauthorized' }
   | { status: 'error'; message?: string };
 
+type LoadingPhase = null | 'identifying' | 'finding-sets' | 'updating';
+
+const LOADING_PHASE_LABELS: Record<NonNullable<LoadingPhase>, string> = {
+  identifying: 'Identifying piece…',
+  'finding-sets': 'Finding sets…',
+  updating: 'Updating results…',
+};
+
 type IdentifyPageProps = {
   initialQuota?: IdentifyQuota;
   isAuthenticated: boolean;
 };
 
 function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingPhase, setLoadingPhase] = useState<LoadingPhase>(null);
+  const isLoading = loadingPhase !== null;
   const [error, setError] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -129,6 +138,12 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
       (isAuthenticated ? { status: 'loading' } : { status: 'unauthorized' })
   );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+  const searchRequestIdRef = useRef(0);
+  const colorChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const candidateAbortRef = useRef<AbortController | null>(null);
   const searchParams = useSearchParams();
   const hasBootstrappedFromQueryRef = useRef(false);
   const refreshQuota = useCallback(async () => {
@@ -189,7 +204,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           ? `fig:${trimmed}`
           : trimmed;
       setError(null);
-      setIsLoading(true);
+      setLoadingPhase('finding-sets');
       setHasSearched(false);
       try {
         const url = new URL('/api/identify/sets', window.location.origin);
@@ -266,52 +281,81 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
-        setIsLoading(false);
+        setLoadingPhase(null);
         setHasSearched(true);
       }
     },
     []
   );
 
-  const onFileChange = useCallback((file: File | null) => {
-    if (!file) return;
-    setError(null);
-    setIsLoading(false);
-    setHasSearched(false);
-    setPart(null);
-    setCandidates([]);
-    setSets([]);
-    setSelectedFile(file);
-    setSelectedColorId(null);
-    setBlPartId(null);
-    setBlColors(null);
-    setMode('camera');
-    const url = URL.createObjectURL(file);
-    setImagePreview(url);
-  }, []);
+  const performImageSearch = useCallback(
+    async (file: File, preview: string) => {
+      const requestId = ++searchRequestIdRef.current;
+      setError(null);
+      setLoadingPhase('identifying');
+      setHasSearched(false);
+      try {
+        const buffer = await file.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+        const hashHex = Array.from(new Uint8Array(hashBuffer))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('');
 
-  const onSearch = useCallback(async () => {
-    if (!selectedFile) return;
-    setError(null);
-    setIsLoading(true);
-    setHasSearched(false);
-    try {
-      // Compute hash client-side to dedupe requests locally and avoid quota hits.
-      const buffer = await selectedFile.arrayBuffer();
-      const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-      const hashHex = Array.from(new Uint8Array(hashBuffer))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
+        // Stale check after async hash
+        if (searchRequestIdRef.current !== requestId) return;
 
-      // Check local cache first.
-      const cached = getCachedIdentify(hashHex);
-      if (cached) {
-        const data = cached as IdentifyResponse;
+        // Check local cache first.
+        const cached = getCachedIdentify(hashHex);
+        if (cached) {
+          const data = cached as IdentifyResponse;
+          const fallbackImage =
+            data.part?.imageUrl ??
+            data.candidates?.[0]?.imageUrl ??
+            preview ??
+            null;
+          setPart({
+            ...data.part,
+            imageUrl: fallbackImage,
+          });
+          setCandidates(data.candidates ?? []);
+          setSets(data.sets ?? []);
+          const availableColors = (data.availableColors ?? []).filter(
+            c => !!c?.name
+          );
+          if (availableColors.length > 0) {
+            setColors(availableColors.map(c => ({ id: c.id, name: c.name })));
+          } else {
+            setColors([]);
+          }
+          if (typeof data.selectedColorId !== 'undefined') {
+            setSelectedColorId(data.selectedColorId ?? null);
+          }
+          setBlPartId(null);
+          setBlColors(null);
+          setLoadingPhase(null);
+          setHasSearched(true);
+          return;
+        }
+
+        const form = new FormData();
+        form.append('image', file);
+        const res = await fetch('/api/identify', {
+          method: 'POST',
+          body: form,
+        });
+
+        // Stale check after network
+        if (searchRequestIdRef.current !== requestId) return;
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error ?? 'identify_failed');
+        }
+        const data = (await res.json()) as IdentifyResponse;
         const fallbackImage =
           data.part?.imageUrl ??
           data.candidates?.[0]?.imageUrl ??
-          part?.imageUrl ??
-          imagePreview ??
+          preview ??
           null;
         setPart({
           ...data.part,
@@ -329,90 +373,85 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         }
         if (typeof data.selectedColorId !== 'undefined') {
           setSelectedColorId(data.selectedColorId ?? null);
+        } else if (availableColors.length === 1) {
+          setSelectedColorId(availableColors[0]!.id);
+        } else {
+          setSelectedColorId(null);
         }
-        setBlPartId(null);
-        setBlColors(null);
-        setIsLoading(false);
-        setHasSearched(true);
-        return;
+        const dataWithBL = data as IdentifyResponse & {
+          blAvailableColors?: Array<{ id: number; name: string }>;
+          blPartId?: string;
+          source?: 'rb' | 'bl_supersets' | 'bl_components';
+        };
+        const blCols = dataWithBL.blAvailableColors;
+        const blPid = dataWithBL.blPartId;
+        if (Array.isArray(blCols) && blCols.length > 0 && blPid) {
+          setBlPartId(blPid);
+          setBlColors(blCols);
+          setColors(
+            blCols.map(c => ({
+              id: c.id,
+              name: c.name,
+            }))
+          );
+          setSelectedColorId(
+            typeof data.selectedColorId !== 'undefined'
+              ? (data.selectedColorId ?? null)
+              : null
+          );
+        } else {
+          setBlPartId(null);
+          setBlColors(null);
+          if (!availableColors.length) {
+            setColors([]);
+          }
+        }
+        setCachedIdentify(hashHex, data as IdentifyResponse);
+        void refreshQuota();
+      } catch (e) {
+        if (searchRequestIdRef.current !== requestId) return;
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (searchRequestIdRef.current === requestId) {
+          setLoadingPhase(null);
+          setHasSearched(true);
+        }
       }
+    },
+    [refreshQuota]
+  );
 
-      const form = new FormData();
-      form.append('image', selectedFile);
-      const res = await fetch('/api/identify', { method: 'POST', body: form });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error ?? 'identify_failed');
+  const onFileChange = useCallback(
+    (file: File | null) => {
+      if (!file) return;
+      setError(null);
+      setLoadingPhase(null);
+      setHasSearched(false);
+      setPart(null);
+      setCandidates([]);
+      setSets([]);
+      setSelectedFile(file);
+      setSelectedColorId(null);
+      setBlPartId(null);
+      setBlColors(null);
+      setMode('camera');
+      const url = URL.createObjectURL(file);
+      setImagePreview(url);
+
+      // Auto-search unless quota is exhausted
+      const isExhausted =
+        quota.status === 'metered' && quota.remaining === 0 && isAuthenticated;
+      if (!isExhausted) {
+        void performImageSearch(file, url);
       }
-      const data = (await res.json()) as IdentifyResponse;
-      const fallbackImage =
-        data.part?.imageUrl ??
-        data.candidates?.[0]?.imageUrl ??
-        part?.imageUrl ??
-        imagePreview ??
-        null;
-      setPart({
-        ...data.part,
-        imageUrl: fallbackImage,
-      });
-      setCandidates(data.candidates ?? []);
-      setSets(data.sets ?? []);
-      const availableColors = (data.availableColors ?? []).filter(
-        c => !!c?.name
-      );
-      if (availableColors.length > 0) {
-        setColors(availableColors.map(c => ({ id: c.id, name: c.name })));
-      } else {
-        setColors([]);
-      }
-      if (typeof data.selectedColorId !== 'undefined') {
-        setSelectedColorId(data.selectedColorId ?? null);
-      } else if (availableColors.length === 1) {
-        setSelectedColorId(availableColors[0]!.id);
-      } else {
-        setSelectedColorId(null);
-      }
-      const dataWithBL = data as IdentifyResponse & {
-        blAvailableColors?: Array<{ id: number; name: string }>;
-        blPartId?: string;
-        source?: 'rb' | 'bl_supersets' | 'bl_components';
-      };
-      const blCols = dataWithBL.blAvailableColors;
-      const blPid = dataWithBL.blPartId;
-      if (Array.isArray(blCols) && blCols.length > 0 && blPid) {
-        setBlPartId(blPid);
-        setBlColors(blCols);
-        setColors(
-          blCols.map(c => ({
-            id: c.id,
-            name: c.name,
-          }))
-        );
-        setSelectedColorId(
-          typeof data.selectedColorId !== 'undefined'
-            ? (data.selectedColorId ?? null)
-            : null
-        );
-      } else {
-        setBlPartId(null);
-        setBlColors(null);
-        if (!availableColors.length) {
-          setColors([]);
-        }
-      }
-      setCachedIdentify(hashHex, data as IdentifyResponse);
-      void refreshQuota();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setIsLoading(false);
-      setHasSearched(true);
-    }
-  }, [selectedFile, part, imagePreview, refreshQuota]);
+    },
+    [quota, isAuthenticated, performImageSearch]
+  );
 
   const onClear = useCallback(() => {
+    ++searchRequestIdRef.current; // discard any in-flight image search
     setError(null);
-    setIsLoading(false);
+    setLoadingPhase(null);
     setImagePreview(null);
     setSelectedFile(null);
     setHasSearched(false);
@@ -426,6 +465,9 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
     setPartSearchInput('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+    if (galleryInputRef.current) {
+      galleryInputRef.current.value = '';
     }
   }, []);
 
@@ -451,9 +493,15 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         }));
         return;
       }
+
+      // Cancel any in-flight candidate request
+      candidateAbortRef.current?.abort();
+      const controller = new AbortController();
+      candidateAbortRef.current = controller;
+
       try {
         setError(null);
-        setIsLoading(true);
+        setLoadingPhase('updating');
         setPart(prev =>
           prev
             ? {
@@ -476,7 +524,10 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         url.searchParams.set('part', c.partNum);
         if (selectedColorId != null)
           url.searchParams.set('colorId', String(selectedColorId));
-        const res = await fetch(url.toString(), { cache: 'no-store' });
+        const res = await fetch(url.toString(), {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error('identify_sets_failed');
         const payload = await res.json();
         const payloadAny = payload as unknown as {
@@ -528,67 +579,89 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         setBlPartId(null);
         setBlColors(null);
       } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return;
         setError(e instanceof Error ? e.message : String(e));
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) {
+          setLoadingPhase(null);
+        }
       }
     },
     [selectedColorId, blPartId]
   );
 
   const onChangeColor = useCallback(
-    async (colorId: number | null) => {
-      if (blPartId) {
+    (colorId: number | null) => {
+      setSelectedColorId(colorId);
+
+      // Clear any pending debounce
+      if (colorChangeTimerRef.current) {
+        clearTimeout(colorChangeTimerRef.current);
+        colorChangeTimerRef.current = null;
+      }
+
+      const doFetch = async () => {
+        if (blPartId) {
+          try {
+            setLoadingPhase('updating');
+            const url = new URL(
+              '/api/identify/bl-supersets',
+              window.location.origin
+            );
+            url.searchParams.set('part', blPartId);
+            if (colorId != null)
+              url.searchParams.set('blColorId', String(colorId));
+            const res = await fetch(url.toString(), { cache: 'no-store' });
+            const payload: unknown = await res.json();
+            const setsAny = (payload as { sets?: IdentifySet[] }).sets ?? [];
+            setSets(setsAny);
+          } catch (e) {
+            setError(e instanceof Error ? e.message : String(e));
+          } finally {
+            setLoadingPhase(null);
+          }
+          return;
+        }
+        if (!part) return;
         try {
-          setIsLoading(true);
-          const url = new URL(
-            '/api/identify/bl-supersets',
-            window.location.origin
-          );
-          url.searchParams.set('part', blPartId);
-          if (colorId != null)
-            url.searchParams.set('blColorId', String(colorId));
+          setLoadingPhase('updating');
+          const url = new URL('/api/identify/sets', window.location.origin);
+          url.searchParams.set('part', part.partNum);
+          if (colorId != null) url.searchParams.set('colorId', String(colorId));
           const res = await fetch(url.toString(), { cache: 'no-store' });
+          if (!res.ok) throw new Error('identify_sets_failed');
           const payload: unknown = await res.json();
           const setsAny = (payload as { sets?: IdentifySet[] }).sets ?? [];
+          const avail =
+            (
+              payload as {
+                availableColors?: Array<{ id: number; name: string }>;
+              }
+            ).availableColors ?? undefined;
+          const selected = (payload as { selectedColorId?: number | null })
+            .selectedColorId;
           setSets(setsAny);
+          if (Array.isArray(avail)) {
+            setColors(
+              avail
+                .filter(c => !!c?.name)
+                .map(c => ({ id: c.id, name: c.name }))
+            );
+          }
+          if (typeof selected !== 'undefined') {
+            setSelectedColorId(selected ?? null);
+          }
         } catch (e) {
           setError(e instanceof Error ? e.message : String(e));
         } finally {
-          setIsLoading(false);
+          setLoadingPhase(null);
         }
-        return;
-      }
-      setSelectedColorId(colorId);
-      if (!part) return;
-      try {
-        setIsLoading(true);
-        const url = new URL('/api/identify/sets', window.location.origin);
-        url.searchParams.set('part', part.partNum);
-        if (colorId != null) url.searchParams.set('colorId', String(colorId));
-        const res = await fetch(url.toString(), { cache: 'no-store' });
-        if (!res.ok) throw new Error('identify_sets_failed');
-        const payload: unknown = await res.json();
-        const setsAny = (payload as { sets?: IdentifySet[] }).sets ?? [];
-        const avail =
-          (payload as { availableColors?: Array<{ id: number; name: string }> })
-            .availableColors ?? undefined;
-        const selected = (payload as { selectedColorId?: number | null })
-          .selectedColorId;
-        setSets(setsAny);
-        if (Array.isArray(avail)) {
-          setColors(
-            avail.filter(c => !!c?.name).map(c => ({ id: c.id, name: c.name }))
-          );
-        }
-        if (typeof selected !== 'undefined') {
-          setSelectedColorId(selected ?? null);
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      } finally {
-        setIsLoading(false);
-      }
+      };
+
+      colorChangeTimerRef.current = setTimeout(() => {
+        colorChangeTimerRef.current = null;
+        void doFetch();
+      }, 300);
     },
     [part, blPartId]
   );
@@ -676,7 +749,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           <div className="h-1.5 bg-brand-yellow" />
         </section>
 
-        <section className="py-8">
+        <section className="container-default py-8">
           <div className="mx-auto w-full max-w-3xl rounded-lg border-2 border-t-4 border-subtle border-t-brand-green bg-card p-6 text-center shadow-md">
             <h2 className="mb-3 text-2xl font-bold">Sign In Required</h2>
             <p className="text-body text-foreground-muted">
@@ -759,11 +832,20 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
 
             {mode === 'camera' ? (
               <>
+                {/* Camera input (capture=environment for mobile camera) */}
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
                   capture="environment"
+                  className="hidden"
+                  onChange={e => onFileChange(e.target.files?.[0] ?? null)}
+                />
+                {/* Gallery input (no capture — opens photo picker) */}
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
                   className="hidden"
                   onChange={e => onFileChange(e.target.files?.[0] ?? null)}
                 />
@@ -805,6 +887,14 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                     )}
                   </div>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={isQuotaExhausted}
+                  className="mt-1.5 block w-full text-center text-xs text-foreground-muted underline underline-offset-2 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  or choose from gallery
+                </button>
                 {quota.status === 'metered' && (
                   <div className="mt-2 text-center text-xs text-foreground-muted">
                     {isQuotaExhausted
@@ -812,24 +902,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                       : `Identifications left today: ${quota.remaining}/${quota.limit}`}
                   </div>
                 )}
-                {selectedFile && !hasSearched && (
-                  <div className="mt-3 flex justify-center">
-                    <Button
-                      type="button"
-                      variant="primary"
-                      onClick={onSearch}
-                      disabled={isLoading || isQuotaExhausted}
-                      className="min-w-32"
-                    >
-                      {isQuotaExhausted
-                        ? 'Upgrade to continue'
-                        : isLoading
-                          ? 'Searching…'
-                          : 'Search'}
-                    </Button>
-                  </div>
-                )}
-                {selectedFile && hasSearched && (
+                {(selectedFile || hasSearched) && (
                   <div className="mt-3 flex justify-center">
                     <Button
                       type="button"
@@ -905,6 +978,10 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                   onChangeColor={onChangeColor}
                 />
               </Suspense>
+            ) : loadingPhase ? (
+              <div className="flex items-center justify-center rounded-lg border-2 border-l-4 border-subtle border-l-brand-green bg-card p-8">
+                <BrickLoader label={LOADING_PHASE_LABELS[loadingPhase]} />
+              </div>
             ) : (
               <div className="rounded-lg border-2 border-l-4 border-subtle border-l-brand-green bg-card p-4 text-body text-foreground-muted">
                 Upload a photo or enter a part/minifig ID to see results.
@@ -912,12 +989,21 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             )}
           </div>
           <div className="space-y-4">
-            <Suspense fallback={<BrickLoader />}>
-              <IdentifySetList
-                items={sets}
-                source={blPartId ? 'bl_supersets' : 'rb'}
-              />
-            </Suspense>
+            {loadingPhase && !sets.length ? (
+              <div className="flex items-center justify-center rounded-lg border-2 border-subtle bg-card p-8">
+                <BrickLoader
+                  size="sm"
+                  label={LOADING_PHASE_LABELS[loadingPhase]}
+                />
+              </div>
+            ) : (
+              <Suspense fallback={<BrickLoader />}>
+                <IdentifySetList
+                  items={sets}
+                  source={blPartId ? 'bl_supersets' : 'rb'}
+                />
+              </Suspense>
+            )}
           </div>
         </div>
       </section>
