@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 import { Button } from '@/app/components/ui/Button';
 
 export default function BillingCancelPage() {
@@ -14,12 +12,10 @@ export default function BillingCancelPage() {
         </p>
       </header>
       <div className="flex flex-wrap gap-3">
-        <Link href="/pricing">
-          <Button>View plans</Button>
-        </Link>
-        <Link href="/">
-          <Button variant="outline">Back to app</Button>
-        </Link>
+        <Button href="/pricing">View plans</Button>
+        <Button href="/" variant="outline">
+          Back to app
+        </Button>
       </div>
     </main>
   );

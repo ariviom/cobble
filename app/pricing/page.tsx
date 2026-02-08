@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 import { Button } from '@/app/components/ui/Button';
 
 const plusFeatures = [
@@ -102,12 +100,12 @@ export default function PricingPage() {
           </li>
         </ul>
         <div className="mt-4 flex flex-wrap gap-3">
-          <Link href="/">
-            <Button variant="outline">Back to app</Button>
-          </Link>
-          <Link href="/account">
-            <Button variant="ghost">Go to account</Button>
-          </Link>
+          <Button href="/" variant="outline">
+            Back to app
+          </Button>
+          <Button href="/account" variant="ghost">
+            Go to account
+          </Button>
         </div>
       </section>
     </main>

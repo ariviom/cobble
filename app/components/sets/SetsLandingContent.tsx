@@ -3,14 +3,14 @@
 import { SetDisplayCardWithControls } from '@/app/components/set/SetDisplayCardWithControls';
 import { MyCollectionSection } from '@/app/components/sets/MyCollectionSection';
 import { SetProgressCard } from '@/app/components/sets/SetProgressCard';
-import { HorizontalCardRail } from '@/app/components/ui/HorizontalCardRail';
 import { Button } from '@/app/components/ui/Button';
+import { HorizontalCardRail } from '@/app/components/ui/HorizontalCardRail';
 import { useCompletionStats } from '@/app/hooks/useCompletionStats';
 import { useRecentSets } from '@/app/hooks/useRecentSets';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import { removeRecentSet } from '@/app/store/recent-sets';
-import type { RecentSetEntry } from '@/app/store/recent-sets';
 import type { SetTab } from '@/app/store/open-tabs';
+import type { RecentSetEntry } from '@/app/store/recent-sets';
+import { removeRecentSet } from '@/app/store/recent-sets';
 import { Camera, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
@@ -90,20 +90,21 @@ export function SetsLandingContent({
       </section>
 
       {/* Sticky CTA buttons */}
-      <div className="sticky top-11 z-50 bg-card px-4 pt-3 pb-4 lg:top-0">
-        <div className="container-default flex flex-wrap justify-center gap-4">
-          <Link href="/search">
-            <Button variant="primary" size="lg" className="gap-2 text-lg">
-              <Search className="h-5 w-5" />
-              Search Sets
-            </Button>
-          </Link>
-          <Link href="/identify">
-            <Button variant="secondary" size="lg" className="gap-2 text-lg">
-              <Camera className="h-5 w-5" />
-              Identify Parts
-            </Button>
-          </Link>
+      <div className="sticky top-11 z-50 container-default bg-card py-4 lg:top-0">
+        <div className="flex flex-wrap justify-center gap-4">
+          <Button href="/search" variant="primary" size="lg" className="gap-2">
+            <Search className="h-5 w-5" />
+            Search All Sets
+          </Button>
+          <Button
+            href="/identify"
+            variant="secondary"
+            size="lg"
+            className="gap-2"
+          >
+            <Camera className="h-5 w-5" />
+            Identify Parts
+          </Button>
         </div>
       </div>
 

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
   Suspense,
@@ -685,11 +684,9 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
               Free).
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <Link href="/login">
-                <Button variant="primary" size="lg">
-                  Sign in
-                </Button>
-              </Link>
+              <Button href="/login" variant="primary" size="lg">
+                Sign in
+              </Button>
             </div>
             <div className="mt-4">
               <a

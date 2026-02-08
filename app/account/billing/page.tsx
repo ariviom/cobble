@@ -1,5 +1,3 @@
-import Link from 'next/link';
-
 import { Button } from '@/app/components/ui/Button';
 
 export default function AccountBillingPage() {
@@ -52,12 +50,12 @@ export default function AccountBillingPage() {
       </section>
 
       <div className="flex flex-wrap gap-3">
-        <Link href="/pricing">
-          <Button variant="outline">View plans</Button>
-        </Link>
-        <Link href="/">
-          <Button variant="ghost">Back to app</Button>
-        </Link>
+        <Button href="/pricing" variant="outline">
+          View plans
+        </Button>
+        <Button href="/" variant="ghost">
+          Back to app
+        </Button>
       </div>
     </main>
   );
