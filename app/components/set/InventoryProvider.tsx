@@ -70,6 +70,11 @@ export type InventoryContextValue = {
   minifigEnrichmentError: Error | string | null;
   retryMinifigEnrichment: (() => void) | null;
 
+  // Totals (pre-computed, excludes minifig parent rows)
+  totalRequired: number;
+  totalMissing: number;
+  ownedTotal: number;
+
   // Owned state
   ownedByKey: Record<string, number>;
   handleOwnedChange: (key: string, nextOwned: number) => void;
@@ -224,6 +229,9 @@ export function InventoryProvider({
     keys,
     ownedByKey,
     minifigStatusByKey,
+    totalRequired,
+    totalMissing,
+    ownedTotal,
     isOwnedHydrated,
     isMinifigEnriching,
     minifigEnrichmentError,
@@ -491,6 +499,11 @@ export function InventoryProvider({
       minifigEnrichmentError,
       retryMinifigEnrichment,
 
+      // Totals
+      totalRequired,
+      totalMissing,
+      ownedTotal,
+
       // Owned
       ownedByKey,
       handleOwnedChange,
@@ -573,6 +586,9 @@ export function InventoryProvider({
       isMinifigEnriching,
       minifigEnrichmentError,
       retryMinifigEnrichment,
+      totalRequired,
+      totalMissing,
+      ownedTotal,
       ownedByKey,
       handleOwnedChange,
       isOwnedHydrated,

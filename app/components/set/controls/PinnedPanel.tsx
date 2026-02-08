@@ -8,6 +8,7 @@ import {
 import { Checkbox } from '@/app/components/ui/Checkbox';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
+import { useInventoryContext } from '@/app/components/set/InventoryProvider';
 import { useInventory } from '@/app/hooks/useInventory';
 import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
@@ -28,6 +29,7 @@ export function PinnedPanelContent({
   view,
   itemSize,
 }: PinnedPanelContentProps) {
+  const { handleOwnedChange: contextOwnedChange } = useInventoryContext();
   const pinnedState = usePinnedStore();
   const { getPinnedKeysForSet, getPinnedSets, autoUnpin, showOtherSets } =
     pinnedState;
@@ -82,6 +84,7 @@ export function PinnedPanelContent({
                 itemSize={itemSize}
                 gridSizes={gridSizes}
                 isCurrent
+                onOwnedChange={contextOwnedChange}
                 onShowMoreInfo={handleShowMoreInfo}
               />
             )}
@@ -150,6 +153,8 @@ type PinnedSetSectionProps = {
   itemSize: ItemSize;
   gridSizes: string;
   isCurrent?: boolean;
+  /** Context-aware owned change handler (enables cascade, sync, broadcast) */
+  onOwnedChange?: (key: string, nextOwned: number) => void;
   onShowMoreInfo?: (row: InventoryRow, setNumber: string) => void;
 };
 
@@ -161,6 +166,7 @@ function PinnedSetSection({
   itemSize,
   gridSizes,
   isCurrent,
+  onOwnedChange,
   onShowMoreInfo,
 }: PinnedSetSectionProps) {
   const { rows, keys, isLoading, error, ownedByKey } = useInventory(setNumber);
@@ -241,7 +247,11 @@ function PinnedSetSection({
               missing={missing}
               onOwnedChange={next => {
                 const clamped = clampOwned(next, row.quantityRequired);
-                ownedStore.setOwned(setNumber, key, clamped);
+                if (onOwnedChange) {
+                  onOwnedChange(key, clamped);
+                } else {
+                  ownedStore.setOwned(setNumber, key, clamped);
+                }
                 if (
                   pinnedState.autoUnpin &&
                   pinnedState.isPinned(setNumber, key) &&

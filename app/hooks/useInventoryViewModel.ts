@@ -35,6 +35,11 @@ export type InventoryViewModel = {
   isLoading: boolean;
   error: Error | null;
 
+  // Totals (pre-computed, excludes minifig parent rows)
+  totalRequired: number;
+  totalMissing: number;
+  ownedTotal: number;
+
   // Hydration state
   /** Whether owned data has been hydrated from IndexedDB */
   isOwnedHydrated: boolean;
@@ -97,6 +102,9 @@ export function useInventoryViewModel(
     keys,
     ownedByKey,
     minifigStatusByKey,
+    totalRequired,
+    totalMissing,
+    ownedTotal,
     isOwnedHydrated,
     isStorageAvailable,
     isMinifigEnriching,
@@ -372,6 +380,9 @@ export function useInventoryViewModel(
     minifigStatusByKey,
     isLoading,
     error,
+    totalRequired,
+    totalMissing,
+    ownedTotal,
     isOwnedHydrated,
     isStorageAvailable,
     isMinifigEnriching,

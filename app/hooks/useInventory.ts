@@ -172,7 +172,18 @@ export function useInventory(
       : {}),
   });
 
-  const baseRows = useMemo(() => data?.rows ?? [], [data?.rows]);
+  // Deduplicate by inventoryKey — catches duplicates from server response or cache
+  const baseRows = useMemo(() => {
+    const raw = data?.rows ?? [];
+    if (raw.length === 0) return raw;
+    const seen = new Set<string>();
+    return raw.filter(row => {
+      const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [data?.rows]);
 
   // Determine if client-side enrichment is needed based on server signal
   // - If data is from cache, it's already BL-enriched (no enrichment needed)
@@ -354,7 +365,14 @@ export function useInventory(
       }
     }
 
-    return working;
+    // Final dedup safety net — catches any duplicates created by enrichment key mismatches
+    const finalSeen = new Set<string>();
+    return working.filter(row => {
+      const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
+      if (finalSeen.has(key)) return false;
+      finalSeen.add(key);
+      return true;
+    });
   }, [baseRows, enrichedData]);
 
   // Track previous enriching state to detect completion

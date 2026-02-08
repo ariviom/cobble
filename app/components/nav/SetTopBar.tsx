@@ -14,7 +14,7 @@ import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { Modal } from '@/app/components/ui/Modal';
 import { MoreDropdown } from '@/app/components/ui/MoreDropdown';
 import { cn } from '@/app/components/ui/utils';
-import { useInventory } from '@/app/hooks/useInventory';
+import { useInventoryContext } from '@/app/components/set/InventoryProvider';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { Copy, Trophy, Users } from 'lucide-react';
@@ -69,7 +69,7 @@ export function SetTopBar({
     resetDateFormatted?: string;
     loading: boolean;
   }>({ canHost: true, loading: false });
-  const { isLoading, ownedTotal } = useInventory(setNumber);
+  const { isLoading, ownedTotal } = useInventoryContext();
   const ownership = useSetOwnershipState({
     setNumber,
     name: setName,
