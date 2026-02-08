@@ -85,11 +85,13 @@
   - `InventoryTable` shows:
     - Loading spinner with "Loading your progress…" while `isHydrating` (not hydrated but not loading inventory)
     - Warning banner when `!isStorageAvailable`: "Local storage unavailable; your progress will be lost when you close this tab"
-  - `DataProvider` (`app/components/providers/data-provider.tsx`) manages:
+  - `SyncWorker` (`app/lib/sync/SyncWorker.ts`) — plain TS class, no React dependency:
     - Database initialization on app start
     - localStorage → IndexedDB migration for owned data with write+read verification
     - Deletion of localStorage keys after successful migration
     - Sync worker that batches pending operations and sends to `/api/sync`
+    - Mounted at app root via `SyncProvider` (`app/components/providers/sync-provider.tsx`)
+    - Works on ALL pages (not just group page)
 - **Inventory caching**
   - `useInventory` fetches lightweight versions from `/api/catalog/versions` (inventory_parts) before reading cache.
   - Cache hit uses version + TTL (30d); cache miss fetches `/api/inventory` and stores rows with the version.

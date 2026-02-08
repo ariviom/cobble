@@ -8,6 +8,16 @@
 
 ## Recently Completed (February 2026)
 
+- **SyncEngine — Extract Sync Worker to App Root (Plan 05)**:
+  - Fixed critical bug: sync worker only ran on group page, owned changes from main sets page never synced to Supabase
+  - Created `SyncWorker` class (`app/lib/sync/SyncWorker.ts`) — plain TS, no React dependency, extracts all sync logic from DataProvider
+  - Created `SyncProvider` (`app/components/providers/sync-provider.tsx`) — thin React wrapper, mounted in root `app/layout.tsx`
+  - Provides `useSyncStatus()` hook for optional UI consumers (sync indicator, error toast)
+  - Deleted `DataProvider` (533 lines) and `LocalDataProviderBoundary` (15 lines) — zero external consumers of `useDataContext`
+  - Moved `parseInventoryKey` to `app/lib/domain/inventoryKey.ts` (re-exported from `ownedSync.ts`)
+  - 30 new SyncWorker tests, 338 total tests passing, clean tsc, clean lint
+  - Same IndexedDB tables, no schema change — zero data loss risk
+
 - **Server-Driven Inventory — Eliminate Client-Side Minifig Enrichment (Plan 03)**:
   - Server now self-heals missing minifig subparts via `getMinifigPartsBl()` with 10s timeout per minifig
   - Removed entire client enrichment pipeline: `useMinifigEnrichment.ts`, `/api/minifigs/enrich/route.ts`, `minifigEnrichment.ts` (~419 lines deleted)

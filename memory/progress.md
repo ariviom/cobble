@@ -85,11 +85,12 @@
     - `syncQueue` — pending write operations for Supabase sync
     - `meta` — key-value store for sync timestamps and versions
     - `uiState`, `recentSets` — UI preferences (reserved for future use)
-  - `DataProvider` component (`app/components/providers/data-provider.tsx`):
+  - `SyncWorker` class (`app/lib/sync/SyncWorker.ts`) mounted via `SyncProvider` at app root:
     - Initializes IndexedDB on app start
     - Runs localStorage → IndexedDB migration for owned data (with write+read verification)
     - Deletes localStorage keys after successful migration to IndexedDB
     - Implements sync worker that batches operations and sends to `/api/sync` every 30 seconds
+    - Works on ALL pages (replaced DataProvider which only ran on group page)
   - `useInventory` hook now checks IndexedDB cache first for inventory data (24-hour TTL)
   - `useOwnedStore` refactored to use IndexedDB-only persistence:
     - In-memory cache for synchronous reads
@@ -102,7 +103,7 @@
     - Warning banner when IndexedDB unavailable: "Local storage unavailable; your progress will be lost when you close this tab"
   - `useSupabaseOwned` refactored to use sync queue:
     - Changes enqueued to `syncQueue` table instead of direct Supabase writes
-    - Sync worker in DataProvider handles batched sync to `/api/sync`
+    - SyncWorker (app root) handles batched sync to `/api/sync`
   - New `/api/sync` endpoint for batched owned quantity sync
 - **Data fetching architecture improvements** (2025-12-06):
   - **Centralized Supabase client selection** (`app/lib/db/catalogAccess.ts`):

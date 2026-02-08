@@ -1,10 +1,4 @@
 import { parseInventoryKey } from '@/app/lib/domain/inventoryKey';
-import { vi } from 'vitest';
-
-vi.mock('@/app/lib/localDb', () => ({
-  enqueueOwnedChange: vi.fn(),
-  isIndexedDBAvailable: vi.fn(() => false),
-}));
 
 describe('parseInventoryKey', () => {
   it('parses standard key', () => {

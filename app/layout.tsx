@@ -1,6 +1,7 @@
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { AuthProvider } from '@/app/components/providers/auth-provider';
 import { ReactQueryProvider } from '@/app/components/providers/react-query-provider';
+import { SyncProvider } from '@/app/components/providers/sync-provider';
 import { ThemeProvider } from '@/app/components/providers/theme-provider';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { resolveThemePreference } from '@/app/lib/theme/resolve';
@@ -177,14 +178,16 @@ export default async function RootLayout({
       </head>
       <body className="bg-background text-foreground antialiased">
         <AuthProvider initialUser={initialUser} initialHandle={initialHandle}>
-          <ThemeProvider
-            initialTheme={initialTheme}
-            initialThemeColor={dbThemeColor ?? undefined}
-          >
-            <ReactQueryProvider>
-              <ErrorBoundary>{children}</ErrorBoundary>
-            </ReactQueryProvider>
-          </ThemeProvider>
+          <SyncProvider>
+            <ThemeProvider
+              initialTheme={initialTheme}
+              initialThemeColor={dbThemeColor ?? undefined}
+            >
+              <ReactQueryProvider>
+                <ErrorBoundary>{children}</ErrorBoundary>
+              </ReactQueryProvider>
+            </ThemeProvider>
+          </SyncProvider>
         </AuthProvider>
       </body>
     </html>
