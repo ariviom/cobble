@@ -2,6 +2,7 @@
 
 import {
   DEFAULT_THEME_COLOR,
+  THEME_COLOR_HEX,
   THEME_COLOR_TO_VALUE,
   THEME_CONTRAST_TEXT,
   THEME_TEXT_COLORS_DARK,
@@ -90,6 +91,17 @@ function applyThemeColor(
     root?.style.setProperty('--color-theme-primary', cssValue);
     root?.style.setProperty('--color-theme-text', textColor);
     root?.style.setProperty('--color-theme-primary-contrast', contrastText);
+
+    // Update theme-color meta tag so mobile browser chrome matches
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      const hex =
+        resolvedTheme === 'dark'
+          ? '#1f2937'
+          : (THEME_COLOR_HEX[nextColor] ??
+            THEME_COLOR_HEX[DEFAULT_THEME_COLOR]);
+      metaThemeColor.setAttribute('content', hex);
+    }
   }
   persistThemeColor(nextColor);
 }

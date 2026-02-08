@@ -56,11 +56,11 @@ export function Navigation({
     <nav
       className={cn(
         // Bold nav bar using theme color
-        'fixed inset-x-0 bottom-0 z-100 w-full bg-theme-primary shadow-[color:var(--color-theme-shadow)] lg:top-0 lg:bottom-auto lg:shadow-[0_4px_0_0]',
+        'fixed inset-x-0 bottom-0 z-100 w-full bg-theme-primary pb-[env(safe-area-inset-bottom,0px)] shadow-[color:var(--color-theme-shadow)] lg:top-0 lg:bottom-auto lg:pb-0 lg:shadow-[0_4px_0_0]',
         className
       )}
     >
-      <div className="relative flex h-nav-height w-full items-center px-2 sm:px-4 lg:px-6">
+      <div className="relative flex h-16 w-full items-center px-2 sm:px-4 lg:px-6">
         <div className="relative flex w-full items-center justify-around gap-x-1 lg:justify-center lg:gap-x-3">
           {/* Desktop brand - clean, minimal treatment on theme background */}
           <Link

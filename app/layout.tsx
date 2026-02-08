@@ -42,6 +42,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover',
 };
 
 export default async function RootLayout({
@@ -155,7 +156,7 @@ export default async function RootLayout({
         {/* Blocking script to apply theme color from localStorage before paint */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var c=localStorage.getItem('userThemeColor');if(c){var h={'blue':'#016cb8','yellow':'#f2d300','purple':'#4d2f93','red':'#e3000b','green':'#00b242'};var tl={'blue':'#016cb8','yellow':'#996f00','purple':'#4d2f93','red':'#c30009','green':'#008732'};var td={'blue':'#60a5fa','yellow':'#fbbf24','purple':'#a78bfa','red':'#f87171','green':'#4ade80'};var ct={'blue':'#ffffff','yellow':'#1a1600','purple':'#ffffff','red':'#ffffff','green':'#ffffff'};var d=document.documentElement.classList.contains('dark');var t=d?td:tl;if(h[c]){document.documentElement.style.setProperty('--color-theme-primary',h[c]);document.documentElement.style.setProperty('--color-theme-text',t[c]);document.documentElement.style.setProperty('--color-theme-primary-contrast',ct[c])}}}catch(e){}})()`,
+            __html: `(function(){try{var c=localStorage.getItem('userThemeColor');if(c){var h={'blue':'#016cb8','yellow':'#f2d300','purple':'#4d2f93','red':'#e3000b','green':'#00b242'};var tl={'blue':'#016cb8','yellow':'#996f00','purple':'#4d2f93','red':'#c30009','green':'#008732'};var td={'blue':'#60a5fa','yellow':'#fbbf24','purple':'#a78bfa','red':'#f87171','green':'#4ade80'};var ct={'blue':'#ffffff','yellow':'#1a1600','purple':'#ffffff','red':'#ffffff','green':'#ffffff'};var d=document.documentElement.classList.contains('dark');var t=d?td:tl;if(h[c]){document.documentElement.style.setProperty('--color-theme-primary',h[c]);document.documentElement.style.setProperty('--color-theme-text',t[c]);document.documentElement.style.setProperty('--color-theme-primary-contrast',ct[c]);var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'#1f2937':h[c])}}}catch(e){}})()`,
           }}
         />
         <link rel="manifest" href="/manifest.json" />
