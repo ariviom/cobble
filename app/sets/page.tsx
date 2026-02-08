@@ -217,7 +217,7 @@ export default function SetsPage() {
   // (Zustand persist can hydrate tabs from localStorage before useEffect,
   // causing a mismatch if we conditionally render based on tabs.length)
   if (isHydrating) {
-    return <SetPageSkeleton />;
+    return <SetPageSkeleton variant="minimal" />;
   }
 
   return (
@@ -275,7 +275,6 @@ export default function SetsPage() {
                 saveTabState(tab.id, partialState);
               }}
               isDesktop={isDesktop}
-              isHydrating={isHydrating}
             />
           );
         })}
