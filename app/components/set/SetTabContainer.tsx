@@ -8,7 +8,6 @@ import {
   InventoryProvider,
   useInventoryContext,
 } from '@/app/components/set/InventoryProvider';
-import type { InventoryRow } from '@/app/components/set/types';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { Toast } from '@/app/components/ui/Toast';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
@@ -40,14 +39,6 @@ type SetTabContainerProps = {
   onSaveState: (state: Partial<TabViewState>) => void;
   /** Whether to use desktop scroll behavior */
   isDesktop?: boolean | undefined;
-  /** Whether we're still hydrating (isDesktop not yet resolved) */
-  isHydrating?: boolean | undefined;
-};
-
-type InventoryData = {
-  rows: InventoryRow[];
-  loading: boolean;
-  error: string | null;
 };
 
 /**
@@ -64,20 +55,12 @@ export function SetTabContainer({
   savedControlsState,
   onSaveState,
   isDesktop,
-  isHydrating,
 }: SetTabContainerProps) {
   const clientId = useGroupClientId();
   const origin = useOrigin();
   const { user } = useSupabaseUser();
   const syncRecentSet = useSyncRecentSet();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
-
-  // Client-side inventory data fetching
-  const [inventoryData, setInventoryData] = useState<InventoryData>({
-    rows: [],
-    loading: true,
-    error: null,
-  });
 
   // Search Party state
   const [groupSession, setGroupSession] = useState<GroupSessionState>(null);
@@ -306,43 +289,6 @@ export function SetTabContainer({
     ]
   );
 
-  // Fetch inventory when tab becomes active (if not already loaded)
-  useEffect(() => {
-    if (!isActive) return;
-    if (inventoryData.rows.length > 0 && !inventoryData.loading) return;
-
-    let cancelled = false;
-
-    const fetchInventory = async () => {
-      try {
-        const res = await fetch(
-          `/api/inventory?set=${encodeURIComponent(tab.id)}`
-        );
-        if (!res.ok) {
-          throw new Error('Failed to fetch inventory');
-        }
-        const data = (await res.json()) as { rows: InventoryRow[] };
-        if (!cancelled) {
-          setInventoryData({ rows: data.rows, loading: false, error: null });
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setInventoryData({
-            rows: [],
-            loading: false,
-            error: err instanceof Error ? err.message : 'Unknown error',
-          });
-        }
-      }
-    };
-
-    void fetchInventory();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isActive, tab.id, inventoryData.rows.length, inventoryData.loading]);
-
   // Add to recent sets when tab becomes active
   useEffect(() => {
     if (isActive) {
@@ -388,7 +334,6 @@ export function SetTabContainer({
         <InventoryProvider
           setNumber={tab.id}
           setName={tab.name}
-          initialInventory={inventoryData.loading ? null : inventoryData.rows}
           initialControlsState={savedControlsState}
           enableCloudSync
           isActive={isActive}
@@ -400,8 +345,6 @@ export function SetTabContainer({
           <SetTabContainerContent
             tab={tab}
             isActive={isActive}
-            loading={inventoryData.loading || !!isHydrating}
-            error={inventoryData.error}
             onSaveState={onSaveState}
             savedScrollTop={savedScrollTop}
             isDesktop={isDesktop}
@@ -424,8 +367,6 @@ export function SetTabContainer({
 type SetTabContainerContentProps = {
   tab: SetTab;
   isActive: boolean;
-  loading: boolean;
-  error: string | null;
   onSaveState: (state: Partial<TabViewState>) => void;
   savedScrollTop?: number | undefined;
   isDesktop?: boolean | undefined;
@@ -445,14 +386,13 @@ type SetTabContainerContentProps = {
 function SetTabContainerContent({
   tab,
   isActive,
-  loading,
-  error,
   onSaveState,
   savedScrollTop,
   isDesktop,
   searchParty,
 }: SetTabContainerContentProps) {
-  const { setNumber, getControlsState } = useInventoryContext();
+  const { setNumber, isLoading, error, getControlsState } =
+    useInventoryContext();
   const hasRestoredScroll = useRef(false);
 
   // Save controls state when tab becomes inactive (or on unmount as fallback)
@@ -493,7 +433,7 @@ function SetTabContainerContent({
 
   // Restore scroll position after inventory loads
   useEffect(() => {
-    if (loading) return;
+    if (isLoading) return;
     if (hasRestoredScroll.current) return;
     if (typeof savedScrollTop !== 'number') return;
 
@@ -512,7 +452,7 @@ function SetTabContainerContent({
         window.scrollTo(0, savedScrollTop);
       }
     });
-  }, [loading, savedScrollTop, isDesktop, setNumber]);
+  }, [isLoading, savedScrollTop, isDesktop, setNumber]);
 
   // Render content - SetTopBar always visible, inventory shows loading/error/content
   return (
@@ -528,18 +468,20 @@ function SetTabContainerContent({
           themeId={tab.themeId ?? null}
           searchParty={searchParty}
         />
-        <InventoryControls isLoading={loading} />
+        <InventoryControls isLoading={isLoading} />
       </div>
 
       {/* Inventory content */}
-      {loading ? (
+      {isLoading ? (
         <div className="flex h-[50vh] items-center justify-center">
           <BrickLoader />
         </div>
       ) : error ? (
         <div className="flex h-[50vh] flex-col items-center justify-center gap-4 text-center">
           <p className="text-foreground-muted">Failed to load set inventory</p>
-          <p className="text-sm text-foreground-muted">{error}</p>
+          <p className="text-sm text-foreground-muted">
+            {error instanceof Error ? error.message : String(error)}
+          </p>
         </div>
       ) : (
         <Inventory />
