@@ -7,9 +7,44 @@ import {
 import { LRUCache } from '@/app/lib/cache/lru';
 import { getSetInventoryLocal } from '@/app/lib/catalog';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
-import { getSetInventory } from '@/app/lib/rebrickable';
+import { getColors, getSetInventory } from '@/app/lib/rebrickable';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import { logger } from '@/lib/metrics';
+
+// ---------------------------------------------------------------------------
+// RB → BL color ID mapping (cached, built from Rebrickable colors API)
+// ---------------------------------------------------------------------------
+
+let rbToBlColorCache: { at: number; map: Map<number, number> } | null = null;
+const RB_BL_COLOR_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+async function getRbToBlColorMap(): Promise<Map<number, number>> {
+  const now = Date.now();
+  if (rbToBlColorCache && now - rbToBlColorCache.at < RB_BL_COLOR_CACHE_TTL) {
+    return rbToBlColorCache.map;
+  }
+
+  const map = new Map<number, number>();
+  try {
+    const colors = await getColors();
+    for (const c of colors) {
+      const bl = (
+        c.external_ids as { BrickLink?: { ext_ids?: number[] } } | undefined
+      )?.BrickLink;
+      if (bl?.ext_ids && bl.ext_ids.length > 0) {
+        map.set(c.id, bl.ext_ids[0]!);
+      }
+    }
+  } catch (err) {
+    logger.warn('inventory.rb_bl_color_map_failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    // Return empty map — dedup will fall back to RB color IDs (existing behavior)
+  }
+
+  rbToBlColorCache = { at: now, map };
+  return map;
+}
 
 export type InventoryResult = {
   rows: InventoryRow[];
@@ -255,15 +290,20 @@ export async function getSetInventoryRowsWithMeta(
       });
     }
 
+    // Build RB→BL color mapping so we can index catalog rows with BL color IDs
+    // (catalog rows use RB color IDs, but BL minifig parts use BL color IDs)
+    const rbToBlColor = await getRbToBlColorMap();
+
     // Build index of existing rows by inventoryKey for child row deduplication
     // Include both primary key AND bricklinkPartId as alternative lookup keys
     const existingRowsByKey = new Map<string, number>();
     enrichedRows.forEach((row, idx) => {
       const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
       existingRowsByKey.set(key, idx);
-      // Also index by BrickLink part ID if available (for BL→RB matching)
+      // Also index by BrickLink part ID + BL color ID (for BL→RB matching)
       if (row.bricklinkPartId && row.bricklinkPartId !== row.partId) {
-        const blKey = `${row.bricklinkPartId}:${row.colorId}`;
+        const blColorId = rbToBlColor.get(row.colorId) ?? row.colorId;
+        const blKey = `${row.bricklinkPartId}:${blColorId}`;
         existingRowsByKey.set(blKey, idx);
       }
     });
@@ -370,9 +410,10 @@ export async function getSetInventoryRowsWithMeta(
         const inventoryKey = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
         // Map primary key to itself
         blKeyToInventoryKey.set(inventoryKey, inventoryKey);
-        // Also map BrickLink key to the actual inventory key
+        // Also map BrickLink key (with BL color ID) to the actual inventory key
         if (row.bricklinkPartId && row.bricklinkPartId !== row.partId) {
-          const blKey = `${row.bricklinkPartId}:${row.colorId}`;
+          const blColorId = rbToBlColor.get(row.colorId) ?? row.colorId;
+          const blKey = `${row.bricklinkPartId}:${blColorId}`;
           blKeyToInventoryKey.set(blKey, inventoryKey);
         }
       }
