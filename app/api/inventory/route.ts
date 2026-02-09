@@ -5,8 +5,11 @@ import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-// Inventory data changes infrequently - cache for 5 minutes, serve stale for 1 hour
-const CACHE_CONTROL = 'public, max-age=300, stale-while-revalidate=3600';
+// Ensure Next.js treats this route as dynamic (no server-side caching)
+export const dynamic = 'force-dynamic';
+
+// Browser-only caching (private prevents CDN/proxy caching)
+const CACHE_CONTROL = 'private, max-age=300';
 
 const querySchema = z.object({
   set: z.string().min(1).max(200),
