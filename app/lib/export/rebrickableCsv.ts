@@ -12,7 +12,9 @@ export type MissingRow = {
    */
   elementId?: string | null;
   /** Unified part identity when available (from server-side resolution) */
-  identity?: import('@/app/lib/domain/partIdentity').PartIdentity;
+  identity?: import('@/app/lib/domain/partIdentity').PartIdentity | undefined;
+  /** Total required quantity for this part in the set */
+  quantityRequired?: number;
 };
 
 export type RebrickableOptions = {
@@ -25,15 +27,21 @@ export function generateRebrickableCsv(
   rows: MissingRow[],
   opts?: RebrickableOptions
 ): string {
-  let filtered = rows.filter(r => r.quantityMissing > 0);
+  const isMinifig = (r: MissingRow) =>
+    r.identity?.rowType.startsWith('minifig_');
 
-  if (!opts?.includeMinifigs) {
-    filtered = filtered.filter(
-      r => !r.identity?.rowType.startsWith('minifig_')
-    );
-  }
+  const nonMinifigRows = rows
+    .filter(r => !isMinifig(r))
+    .filter(r => r.quantityMissing > 0);
+
+  const minifigRows = opts?.includeMinifigs
+    ? rows.filter(r => isMinifig(r))
+    : [];
 
   const headers = ['part_num', 'color_id', 'quantity'];
-  const body = filtered.map(r => [r.partId, r.colorId, r.quantityMissing]);
+  const body = [
+    ...nonMinifigRows.map(r => [r.partId, r.colorId, r.quantityMissing]),
+    ...minifigRows.map(r => [r.partId, r.colorId, r.quantityRequired ?? 0]),
+  ];
   return toCsv(headers, body, /* includeBom */ true);
 }

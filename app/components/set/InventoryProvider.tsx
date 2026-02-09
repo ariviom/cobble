@@ -479,6 +479,8 @@ export function InventoryProvider({
             row.quantityRequired ?? 0,
             ownedByKey[key] ?? 0
           ),
+          identity: row.identity,
+          quantityRequired: row.quantityRequired ?? 0,
         };
       }),
     [rows, keys, ownedByKey]
@@ -492,6 +494,8 @@ export function InventoryProvider({
         colorId: row.colorId,
         elementId: row.elementId ?? null,
         quantityMissing: row.quantityRequired ?? 0,
+        identity: row.identity,
+        quantityRequired: row.quantityRequired ?? 0,
       })),
     [rows]
   );

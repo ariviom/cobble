@@ -182,7 +182,9 @@ export function ExportModal({
             {includeMinifigs && (
               <p className="text-xs text-amber-600">
                 Minifig parts use BrickLink IDs which may not import correctly
-                into Rebrickable. You may need to manually edit these entries.
+                into Rebrickable. As a temporary workaround, we export all
+                minifig parts as &ldquo;missing&rdquo; and you will need to
+                manually edit them when importing into Rebrickable.
               </p>
             )}
           </div>

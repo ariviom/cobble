@@ -332,6 +332,103 @@ async function enrichColorExternalIds(
   log(`Enriched ${updated} colors with external_ids`);
 }
 
+/**
+ * Enrich rb_parts with external_ids from the Rebrickable API.
+ *
+ * The CSV doesn't include external_ids (BrickLink part mappings), so we
+ * fetch them from the API after CSV ingestion. Only stores external_ids
+ * for parts where the BrickLink ID differs from the Rebrickable ID (~2%).
+ */
+async function enrichPartExternalIds(
+  supabase: ReturnType<typeof createClient<Database>>
+): Promise<void> {
+  const apiKey = process.env.REBRICKABLE_API;
+  if (!apiKey) {
+    log('Skipping part external_ids enrichment: REBRICKABLE_API not set');
+    return;
+  }
+
+  log('Enriching rb_parts with external_ids from Rebrickable API...');
+
+  type ApiPart = {
+    part_num: string;
+    name: string;
+    external_ids: Record<string, unknown> | null;
+  };
+  type ApiPage = { results: ApiPart[]; next: string | null };
+
+  // Only collect parts where BrickLink ID differs from part_num
+  const exceptions: Array<{
+    part_num: string;
+    name: string;
+    external_ids: Json;
+  }> = [];
+  let totalFetched = 0;
+  let url: string | null =
+    `https://rebrickable.com/api/v3/lego/parts/?page_size=1000&key=${apiKey}`;
+
+  while (url) {
+    const res = await fetch(url);
+    if (!res.ok) {
+      log(`Part API enrichment failed: ${res.status} ${res.statusText}`);
+      return;
+    }
+    const page: ApiPage = (await res.json()) as ApiPage;
+    totalFetched += page.results.length;
+
+    for (const part of page.results) {
+      if (!part.external_ids) continue;
+
+      // Check if BrickLink IDs differ from part_num
+      const blIds = part.external_ids['BrickLink'] as string[] | undefined;
+      if (!blIds || blIds.length === 0) continue;
+
+      // If any BL ID differs from the RB part_num, store external_ids
+      const hasDifferentId = blIds.some(id => id !== part.part_num);
+      if (hasDifferentId) {
+        exceptions.push({
+          part_num: part.part_num,
+          name: part.name,
+          external_ids: part.external_ids as Json,
+        });
+      }
+    }
+
+    const pageNum = Math.ceil(totalFetched / 1000);
+    if (pageNum % 10 === 0) {
+      log(
+        `  ...fetched ${totalFetched} parts (${exceptions.length} exceptions so far)`
+      );
+    }
+    url = page.next;
+  }
+
+  log(
+    `Fetched ${totalFetched} parts from API, ${exceptions.length} have different BrickLink IDs`
+  );
+
+  // Batch upsert exceptions
+  const batchSize = 500;
+  let updated = 0;
+  for (let i = 0; i < exceptions.length; i += batchSize) {
+    const chunk = exceptions.slice(i, i + batchSize);
+    const { error } = await supabase.from('rb_parts').upsert(
+      chunk.map(e => ({
+        part_num: e.part_num,
+        name: e.name,
+        external_ids: e.external_ids,
+      }))
+    );
+    if (error) {
+      log(`Failed to upsert part external_ids batch: ${error.message}`);
+    } else {
+      updated += chunk.length;
+    }
+  }
+
+  log(`Enriched ${updated} parts with external_ids (exceptions only)`);
+}
+
 async function ingestPartCategories(
   supabase: ReturnType<typeof createClient<Database>>,
   stream: NodeJS.ReadableStream
@@ -733,6 +830,7 @@ async function main() {
       await ingestPartCategories(supabase, stream);
     } else if (info.source === 'parts') {
       await ingestParts(supabase, stream);
+      await enrichPartExternalIds(supabase);
     } else if (info.source === 'sets') {
       await ingestSets(supabase, stream);
     } else if (info.source === 'minifigs') {

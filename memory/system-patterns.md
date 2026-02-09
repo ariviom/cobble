@@ -54,6 +54,8 @@
     - Batch-fetches all minifig subparts in one query for performance
     - Returns optional `minifigMeta` with sync status
 - **Part ID Mapping** (RB → BL):
+  - **Same-by-default**: `blPartId` defaults to `rbPartId` when no explicit mapping exists. Priority chain: explicit BL ID from `external_ids` → `part_id_mappings` override → assume same as RB ID. Color IDs are NOT same-by-default.
+  - `rb_parts.external_ids` populated by `enrichPartExternalIds()` in ingest script (Rebrickable API). ~80% of parts have different BL IDs (mainly printed/decorated parts); ~20% have no BL mapping (same-by-default handles these).
   - `part_id_mappings` table stores manual and auto-generated mappings with columns `rb_part_id`, `bl_part_id`, `source`, `confidence`.
   - Sources include: `'auto-suffix'` (automatic suffix stripping), `'minifig-component'` (from minifig part mapping), `'manual'`, `'auto-validate'` (on-demand BL validation), `'bl-not-found'` (negative cache).
   - **Negative caching**: Entries with `source = 'bl-not-found'` and `bl_part_id = ''` indicate parts confirmed not on BrickLink. Re-validated after 30 days. `buildResolutionContext()` skips these entries.

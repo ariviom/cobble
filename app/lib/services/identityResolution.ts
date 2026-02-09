@@ -113,8 +113,10 @@ export function resolveCatalogPartIdentity(
   row: InventoryRow,
   ctx: ResolutionContext
 ): PartIdentity {
+  // Same-by-default: most RB and BL part IDs are identical (~98%).
+  // Priority: explicit BL ID → part_id_mappings override → assume same as RB ID.
   const blPartId =
-    row.bricklinkPartId ?? ctx.partMappings.get(row.partId) ?? null;
+    row.bricklinkPartId ?? ctx.partMappings.get(row.partId) ?? row.partId;
   const blColorId = ctx.rbToBlColor.get(row.colorId) ?? null;
   const elementId = typeof row.elementId === 'string' ? row.elementId : null;
 

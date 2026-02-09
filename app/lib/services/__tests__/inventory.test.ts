@@ -83,7 +83,7 @@ vi.mock('@/app/lib/services/identityResolution', () => ({
     canonicalKey: `${row.partId}:${row.colorId}`,
     rbPartId: row.partId,
     rbColorId: row.colorId,
-    blPartId: null,
+    blPartId: row.partId, // same-by-default: blPartId defaults to rbPartId
     blColorId: null,
     elementId: null,
     rowType: 'catalog_part' as const,

@@ -139,6 +139,11 @@
     - Reduced `spareCache` TTL from 7 days → 24 hours (more appropriate for live Rebrickable API data).
     - Added `Cache-Control` header to `/api/catalog/versions` endpoint (60s max-age, 120s stale-while-revalidate).
   - Documented caching strategy in `memory/system-patterns.md` for future reference.
+- **Same-by-Default BL Part ID Mapping** (February 2026):
+  - `identityResolution.ts`: `blPartId` defaults to `rbPartId` when no explicit mapping exists (was `null`).
+  - `enrichPartExternalIds()` in ingest script: populates `rb_parts.external_ids` from Rebrickable API for parts where BL ID differs.
+  - 48,537 of 60,947 parts enriched with external_ids; 12,410 fall through to same-by-default.
+  - 367 tests passing, clean tsc.
 - **Export Fixes & BL Validation** (February 2026):
   - BL export: removed `mapToBrickLink()` fallback, `generateBrickLinkCsv()` is now synchronous/identity-only. Eliminates 429s.
   - RB export: `includeMinifigs` toggle (default false) with warning. Filters `minifig_*` row types.
@@ -174,9 +179,11 @@ Core MVP is feature-complete: search, inventory, owned tracking, CSV exports, pr
 - Rebrickable rate limits or incomplete inventories for very old sets.
 - ID/color mapping mismatches between Rebrickable and BrickLink affecting CSV exports.
   - Mitigated by `part_id_mappings` table with auto-suffix fallback (e.g., `3957a` → `3957`).
-  - Mitigated by minifig component part mapping pipeline for heads, torsos, legs, etc.
+  - Mitigated by `enrichPartExternalIds()` populating `rb_parts.external_ids` for ~80% of parts with different BL IDs.
+  - Mitigated by same-by-default fallback for remaining ~20% of parts without explicit mappings.
   - Mitigated by on-demand BL validation with self-healing (Plan 08): corrects bad mappings, persists fixes, negative caching prevents repeated lookups.
   - BL export no longer makes per-part API calls (identity-only); RB export excludes minifigs by default.
+- **RB↔BL minifig ID mapping**: No bulk mapping source exists. Currently resolved per-set at runtime via BrickLink API. Under investigation.
 - Large inventories (>1000 parts) may require careful virtualization and memoization to stay fast.
 - CSV specs must exactly match marketplace requirements to import successfully.
 - Debounced owned writes delay flush by ~500ms; acceptable trade-off for UI responsiveness.

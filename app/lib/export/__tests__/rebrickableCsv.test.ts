@@ -2,6 +2,25 @@ import {
   generateRebrickableCsv,
   type MissingRow,
 } from '@/app/lib/export/rebrickableCsv';
+import type { PartIdentity } from '@/app/lib/domain/partIdentity';
+
+function minifigIdentity(
+  rowType:
+    | 'minifig_parent'
+    | 'minifig_subpart_matched'
+    | 'minifig_subpart_unmatched'
+): PartIdentity {
+  return {
+    canonicalKey: 'test',
+    rbPartId: 'test',
+    rbColorId: 0,
+    blPartId: null,
+    blColorId: null,
+    elementId: null,
+    rowType,
+    blMinifigId: null,
+  };
+}
 
 describe('generateRebrickableCsv', () => {
   it('omits rows with zero missing quantity and includes BOM + headers', () => {
@@ -135,5 +154,82 @@ describe('generateRebrickableCsv', () => {
     // elementId should not appear in output
     expect(lines[1]).toBe('3001,1,2');
     expect(lines[1]).not.toContain('300123');
+  });
+
+  it('excludes minifig rows by default', () => {
+    const rows: MissingRow[] = [
+      { setNumber: '1234-1', partId: '3001', colorId: 1, quantityMissing: 3 },
+      {
+        setNumber: '1234-1',
+        partId: 'fig-001',
+        colorId: 0,
+        quantityMissing: 1,
+        quantityRequired: 1,
+        identity: minifigIdentity('minifig_parent'),
+      },
+      {
+        setNumber: '1234-1',
+        partId: '973c01',
+        colorId: 5,
+        quantityMissing: 1,
+        quantityRequired: 1,
+        identity: minifigIdentity('minifig_subpart_matched'),
+      },
+    ];
+
+    const csv = generateRebrickableCsv(rows);
+    const lines = csv
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\n');
+
+    expect(lines.length).toBe(2); // header + 1 non-minifig row
+    expect(lines[1]).toBe('3001,1,3');
+  });
+
+  it('includes minifig rows with quantityRequired when includeMinifigs is true', () => {
+    const rows: MissingRow[] = [
+      { setNumber: '1234-1', partId: '3001', colorId: 1, quantityMissing: 3 },
+      {
+        setNumber: '1234-1',
+        partId: 'fig-001',
+        colorId: 0,
+        quantityMissing: 1,
+        quantityRequired: 2,
+        identity: minifigIdentity('minifig_parent'),
+      },
+    ];
+
+    const csv = generateRebrickableCsv(rows, { includeMinifigs: true });
+    const lines = csv
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\n');
+
+    expect(lines.length).toBe(3); // header + 1 regular + 1 minifig
+    expect(lines[1]).toBe('3001,1,3');
+    expect(lines[2]).toBe('fig-001,0,2'); // uses quantityRequired, not quantityMissing
+  });
+
+  it('includes minifig rows even when quantityMissing is 0 if includeMinifigs is true', () => {
+    const rows: MissingRow[] = [
+      {
+        setNumber: '1234-1',
+        partId: '973c01',
+        colorId: 5,
+        quantityMissing: 0,
+        quantityRequired: 1,
+        identity: minifigIdentity('minifig_subpart_matched'),
+      },
+    ];
+
+    const csv = generateRebrickableCsv(rows, { includeMinifigs: true });
+    const lines = csv
+      .replace(/^\uFEFF/, '')
+      .trim()
+      .split('\n');
+
+    expect(lines.length).toBe(2); // header + 1 minifig row
+    expect(lines[1]).toBe('973c01,5,1'); // uses quantityRequired
   });
 });

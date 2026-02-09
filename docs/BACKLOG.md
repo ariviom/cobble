@@ -228,6 +228,7 @@ Deferred features requiring research or significant scope.
 
 Major completed initiatives - see `docs/dev/archive/` for detailed plans:
 
+- **Same-by-Default BL Part ID Mapping** (Feb 2026) - `blPartId` defaults to `rbPartId`; `enrichPartExternalIds()` populates `rb_parts.external_ids` from Rebrickable API (~80% of parts have different BL IDs); same-by-default covers remaining ~20%
 - **Export Fixes & BL Validation** (Feb 2026) - BL export no longer makes per-part API calls; RB export minifig toggle; on-demand BL link validation with self-healing; negative caching in `part_id_mappings`
 - **Set Ownership Schema Overhaul** (Jan 2026) - `owned: boolean` + Wishlist as system list, fixed unique indexes
 - **BrickLink Minifig Migration** (Dec 2025) - BL is now exclusive source for minifig IDs/metadata/parts
