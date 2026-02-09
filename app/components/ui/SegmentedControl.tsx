@@ -51,7 +51,7 @@ export function SegmentedControl({
       {/* Sliding thumb - theme color background */}
       {thumbStyle && (
         <div
-          className="pointer-events-none absolute top-0 bottom-0 bg-theme-primary/20 transition-all duration-150"
+          className="pointer-events-none absolute top-0 bottom-0 bg-theme-primary transition-all duration-150"
           style={{ left: thumbStyle.left - 2, width: thumbStyle.width + 4 }}
           aria-hidden="true"
         />
@@ -67,7 +67,7 @@ export function SegmentedControl({
             'relative z-10 flex-1 rounded-sm px-3 text-center font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card-muted',
             size === 'sm' ? 'py-1' : 'py-1.5',
             seg.key === value
-              ? 'text-foreground'
+              ? 'text-theme-primary-contrast'
               : 'text-foreground-muted hover:text-foreground'
           )}
           onClick={() => onChange(seg.key)}

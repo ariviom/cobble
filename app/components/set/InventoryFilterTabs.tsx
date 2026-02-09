@@ -126,7 +126,7 @@ export function InventoryFilterTabs({
             className={cx(
               'relative -ml-px h-9 rounded-none border px-3 text-sm leading-9 first:ml-0',
               t.key === value
-                ? 'border-blue-600 bg-blue-600 text-white'
+                ? 'border-theme-primary bg-theme-primary text-theme-primary-contrast'
                 : 'bg-background text-foreground hover:bg-background-muted'
             )}
             onClick={() => onChange(t.key)}

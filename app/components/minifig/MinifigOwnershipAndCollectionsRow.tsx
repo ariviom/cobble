@@ -3,23 +3,27 @@
 import { CollectionsModalContent } from '@/app/components/collections/CollectionsModalContent';
 import { Modal } from '@/app/components/ui/Modal';
 import { StatusToggleButton } from '@/app/components/ui/StatusToggleButton';
+import { Toast } from '@/app/components/ui/Toast';
 import { cn } from '@/app/components/ui/utils';
 import type { MinifigOwnershipState } from '@/app/hooks/useMinifigOwnershipState';
-import { Check, Heart } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Check, List } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 type MinifigOwnershipAndCollectionsRowProps = {
   ownership: MinifigOwnershipState;
+  variant?: 'default' | 'inline' | 'dropdown';
   className?: string;
 };
 
 export function MinifigOwnershipAndCollectionsRow({
   ownership,
+  variant = 'default',
   className,
 }: MinifigOwnershipAndCollectionsRowProps) {
   const {
     status,
-    toggleStatus,
+    toggleOwned,
     lists,
     selectedListIds,
     listsLoading,
@@ -33,12 +37,34 @@ export function MinifigOwnershipAndCollectionsRow({
   } = ownership;
 
   const [showCollections, setShowCollections] = useState(false);
+  const [mobileToast, setMobileToast] = useState<{
+    message: string;
+    variant: 'success' | 'error';
+  } | null>(null);
   const controlsDisabled = !isAuthenticated || isAuthenticating;
   const showAuthHint = !isAuthenticating && !isAuthenticated;
 
-  const handleToggleStatus = (key: 'owned' | 'want') => {
+  // Auto-hide mobile toast after 2 seconds
+  useEffect(() => {
+    if (!mobileToast) return;
+    const timer = setTimeout(() => setMobileToast(null), 2000);
+    return () => clearTimeout(timer);
+  }, [mobileToast]);
+
+  const handleToggleOwned = () => {
     if (!isAuthenticated) return;
-    toggleStatus(key);
+    const willBeOwned = !status.owned;
+    toggleOwned();
+
+    // Show toast on mobile (when label is hidden)
+    const isMobile = window.matchMedia('(max-width: 639px)').matches;
+    if (isMobile) {
+      setMobileToast(
+        willBeOwned
+          ? { message: 'Marked as owned!', variant: 'success' }
+          : { message: 'Removed from owned', variant: 'error' }
+      );
+    }
   };
 
   const handleOpenCollections = () => {
@@ -60,16 +86,21 @@ export function MinifigOwnershipAndCollectionsRow({
     <>
       <div
         className={cn(
-          'status-row mt-2 flex items-center gap-2 text-xs',
+          'status-row group flex transition-opacity',
+          variant === 'default'
+            ? 'mt-0 gap-1 border-t-2 border-subtle bg-background-muted/50 p-1.5'
+            : variant === 'inline'
+              ? 'mt-0 gap-2'
+              : 'mt-0 flex-col gap-1',
           isAuthenticating && 'opacity-70',
           !isAuthenticated && !isAuthenticating && 'opacity-80',
           className
         )}
       >
         <StatusToggleButton
-          icon={<Check className="size-4" />}
+          icon={<Check className="size-3.5" />}
           label="Owned"
-          active={isAuthenticated && status === 'owned'}
+          active={isAuthenticated && status.owned}
           disabled={controlsDisabled}
           aria-busy={isAuthenticating}
           title={
@@ -77,32 +108,18 @@ export function MinifigOwnershipAndCollectionsRow({
               ? 'Sign in to mark minifigures as owned'
               : undefined
           }
-          onClick={() => handleToggleStatus('owned')}
-          variant="inline"
+          onClick={handleToggleOwned}
+          variant={variant === 'dropdown' ? 'dropdown' : variant}
+          color="green"
           compact
-          className="pr-4"
+          hideLabelOnMobile
+          className="size-12 justify-center sm:h-12 sm:w-auto sm:justify-start sm:gap-2.5 sm:px-2.5 sm:pr-4"
         />
         <StatusToggleButton
-          icon={<Heart className="size-4" />}
-          label="Wishlist"
-          active={isAuthenticated && status === 'want'}
-          disabled={controlsDisabled}
-          aria-busy={isAuthenticating}
-          title={
-            controlsDisabled
-              ? 'Sign in to add minifigures to your wishlist'
-              : undefined
-          }
-          onClick={() => handleToggleStatus('want')}
-          variant="inline"
-          compact
-          className="pr-4"
-        />
-        <StatusToggleButton
-          label="Collection"
+          icon={<List className="size-3.5" />}
+          label="Collections"
+          hideIconOnMobile
           sublabel={selectedCollectionNames}
-          showChevron
-          className="ml-auto"
           disabled={controlsDisabled}
           aria-busy={isAuthenticating}
           title={
@@ -111,12 +128,13 @@ export function MinifigOwnershipAndCollectionsRow({
               : undefined
           }
           onClick={handleOpenCollections}
-          variant="inline"
+          variant={variant === 'dropdown' ? 'dropdown' : variant}
+          color="blue"
         />
       </div>
-      {showAuthHint && (
-        <div className="text-2xs mt-1 text-foreground-muted">
-          Sign in to track minifigure ownership and lists.
+      {showAuthHint && variant !== 'inline' && (
+        <div className="bg-background-muted/50 px-3 py-1.5 text-xs font-medium text-foreground-muted">
+          Sign in to track ownership and collections.
         </div>
       )}
       <Modal
@@ -135,6 +153,15 @@ export function MinifigOwnershipAndCollectionsRow({
           onDelete={deleteList}
         />
       </Modal>
+      {mobileToast &&
+        createPortal(
+          <Toast
+            description={mobileToast.message}
+            variant={mobileToast.variant}
+            onClose={() => setMobileToast(null)}
+          />,
+          document.body
+        )}
     </>
   );
 }

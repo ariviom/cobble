@@ -268,8 +268,7 @@ export function PublicUserCollectionOverview({
     const membership = selectedList ? new Set(selectedList.minifigIds) : null;
     return allMinifigs.filter(fig => {
       if (collectionFilter === 'owned' && fig.status !== 'owned') return false;
-      if (collectionFilter === 'wishlist' && fig.status !== 'want')
-        return false;
+      if (collectionFilter === 'wishlist' && !selectedList) return false;
       if (membership && !membership.has(fig.fig_num)) return false;
       // Category filter
       if (categoryFilter !== 'all') {

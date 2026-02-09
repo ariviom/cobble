@@ -166,7 +166,7 @@ export function MinifigPageClient({
   const canEditQuantity =
     ownership.isAuthenticated &&
     !ownership.isAuthenticating &&
-    ownership.status !== null &&
+    ownership.status.owned &&
     !isUserLoading;
 
   const handleQuantityChange = (next: number) => {
@@ -314,7 +314,7 @@ export function MinifigPageClient({
           <div className="flex flex-wrap items-center justify-between gap-4">
             <MinifigOwnershipAndCollectionsRow
               ownership={ownership}
-              className="!mt-0"
+              variant="inline"
             />
             <div className="flex items-center gap-2 text-sm">
               <span className="text-foreground-muted">Qty</span>
@@ -334,10 +334,10 @@ export function MinifigPageClient({
             </p>
           )}
           {ownership.isAuthenticated &&
-            ownership.status === null &&
+            !ownership.status.owned &&
             !ownership.isAuthenticating && (
               <p className="mt-2 text-xs text-foreground-muted">
-                Mark as Owned or Wishlist to edit quantity.
+                Mark as Owned to edit quantity.
               </p>
             )}
         </div>

@@ -573,7 +573,7 @@ export function UserCollectionOverview({
       : null;
     return minifigs.filter(fig => {
       if (listFilter === 'owned' && fig.status !== 'owned') return false;
-      if (listFilter === 'wishlist' && fig.status !== 'want') return false;
+      if (listFilter === 'wishlist' && !selectedListId) return false;
       if (customListId) {
         if (!membership || !membership.includes(fig.figNum)) {
           return false;

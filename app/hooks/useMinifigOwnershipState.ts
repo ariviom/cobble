@@ -4,11 +4,9 @@ import { useMinifigLists } from '@/app/hooks/useMinifigLists';
 import { useMinifigStatus } from '@/app/hooks/useMinifigStatus';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 
-type MinifigOwnershipStatus = 'owned' | 'want' | null;
-
 export type MinifigOwnershipState = {
-  status: MinifigOwnershipStatus;
-  toggleStatus: (next: Exclude<MinifigOwnershipStatus, null>) => void;
+  status: { owned: boolean };
+  toggleOwned: () => void;
   lists: { id: string; name: string; isSystem: boolean }[];
   selectedListIds: string[];
   listsLoading: boolean;
@@ -29,7 +27,7 @@ export function useMinifigOwnershipState({
   figNum,
 }: UseMinifigOwnershipStateArgs): MinifigOwnershipState {
   const { user, isLoading } = useSupabaseUser();
-  const { status, toggleStatus } = useMinifigStatus({ figNum });
+  const { status, toggleOwned } = useMinifigStatus({ figNum });
   const {
     lists,
     selectedListIds,
@@ -43,7 +41,7 @@ export function useMinifigOwnershipState({
 
   return {
     status,
-    toggleStatus,
+    toggleOwned,
     lists,
     selectedListIds,
     listsLoading,

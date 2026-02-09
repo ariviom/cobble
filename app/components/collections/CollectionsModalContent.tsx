@@ -188,7 +188,7 @@ export function CollectionsModalContent({
                     <div
                       className={cn(
                         'flex flex-1 items-center gap-2 rounded-md border-2 px-3 py-2.5',
-                        'border-brand-blue bg-brand-blue/5'
+                        'border-theme-primary bg-theme-primary/10'
                       )}
                     >
                       <Icon className="h-4 w-4 shrink-0 text-foreground-muted" />
@@ -214,7 +214,7 @@ export function CollectionsModalContent({
                       <button
                         type="button"
                         onClick={confirmRename}
-                        className="shrink-0 rounded p-1 text-brand-blue hover:text-brand-blue/80"
+                        className="shrink-0 rounded p-1 text-theme-text"
                         aria-label="Confirm rename"
                       >
                         <Check className="h-4 w-4" />
@@ -228,7 +228,7 @@ export function CollectionsModalContent({
                         className={cn(
                           'flex flex-1 items-center justify-between rounded-md border-2 px-4 py-3 text-left text-sm font-bold transition-all duration-150',
                           selected
-                            ? 'border-brand-blue bg-brand-blue/10 text-brand-blue shadow-[0_2px_0_0] shadow-brand-blue/20'
+                            ? 'border-theme-primary bg-theme-primary/10 text-theme-text'
                             : 'border-subtle bg-card text-foreground hover:-translate-y-0.5 hover:bg-background-muted hover:shadow-sm'
                         )}
                         onClick={e => {
@@ -242,7 +242,7 @@ export function CollectionsModalContent({
                           <span className="truncate">{collection.name}</span>
                         </span>
                         {selected && (
-                          <Check className="h-4 w-4 shrink-0 text-brand-blue" />
+                          <Check className="h-4 w-4 shrink-0 text-theme-text" />
                         )}
                       </button>
                       {!collection.isSystem && (

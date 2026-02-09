@@ -4,17 +4,14 @@ import { useMemo } from 'react';
 import { useUserMinifigs } from '@/app/hooks/useUserMinifigs';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import type { Enums } from '@/supabase/types';
-
-type MinifigStatus = Enums<'set_status'> | null;
 
 type UseMinifigStatusArgs = {
   figNum: string;
 };
 
 type UseMinifigStatusResult = {
-  status: MinifigStatus;
-  toggleStatus: (next: Exclude<MinifigStatus, null>) => void;
+  status: { owned: boolean };
+  toggleOwned: () => void;
   isAuthenticated: boolean;
   isAuthenticating: boolean;
 };
@@ -25,18 +22,16 @@ export function useMinifigStatus({
   const { user, isLoading } = useSupabaseUser();
   const { minifigs } = useUserMinifigs();
 
-  const status: MinifigStatus = useMemo(() => {
+  const status = useMemo(() => {
     const entry = minifigs.find(fig => fig.figNum === figNum);
-    return entry?.status ?? null;
+    return { owned: entry?.status === 'owned' };
   }, [minifigs, figNum]);
 
-  const toggleStatus = (next: Exclude<MinifigStatus, null>) => {
+  const toggleOwned = () => {
     if (!user) return;
     const supabase = getSupabaseBrowserClient();
-    const isSame = status === next;
 
-    // When toggling the same status that's already set, clear the row.
-    if (isSame) {
+    if (status.owned) {
       void supabase
         .from('user_minifigs')
         .delete()
@@ -49,7 +44,7 @@ export function useMinifigStatus({
       {
         user_id: user.id,
         fig_num: figNum,
-        status: next,
+        status: 'owned',
       },
       { onConflict: 'user_id,fig_num' }
     );
@@ -57,7 +52,7 @@ export function useMinifigStatus({
 
   return {
     status,
-    toggleStatus,
+    toggleOwned,
     isAuthenticated: !!user,
     isAuthenticating: isLoading,
   };
