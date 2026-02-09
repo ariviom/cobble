@@ -4,7 +4,6 @@ import { NavLinkItem } from '@/app/components/nav/NavLinkItem';
 import { cn } from '@/app/components/ui/utils';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { Camera, Layers, Package, Search, User } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -62,19 +61,25 @@ export function Navigation({
     >
       <div className="relative flex h-16 w-full items-center px-2 sm:px-4 lg:px-6">
         <div className="relative flex w-full items-center justify-around gap-x-1 lg:justify-center lg:gap-x-3">
-          {/* Desktop brand - clean, minimal treatment on theme background */}
+          {/* Desktop brand - white logo on theme background */}
           <Link
             href="/sets"
             className="group hidden items-center gap-2 transition-all duration-150 hover:scale-[1.02] lg:absolute lg:top-1/2 lg:left-6 lg:flex lg:-translate-y-1/2"
           >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-[inset_0_-2px_0_0_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.1)] transition-transform duration-150 group-hover:rotate-6">
-              <Image
-                src="/logo/brickparty_logo_sm.png"
-                alt="Brick Party"
-                width={32}
-                height={32}
+            <svg
+              viewBox="0 0 512 512"
+              className="size-12 text-white drop-shadow-sm transition-transform duration-150 group-hover:rotate-6"
+              aria-hidden="true"
+            >
+              <path
+                fill="currentColor"
+                d="M489.34 232.72 287.26 132.36c-9.76-4.85-20.37-7.27-30.97-7.27s-21.54 2.5-31.42 7.49l-59.5 30.09 29.04 14.42c17.26-7.11 38.55-11.31 61.6-11.31 57.57 0 104.23 26.19 104.23 58.49v23.95c0 32.3-46.67 58.49-104.23 58.49s-104.23-26.19-104.23-58.49V224.28c0-6.6 1.95-12.94 5.53-18.85l-38.6-19.17-96.16 48.62c-12.79 6.47-12.72 24.75.11 31.13l202.08 100.36c9.76 4.85 20.37 7.27 30.97 7.27s21.54-2.5 31.42-7.49l202.31-102.29c12.79-6.47 12.72-24.75-.11-31.13Z"
               />
-            </div>
+              <path
+                fill="currentColor"
+                d="M256 183.72c-49.38 0-86.29 21.4-86.29 40.54s36.9 40.54 86.29 40.54 86.29-21.4 86.29-40.54-36.9-40.54-86.29-40.54Z"
+              />
+            </svg>
             <h1 className="text-xl font-extrabold tracking-tight text-theme-primary-contrast">
               <span>Brick</span>
               <span className="opacity-70">Party</span>
