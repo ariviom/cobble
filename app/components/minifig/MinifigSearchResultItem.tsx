@@ -73,9 +73,7 @@ export function MinifigSearchResultItem({
           </div>
         </div>
       </Link>
-      <div className="px-3 pb-3">
-        <MinifigOwnershipAndCollectionsRow ownership={ownership} />
-      </div>
+      <MinifigOwnershipAndCollectionsRow ownership={ownership} />
     </div>
   );
 }
