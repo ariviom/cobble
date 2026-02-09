@@ -121,7 +121,7 @@
   --width-lg: 10rem; /* 160px */
   --width-xl: 11.25rem; /* 180px */
 
-  --spacing-nav-height: 4rem;
+  --spacing-nav-height: calc(4rem + env(safe-area-inset-bottom, 0px));
   --spacing-nav-offset: 0; /* Mobile: nav at bottom, no top offset needed */
   --spacing-topnav-height: 6rem;
   --spacing-tab-bar-height: 2.5rem;
