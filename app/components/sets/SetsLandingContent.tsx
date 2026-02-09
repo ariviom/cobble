@@ -103,7 +103,7 @@ export function SetsLandingContent({
       <section className="py-8">
         <div className="container-wide">
           {/* Filter chips */}
-          <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
+          <div className="-mx-3 mb-4 flex gap-2 overflow-x-auto px-3 pb-1 no-scrollbar sm:-mx-4 sm:px-4">
             {filterOptions.map(opt => (
               <button
                 key={opt.key}
