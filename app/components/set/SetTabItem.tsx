@@ -180,7 +180,7 @@ export function SetTabItem({
           </div>
 
           {/* Set number and name */}
-          <div className="flex items-center gap-1.5 text-xs font-medium">
+          <div className="flex min-w-16 items-center gap-1.5 text-xs font-medium">
             <span className="font-bold">{tab.id}</span>
             <span className="hidden text-foreground-muted lg:inline">
               {displayName}
