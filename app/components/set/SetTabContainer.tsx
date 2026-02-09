@@ -45,8 +45,9 @@ type SetTabContainerProps = {
 /**
  * Container for a single set tab.
  *
- * - When active: mounts children (SetTopBar, InventoryControls, Inventory)
- * - When inactive: hidden with display:none
+ * - InventoryProvider is always mounted (hook state persists across tab switches)
+ * - When active: visual content (SetTopBar, InventoryControls, Inventory) is rendered
+ * - When inactive: container hidden with display:none, visual content unmounted
  * - Scroll position is saved/restored on the Inventory grid wrapper
  */
 export function SetTabContainer({
@@ -332,18 +333,18 @@ export function SetTabContainer({
         style={containerStyle}
         className="tab-container flex-col lg:min-h-0 lg:flex-1"
       >
-        {isActive ? (
-          <InventoryProvider
-            setNumber={tab.id}
-            setName={tab.name}
-            initialControlsState={savedControlsState}
-            enableCloudSync
-            isActive={isActive}
-            groupSessionId={groupSession?.id ?? null}
-            groupParticipantId={currentParticipant?.id ?? null}
-            groupClientId={clientId}
-            onParticipantPiecesDelta={handleParticipantPiecesDelta}
-          >
+        <InventoryProvider
+          setNumber={tab.id}
+          setName={tab.name}
+          initialControlsState={savedControlsState}
+          enableCloudSync
+          isActive={isActive}
+          groupSessionId={groupSession?.id ?? null}
+          groupParticipantId={currentParticipant?.id ?? null}
+          groupClientId={clientId}
+          onParticipantPiecesDelta={handleParticipantPiecesDelta}
+        >
+          {isActive ? (
             <SetTabContainerContent
               tab={tab}
               onSaveState={onSaveState}
@@ -351,8 +352,8 @@ export function SetTabContainer({
               isDesktop={isDesktop}
               searchParty={searchPartyProp}
             />
-          </InventoryProvider>
-        ) : null}
+          ) : null}
+        </InventoryProvider>
       </div>
 
       {searchPartyError && (
