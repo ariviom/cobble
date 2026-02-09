@@ -120,11 +120,15 @@ export function SetTabItem({
           aria-hidden="true"
           className={cn(
             'flex h-full min-h-11 w-4 items-center justify-center lg:min-h-9',
-            !showDivider && 'lg:hidden',
-            isActive && 'hidden'
+            !showDivider && 'lg:hidden'
           )}
         >
-          <div className="h-5 w-px bg-foreground-muted/30 lg:h-4"></div>
+          <div
+            className={cn(
+              'h-5 w-px bg-foreground-muted/30 lg:h-4',
+              isActive && 'hidden'
+            )}
+          ></div>
         </div>
       </>
     );
