@@ -109,207 +109,7 @@ export function TopBarControls({
 
   return (
     <>
-      <div className="lg:relative">
-        <DropdownTrigger
-          id="display-trigger"
-          panelId="display-panel"
-          label={
-            displayKey === 'owned'
-              ? 'Owned'
-              : displayKey === 'missing'
-                ? 'Missing'
-                : 'All'
-          }
-          labelIcon={<Filter size={16} />}
-          isOpen={openDropdownId === 'display'}
-          onToggle={() => onToggleDropdown('display')}
-        />
-        {openDropdownId === 'display' && (
-          <DropdownPanelFrame
-            id="display-panel"
-            labelledBy="display-trigger"
-            isOpen={true}
-            className={
-              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
-            }
-            variant={isDesktop ? 'default' : 'sidebar'}
-          >
-            <DropdownSection label="Filter By">
-              <SingleSelectList
-                options={[
-                  { key: 'all', text: 'All' },
-                  { key: 'missing', text: 'Missing' },
-                  { key: 'owned', text: 'Owned' },
-                ]}
-                selectedKey={displayKey}
-                onChange={k =>
-                  onChangeDisplay(k as 'all' | 'missing' | 'owned')
-                }
-              />
-            </DropdownSection>
-          </DropdownPanelFrame>
-        )}
-      </div>
-
-      <div className="lg:relative">
-        <DropdownTrigger
-          id="sort-trigger"
-          panelId="sort-panel"
-          label="Sort"
-          labelIcon={<SortAsc size={16} />}
-          isOpen={openDropdownId === 'sort'}
-          onToggle={() => onToggleDropdown('sort')}
-        />
-        {openDropdownId === 'sort' && (
-          <DropdownPanelFrame
-            id="sort-panel"
-            labelledBy="sort-trigger"
-            isOpen={true}
-            className={
-              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
-            }
-            variant={isDesktop ? 'default' : 'sidebar'}
-          >
-            <GroupedList
-              sections={[
-                {
-                  id: 'sortBy',
-                  label: 'Sort By',
-                  options: [
-                    { key: 'name', text: 'Name' },
-                    { key: 'color', text: 'Color' },
-                    { key: 'size', text: 'Size' },
-                    { key: 'category', text: 'Category' },
-                    ...(pricingEnabled
-                      ? [{ key: 'price', text: 'Price' }]
-                      : []),
-                  ],
-                  selectedKey: sortKey,
-                  onChange: k => {
-                    onChangeSortKey(k as SortKey);
-                    onCloseDropdown('sort');
-                  },
-                },
-                {
-                  id: 'order',
-                  label: 'Order',
-                  options: [
-                    { key: 'asc', text: 'Ascending' },
-                    { key: 'desc', text: 'Descending' },
-                  ],
-                  selectedKey: sortDir,
-                  onChange: () => {
-                    onToggleSortDir();
-                    onCloseDropdown('sort');
-                  },
-                },
-                {
-                  id: 'groupBy',
-                  label: 'Group By',
-                  options: [
-                    { key: 'none', text: 'None' },
-                    { key: 'color', text: 'Color' },
-                    { key: 'size', text: 'Size' },
-                    { key: 'category', text: 'Category' },
-                  ],
-                  selectedKey: groupBy,
-                  onChange: g => {
-                    onChangeGroupBy(g as GroupBy);
-                    onCloseDropdown('sort');
-                  },
-                },
-              ]}
-            />
-          </DropdownPanelFrame>
-        )}
-      </div>
-
-      <div className="lg:relative">
-        <DropdownTrigger
-          id="view-trigger"
-          panelId="view-panel"
-          label={view === 'grid' ? 'Grid' : 'List'}
-          labelIcon={view === 'grid' ? <Grid size={16} /> : <List size={16} />}
-          isOpen={openDropdownId === 'view'}
-          onToggle={() => onToggleDropdown('view')}
-        />
-        {openDropdownId === 'view' && (
-          <DropdownPanelFrame
-            id="view-panel"
-            labelledBy="view-trigger"
-            isOpen={true}
-            className={
-              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
-            }
-            variant={isDesktop ? 'default' : 'sidebar'}
-          >
-            <DropdownSection label="View">
-              <SingleSelectList
-                options={[
-                  { key: 'list', text: 'List', icon: <List size={16} /> },
-                  { key: 'grid', text: 'Grid', icon: <Grid size={16} /> },
-                ]}
-                selectedKey={view}
-                onChange={k => {
-                  onChangeView(k as ViewType);
-                  onCloseDropdown('view');
-                }}
-              />
-            </DropdownSection>
-            <DropdownSection label="Size">
-              <SingleSelectList
-                options={[
-                  { key: 'lg', text: 'Large' },
-                  { key: 'md', text: 'Medium' },
-                  { key: 'sm', text: 'Small' },
-                ]}
-                selectedKey={itemSize}
-                onChange={k => {
-                  onChangeItemSize(k as ItemSize);
-                  onCloseDropdown('view');
-                }}
-              />
-            </DropdownSection>
-          </DropdownPanelFrame>
-        )}
-      </div>
-
-      <div className="lg:relative">
-        <DropdownTrigger
-          id="pinned-trigger"
-          panelId="pinned-panel"
-          label={
-            <span className="inline-flex items-center gap-2">
-              <span>Pinned</span>
-              {pinnedCount > 0 ? (
-                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-card-muted px-1 text-xs">
-                  {pinnedCount}
-                </span>
-              ) : null}
-            </span>
-          }
-          labelIcon={<Pin size={16} />}
-          isOpen={openDropdownId === 'pinned'}
-          onToggle={() => onToggleDropdown('pinned')}
-        />
-        {openDropdownId === 'pinned' && (
-          <DropdownPanelFrame
-            id="pinned-panel"
-            labelledBy="pinned-trigger"
-            isOpen={true}
-            className="max-h-pinned-panel-height w-full lg:top-[calc(100%+0.5rem)] lg:left-4 lg:max-h-[75dvh] lg:w-[calc(100%-22rem)] lg:shadow-lg"
-            variant={isDesktop ? 'default' : 'sidebar'}
-          >
-            <PinnedPanelContent
-              currentSetNumber={setNumber}
-              currentSetName={setName}
-              view={view}
-              itemSize={itemSize}
-            />
-          </DropdownPanelFrame>
-        )}
-      </div>
-      {/* Sidebar Group Triggers */}
+      {/* Sidebar Group Triggers — Pieces & Colors (absolute-positioned sidebar on desktop) */}
       <div className="sidebar relative min-w-0 shrink-0 border-subtle lg:fixed lg:top-[calc(var(--spacing-nav-offset)+var(--grid-row-tabs,0px))] lg:left-0 lg:h-[calc(100dvh-var(--spacing-nav-offset)-var(--grid-row-tabs,0px))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-card">
         <div className="flex flex-nowrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-0">
           {/* Pieces: always show on desktop (disabled when loading), conditional on mobile */}
@@ -409,6 +209,172 @@ export function TopBarControls({
           )}
         </div>
       </div>
+
+      <div className="lg:relative">
+        <DropdownTrigger
+          id="display-trigger"
+          panelId="display-panel"
+          label={
+            displayKey === 'owned'
+              ? 'Owned'
+              : displayKey === 'missing'
+                ? 'Missing'
+                : 'All'
+          }
+          labelIcon={<Filter size={16} />}
+          isOpen={openDropdownId === 'display'}
+          onToggle={() => onToggleDropdown('display')}
+        />
+        {openDropdownId === 'display' && (
+          <DropdownPanelFrame
+            id="display-panel"
+            labelledBy="display-trigger"
+            isOpen={true}
+            className={
+              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
+            }
+            variant={isDesktop ? 'default' : 'sidebar'}
+          >
+            <DropdownSection label="Filter By">
+              <SingleSelectList
+                options={[
+                  { key: 'all', text: 'All' },
+                  { key: 'missing', text: 'Missing' },
+                  { key: 'owned', text: 'Owned' },
+                ]}
+                selectedKey={displayKey}
+                onChange={k =>
+                  onChangeDisplay(k as 'all' | 'missing' | 'owned')
+                }
+              />
+            </DropdownSection>
+          </DropdownPanelFrame>
+        )}
+      </div>
+
+      <div className="lg:relative">
+        <DropdownTrigger
+          id="view-trigger"
+          panelId="view-panel"
+          label={view === 'grid' ? 'Grid' : 'List'}
+          labelIcon={view === 'grid' ? <Grid size={16} /> : <List size={16} />}
+          isOpen={openDropdownId === 'view'}
+          onToggle={() => onToggleDropdown('view')}
+        />
+        {openDropdownId === 'view' && (
+          <DropdownPanelFrame
+            id="view-panel"
+            labelledBy="view-trigger"
+            isOpen={true}
+            className={
+              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
+            }
+            variant={isDesktop ? 'default' : 'sidebar'}
+          >
+            <DropdownSection label="View">
+              <SingleSelectList
+                options={[
+                  { key: 'list', text: 'List', icon: <List size={16} /> },
+                  { key: 'grid', text: 'Grid', icon: <Grid size={16} /> },
+                ]}
+                selectedKey={view}
+                onChange={k => {
+                  onChangeView(k as ViewType);
+                  onCloseDropdown('view');
+                }}
+              />
+            </DropdownSection>
+            <DropdownSection label="Size">
+              <SingleSelectList
+                options={[
+                  { key: 'lg', text: 'Large' },
+                  { key: 'md', text: 'Medium' },
+                  { key: 'sm', text: 'Small' },
+                ]}
+                selectedKey={itemSize}
+                onChange={k => {
+                  onChangeItemSize(k as ItemSize);
+                  onCloseDropdown('view');
+                }}
+              />
+            </DropdownSection>
+          </DropdownPanelFrame>
+        )}
+      </div>
+
+      <div className="lg:relative">
+        <DropdownTrigger
+          id="sort-trigger"
+          panelId="sort-panel"
+          label="Sort"
+          labelIcon={<SortAsc size={16} />}
+          isOpen={openDropdownId === 'sort'}
+          onToggle={() => onToggleDropdown('sort')}
+        />
+        {openDropdownId === 'sort' && (
+          <DropdownPanelFrame
+            id="sort-panel"
+            labelledBy="sort-trigger"
+            isOpen={true}
+            className={
+              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
+            }
+            variant={isDesktop ? 'default' : 'sidebar'}
+          >
+            <GroupedList
+              sections={[
+                {
+                  id: 'sortBy',
+                  label: 'Sort By',
+                  options: [
+                    { key: 'name', text: 'Name' },
+                    { key: 'color', text: 'Color' },
+                    { key: 'size', text: 'Size' },
+                    { key: 'category', text: 'Category' },
+                    ...(pricingEnabled
+                      ? [{ key: 'price', text: 'Price' }]
+                      : []),
+                  ],
+                  selectedKey: sortKey,
+                  onChange: k => {
+                    onChangeSortKey(k as SortKey);
+                    onCloseDropdown('sort');
+                  },
+                },
+                {
+                  id: 'order',
+                  label: 'Order',
+                  options: [
+                    { key: 'asc', text: 'Ascending' },
+                    { key: 'desc', text: 'Descending' },
+                  ],
+                  selectedKey: sortDir,
+                  onChange: () => {
+                    onToggleSortDir();
+                    onCloseDropdown('sort');
+                  },
+                },
+                {
+                  id: 'groupBy',
+                  label: 'Group By',
+                  options: [
+                    { key: 'none', text: 'None' },
+                    { key: 'color', text: 'Color' },
+                    { key: 'size', text: 'Size' },
+                    { key: 'category', text: 'Category' },
+                  ],
+                  selectedKey: groupBy,
+                  onChange: g => {
+                    onChangeGroupBy(g as GroupBy);
+                    onCloseDropdown('sort');
+                  },
+                },
+              ]}
+            />
+          </DropdownPanelFrame>
+        )}
+      </div>
+
       <div className="lg:relative">
         <DropdownTrigger
           id="markall-trigger"
@@ -451,6 +417,43 @@ export function TopBarControls({
           </DropdownPanelFrame>
         )}
       </div>
+
+      <div className="lg:relative">
+        <DropdownTrigger
+          id="pinned-trigger"
+          panelId="pinned-panel"
+          label={
+            <span className="inline-flex items-center gap-2">
+              <span>Pinned</span>
+              {pinnedCount > 0 ? (
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-card-muted px-1 text-xs">
+                  {pinnedCount}
+                </span>
+              ) : null}
+            </span>
+          }
+          labelIcon={<Pin size={16} />}
+          isOpen={openDropdownId === 'pinned'}
+          onToggle={() => onToggleDropdown('pinned')}
+        />
+        {openDropdownId === 'pinned' && (
+          <DropdownPanelFrame
+            id="pinned-panel"
+            labelledBy="pinned-trigger"
+            isOpen={true}
+            className="max-h-pinned-panel-height w-full lg:top-[calc(100%+0.5rem)] lg:left-4 lg:max-h-[75dvh] lg:w-[calc(100%-22rem)] lg:shadow-lg"
+            variant={isDesktop ? 'default' : 'sidebar'}
+          >
+            <PinnedPanelContent
+              currentSetNumber={setNumber}
+              currentSetName={setName}
+              view={view}
+              itemSize={itemSize}
+            />
+          </DropdownPanelFrame>
+        )}
+      </div>
+
       <div className="lg:relative">
         <DropdownTrigger
           id="export-trigger"

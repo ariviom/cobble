@@ -76,19 +76,19 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // When the pinned panel is open, prevent scrolling
+  // When a bottom sheet is open on mobile, prevent document scrolling
   useEffect(() => {
     if (typeof document === 'undefined') return;
+    if (isDesktop) return;
     const root = document.documentElement;
-    const isPinnedOpen = openDropdownId === 'pinned';
     const prevOverflow = root.style.overflow;
-    if (isPinnedOpen) {
+    if (openDropdownId !== null) {
       root.style.overflow = 'hidden';
     }
     return () => {
       root.style.overflow = prevOverflow;
     };
-  }, [openDropdownId]);
+  }, [openDropdownId, isDesktop]);
 
   // Scroll to top when display filter, sort, or grouping changes
   // Skip initial render by tracking if values have changed

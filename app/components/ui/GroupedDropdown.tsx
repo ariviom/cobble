@@ -32,7 +32,7 @@ export type DropdownTriggerProps = {
 
 const triggerVariants = cva(
   // Chunky trigger buttons matching the LEGO theme
-  'min-w-max rounded-md border-2 border-subtle bg-card px-4 py-2 text-sm font-semibold cursor-pointer transition-all duration-150 hover:bg-theme-primary/10 hover:border-theme-primary/30',
+  'min-w-max rounded-md border-2 border-subtle bg-card px-4 py-2 text-sm font-semibold cursor-pointer transition-all duration-150 hover:bg-theme-primary/10 hover:border-theme-primary/30 data-[open]:bg-theme-primary/10 data-[open]:border-theme-primary',
   {
     variants: {
       variant: {
@@ -104,7 +104,7 @@ export const DropdownTrigger = forwardRef<
 // Generic dropdown frame that accepts arbitrary children
 const panelVariants = cva(
   // base: mobile behaves like a sheet (above nav bar), desktop like a popover - chunky LEGO styling
-  'min-w-64 overflow-hidden rounded-lg border-2 border-subtle bg-card shadow-[0_4px_0_0_var(--color-shadow-depth)] fixed top-[calc(var(--spacing-topnav-height)+var(--spacing-controls-height))] bottom-[var(--spacing-nav-height)] z-50 overflow-y-auto lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40',
+  'min-w-64 overflow-hidden rounded-t-lg border-2 border-subtle bg-card shadow-none fixed top-[calc(var(--spacing-topnav-height)+var(--spacing-controls-height)+var(--grid-row-tabs,0px))] bottom-[var(--spacing-nav-height)] z-50 overflow-y-auto lg:rounded-lg lg:shadow-[0_4px_0_0_var(--color-shadow-depth)] lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40',
   {
     variants: {
       variant: {
