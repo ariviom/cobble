@@ -30,7 +30,7 @@ function Button({
   return (
     <button
       className={cn(
-        'relative flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center text-2xl font-bold disabled:cursor-not-allowed',
+        'relative flex size-12 min-w-10 cursor-pointer items-center justify-center text-2xl font-bold disabled:cursor-not-allowed',
         className,
         'text-foreground disabled:text-foreground-muted'
       )}
@@ -103,9 +103,7 @@ export function OwnedQuantityControl({
       >
         –
       </Button>
-      <div
-        className={`relative items-center text-xs xs:text-sm ${required > 99 ? 'xs:min-w-20' : 'xs:min-w-14'}`}
-      >
+      <div className="relative items-center text-xs xs:text-sm">
         <input
           type="text"
           name="piece-count"

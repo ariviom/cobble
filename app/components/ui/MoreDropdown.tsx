@@ -124,7 +124,7 @@ export function MoreDropdown({
         aria-label={ariaLabel}
         aria-haspopup="menu"
         aria-expanded={isOpen ? 'true' : 'false'}
-        className="relative inline-flex size-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-strong/30"
+        className="relative inline-flex size-9 cursor-pointer items-center justify-center rounded-full transition-colors hover:bg-strong/30 grid:size-7"
         onClick={toggle}
       >
         <MobileButtonHitArea />
