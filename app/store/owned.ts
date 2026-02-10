@@ -125,6 +125,27 @@ export async function flushPendingWritesAsync(): Promise<void> {
   await Promise.all(promises);
 }
 
+/**
+ * Reset all in-memory owned caches. Called on auth change so the next user
+ * hydrates fresh from IndexedDB + Supabase comparison.
+ */
+export async function resetOwnedCache(): Promise<void> {
+  // 1. Flush any pending writes for the outgoing user
+  await flushPendingWritesAsync();
+
+  // 2. Clear all module-level Maps
+  cache.clear();
+  pendingWrites.clear();
+  for (const timer of writeTimers.values()) {
+    clearTimeout(timer);
+  }
+  writeTimers.clear();
+  hydrationPromises.clear();
+
+  // 3. Reset Zustand state so sets re-hydrate on next access
+  useOwnedStore.setState({ _version: 0, _hydratedSets: new Set<string>() });
+}
+
 function scheduleWrite(setNumber: string) {
   const existing = writeTimers.get(setNumber);
   if (existing) clearTimeout(existing);

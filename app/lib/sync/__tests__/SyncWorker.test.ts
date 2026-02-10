@@ -40,6 +40,10 @@ const mockOnLeaderChange = vi.fn(
   }
 );
 
+vi.mock('@/app/store/owned', () => ({
+  resetOwnedCache: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('@/app/lib/sync/tabCoordinator', () => ({
   getTabCoordinator: vi.fn(() => ({
     onLeaderChange: mockOnLeaderChange,
@@ -157,7 +161,7 @@ describe('SyncWorker', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       await flushPromises();
 
       expect(localDb.setStoredUserId).toHaveBeenCalledWith('user-123');
@@ -169,7 +173,7 @@ describe('SyncWorker', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       await flushPromises();
 
       // Advance past one sync interval
@@ -185,11 +189,11 @@ describe('SyncWorker', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       await flushPromises();
       const callsBefore = localDb.getPendingSyncOperations.mock.calls.length;
 
-      worker.setUserId(null);
+      await worker.setUserId(null);
       await vi.advanceTimersByTimeAsync(SYNC_INTERVAL_MS * 2);
 
       // No new calls after logout
@@ -200,7 +204,7 @@ describe('SyncWorker', () => {
 
     it('starts sync loop if userId set before init completes', async () => {
       worker = new SyncWorker();
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
 
       const initPromise = worker.init();
       await vi.advanceTimersByTimeAsync(0);
@@ -233,7 +237,7 @@ describe('SyncWorker', () => {
 
     it('skips when offline', async () => {
       vi.stubGlobal('navigator', { onLine: false, sendBeacon: vi.fn() });
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       await flushPromises();
       vi.clearAllMocks();
 
@@ -243,7 +247,7 @@ describe('SyncWorker', () => {
 
     it('skips when not leader (unless forced)', async () => {
       mockShouldSync.mockReturnValue(false);
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       await flushPromises();
       vi.clearAllMocks();
 
@@ -256,7 +260,7 @@ describe('SyncWorker', () => {
     });
 
     it('no-ops when queue is empty', async () => {
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       localDb.getPendingSyncOperations.mockResolvedValue([]);
       await flushPromises();
       vi.clearAllMocks();
@@ -266,7 +270,7 @@ describe('SyncWorker', () => {
     });
 
     it('fetches /api/sync with operations and removes on success', async () => {
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       localDb.getPendingSyncOperations.mockResolvedValue([
         {
           id: 1,
@@ -298,7 +302,7 @@ describe('SyncWorker', () => {
     });
 
     it('marks failed operations', async () => {
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       localDb.getPendingSyncOperations.mockResolvedValue([
         {
           id: 1,
@@ -342,7 +346,7 @@ describe('SyncWorker', () => {
     });
 
     it('uses sendBeacon when keepalive is true', async () => {
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       localDb.getPendingSyncOperations.mockResolvedValue([
         {
           id: 1,
@@ -369,7 +373,7 @@ describe('SyncWorker', () => {
     });
 
     it('sets lastSyncError on failure', async () => {
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       localDb.getPendingSyncOperations.mockResolvedValue([
         {
           id: 1,
@@ -403,7 +407,7 @@ describe('SyncWorker', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       await flushPromises();
       vi.clearAllMocks();
 
@@ -421,7 +425,7 @@ describe('SyncWorker', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       await flushPromises();
       vi.clearAllMocks();
 
@@ -437,7 +441,7 @@ describe('SyncWorker', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       await flushPromises();
       vi.clearAllMocks();
 
@@ -461,7 +465,7 @@ describe('SyncWorker', () => {
       const initPromise = worker.init();
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       await flushPromises();
     });
 
@@ -506,7 +510,7 @@ describe('SyncWorker', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       // Let setUserId's async updatePendingCount settle
       await flushPromises();
       await vi.advanceTimersByTimeAsync(10);
@@ -543,7 +547,7 @@ describe('SyncWorker', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       localDb.getSyncQueueCount.mockResolvedValue(0);
       await flushPromises();
       vi.clearAllMocks();
@@ -637,7 +641,7 @@ describe('SyncWorker', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       await flushPromises();
       vi.clearAllMocks();
 
@@ -664,7 +668,7 @@ describe('SyncWorker', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      worker.setUserId('user-123');
+      await worker.setUserId('user-123');
       await flushPromises();
 
       expect(localDb.getPendingSyncOperations).toHaveBeenCalledWith(
@@ -679,7 +683,7 @@ describe('SyncWorker', () => {
       await vi.advanceTimersByTimeAsync(0);
       await initPromise;
 
-      worker.setUserId('user-456');
+      await worker.setUserId('user-456');
       await flushPromises();
 
       expect(localDb.getPendingSyncOperations).toHaveBeenCalledWith(

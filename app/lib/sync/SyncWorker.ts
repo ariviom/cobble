@@ -16,6 +16,7 @@ import {
   notifySyncComplete,
   shouldSync,
 } from '@/app/lib/sync/tabCoordinator';
+import { resetOwnedCache } from '@/app/store/owned';
 import type { StatusListener, SyncWorkerStatus } from './types';
 
 // Migration IDs
@@ -121,8 +122,14 @@ export class SyncWorker {
   // User ID
   // ===========================================================================
 
-  setUserId(userId: string | null): void {
+  async setUserId(userId: string | null): Promise<void> {
+    const previousUserId = this.userId;
     this.userId = userId;
+
+    // Clear in-memory owned caches when the user actually changes
+    if (previousUserId !== userId) {
+      await resetOwnedCache();
+    }
 
     if (this.isAvailable && this.isReady) {
       void setStoredUserId(userId);
