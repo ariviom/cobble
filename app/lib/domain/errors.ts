@@ -13,6 +13,7 @@ export type AppErrorCode =
   | 'not_found'
   | 'no_match'
   | 'no_valid_candidate'
+  | 'session_full'
   // External service errors
   | 'external_service_error'
   | 'brickognize_failed'

@@ -158,6 +158,11 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       });
     }
 
+    // Free stale slots before attempting to insert
+    await supabase.rpc('cleanup_stale_participants', {
+      session_uuid: session.id,
+    });
+
     const { data: inserted, error: insertError } = await supabase
       .from('group_session_participants')
       .insert({
@@ -170,6 +175,15 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       .maybeSingle();
 
     if (insertError || !inserted) {
+      // RLS policy rejects inserts when session is at capacity
+      const isRlsViolation =
+        insertError?.code === '42501' ||
+        insertError?.message?.includes('row-level security');
+      if (isRlsViolation) {
+        return errorResponse('session_full', {
+          message: 'This session is full.',
+        });
+      }
       logger.error('group_sessions.join.participant_insert_failed', {
         slug,
         sessionId: session.id,

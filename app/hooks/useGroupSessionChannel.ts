@@ -36,6 +36,16 @@ type UseGroupSessionChannelArgs = {
     participantId: string | null,
     delta: number
   ) => void;
+  /**
+   * Called when a remote client requests the current owned snapshot.
+   * Typically only the host responds to this.
+   */
+  onSnapshotRequested?: () => void;
+  /**
+   * Called when reconnecting (or on first connect for joiners) so the
+   * client can request a fresh snapshot from the host.
+   */
+  onReconnected?: () => void;
 };
 
 type UseGroupSessionChannelResult = {
@@ -45,6 +55,7 @@ type UseGroupSessionChannelResult = {
     newOwned: number;
   }) => void;
   broadcastOwnedSnapshot: (ownedByKey: Record<string, number>) => void;
+  requestSnapshot: () => void;
   connectionState: 'disconnected' | 'connecting' | 'connected';
   hasConnectedOnce: boolean;
 };
@@ -61,6 +72,8 @@ export function useGroupSessionChannel({
   onRemoteDelta,
   onRemoteSnapshot,
   onParticipantPiecesDelta,
+  onSnapshotRequested,
+  onReconnected,
 }: UseGroupSessionChannelArgs): UseGroupSessionChannelResult {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [connectionState, setConnectionState] = useState<
@@ -78,6 +91,7 @@ export function useGroupSessionChannel({
     Map<string, { accumulatedDelta: number; newOwned: number }>
   >(new Map());
   const deltaTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!enabled || !sessionId) {
@@ -122,6 +136,18 @@ export function useGroupSessionChannel({
       onRemoteSnapshot?.(data.ownedByKey);
     });
 
+    channel.on('broadcast', { event: 'request_snapshot' }, ({ payload }) => {
+      const data = payload as {
+        setNumber: string;
+        clientId: string;
+      } | null;
+      if (!data) return;
+      if (data.setNumber !== setNumber) return;
+      // Ignore our own requests
+      if (data.clientId === clientId) return;
+      onSnapshotRequested?.();
+    });
+
     try {
       channel.subscribe(status => {
         // Update connection state based on Realtime status
@@ -142,6 +168,23 @@ export function useGroupSessionChannel({
             clearTimeout(reconnectTimeoutRef.current);
             reconnectTimeoutRef.current = null;
           }
+
+          // Start heartbeat to keep last_seen_at fresh (enables stale cleanup)
+          if (heartbeatIntervalRef.current) {
+            clearInterval(heartbeatIntervalRef.current);
+          }
+          if (participantId) {
+            heartbeatIntervalRef.current = setInterval(() => {
+              const sb = getSupabaseBrowserClient();
+              void sb
+                .from('group_session_participants')
+                .update({ last_seen_at: new Date().toISOString() })
+                .eq('id', participantId);
+            }, 60_000);
+          }
+
+          // Notify caller of (re)connection so they can request/send snapshots
+          onReconnected?.();
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
           // Debounce disconnected state to avoid flickering
           // Only show disconnected after 2 seconds of being disconnected
@@ -199,11 +242,58 @@ export function useGroupSessionChannel({
       setConnectionState('disconnected');
     }
 
+    // Flush all pending debounced deltas immediately (used on tab hide and cleanup)
+    const flushPendingDeltas = () => {
+      for (const [key, pendingData] of pendingDeltasRef.current.entries()) {
+        // Clear the associated timer
+        const timer = deltaTimersRef.current.get(key);
+        if (timer) clearTimeout(timer);
+        deltaTimersRef.current.delete(key);
+
+        if (pendingData.accumulatedDelta === 0) continue;
+
+        const flushPayload: PieceDeltaPayload = {
+          key,
+          delta: pendingData.accumulatedDelta,
+          newOwned: pendingData.newOwned,
+          participantId,
+          clientId,
+          setNumber,
+        };
+
+        channel
+          .send({
+            type: 'broadcast',
+            event: 'piece_delta',
+            payload: flushPayload,
+          })
+          .catch(() => {
+            // Best-effort flush
+          });
+      }
+      pendingDeltasRef.current.clear();
+    };
+
+    // Flush pending deltas when tab becomes hidden so remote clients stay in sync
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushPendingDeltas();
+      }
+      // On visible: Supabase Realtime auto-reconnects, which triggers
+      // SUBSCRIBED → onReconnected → snapshot handshake (Phase 3)
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     // Capture refs for cleanup
     const deltaTimers = deltaTimersRef.current;
     const pendingDeltas = pendingDeltasRef.current;
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
@@ -235,9 +325,12 @@ export function useGroupSessionChannel({
     sessionId,
     setNumber,
     clientId,
+    participantId,
     onRemoteDelta,
     onParticipantPiecesDelta,
     onRemoteSnapshot,
+    onSnapshotRequested,
+    onReconnected,
   ]);
 
   const broadcastPieceDelta = useCallback(
@@ -351,9 +444,31 @@ export function useGroupSessionChannel({
     [enabled, sessionId, setNumber, clientId]
   );
 
+  const requestSnapshot = useCallback(() => {
+    if (!enabled || !sessionId) return;
+    const channel = channelRef.current;
+    if (!channel) return;
+
+    channel
+      .send({
+        type: 'broadcast',
+        event: 'request_snapshot',
+        payload: { setNumber, clientId },
+      })
+      .catch(err => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[GroupSessionChannel] request_snapshot failed', {
+            sessionId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      });
+  }, [enabled, sessionId, setNumber, clientId]);
+
   return {
     broadcastPieceDelta,
     broadcastOwnedSnapshot,
+    requestSnapshot,
     connectionState,
     hasConnectedOnce,
   };

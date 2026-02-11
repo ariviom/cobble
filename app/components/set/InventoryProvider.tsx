@@ -174,6 +174,11 @@ export function useInventoryData(): InventoryDataContextValue {
   return ctx;
 }
 
+/** Returns inventory data context or null when rendered outside InventoryProvider. */
+export function useOptionalInventoryData(): InventoryDataContextValue | null {
+  return useContext(InventoryDataContext);
+}
+
 export function useInventoryControls(): InventoryControlsContextValue {
   const ctx = useContext(InventoryControlsContext);
   if (!ctx) {
@@ -381,9 +386,33 @@ export function InventoryProvider({
     Boolean(groupParticipantId) &&
     Boolean(groupClientId);
 
+  // Stable refs for snapshot handshake callbacks (avoids circular deps)
+  const ownedByKeyRef = useRef(ownedByKey);
+  ownedByKeyRef.current = ownedByKey;
+  const broadcastOwnedSnapshotRef = useRef<
+    (owned: Record<string, number>) => void
+  >(() => {});
+  const requestSnapshotRef = useRef<() => void>(() => {});
+
+  const handleSnapshotRequested = useCallback(() => {
+    if (!enableCloudSync || !isInGroupSession) return;
+    broadcastOwnedSnapshotRef.current(ownedByKeyRef.current);
+  }, [enableCloudSync, isInGroupSession]);
+
+  const handleReconnected = useCallback(() => {
+    if (enableCloudSync) {
+      // Host: proactively broadcast snapshot on reconnect
+      broadcastOwnedSnapshotRef.current(ownedByKeyRef.current);
+    } else {
+      // Joiner: ask host for current state
+      requestSnapshotRef.current();
+    }
+  }, [enableCloudSync]);
+
   const {
     broadcastPieceDelta,
     broadcastOwnedSnapshot,
+    requestSnapshot,
     connectionState,
     hasConnectedOnce,
   } = useGroupSessionChannel({
@@ -403,9 +432,14 @@ export function InventoryProvider({
       });
     },
     ...(onParticipantPiecesDelta ? { onParticipantPiecesDelta } : {}),
+    onSnapshotRequested: handleSnapshotRequested,
+    onReconnected: handleReconnected,
   });
 
-  const hasBroadcastSnapshotRef = useRef(false);
+  // Keep refs in sync after hook returns
+  broadcastOwnedSnapshotRef.current = broadcastOwnedSnapshot;
+  requestSnapshotRef.current = requestSnapshot;
+
   const hasClearedLocalForJoinerRef = useRef(false);
 
   // Clear local data for joiners
@@ -416,21 +450,6 @@ export function InventoryProvider({
     clearAllOwned(setNumber);
     hasClearedLocalForJoinerRef.current = true;
   }, [enableCloudSync, isInGroupSession, clearAllOwned, setNumber]);
-
-  // Broadcast initial snapshot for hosts
-  useEffect(() => {
-    if (!enableCloudSync || !isInGroupSession) return;
-    if (!isOwnedHydrated) return;
-    if (hasBroadcastSnapshotRef.current) return;
-    broadcastOwnedSnapshot(ownedByKey);
-    hasBroadcastSnapshotRef.current = true;
-  }, [
-    enableCloudSync,
-    isInGroupSession,
-    isOwnedHydrated,
-    ownedByKey,
-    broadcastOwnedSnapshot,
-  ]);
 
   // -------------------------------------------------------------------------
   // Combined owned change handler (local + broadcast)
