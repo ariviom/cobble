@@ -551,6 +551,57 @@ body {
   contain-intrinsic-size: auto 200px;
 }
 
+/* Percentage-based grid sizing — auto-fill + minmax(max(Npx, M%), 1fr)
+   Pixel floor prevents tiny cells; percentage caps max columns on wide screens.
+   Each size produces distinct column counts at every viewport where differentiation
+   is physically possible. */
+@utility grid-size-sm {
+  grid-template-columns: repeat(auto-fill, minmax(max(145px, 14%), 1fr));
+}
+
+@utility grid-size-md {
+  grid-template-columns: repeat(auto-fill, minmax(max(200px, 16%), 1fr));
+}
+
+@utility grid-size-lg {
+  grid-template-columns: repeat(auto-fill, minmax(max(260px, 19%), 1fr));
+}
+
+/* Grid collision detection: when two size options produce the same column count,
+   the smaller size gets a reduced image for visual differentiation.
+   Each card is a size container; thresholds are the next-larger size's pixel
+   minimum minus card overhead (p-3 + border-2 = 28px), since @container
+   measures the content-box. Media query caps at <1024px to prevent false
+   positives where percentage minimums inflate cell widths at wide viewports. */
+
+.grid-collision-container {
+  container-type: inline-size;
+}
+
+@media (max-width: 1023px) {
+  /* sm≈md collision: content-box ≥ 172px (200px cell − 28px card overhead) */
+  @container (min-width: 172px) {
+    [data-view='grid'][data-item-size='sm'] .grid-collision-btn {
+      aspect-ratio: auto;
+    }
+    [data-view='grid'][data-item-size='sm'] .grid-collision-img {
+      aspect-ratio: auto;
+      padding-inline: 15%;
+    }
+  }
+
+  /* md≈lg collision: content-box ≥ 232px (260px cell − 28px card overhead) */
+  @container (min-width: 232px) {
+    [data-view='grid'][data-item-size='md'] .grid-collision-btn {
+      aspect-ratio: auto;
+    }
+    [data-view='grid'][data-item-size='md'] .grid-collision-img {
+      aspect-ratio: auto;
+      padding-inline: 15%;
+    }
+  }
+}
+
 /* Isometric Brick Loader Animations
    Three bricks (red, yellow, blue) chase each other around a diamond pattern.
    One brick moves per step, creating a continuous rotation effect.

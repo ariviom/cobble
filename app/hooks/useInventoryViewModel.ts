@@ -285,16 +285,12 @@ export function useInventoryViewModel(
     });
   }, [rows, sizeByIndex, groupBy]);
 
-  const gridSizes = useMemo(() => {
-    switch (itemSize) {
-      case 'sm':
-        return 'grid-cols-2 xs:grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 3xl:grid-cols-7';
-      case 'md':
-        return 'grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6';
-      case 'lg':
-        return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6';
-    }
-  }, [itemSize])!;
+  const gridSizeClass: Record<ItemSize, string> = {
+    sm: 'grid-size-sm',
+    md: 'grid-size-md',
+    lg: 'grid-size-lg',
+  };
+  const gridSizes = gridSizeClass[itemSize];
 
   const countsByParent = useMemo(() => {
     const counts: Record<string, number> = {};

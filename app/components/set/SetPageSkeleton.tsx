@@ -40,7 +40,7 @@ export function SetPageSkeleton({ variant = 'set' }: SetPageSkeletonProps) {
               <div className="h-[var(--spacing-controls-height)] border-b border-subtle bg-card-muted" />
             </div>
             {/* Skeleton content */}
-            <div className="flex h-[50vh] items-center justify-center">
+            <div className="flex min-h-[60dvh] items-center justify-center">
               <BrickLoader />
             </div>
           </div>
