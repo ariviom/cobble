@@ -20,7 +20,6 @@ import {
   InventoryItemModal,
   type InventoryItemModalData,
 } from './items/InventoryItemModal';
-import { SearchPartyBanner } from './SearchPartyBanner';
 
 export function Inventory() {
   const {
@@ -177,9 +176,6 @@ export function Inventory() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Search Party Experimental Banner */}
-      {isInGroupSession && <SearchPartyBanner />}
-
       {/* Connection Status for Search Party */}
       {isInGroupSession &&
         hasConnectedOnce &&
@@ -211,7 +207,7 @@ export function Inventory() {
           data-item-size={itemSize}
         >
           {isLoading ? (
-            <div className="flex h-full items-center justify-center">
+            <div className="flex min-h-[60dvh] items-center justify-center">
               <BrickLoader />
             </div>
           ) : (

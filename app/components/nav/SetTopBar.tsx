@@ -14,12 +14,12 @@ import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { Modal } from '@/app/components/ui/Modal';
 import { MoreDropdown } from '@/app/components/ui/MoreDropdown';
 import { cn } from '@/app/components/ui/utils';
-import { useInventoryData } from '@/app/components/set/InventoryProvider';
+import { useOptionalInventoryData } from '@/app/components/set/InventoryProvider';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import { Copy, Trophy, Users } from 'lucide-react';
+import { Check, Copy, Trophy, Users } from 'lucide-react';
 import Image from 'next/image';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import QRCode from 'react-qr-code';
 
 type SetTopBarProps = {
@@ -29,6 +29,7 @@ type SetTopBarProps = {
   year?: number;
   numParts?: number;
   themeId?: number | null;
+  hideMoreMenu?: boolean;
   searchParty?: {
     active: boolean;
     loading: boolean;
@@ -41,6 +42,7 @@ type SetTopBarProps = {
     }>;
     totalPiecesFound: number;
     currentParticipantId?: string | null;
+    buttonDisabled?: boolean;
     onStart: () => Promise<void> | void;
     onEnd: () => Promise<void> | void;
   };
@@ -53,6 +55,7 @@ export function SetTopBar({
   year,
   numParts,
   themeId,
+  hideMoreMenu,
   searchParty,
 }: SetTopBarProps) {
   const [resolvedImageUrl, setResolvedImageUrl] = useState<string | null>(
@@ -60,6 +63,8 @@ export function SetTopBar({
   );
   const [hasTriedRefresh, setHasTriedRefresh] = useState(false);
   const [searchPartyModalOpen, setSearchTogetherModalOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [quotaInfo, setQuotaInfo] = useState<{
     canHost: boolean;
     unlimited?: boolean;
@@ -69,7 +74,9 @@ export function SetTopBar({
     resetDateFormatted?: string;
     loading: boolean;
   }>({ canHost: true, loading: false });
-  const { isLoading, ownedTotal } = useInventoryData();
+  const inventoryData = useOptionalInventoryData();
+  const isLoading = inventoryData?.isLoading ?? false;
+  const ownedTotal = inventoryData?.ownedTotal ?? 0;
   const ownership = useSetOwnershipState({
     setNumber,
     name: setName,
@@ -121,17 +128,20 @@ export function SetTopBar({
     await searchParty.onEnd?.();
   };
 
-  const handleCopyShareLink = () => {
+  const handleCopyShareLink = useCallback(() => {
     const link = searchParty?.joinUrl;
     if (!link) return;
     try {
       void navigator.clipboard?.writeText(link);
+      setCopiedLink(true);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopiedLink(false), 2000);
     } catch (err) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('Failed to copy Search Party link', err);
       }
     }
-  };
+  }, [searchParty?.joinUrl]);
 
   // Fetch quota info when modal opens
   useEffect(() => {
@@ -227,26 +237,32 @@ export function SetTopBar({
               <div className="flex min-w-0 items-center truncate font-bold lg:text-xl">
                 {setName}
               </div>
-              <MoreDropdown
-                ariaLabel="Set status and collections"
-                className="absolute top-3 right-3 ml-auto flex-shrink-0"
-              >
-                {() => (
-                  <div className="min-w-[160px] rounded-lg border-2 border-subtle bg-card p-2 shadow-lg">
-                    <SetOwnershipAndCollectionsRow
-                      ownership={ownership}
-                      variant="dropdown"
-                      bricklinkUrl={bricklinkSetUrl}
-                    />
-                  </div>
-                )}
-              </MoreDropdown>
+              {!hideMoreMenu && (
+                <MoreDropdown
+                  ariaLabel="Set status and collections"
+                  className="absolute top-3 right-3 ml-auto flex-shrink-0"
+                >
+                  {() => (
+                    <div className="min-w-[160px] rounded-lg border-2 border-subtle bg-card p-2 shadow-lg">
+                      <SetOwnershipAndCollectionsRow
+                        ownership={ownership}
+                        variant="dropdown"
+                        bricklinkUrl={bricklinkSetUrl}
+                      />
+                    </div>
+                  )}
+                </MoreDropdown>
+              )}
             </div>
             <div className="mt-0.5 text-xs text-foreground-muted lg:text-sm">
               {setNumber}
               {typeof year === 'number' && ` | ${year}`}
               {' | '}
-              {isLoading ? 'Computing…' : `${ownedTotal} / ${numParts} parts`}
+              {!inventoryData
+                ? `${numParts} parts`
+                : isLoading
+                  ? 'Computing…'
+                  : `${ownedTotal} / ${numParts} parts`}
             </div>
             {searchParty && (
               <div className="mt-1.5">
@@ -254,14 +270,14 @@ export function SetTopBar({
                   type="button"
                   aria-label="Search Party"
                   className={cn(
-                    'relative inline-flex items-center gap-1.5 rounded-md border-2 px-3 py-1.5 text-[13px] font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:px-4 lg:py-2',
+                    'relative inline-flex items-center gap-1.5 rounded-md border-2 px-3 py-1.5 text-[13px] font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 lg:px-4 lg:py-2',
                     searchParty.active
                       ? 'border-brand-blue bg-brand-blue text-white shadow-[0_2px_0_0] shadow-brand-blue/40'
                       : 'border-subtle bg-card text-foreground-muted hover:border-foreground/30 hover:bg-card-muted hover:text-foreground'
                   )}
-                  disabled={!searchParty}
+                  disabled={!searchParty || searchParty.buttonDisabled}
                   onClick={() => {
-                    if (!searchParty) return;
+                    if (!searchParty || searchParty.buttonDisabled) return;
                     setSearchTogetherModalOpen(true);
                   }}
                 >
@@ -290,8 +306,8 @@ export function SetTopBar({
             {!searchParty.active ? (
               <Card>
                 <CardHeader className="flex flex-col items-center justify-center gap-2 text-center">
-                  <div className="flex size-14 items-center justify-center rounded-full bg-brand-blue/10">
-                    <Users className="size-7 text-brand-blue" />
+                  <div className="flex size-14 items-center justify-center rounded-full bg-theme-primary/10">
+                    <Users className="size-7 text-theme-primary" />
                   </div>
                   <CardTitle className="text-lg">
                     Search for pieces together
@@ -340,7 +356,7 @@ export function SetTopBar({
                         className="w-full"
                         disabled
                       >
-                        Checking availability…
+                        Loading…
                       </Button>
                     ) : quotaInfo.canHost ? (
                       <Button
@@ -383,44 +399,52 @@ export function SetTopBar({
             ) : (
               <>
                 <Card>
-                  <CardHeader className="flex flex-col gap-1">
-                    <CardTitle className="text-lg">Session code</CardTitle>
-                    <CardDescription className="text-sm">
-                      Share this session so others can search for pieces with
-                      you.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-4 pt-4">
                     {searchParty?.joinUrl ? (
                       <div className="flex justify-center">
                         <div className="rounded-lg border-2 border-subtle bg-white p-4 shadow-[0_4px_0_0] shadow-subtle/50">
                           <QRCode
                             value={searchParty.joinUrl}
-                            size={180}
-                            className="h-auto w-[180px]"
+                            size={140}
+                            className="h-auto w-[140px]"
                             fgColor="#0a0a0a"
                             bgColor="#ffffff"
                           />
                         </div>
                       </div>
                     ) : null}
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                      <div className="flex flex-1 items-center justify-center rounded-md border-2 border-brand-blue/30 bg-brand-blue/5 px-4 py-3 font-mono text-xl font-bold tracking-[0.4em] text-brand-blue">
+                    <button
+                      type="button"
+                      className="inline-flex w-full items-center justify-center gap-1.5 text-sm font-bold text-link transition-colors hover:text-link-hover disabled:opacity-50"
+                      onClick={handleCopyShareLink}
+                      disabled={!searchParty.joinUrl}
+                    >
+                      {copiedLink ? (
+                        <>
+                          <Check className="size-3.5 text-green-600" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="size-3.5" />
+                          Copy join link
+                        </>
+                      )}
+                    </button>
+                    <div className="mt-2 flex flex-col items-center gap-2">
+                      <span className="text-xs font-medium text-foreground-muted">
+                        Or visit{' '}
+                        <span className="font-bold text-foreground">
+                          {searchParty.joinUrl ?? '/group'}
+                        </span>
+                      </span>
+                      <div className="w-full rounded-md border-2 border-subtle bg-card-muted px-4 py-3 text-center font-mono text-xl font-bold tracking-[0.4em] text-foreground">
                         {sessionCode ?? '———'}
                       </div>
-                      <button
-                        type="button"
-                        className="flex h-14 shrink-0 items-center justify-center gap-2 rounded-md border-2 border-subtle bg-card px-4 font-bold text-foreground-muted transition-colors hover:border-foreground/30 hover:bg-card-muted hover:text-foreground disabled:opacity-50"
-                        onClick={handleCopyShareLink}
-                        disabled={!searchParty.joinUrl}
-                      >
-                        <Copy className="size-4" />
-                        Copy Link
-                      </button>
                     </div>
                     <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
                       <div className="flex items-center gap-2">
-                        <Users className="size-4 text-brand-blue" />
+                        <Users className="size-4 text-theme-primary" />
                         <span className="font-bold">
                           {participantCount.toLocaleString()}
                         </span>

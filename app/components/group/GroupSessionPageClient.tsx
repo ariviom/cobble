@@ -5,6 +5,8 @@ import { Inventory } from '@/app/components/set/Inventory';
 import { InventoryControls } from '@/app/components/set/InventoryControls';
 import { InventoryProvider } from '@/app/components/set/InventoryProvider';
 import { Button } from '@/app/components/ui/Button';
+import { Input } from '@/app/components/ui/Input';
+import { Toast } from '@/app/components/ui/Toast';
 import { cn } from '@/app/components/ui/utils';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
 import { useOrigin } from '@/app/hooks/useOrigin';
@@ -40,6 +42,7 @@ export function GroupSessionPageClient({
 }: GroupSessionPageClientProps) {
   const [displayNameInput, setDisplayNameInput] = useState('');
   const [isJoining, setIsJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [currentParticipant, setCurrentParticipant] =
     useState<GroupParticipant | null>(null);
   const [participants, setParticipants] = useState<GroupParticipant[]>([]);
@@ -100,15 +103,21 @@ export function GroupSessionPageClient({
         session?: { id: string; setNumber: string };
         participant?: { id: string; displayName: string; piecesFound: number };
         error?: string;
+        message?: string;
       };
 
       if (!res.ok || !data.participant || !data.session) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('GroupSessionPageClient: join failed', {
-            status: res.status,
-            body: data,
-          });
+        let msg: string;
+        if (data.error === 'session_full') {
+          msg = 'This session is full (max 8 participants).';
+        } else if (data.error === 'not_found') {
+          msg = "This session has ended or doesn't exist.";
+        } else if (res.status === 429) {
+          msg = data.message ?? 'Too many attempts, please wait.';
+        } else {
+          msg = 'Failed to join. Please try again.';
         }
+        setJoinError(msg);
         return;
       }
 
@@ -285,36 +294,34 @@ export function GroupSessionPageClient({
   ) : (
     <div
       className={cn(
-        'set-grid-layout min-h-[100dvh] overflow-x-hidden',
-        'lg:h-[calc(100dvh-var(--spacing-nav-offset))] lg:overflow-hidden'
+        'flex h-[calc(100dvh-var(--spacing-nav-height))] flex-col overflow-hidden',
+        'lg:h-[calc(100dvh-var(--spacing-nav-offset))]'
       )}
     >
-      {/* Mobile: sticky header | Desktop: lg:contents dissolves wrapper */}
-      <header className="sticky top-0 z-60 col-span-full bg-card lg:contents">
-        <SetTopBar
-          setNumber={setNumber}
-          setName={setName}
-          imageUrl={imageUrl}
-          year={year}
-          numParts={numParts}
-          themeId={themeId ?? null}
-          searchParty={{
-            active: hasJoined,
-            loading: isJoining,
-            canHost: false,
-            joinUrl,
-            participants,
-            totalPiecesFound,
-            onStart: () => {},
-            onEnd: () => {},
-          }}
-        />
-      </header>
+      <SetTopBar
+        setNumber={setNumber}
+        setName={setName}
+        imageUrl={imageUrl}
+        year={year}
+        numParts={numParts}
+        themeId={themeId ?? null}
+        hideMoreMenu
+        searchParty={{
+          active: hasJoined,
+          loading: isJoining,
+          canHost: false,
+          joinUrl,
+          participants,
+          totalPiecesFound,
+          buttonDisabled: true,
+          onStart: () => {},
+          onEnd: () => {},
+        }}
+      />
 
-      {/* Join form - needs bottom padding for mobile nav */}
-      <main className="flex flex-1 items-center justify-center px-4 py-8 pt-[var(--spacing-topnav-height)] pb-[var(--spacing-nav-height)] lg:col-start-2 lg:pt-0 lg:pb-0">
-        <div className="w-full max-w-sm rounded-md border-2 border-subtle bg-card p-4 text-xs">
-          <h1 className="text-sm font-semibold text-foreground">
+      <main className="flex flex-1 items-center justify-center overflow-hidden px-4">
+        <div className="w-full max-w-sm rounded-md border-2 border-subtle bg-card p-5 text-sm">
+          <h1 className="text-base font-bold text-foreground">
             Join this Search Party session
           </h1>
           <p className="mt-2 text-foreground-muted">
@@ -322,19 +329,20 @@ export function GroupSessionPageClient({
             We&apos;ll remember it on this device so you stay recognized if you
             disconnect and rejoin.
           </p>
-          <label className="text-2xs mt-4 block font-medium text-foreground">
+          <label className="mt-4 block text-sm font-medium text-foreground">
             Name
           </label>
-          <input
+          <Input
             type="text"
+            size="md"
             value={displayNameInput}
             onChange={event => setDisplayNameInput(event.target.value)}
-            className="mt-1 w-full rounded-md border-2 border-subtle bg-background px-2 py-1 text-xs"
+            className="mt-1"
             placeholder="e.g., Alice, Living room, iPad"
           />
           <Button
             variant="primary"
-            size="sm"
+            size="md"
             className="mt-4 w-full"
             onClick={() => void handleJoin()}
             disabled={isJoining || !displayNameInput.trim() || !clientId}
@@ -346,5 +354,16 @@ export function GroupSessionPageClient({
     </div>
   );
 
-  return content;
+  return (
+    <>
+      {content}
+      {joinError && (
+        <Toast
+          variant="error"
+          description={joinError}
+          onClose={() => setJoinError(null)}
+        />
+      )}
+    </>
+  );
 }
