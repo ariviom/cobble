@@ -209,9 +209,7 @@ describe('GET /api/inventory', () => {
       const req = new NextRequest('http://localhost/api/inventory?set=75192-1');
       const res = await GET(req);
 
-      expect(res.headers.get('Cache-Control')).toBe(
-        'public, max-age=300, stale-while-revalidate=3600'
-      );
+      expect(res.headers.get('Cache-Control')).toBe('private, max-age=300');
     });
 
     it('handles null inventory version gracefully', async () => {
