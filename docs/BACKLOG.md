@@ -118,17 +118,34 @@ Required before accepting paid users, but not blocking personal usage.
 - [ ] API guards for tier-restricted endpoints
 - [ ] Client `useFeatureFlag` hook consuming preloaded entitlements
 - [ ] Usage counters table and enforcement logic
+- [ ] Tab limit enforcement (free: 3 tabs, Plus/Pro: unlimited)
+
+**Pricing philosophy:** Expose surface area on free tier so users can try everything; gate on volume. Sync is a value-add, not a prerequisite — free users can manually export/import collection data.
 
 **Feature flags to enforce** (seeds exist in `feature_flags` table):
 
-| Flag                     | Min Tier | Free Limit   |
-| ------------------------ | -------- | ------------ |
-| `identify.unlimited`     | Plus     | TBD          |
-| `lists.unlimited`        | Plus     | 3 lists      |
-| `search_party.unlimited` | Plus     | 2 runs/month |
-| `search_party.advanced`  | Plus     | -            |
-| `bricklink.byo_key`      | Pro      | -            |
-| `mocs.custom`            | Pro      | -            |
+| Flag                     | Min Tier | Free Limit                               |
+| ------------------------ | -------- | ---------------------------------------- |
+| `tabs.unlimited`         | Plus     | 3 open tabs                              |
+| `identify.unlimited`     | Plus     | 5-10/month                               |
+| `exports.unlimited`      | Plus     | 1/month                                  |
+| `sync.enabled`           | Plus     | -                                        |
+| `lists.unlimited`        | Plus     | 3 lists                                  |
+| `search_party.unlimited` | Plus     | 2 runs/month                             |
+| `search_party.advanced`  | Plus     | -                                        |
+| `prices.detailed`        | Plus     | TBD (need historical avg infrastructure) |
+| `exclusive_pieces`       | Pro      | -                                        |
+| `bricklink.byo_key`      | Pro      | -                                        |
+| `mocs.custom`            | Pro      | -                                        |
+
+See `docs/billing/stripe-subscriptions.md` for full spec.
+
+### Collection Import/Export
+
+- [ ] Export collection data (sets, owned quantities, lists) as JSON from user settings
+- [ ] Import from Brick Party export file
+- [ ] Import from BrickScan (map their format to ours; set IDs are universal)
+- [ ] Available on free tier as manual workaround for cross-device sync
 
 See `docs/billing/stripe-subscriptions.md` for full spec.
 
