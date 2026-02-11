@@ -28,7 +28,7 @@ export function Modal({ open, title, onClose, children }: Props) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[80] flex items-center justify-center px-4 pt-4 pb-[calc(1rem+var(--spacing-nav-height))] lg:pt-[calc(1rem+var(--spacing-nav-height))] lg:pb-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}
@@ -42,12 +42,13 @@ export function Modal({ open, title, onClose, children }: Props) {
         aria-hidden="true"
       />
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-lg bg-card shadow-[0_8px_0_0_var(--color-shadow-depth)]"
+        className="relative flex w-full max-w-md flex-col overflow-hidden rounded-lg bg-card shadow-[0_8px_0_0_var(--color-shadow-depth)]"
+        style={{ maxHeight: 'calc(100dvh - var(--spacing-nav-height) - 2rem)' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Theme accent strip - flush with edge */}
-        <div className="h-2 bg-theme-primary" />
-        <div className="flex items-center justify-between border-b border-subtle px-5 py-4">
+        <div className="h-2 shrink-0 bg-theme-primary" />
+        <div className="flex shrink-0 items-center justify-between border-b border-subtle px-5 py-4">
           <div id={titleId} className="text-xl font-bold text-foreground">
             {title}
           </div>
@@ -60,7 +61,7 @@ export function Modal({ open, title, onClose, children }: Props) {
             ✕
           </Button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
       </div>
     </div>,
     document.body
