@@ -270,9 +270,9 @@ export function SetTopBar({
                   type="button"
                   aria-label="Search Party"
                   className={cn(
-                    'relative inline-flex items-center gap-1.5 rounded-md border-2 px-3 py-1.5 text-[13px] font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 lg:px-4 lg:py-2',
+                    'relative inline-flex items-center gap-1.5 rounded-md border-2 px-3 py-1.5 text-[13px] font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 lg:px-4 lg:py-2',
                     searchParty.active
-                      ? 'border-brand-blue bg-brand-blue text-white shadow-[0_2px_0_0] shadow-brand-blue/40'
+                      ? 'border-theme-primary bg-theme-primary text-theme-primary-contrast shadow-[0_2px_0_0] shadow-theme-shadow/40'
                       : 'border-subtle bg-card text-foreground-muted hover:border-foreground/30 hover:bg-card-muted hover:text-foreground'
                   )}
                   disabled={!searchParty || searchParty.buttonDisabled}
