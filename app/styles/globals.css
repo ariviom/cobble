@@ -590,6 +590,18 @@ body {
     }
   }
 
+  /* sm≈lg collision (triple): content-box ≥ 232px (260px cell − 28px overhead)
+     Overrides sm≈md 15% with stronger 25% so sm < md < lg visually. */
+  @container (min-width: 232px) {
+    [data-view='grid'][data-item-size='sm'] .grid-collision-btn {
+      aspect-ratio: auto;
+    }
+    [data-view='grid'][data-item-size='sm'] .grid-collision-img {
+      aspect-ratio: auto;
+      padding-inline: 25%;
+    }
+  }
+
   /* md≈lg collision: content-box ≥ 232px (260px cell − 28px card overhead) */
   @container (min-width: 232px) {
     [data-view='grid'][data-item-size='md'] .grid-collision-btn {
