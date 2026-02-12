@@ -49,7 +49,7 @@ export function QuantityDropdown({
       className={cn(
         'inline-flex rounded-md border-2 border-subtle bg-card transition-colors hover:border-strong',
         sizeStyles[size],
-        disabled && 'cursor-not-allowed opacity-60',
+        disabled && 'cursor-not-allowed opacity-50',
         className
       )}
       value={Number.isFinite(value) && value >= 0 ? value : 0}

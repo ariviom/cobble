@@ -24,7 +24,6 @@ export type RowButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> &
     selected?: boolean;
     /** Visual dimming without disabling interaction */
     muted?: boolean;
-    wrapperClassName?: string;
   };
 
 export function RowButton({
@@ -32,27 +31,22 @@ export function RowButton({
   muted,
   size,
   className,
-  wrapperClassName,
   children,
   type,
   ...rest
 }: RowButtonProps) {
   return (
-    <div
+    <button
+      type={type ?? 'button'}
       data-selected={selected ? 'true' : undefined}
-      className={wrapperClassName}
+      className={cn(
+        rowButtonVariants({ size }),
+        muted && 'opacity-50',
+        className
+      )}
+      {...rest}
     >
-      <button
-        type={type ?? 'button'}
-        className={cn(
-          rowButtonVariants({ size }),
-          muted && 'opacity-50',
-          className
-        )}
-        {...rest}
-      >
-        {children}
-      </button>
-    </div>
+      {children}
+    </button>
   );
 }

@@ -42,16 +42,14 @@ export function Modal({ open, title, onClose, children }: Props) {
         aria-hidden="true"
       />
       <div
-        className="relative flex w-full max-w-md flex-col overflow-hidden rounded-lg bg-card shadow-[0_8px_0_0_var(--color-shadow-depth)]"
+        className="relative flex w-full max-w-md flex-col overflow-hidden rounded-lg border-t-[8px] border-theme-primary bg-card shadow-[0_8px_0_0_var(--color-shadow-depth)]"
         style={{ maxHeight: 'calc(100dvh - var(--spacing-nav-height) - 2rem)' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Theme accent strip - flush with edge */}
-        <div className="h-2 shrink-0 bg-theme-primary" />
         <div className="flex shrink-0 items-center justify-between border-b border-subtle px-5 py-4">
-          <div id={titleId} className="text-xl font-bold text-foreground">
+          <h2 id={titleId} className="text-xl font-bold text-foreground">
             {title}
-          </div>
+          </h2>
           <Button
             variant="ghost"
             size="sm"

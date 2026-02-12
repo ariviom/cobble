@@ -8,6 +8,7 @@ import {
 } from '@/app/components/ui/MoreDropdown';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { formatMinifigId } from '@/app/lib/minifigIds';
+import { cn } from '@/app/components/ui/utils';
 import { Check, ExternalLink, Info, Pin, Search } from 'lucide-react';
 import { memo } from 'react';
 import type { InventoryRow } from '../types';
@@ -137,7 +138,12 @@ function InventoryItemComponent({
         }}
       >
         <div
-          className={`grid-collision-img aspect-square h-full w-full overflow-hidden rounded-sm ${owned === row.quantityRequired ? 'ring-2 ring-success' : 'ring-1 ring-foreground-accent'}`}
+          className={cn(
+            'grid-collision-img aspect-square h-full w-full overflow-hidden rounded-sm',
+            owned === row.quantityRequired
+              ? 'ring-2 ring-success'
+              : 'ring-1 ring-foreground-accent'
+          )}
         >
           {row.imageUrl ? (
             <OptimizedImage
@@ -152,7 +158,11 @@ function InventoryItemComponent({
           )}
         </div>
         <div
-          className={`absolute right-0 bottom-0 flex h-6 min-w-6 translate-x-3 translate-y-1/2 items-center justify-center rounded-full grid:h-8 grid:min-w-8 ${owned === row.quantityRequired ? 'border-2 border-success bg-background text-success' : ''}`}
+          className={cn(
+            'absolute right-0 bottom-0 flex h-6 min-w-6 translate-x-3 translate-y-1/2 items-center justify-center rounded-full grid:h-8 grid:min-w-8',
+            owned === row.quantityRequired &&
+              'border-2 border-success bg-background text-success'
+          )}
         >
           {owned === row.quantityRequired ? (
             <Check size={16} strokeWidth={3} />

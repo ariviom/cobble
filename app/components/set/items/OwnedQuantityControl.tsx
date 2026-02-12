@@ -94,7 +94,10 @@ export function OwnedQuantityControl({
 
   return (
     <div
-      className={`flex h-[52px] w-full min-w-min shrink items-center justify-between rounded-lg border-2 border-subtle list:sm:max-w-min grid:w-full ${className ?? ''}`}
+      className={cn(
+        'flex h-[52px] w-full min-w-min shrink items-center justify-between rounded-lg border-2 border-subtle list:sm:max-w-min grid:w-full',
+        className
+      )}
     >
       <Button
         onClick={() => onChange(clampOwned(owned - 1, required))}
@@ -103,23 +106,24 @@ export function OwnedQuantityControl({
       >
         –
       </Button>
-      <div className="relative items-center text-xs xs:text-sm">
-        <input
-          type="text"
-          name="piece-count"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          className={`hide-arrows flex h-full w-full text-center font-medium ${owned === required ? 'border-x border-white font-bold' : ''}`}
-          value={inputValue}
-          onFocus={event => {
-            setIsFocused(true);
-            event.target.select();
-          }}
-          onChange={handleInputChange}
-          onBlur={handleBlur}
-          aria-label="Owned quantity"
-        />
-      </div>
+      <input
+        type="text"
+        name="piece-count"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        className={cn(
+          'hide-arrows relative flex h-full w-full items-center text-center text-xs font-medium xs:text-sm',
+          owned === required && 'border-x border-white font-bold'
+        )}
+        value={inputValue}
+        onFocus={event => {
+          setIsFocused(true);
+          event.target.select();
+        }}
+        onChange={handleInputChange}
+        onBlur={handleBlur}
+        aria-label="Owned quantity"
+      />
       <Button
         onClick={() => onChange(clampOwned(owned + 1, required))}
         disabled={owned >= required}

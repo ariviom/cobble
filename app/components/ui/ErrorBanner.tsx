@@ -1,5 +1,7 @@
 'use client';
 
+import { cn } from './utils';
+
 type ErrorBannerProps = {
   message: string;
   className?: string;
@@ -8,7 +10,10 @@ type ErrorBannerProps = {
 export function ErrorBanner({ message, className }: ErrorBannerProps) {
   return (
     <div
-      className={`rounded-md border-2 border-danger bg-danger-muted p-3 text-sm text-danger ${className ?? ''}`}
+      className={cn(
+        'rounded-md border-2 border-danger bg-danger-muted p-3 text-sm text-danger',
+        className
+      )}
       role="alert"
     >
       {message}

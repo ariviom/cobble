@@ -69,7 +69,10 @@ export function SetTabItem({
     return (
       <>
         <div
-          className={`flex h-11 items-end gap-4 py-1 lg:h-9 lg:min-w-fit ${isActive && 'fixed left-0 z-10 lg:static'}`}
+          className={cn(
+            'flex h-11 items-end gap-4 py-1 lg:h-9 lg:min-w-fit',
+            isActive && 'fixed left-0 z-10 lg:static'
+          )}
         >
           <Link
             href={tabUrl}
@@ -142,7 +145,10 @@ export function SetTabItem({
   return (
     <>
       <div
-        className={`flex h-11 items-end gap-4 py-1 lg:h-9 lg:min-w-fit ${isActive && 'fixed left-0 z-10 lg:static'}`}
+        className={cn(
+          'flex h-11 items-end gap-4 py-1 lg:h-9 lg:min-w-fit',
+          isActive && 'fixed left-0 z-10 lg:static'
+        )}
       >
         <Link
           href={tabUrl}
@@ -201,7 +207,7 @@ export function SetTabItem({
             onClick={handleClose}
             className={cn(
               'absolute right-1.5 flex items-center justify-center rounded transition-colors',
-              'size-7 lg:size-5', // 28px mobile, 20px desktop
+              'size-7 lg:size-5',
               isActive
                 ? 'text-foreground-muted hover:bg-neutral-200 hover:text-foreground dark:hover:bg-neutral-700'
                 : 'text-foreground-muted/70 hover:bg-theme-primary/15 hover:text-foreground'
@@ -217,7 +223,10 @@ export function SetTabItem({
         className="flex h-full min-h-11 w-4 items-center justify-center lg:min-h-9"
       >
         <div
-          className={`h-5 w-px bg-foreground-muted/30 lg:h-4 ${!showDivider && 'hidden'} ${isActive && 'hidden'}`}
+          className={cn(
+            'h-5 w-px bg-foreground-muted/30 lg:h-4',
+            (!showDivider || isActive) && 'hidden'
+          )}
         ></div>
       </div>
     </>

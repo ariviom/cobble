@@ -14,7 +14,7 @@ export const Checkbox = forwardRef<HTMLInputElement, Props>(function Checkbox(
       <input
         ref={ref}
         type="checkbox"
-        className="peer h-4 w-4 shrink-0 cursor-pointer appearance-none rounded border border-subtle bg-card checked:border-theme-primary checked:bg-theme-primary focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+        className="peer h-4 w-4 shrink-0 cursor-pointer appearance-none rounded border border-subtle bg-card checked:border-theme-primary checked:bg-theme-primary focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         {...props}
       />
       <svg

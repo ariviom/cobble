@@ -1,5 +1,7 @@
 'use client';
 
+import { cn } from './utils';
+
 type EmptyStateProps = {
   message: string;
   className?: string;
@@ -7,7 +9,7 @@ type EmptyStateProps = {
 
 export function EmptyState({ message, className }: EmptyStateProps) {
   return (
-    <div className={`p-4 text-sm text-foreground-muted ${className ?? ''}`}>
+    <div className={cn('p-4 text-sm text-foreground-muted', className)}>
       {message}
     </div>
   );

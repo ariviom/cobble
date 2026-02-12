@@ -132,67 +132,63 @@ export function SetDisplayCard({
         href={`/sets/${encodeURIComponent(setNumber)}`}
         className="block w-full"
       >
-        <div className="w-full">
-          <div className="relative w-full">
-            <div className="relative mx-auto w-full max-w-full p-2">
-              {resolvedImageUrl ? (
-                <div className="relative aspect-square w-full overflow-hidden rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
-                  <Image
-                    src={resolvedImageUrl}
-                    alt=""
-                    fill
-                    className="rounded-sm object-contain p-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
-                    onError={handleImageError}
-                  />
-                </div>
-              ) : (
-                <ImagePlaceholder variant="card" />
-              )}
+        <div className="p-2">
+          {resolvedImageUrl ? (
+            <div className="relative aspect-square w-full overflow-hidden rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+              <Image
+                src={resolvedImageUrl}
+                alt=""
+                fill
+                className="rounded-sm object-contain p-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
+                onError={handleImageError}
+              />
             </div>
-          </div>
-          <div className="flex items-start gap-2 px-2 py-3 sm:px-3">
-            <div className="min-w-0 flex-1">
-              {themeLabel && (
-                <div className="mb-1 w-full text-xs font-bold tracking-wide text-theme-text uppercase">
-                  {themeLabel}
-                </div>
-              )}
-              <div className="line-clamp-2 w-full truncate overflow-hidden text-sm leading-tight font-bold text-foreground">
-                {displayName}
-              </div>
-              <div className="mt-1 w-full text-xs font-semibold text-foreground-muted">
-                {metadataParts.join(' • ')}
-              </div>
-            </div>
-          </div>
-          {hasTrackingProps && (
-            <div className="px-2 pb-2 sm:px-3 sm:pb-3">
-              <div
-                className={cn(
-                  'h-2 w-full overflow-hidden rounded-full bg-background-muted',
-                  !showProgress && 'opacity-40'
-                )}
-              >
-                <div
-                  className="h-full rounded-full bg-theme-primary transition-[width] duration-300"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-              <p
-                className={cn(
-                  'mt-1 text-xs font-semibold',
-                  showProgress
-                    ? 'text-foreground-muted'
-                    : 'text-foreground-muted/50'
-                )}
-              >
-                {showProgress
-                  ? `${ownedCount} / ${totalParts} pieces`
-                  : 'No tracked pieces'}
-              </p>
-            </div>
+          ) : (
+            <ImagePlaceholder variant="card" />
           )}
         </div>
+        <div className="flex items-start gap-2 px-2 py-3 sm:px-3">
+          <div className="min-w-0 flex-1">
+            {themeLabel && (
+              <div className="mb-1 w-full text-xs font-bold tracking-wide text-theme-text uppercase">
+                {themeLabel}
+              </div>
+            )}
+            <div className="line-clamp-2 w-full truncate overflow-hidden text-sm leading-tight font-bold text-foreground">
+              {displayName}
+            </div>
+            <div className="mt-1 w-full text-xs font-semibold text-foreground-muted">
+              {metadataParts.join(' • ')}
+            </div>
+          </div>
+        </div>
+        {hasTrackingProps && (
+          <div className="px-2 pb-2 sm:px-3 sm:pb-3">
+            <div
+              className={cn(
+                'h-2 w-full overflow-hidden rounded-full bg-background-muted',
+                !showProgress && 'opacity-40'
+              )}
+            >
+              <div
+                className="h-full rounded-full bg-theme-primary transition-[width] duration-300"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <p
+              className={cn(
+                'mt-1 text-xs font-semibold',
+                showProgress
+                  ? 'text-foreground-muted'
+                  : 'text-foreground-muted/50'
+              )}
+            >
+              {showProgress
+                ? `${ownedCount} / ${totalParts} pieces`
+                : 'No tracked pieces'}
+            </p>
+          </div>
+        )}
       </Link>
       {onRemove && (
         <button

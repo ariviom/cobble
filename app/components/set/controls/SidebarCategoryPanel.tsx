@@ -58,7 +58,7 @@ export function SidebarCategoryPanel({
               <RowButton
                 selected={selected}
                 onClick={() => toggleParentCheckbox(parent)}
-                wrapperClassName="flex-1"
+                className="flex-1"
               >
                 <RowCheckbox
                   checked={state === 'all'}
