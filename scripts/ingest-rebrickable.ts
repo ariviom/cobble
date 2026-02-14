@@ -420,13 +420,13 @@ async function enrichPartExternalIds(
     for (const part of page.results) {
       if (!part.external_ids) continue;
 
-      // Check if BrickLink IDs differ from part_num
-      const blIds = part.external_ids['BrickLink'] as string[] | undefined;
-      if (!blIds || blIds.length === 0) continue;
+      // Extract BL ID using the format-agnostic helper (handles both
+      // flat array and nested { ext_ids: [...] } formats)
+      const blPartId = extractBricklinkPartId(part.external_ids as Json);
+      if (!blPartId) continue;
 
-      // If any BL ID differs from the RB part_num, store external_ids
-      const hasDifferentId = blIds.some(id => id !== part.part_num);
-      if (hasDifferentId) {
+      // Only store exceptions where BL ID differs from RB part_num
+      if (blPartId !== part.part_num) {
         exceptions.push({
           part_num: part.part_num,
           name: part.name,
