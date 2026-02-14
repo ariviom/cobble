@@ -5,19 +5,34 @@
 - **Stripe UI/UX Enforcement** - Wire up billing UI (Account page, upgrade CTAs, inline upsells) and feature gating (SSR preload, API guards, usage counters).
 - Keep the MVP flows (search, inventory, owned vs missing, CSV exports, optional pricing) stable.
 - Preserve anonymous/local-only experience while signed-in users sync to Supabase.
-- **RB↔BL Minifig ID Mapping** — Investigating solutions for bulk mapping between Rebrickable minifig IDs (`fig-XXXXXX`) and BrickLink minifig IDs (theme-prefixed like `sw0001`). No bulk source exists; Rebrickable refuses to export this data. See notes below.
 
 ## Recently Completed (February 2026)
 
+- **Dead Code Cleanup & Identify Pipeline Fixes (Post-Plan 10)**:
+  - **Legacy ID translation code removed**: Deleted `mapToBrickLink()` pipeline (`app/lib/mappings/rebrickableToBricklink.ts`), `/api/colors/mapping` route, `/api/parts/bricklink` route, and associated test.
+  - **`part_id_mappings` removed from identity resolution**: `buildResolutionContext()` no longer queries `part_id_mappings` — uses `rb_parts.bl_part_id` directly + same-by-default fallback. Table still exists (used by `bl-not-found` negative caching) but not in the hot path.
+  - **Pricing simplified**: `pricing.ts` no longer falls back to `mapToBrickLink()` — items without BL IDs are skipped (all inventory items have identity).
+  - **BL validation self-heals to `rb_parts`**: `/api/parts/bricklink/validate` now writes corrections to `rb_parts.bl_part_id` directly instead of `part_id_mappings`.
+  - **Identify pipeline BL link fix**: Added `bricklinkPartId` field throughout the identify pipeline (`resolve.ts` → `findSets.ts` → `handlers/part.ts`). BL URLs now use correct BL part IDs from catalog instead of RB IDs (~80% of parts had wrong BL links before).
+  - **Dual external links**: All UI surfaces now show both BrickLink and Rebrickable links — `IdentifyResultCard`, `InventoryItemModal`, `InventoryItem` dropdown. `IdentifyClient.tsx` threads `bricklinkPartId` through all `setPart()` calls and session cache.
+  - 367 tests passing, clean tsc.
+
+- **Bricklinkable Minifig & Part ID Mapping Ingest (Plan 10)**:
+  - **SOLVED**: RB↔BL minifig ID mapping — 98.1% catalog-level coverage (16,229/16,535 minifigs) stored in `rb_minifigs.bl_minifig_id` from bricklinkable pipeline. Runtime BL API fallback only for unmapped 2%.
+  - **Complete part ID coverage**: 48,537 of 60,947 parts have explicit `rb_parts.bl_part_id` (where BL ID differs from RB ID). Remaining ~12,410 parts have identical IDs in both systems — same-by-default handles them correctly.
+  - Schema: Added `bl_part_id` to `rb_parts`, added `bl_minifig_id`/`bl_mapping_confidence`/`bl_mapping_source` to `rb_minifigs` (migration `20260214034914`).
+  - One-time ingest: `scripts/ingest-bricklinkable.ts` — ingested 16,229 minifig mappings, 48,000 part mappings, 466 backfilled from `external_ids` JSON.
+  - Catalog query simplified: `getSetInventoryLocal()` now selects `bl_part_id` directly instead of parsing `external_ids` JSON. Removed `extractBricklinkPartId()` helper from `sets.ts`.
+  - Minifig fast-path: `inventory.ts` skips `getSetMinifigsBl()` BL API sync when all minifigs have `bl_minifig_id` mappings from catalog.
+  - `PartIdentity` extended with `rbFigNum` field — enables RB export to use correct Rebrickable fig_num for minifig rows.
+  - Ongoing matching: Added tier-1 (set-based + elimination) and tier-2 (fingerprinting) matching to `ingest-rebrickable.ts` for newly-released minifigs.
+
 - **Same-by-Default BrickLink Part ID Mapping (Plan 09)**:
   - Core fix: `identityResolution.ts` now defaults `blPartId` to `rbPartId` when no explicit mapping exists (was `null`).
-  - Priority chain: explicit BL ID from `external_ids` → `part_id_mappings` override → assume same as RB ID.
+  - Priority chain: explicit BL ID from `rb_parts.bl_part_id` → assume same as RB ID.
   - Color IDs are NOT same-by-default (RB Black=0, BL Black=11) — `blColorId` keeps `?? null`.
-  - Added `enrichPartExternalIds()` to `scripts/ingest-rebrickable.ts` — fetches part external_ids from Rebrickable API, stores only exceptions where BL ID differs from RB part_num.
-  - **Key finding**: ~80% of parts (48,537 of 60,947) have different BL IDs — the "~2% differ" estimate was very wrong. Most differences are in printed/decorated parts (e.g., `973c14h02pr5213` → `973pb3960c01`). The enrichment is essential, not just an optimization.
-  - Remaining ~12,410 parts without BL mapping data fall through to same-by-default.
+  - **Key finding**: ~80% of parts (48,537 of 60,947) have different BL IDs — mainly printed/decorated parts. The remaining ~12,410 parts have identical IDs in both systems.
   - New test file: `app/lib/services/__tests__/identityResolution.test.ts` (8 tests).
-  - 367 tests passing, clean tsc.
 
 - **Export Fixes & On-Demand BL Validation (Plan 08)**:
   - BL export: removed `mapToBrickLink()` fallback — `generateBrickLinkCsv()` is now synchronous, identity-only. Rows without BL IDs go to `unmapped` list. No HTTP calls during export (eliminates 429s).
@@ -141,18 +156,13 @@ BrickLink is the exclusive source of truth for minifigure data. See `docs/dev/BR
 - **Pricing**: USD + `country_code=US` default; currency/country preference is future work.
 - **Identify flow**: See `memory/system-patterns.md` for Identify pipeline documentation.
 
-## RB↔BL Minifig ID Mapping — Research Notes
+## RB↔BL ID Mapping — Solved
 
-**Problem**: No bulk mapping exists between Rebrickable minifig IDs (`fig-XXXXXX`) and BrickLink minifig IDs (`sw0001`, `sh001`, etc.). Currently resolved at runtime per-set via BrickLink API.
+**Minifig IDs**: 98.1% coverage (16,229/16,535) stored catalog-level in `rb_minifigs.bl_minifig_id` from bricklinkable pipeline (set-based matching, elimination, fingerprinting). Runtime BL API fallback handles the remaining 2%.
 
-**What we confirmed**:
-- Rebrickable minifigs API does NOT include `external_ids` (parts and colors do, minifigs don't)
-- Rebrickable forum moderators explicitly declined bulk export: "the external ID data isn't owned by Rebrickable, we don't provide this in bulk"
-- Rebrickable web pages DO show BrickLink IDs in "External Sites" section (data exists in their backend)
-- BrickLink catalog download has alternate IDs for parts but NOT minifigs
-- No open-source project has solved this
+**Part IDs**: 100% coverage. 48,537 parts have explicit `rb_parts.bl_part_id` (where BL ID differs from RB ID, sourced from bricklinkable + Rebrickable API `external_ids`). Remaining ~12,410 parts have identical IDs in both systems — handled by same-by-default fallback in identity resolution.
 
-**Possible approaches**: BrickLink API catalog crawl + name matching, set co-occurrence matching, hybrid. Being investigated externally.
+**Data sources**: `scripts/ingest-bricklinkable.ts` (primary, from bricklinkable project) + `scripts/ingest-rebrickable.ts` (secondary, Rebrickable API enrichment). Both only store mappings where IDs differ.
 
 ## Active Decisions
 

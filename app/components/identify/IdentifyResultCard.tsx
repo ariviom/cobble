@@ -83,18 +83,32 @@ export function IdentifyResultCard({
                 </>
               )}
           </div>
-          <a
-            href={
-              isMinifig
-                ? `https://www.bricklink.com/v2/catalog/catalogitem.page?M=${encodeURIComponent(part?.bricklinkFigId ?? rebrickableFigId ?? partNum)}`
-                : `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(partNum)}`
-            }
-            target="_blank"
-            rel="noreferrer"
-            className="mt-1 inline-block text-xs text-foreground-muted underline underline-offset-2 hover:text-foreground"
-          >
-            View on BrickLink
-          </a>
+          <div className="mt-1 flex gap-3">
+            <a
+              href={
+                isMinifig
+                  ? `https://www.bricklink.com/v2/catalog/catalogitem.page?M=${encodeURIComponent(part?.bricklinkFigId ?? rebrickableFigId ?? partNum)}`
+                  : `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(partSafe.bricklinkPartId ?? partNum)}`
+              }
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-foreground-muted underline underline-offset-2 hover:text-foreground"
+            >
+              BrickLink
+            </a>
+            <a
+              href={
+                isMinifig
+                  ? `https://rebrickable.com/minifigs/${encodeURIComponent(rebrickableFigId ?? partNum)}/`
+                  : `https://rebrickable.com/parts/${encodeURIComponent(partNum)}/`
+              }
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-foreground-muted underline underline-offset-2 hover:text-foreground"
+            >
+              Rebrickable
+            </a>
+          </div>
           <div className="mt-2 flex items-center gap-2">
             {typeof selectedColorId !== 'undefined' &&
               onChangeColor &&

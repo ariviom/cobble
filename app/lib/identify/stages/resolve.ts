@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { resolvePartIdToRebrickable } from '@/app/lib/rebrickable';
 
 export type IdentifyCandidate = {
@@ -18,7 +19,10 @@ export type ResolvedCandidate = {
   confidence: number;
   colorId?: number;
   colorName?: string;
+  /** BrickLink part ID from Brickognize (may be inaccurate). */
   bricklinkId?: string;
+  /** Authoritative BrickLink part ID from rb_parts.bl_part_id catalog. */
+  bricklinkPartId?: string | null;
   /**
    * True when we could not resolve to Rebrickable but have a BrickLink ID; skip RB lookups.
    */
@@ -62,11 +66,41 @@ export async function resolveCandidates(
           colorId: candidate.colorId,
           colorName: candidate.colorName,
           bricklinkId: blId,
+          bricklinkPartId: blId,
           isBricklinkOnly: true,
         };
       }
       return null;
     })
   );
-  return resolved.filter(Boolean) as ResolvedCandidate[];
+
+  const candidates = resolved.filter(Boolean) as ResolvedCandidate[];
+
+  // Batch-lookup authoritative BL part IDs from catalog
+  const rbPartNums = candidates
+    .filter(c => !c.isBricklinkOnly)
+    .map(c => c.partNum);
+  if (rbPartNums.length > 0) {
+    try {
+      const supabase = getCatalogReadClient();
+      const { data } = await supabase
+        .from('rb_parts')
+        .select('part_num, bl_part_id')
+        .in('part_num', rbPartNums);
+      if (data) {
+        const blMap = new Map(
+          data.map(r => [r.part_num, r.bl_part_id] as const)
+        );
+        for (const c of candidates) {
+          if (!c.isBricklinkOnly) {
+            c.bricklinkPartId = blMap.get(c.partNum) ?? null;
+          }
+        }
+      }
+    } catch {
+      // tolerate catalog lookup failures — BL links will use RB ID as fallback
+    }
+  }
+
+  return candidates;
 }

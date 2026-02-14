@@ -252,22 +252,36 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
             </div>
           )}
         </div>
-        {blLinkUnavailable ? (
-          <p className="text-foreground-muted italic">
-            This part is not available on BrickLink.
-          </p>
-        ) : blValidation.status === 'loading' ? (
-          <p className="text-foreground-muted italic">Checking BrickLink…</p>
-        ) : (
+        <div className="flex gap-3">
+          {blLinkUnavailable ? (
+            <p className="text-foreground-muted italic">
+              Not available on BrickLink
+            </p>
+          ) : blValidation.status === 'loading' ? (
+            <p className="text-foreground-muted italic">Checking BrickLink…</p>
+          ) : (
+            <a
+              href={bricklinkUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={buttonVariants({ variant: 'link' })}
+            >
+              BrickLink
+            </a>
+          )}
           <a
-            href={bricklinkUrl}
+            href={
+              isFigId
+                ? `https://rebrickable.com/minifigs/${encodeURIComponent(row.identity?.rbFigNum ?? rebrickableFigId ?? row.partId.replace(/^fig:/, ''))}/`
+                : `https://rebrickable.com/parts/${encodeURIComponent(row.partId)}/${row.colorId != null ? `${row.colorId}/` : ''}`
+            }
             target="_blank"
             rel="noreferrer noopener"
             className={buttonVariants({ variant: 'link' })}
           >
-            View on BrickLink
+            Rebrickable
           </a>
-        )}
+        </div>
         <Link
           href={identifyHref}
           className={buttonVariants({ variant: 'link' })}

@@ -6,6 +6,11 @@ export type IdentifyPart = {
   colorId: number | null;
   colorName: string | null;
   /**
+   * Authoritative BrickLink part ID from catalog (rb_parts.bl_part_id).
+   * Falls back to partNum when not available.
+   */
+  bricklinkPartId?: string | null;
+  /**
    * True when this Identify entry represents a minifigure rather than a part.
    */
   isMinifig?: boolean;

@@ -1,6 +1,6 @@
 # Project Backlog
 
-**Last Updated:** January 25, 2026
+**Last Updated:** February 13, 2026
 **Purpose:** Consolidated list of all outstanding and planned work
 
 ---
@@ -86,19 +86,19 @@ Larger features, in priority order.
 
 ### 4. Scripts & Data Ingestion
 
-| Task                                      | Effort | Notes                                      |
-| ----------------------------------------- | ------ | ------------------------------------------ |
-| Ingestion script review                   | Low    | Documentation/audit of rebrickable scripts |
-| Ingest all minifigs and parts to database | High   | Full catalog coverage                      |
-| Set exclusive parts cache                 | Medium | New table + script for rarity indicators   |
+| Task                                          | Effort   | Notes                                                              |
+| --------------------------------------------- | -------- | ------------------------------------------------------------------ |
+| Ingestion script review                       | Low      | Documentation/audit of rebrickable scripts                         |
+| ~~Ingest all minifigs and parts to database~~ | ~~High~~ | ~~Done: 60,947 parts + 16,535 minifigs in catalog with RB+BL IDs~~ |
+| Set exclusive parts cache                     | Medium   | New table + script for rarity indicators                           |
 
 ---
 
 ## Bugs
 
-| Bug                              | Description                                                                                                                            |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| ~~BrickLink piece linking 404s~~ | ~~Fixed (Plan 08): On-demand validation in part detail modal auto-corrects bad mappings, negative caching prevents repeated lookups.~~ |
+| Bug                              | Description                                                                                                                                           |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~BrickLink piece linking 404s~~ | ~~Fixed (Plan 08+10): On-demand validation in part detail modal auto-corrects bad mappings. Identify pipeline now uses correct BL IDs from catalog.~~ |
 
 ---
 
@@ -245,8 +245,9 @@ Deferred features requiring research or significant scope.
 
 Major completed initiatives - see `docs/dev/archive/` for detailed plans:
 
-- **Same-by-Default BL Part ID Mapping** (Feb 2026) - `blPartId` defaults to `rbPartId`; `enrichPartExternalIds()` populates `rb_parts.external_ids` from Rebrickable API (~80% of parts have different BL IDs); same-by-default covers remaining ~20%
-- **Export Fixes & BL Validation** (Feb 2026) - BL export no longer makes per-part API calls; RB export minifig toggle; on-demand BL link validation with self-healing; negative caching in `part_id_mappings`
+- **RB↔BL ID Mapping Complete** (Feb 2026) - Bricklinkable ingest: 48,537 parts with explicit `rb_parts.bl_part_id`, 16,229 minifigs with `rb_minifigs.bl_minifig_id` (98.1%). Remaining parts have identical IDs (same-by-default). Dead code cleanup: removed `mapToBrickLink()`, `/api/parts/bricklink`, `/api/colors/mapping`
+- **Identify Pipeline & Dual Links** (Feb 2026) - Identify pipeline uses correct BL IDs from catalog; all UI shows dual BrickLink + Rebrickable links
+- **Export Fixes & BL Validation** (Feb 2026) - BL export synchronous/identity-only; RB export minifig toggle; on-demand BL validation self-heals to `rb_parts.bl_part_id`
 - **Set Ownership Schema Overhaul** (Jan 2026) - `owned: boolean` + Wishlist as system list, fixed unique indexes
 - **BrickLink Minifig Migration** (Dec 2025) - BL is now exclusive source for minifig IDs/metadata/parts
 - **Minifig Cascade Fix** (Dec 2025) - Toggling parent cascades to subparts correctly

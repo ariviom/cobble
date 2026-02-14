@@ -30,10 +30,12 @@ type SourceKey =
 type DownloadInfo = {
   source: SourceKey;
   url: string;
+  lastModified?: string | undefined;
 };
 
-// Pipeline salt to force re-ingest when downstream schema/logic changes
-// even if the source URLs stay the same. Bump this to invalidate cache.
+// Pipeline salt to force re-ingest when downstream schema/logic changes.
+// Version key = `${PIPELINE_VERSION}#${Last-Modified}` from CDN headers.
+// Bump this to invalidate all cached versions and force full re-ingest.
 const PIPELINE_VERSION = 'img-url-v1';
 
 type ForceConfig = {
@@ -102,15 +104,37 @@ function getEnv(name: string): string {
   return value;
 }
 
-async function getDownloadUrls(): Promise<DownloadInfo[]> {
-  // For now, assume fixed URLs from the Rebrickable downloads page.
-  // These may change; keeping them centralized here makes updates easy.
-  // We intentionally do not depend on the timestamp query param for basic ingestion;
-  // version tracking happens via rb_download_versions.
+/** Extract BrickLink part ID from external_ids JSON.
+ *  Handles both array format (`{ "BrickLink": ["3024"] }`)
+ *  and nested format (`{ "BrickLink": { "ext_ids": ["3024"] } }`). */
+function extractBricklinkPartId(
+  externalIds: Json | null | undefined
+): string | null {
+  if (!externalIds || typeof externalIds !== 'object') return null;
+  const record = externalIds as Record<string, unknown>;
+  const blIds = record.BrickLink as unknown;
+  if (Array.isArray(blIds) && blIds.length > 0) {
+    const first = blIds[0];
+    return typeof first === 'string' || typeof first === 'number'
+      ? String(first)
+      : null;
+  }
+  if (blIds && typeof blIds === 'object' && 'ext_ids' in blIds) {
+    const extIds = (blIds as { ext_ids?: unknown }).ext_ids;
+    if (Array.isArray(extIds) && extIds.length > 0) {
+      const first = extIds[0];
+      return typeof first === 'string' || typeof first === 'number'
+        ? String(first)
+        : null;
+    }
+  }
+  return null;
+}
 
+async function getDownloadUrls(): Promise<DownloadInfo[]> {
   const base = 'https://cdn.rebrickable.com/media/downloads';
 
-  return [
+  const sources: Array<{ source: SourceKey; url: string }> = [
     { source: 'themes', url: `${base}/themes.csv.gz` },
     { source: 'colors', url: `${base}/colors.csv.gz` },
     { source: 'part_categories', url: `${base}/part_categories.csv.gz` },
@@ -124,6 +148,22 @@ async function getDownloadUrls(): Promise<DownloadInfo[]> {
       url: `${base}/inventory_minifigs.csv.gz`,
     },
   ];
+
+  // Probe Last-Modified headers in parallel to detect catalog updates.
+  // If a HEAD request fails, lastModified stays undefined and the source
+  // falls back to PIPELINE_VERSION-only versioning (always re-ingests once
+  // per PIPELINE_VERSION bump).
+  const results = await Promise.allSettled(
+    sources.map(async s => {
+      const res = await fetch(s.url, { method: 'HEAD' });
+      const lastModified = res.headers.get('last-modified') ?? undefined;
+      return { ...s, lastModified };
+    })
+  );
+
+  return results.map((r, i) =>
+    r.status === 'fulfilled' ? r.value : { ...sources[i]! }
+  );
 }
 
 async function downloadAndDecompress(
@@ -333,11 +373,12 @@ async function enrichColorExternalIds(
 }
 
 /**
- * Enrich rb_parts with external_ids from the Rebrickable API.
+ * Enrich rb_parts with external_ids and bl_part_id from the Rebrickable API.
  *
  * The CSV doesn't include external_ids (BrickLink part mappings), so we
- * fetch them from the API after CSV ingestion. Only stores external_ids
- * for parts where the BrickLink ID differs from the Rebrickable ID (~2%).
+ * fetch them from the API after CSV ingestion. Only stores mappings for
+ * parts where the BrickLink ID differs from the Rebrickable ID (~80%).
+ * Also extracts the BL part ID into rb_parts.bl_part_id for direct access.
  */
 async function enrichPartExternalIds(
   supabase: ReturnType<typeof createClient<Database>>
@@ -407,17 +448,24 @@ async function enrichPartExternalIds(
     `Fetched ${totalFetched} parts from API, ${exceptions.length} have different BrickLink IDs`
   );
 
-  // Batch upsert exceptions
+  // Batch upsert exceptions (external_ids + bl_part_id in one pass)
   const batchSize = 500;
   let updated = 0;
   for (let i = 0; i < exceptions.length; i += batchSize) {
     const chunk = exceptions.slice(i, i + batchSize);
     const { error } = await supabase.from('rb_parts').upsert(
-      chunk.map(e => ({
-        part_num: e.part_num,
-        name: e.name,
-        external_ids: e.external_ids,
-      }))
+      chunk.map(e => {
+        const blPartId = extractBricklinkPartId(e.external_ids);
+        return {
+          part_num: e.part_num,
+          name: e.name,
+          external_ids: e.external_ids,
+          // Also populate bl_part_id so the app can read it directly
+          ...(blPartId && blPartId !== e.part_num
+            ? { bl_part_id: blPartId }
+            : {}),
+        };
+      })
     );
     if (error) {
       log(`Failed to upsert part external_ids batch: ${error.message}`);
@@ -426,7 +474,9 @@ async function enrichPartExternalIds(
     }
   }
 
-  log(`Enriched ${updated} parts with external_ids (exceptions only)`);
+  log(
+    `Enriched ${updated} parts with external_ids + bl_part_id (exceptions only)`
+  );
 }
 
 async function ingestPartCategories(
@@ -795,6 +845,491 @@ async function ingestInventoryMinifigs(
   }
 }
 
+// ===========================================================================
+// Minifig Matching — Tier-1 (set-based) + Tier-2 (fingerprinting)
+// ===========================================================================
+
+type SupabaseClient = ReturnType<typeof createClient<Database>>;
+
+/** Normalize LEGO leg assemblies for RB↔BL comparison */
+function normalizePartNum(partNum: string): string {
+  if (partNum.startsWith('970cm') && !partNum.startsWith('970cm00'))
+    return '970cm00';
+  if (partNum.startsWith('970c') && !partNum.startsWith('970cm')) {
+    const suffix = partNum.slice(4);
+    if (/^\d+$/.test(suffix)) return '970c00';
+  }
+  return partNum;
+}
+
+type FingerprintPart = {
+  blPartId: string;
+  blColorId: number;
+  quantity: number;
+};
+
+function compareFingerprints(
+  a: FingerprintPart[],
+  b: FingerprintPart[]
+): { score: number; matchedParts: number; totalParts: number } {
+  if (a.length === 0 || b.length === 0)
+    return {
+      score: 0,
+      matchedParts: 0,
+      totalParts: Math.max(a.length, b.length),
+    };
+
+  const aSet = new Map<string, number>();
+  for (const p of a) {
+    const key = `${normalizePartNum(p.blPartId)}:${p.blColorId}`;
+    aSet.set(key, (aSet.get(key) ?? 0) + p.quantity);
+  }
+  const bSet = new Map<string, number>();
+  for (const p of b) {
+    const key = `${normalizePartNum(p.blPartId)}:${p.blColorId}`;
+    bSet.set(key, (bSet.get(key) ?? 0) + p.quantity);
+  }
+
+  let matched = 0;
+  for (const key of new Set([...aSet.keys(), ...bSet.keys()])) {
+    matched += Math.min(aSet.get(key) ?? 0, bSet.get(key) ?? 0);
+  }
+
+  let totalA = 0;
+  for (const q of aSet.values()) totalA += q;
+  let totalB = 0;
+  for (const q of bSet.values()) totalB += q;
+  const total = Math.max(totalA, totalB);
+
+  return {
+    score: total > 0 ? matched / total : 0,
+    matchedParts: matched,
+    totalParts: total,
+  };
+}
+
+function compareFingerprintsPartsOnly(
+  a: FingerprintPart[],
+  b: FingerprintPart[]
+): { score: number } {
+  if (a.length === 0 || b.length === 0) return { score: 0 };
+
+  const aSet = new Map<string, number>();
+  for (const p of a) {
+    const n = normalizePartNum(p.blPartId);
+    aSet.set(n, (aSet.get(n) ?? 0) + p.quantity);
+  }
+  const bSet = new Map<string, number>();
+  for (const p of b) {
+    const n = normalizePartNum(p.blPartId);
+    bSet.set(n, (bSet.get(n) ?? 0) + p.quantity);
+  }
+
+  let matched = 0;
+  for (const key of new Set([...aSet.keys(), ...bSet.keys()])) {
+    matched += Math.min(aSet.get(key) ?? 0, bSet.get(key) ?? 0);
+  }
+  let totalA = 0;
+  for (const q of aSet.values()) totalA += q;
+  let totalB = 0;
+  for (const q of bSet.values()) totalB += q;
+
+  const total = Math.max(totalA, totalB);
+  return { score: total > 0 ? matched / total : 0 };
+}
+
+/** Build RB→BL color map from rb_colors.external_ids */
+async function buildRbToBlColorMap(
+  supabase: SupabaseClient
+): Promise<Map<number, number>> {
+  const map = new Map<number, number>();
+  let offset = 0;
+  const pageSize = 1000;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data, error } = await supabase
+      .from('rb_colors')
+      .select('id, external_ids')
+      .not('external_ids', 'is', null)
+      .range(offset, offset + pageSize - 1);
+    if (error || !data || data.length === 0) break;
+    for (const row of data) {
+      const ext = row.external_ids as Record<string, unknown> | null;
+      if (!ext) continue;
+      const bl = ext.BrickLink as Record<string, unknown> | undefined;
+      if (!bl) continue;
+      const ids = bl.ext_ids as number[] | undefined;
+      if (Array.isArray(ids) && ids.length > 0 && typeof ids[0] === 'number') {
+        map.set(row.id, ids[0]);
+      }
+    }
+    if (data.length < pageSize) break;
+    offset += pageSize;
+  }
+  return map;
+}
+
+/**
+ * Match unmapped minifigs using set-based (tier-1) and fingerprint (tier-2) methods.
+ * Runs after inventory_minifigs ingest to pick up newly-added minifigs.
+ */
+async function matchUnmappedMinifigs(supabase: SupabaseClient): Promise<void> {
+  log('Matching unmapped minifigs...');
+
+  // 1. Get unmapped minifigs
+  const { data: unmapped, error: unmapErr } = await supabase
+    .from('rb_minifigs')
+    .select('fig_num')
+    .is('bl_minifig_id', null);
+
+  if (unmapErr) {
+    log(`  Error fetching unmapped minifigs: ${unmapErr.message}`);
+    return;
+  }
+  if (!unmapped || unmapped.length === 0) {
+    log('  No unmapped minifigs found');
+    return;
+  }
+  log(`  Found ${unmapped.length} unmapped minifigs`);
+
+  // 2. Tier-1: Set-based matching with process of elimination
+  const tier1Matches = await matchTier1(supabase);
+  log(`  Tier-1: matched ${tier1Matches} minifigs via set-based matching`);
+
+  // 3. Tier-2: Fingerprint comparison
+  const colorMap = await buildRbToBlColorMap(supabase);
+  const tier2Matches = await matchTier2(supabase, colorMap);
+  log(`  Tier-2: matched ${tier2Matches} minifigs via fingerprinting`);
+
+  log(
+    `  Total: matched ${tier1Matches + tier2Matches} previously-unmapped minifigs`
+  );
+}
+
+/**
+ * Tier-1: Set-based matching.
+ * For each set with BL data, if exactly 1 unmatched RB fig and 1 unmatched BL fig → match.
+ * Iterates until no new matches found (process of elimination).
+ */
+async function matchTier1(supabase: SupabaseClient): Promise<number> {
+  // Get all sets that have BL minifig data
+  const { data: blSets } = await supabase
+    .from('bl_set_minifigs')
+    .select('set_num, minifig_no');
+  if (!blSets || blSets.length === 0) return 0;
+
+  // Group BL minifigs by set
+  const blMinifigsBySet = new Map<string, string[]>();
+  for (const row of blSets) {
+    const list = blMinifigsBySet.get(row.set_num) ?? [];
+    list.push(row.minifig_no);
+    blMinifigsBySet.set(row.set_num, list);
+  }
+
+  // Get RB set → minifig mapping for sets that have BL data
+  const setNums = Array.from(blMinifigsBySet.keys());
+  const rbMinifigsBySet = new Map<string, string[]>();
+
+  // Query in batches of 200 (Supabase URL limit)
+  for (let i = 0; i < setNums.length; i += 200) {
+    const batch = setNums.slice(i, i + 200);
+    const { data: inventories } = await supabase
+      .from('rb_inventories')
+      .select('id, set_num')
+      .in('set_num', batch);
+    if (!inventories || inventories.length === 0) continue;
+
+    const invIds = inventories.map(inv => inv.id);
+    for (let j = 0; j < invIds.length; j += 200) {
+      const invBatch = invIds.slice(j, j + 200);
+      const { data: invMinifigs } = await supabase
+        .from('rb_inventory_minifigs')
+        .select('inventory_id, fig_num')
+        .in('inventory_id', invBatch);
+      if (!invMinifigs) continue;
+
+      // Map inventory_id → set_num
+      const invToSet = new Map<number, string>();
+      for (const inv of inventories) {
+        if (inv.set_num) invToSet.set(inv.id, inv.set_num);
+      }
+
+      for (const row of invMinifigs) {
+        const setNum = invToSet.get(row.inventory_id);
+        if (!setNum) continue;
+        const list = rbMinifigsBySet.get(setNum) ?? [];
+        list.push(row.fig_num);
+        rbMinifigsBySet.set(setNum, list);
+      }
+    }
+  }
+
+  // Get currently matched fig_nums and bl_ids
+  const matchedRb = new Set<string>();
+  const matchedBl = new Set<string>();
+  let offset = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data } = await supabase
+      .from('rb_minifigs')
+      .select('fig_num, bl_minifig_id')
+      .not('bl_minifig_id', 'is', null)
+      .range(offset, offset + 999);
+    if (!data || data.length === 0) break;
+    for (const row of data) {
+      matchedRb.add(row.fig_num);
+      if (row.bl_minifig_id) matchedBl.add(row.bl_minifig_id);
+    }
+    if (data.length < 1000) break;
+    offset += 1000;
+  }
+
+  let totalMatched = 0;
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    for (const [setNum, rbFigs] of rbMinifigsBySet) {
+      const blFigs = blMinifigsBySet.get(setNum) ?? [];
+
+      const unmatchedRb = rbFigs.filter(f => !matchedRb.has(f));
+      const unmatchedBl = blFigs.filter(f => !matchedBl.has(f));
+
+      if (unmatchedRb.length === 1 && unmatchedBl.length === 1) {
+        const rbFig = unmatchedRb[0]!;
+        const blFig = unmatchedBl[0]!;
+
+        // Update rb_minifigs with the match
+        const { error } = await supabase
+          .from('rb_minifigs')
+          .update({
+            bl_minifig_id: blFig,
+            bl_mapping_confidence: 1.0,
+            bl_mapping_source:
+              totalMatched === 0 ? 'tier1_single_set' : 'tier1_elimination',
+          })
+          .eq('fig_num', rbFig);
+
+        if (!error) {
+          matchedRb.add(rbFig);
+          matchedBl.add(blFig);
+          totalMatched++;
+          changed = true;
+        }
+      }
+    }
+  }
+
+  return totalMatched;
+}
+
+/**
+ * Tier-2: Fingerprint-based matching.
+ * Builds part composition fingerprints for unmatched RB minifigs, then compares
+ * against BL minifig parts data for candidates from the same sets.
+ */
+async function matchTier2(
+  supabase: SupabaseClient,
+  rbToBlColor: Map<number, number>
+): Promise<number> {
+  // Get still-unmapped minifigs
+  const { data: unmapped } = await supabase
+    .from('rb_minifigs')
+    .select('fig_num')
+    .is('bl_minifig_id', null);
+  if (!unmapped || unmapped.length === 0) return 0;
+
+  // Build BL part ID map from rb_parts
+  const blPartMap = new Map<string, string>();
+  let partOffset = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data } = await supabase
+      .from('rb_parts')
+      .select('part_num, bl_part_id')
+      .not('bl_part_id', 'is', null)
+      .range(partOffset, partOffset + 999);
+    if (!data || data.length === 0) break;
+    for (const row of data) {
+      if (row.bl_part_id) blPartMap.set(row.part_num, row.bl_part_id);
+    }
+    if (data.length < 1000) break;
+    partOffset += 1000;
+  }
+
+  let matched = 0;
+  const matchedBl = new Set<string>();
+
+  // Pre-fetch matched BL IDs to avoid re-matching
+  let mOffset = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data } = await supabase
+      .from('rb_minifigs')
+      .select('bl_minifig_id')
+      .not('bl_minifig_id', 'is', null)
+      .range(mOffset, mOffset + 999);
+    if (!data || data.length === 0) break;
+    for (const row of data) {
+      if (row.bl_minifig_id) matchedBl.add(row.bl_minifig_id);
+    }
+    if (data.length < 1000) break;
+    mOffset += 1000;
+  }
+
+  for (const { fig_num } of unmapped) {
+    // Get RB minifig's inventory parts
+    const { data: inventories } = await supabase
+      .from('rb_inventories')
+      .select('id')
+      .eq('set_num', fig_num)
+      .limit(1);
+    if (!inventories || inventories.length === 0) continue;
+
+    const invId = inventories[0]!.id;
+    const { data: rbParts } = await supabase
+      .from('rb_inventory_parts')
+      .select('part_num, color_id, quantity')
+      .eq('inventory_id', invId)
+      .eq('is_spare', false);
+    if (!rbParts || rbParts.length === 0) continue;
+
+    // Translate RB parts → BL fingerprint
+    const rbFingerprint: FingerprintPart[] = [];
+    for (const p of rbParts) {
+      const blPartId = blPartMap.get(p.part_num) ?? p.part_num; // same-by-default
+      const blColorId = rbToBlColor.get(p.color_id);
+      if (blColorId == null) continue; // skip parts without color mapping
+      rbFingerprint.push({ blPartId, blColorId, quantity: p.quantity ?? 1 });
+    }
+    if (rbFingerprint.length === 0) continue;
+
+    // Find sets this minifig appears in via rb_inventory_minifigs
+    const { data: invMinifigs } = await supabase
+      .from('rb_inventory_minifigs')
+      .select('inventory_id')
+      .eq('fig_num', fig_num);
+    if (!invMinifigs || invMinifigs.length === 0) continue;
+
+    const invIds = invMinifigs.map(im => im.inventory_id);
+    const { data: setInventories } = await supabase
+      .from('rb_inventories')
+      .select('set_num')
+      .in('id', invIds.slice(0, 200));
+    if (!setInventories || setInventories.length === 0) continue;
+
+    const setNums = Array.from(
+      new Set(setInventories.map(s => s.set_num).filter(Boolean) as string[])
+    ).filter(s => !s.startsWith('fig-'));
+
+    // Get candidate BL minifigs from those sets
+    const candidates = new Set<string>();
+    for (let i = 0; i < setNums.length; i += 200) {
+      const batch = setNums.slice(i, i + 200);
+      const { data: blSetMinifigs } = await supabase
+        .from('bl_set_minifigs')
+        .select('minifig_no')
+        .in('set_num', batch);
+      if (blSetMinifigs) {
+        for (const row of blSetMinifigs) {
+          if (!matchedBl.has(row.minifig_no)) candidates.add(row.minifig_no);
+        }
+      }
+
+      // CMF fallback: try base set (-1) for numbered variants
+      const cmfFallbacks: string[] = [];
+      for (const sn of batch) {
+        const dashIdx = sn.lastIndexOf('-');
+        if (dashIdx > 0) {
+          const suffix = sn.slice(dashIdx + 1);
+          if (/^\d+$/.test(suffix) && parseInt(suffix) > 1) {
+            cmfFallbacks.push(sn.slice(0, dashIdx) + '-1');
+          }
+        }
+      }
+      if (cmfFallbacks.length > 0) {
+        const { data: cmfMinifigs } = await supabase
+          .from('bl_set_minifigs')
+          .select('minifig_no')
+          .in('set_num', cmfFallbacks);
+        if (cmfMinifigs) {
+          for (const row of cmfMinifigs) {
+            if (!matchedBl.has(row.minifig_no)) candidates.add(row.minifig_no);
+          }
+        }
+      }
+    }
+    if (candidates.size === 0) continue;
+
+    // Compare against each candidate's BL fingerprint
+    let bestMatch = { blId: '', score: 0, matchedParts: 0, totalParts: 0 };
+    for (const blId of candidates) {
+      const { data: blParts } = await supabase
+        .from('bl_minifig_parts')
+        .select('bl_part_id, bl_color_id, quantity')
+        .eq('bl_minifig_no', blId);
+      if (!blParts || blParts.length === 0) continue;
+
+      const blFingerprint: FingerprintPart[] = blParts.map(p => ({
+        blPartId: p.bl_part_id,
+        blColorId: p.bl_color_id,
+        quantity: p.quantity ?? 1,
+      }));
+
+      const result = compareFingerprints(rbFingerprint, blFingerprint);
+      if (result.score > bestMatch.score) {
+        bestMatch = { blId, ...result };
+      }
+    }
+
+    // Apply match based on confidence thresholds
+    let confidence: number | null = null;
+    let method: string | null = null;
+
+    if (bestMatch.score >= 0.95 && bestMatch.blId) {
+      confidence = 0.95;
+      method = 'tier2_exact';
+    } else if (bestMatch.score >= 0.7 && bestMatch.blId) {
+      const { data: blParts } = await supabase
+        .from('bl_minifig_parts')
+        .select('bl_part_id, bl_color_id, quantity')
+        .eq('bl_minifig_no', bestMatch.blId);
+      const blFp: FingerprintPart[] = (blParts ?? []).map(p => ({
+        blPartId: p.bl_part_id,
+        blColorId: p.bl_color_id,
+        quantity: p.quantity ?? 1,
+      }));
+      const partsOnly = compareFingerprintsPartsOnly(rbFingerprint, blFp);
+
+      if (bestMatch.score >= 0.8) {
+        confidence = 0.8 + (bestMatch.score - 0.8) * 0.75;
+        method = 'tier2_overlap';
+      } else if (partsOnly.score >= 0.75) {
+        confidence = 0.7 + (bestMatch.score - 0.7) * 0.5;
+        method = 'tier2_fuzzy';
+      }
+    }
+
+    if (confidence != null && method && bestMatch.blId) {
+      const { error } = await supabase
+        .from('rb_minifigs')
+        .update({
+          bl_minifig_id: bestMatch.blId,
+          bl_mapping_confidence: confidence,
+          bl_mapping_source: method,
+        })
+        .eq('fig_num', fig_num);
+
+      if (!error) {
+        matchedBl.add(bestMatch.blId);
+        matched++;
+      }
+    }
+  }
+
+  return matched;
+}
+
 async function main() {
   const supabaseUrl = getEnv('NEXT_PUBLIC_SUPABASE_URL');
   const supabaseServiceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
@@ -805,7 +1340,12 @@ async function main() {
   const downloads = await getDownloadUrls();
 
   for (const info of downloads) {
-    const versionKey = `${info.url}#${PIPELINE_VERSION}`;
+    // Version key incorporates Last-Modified from CDN so re-runs detect
+    // catalog updates automatically. Falls back to PIPELINE_VERSION only
+    // when HEAD request failed (lastModified undefined).
+    const versionKey = info.lastModified
+      ? `${PIPELINE_VERSION}#${info.lastModified}`
+      : `${info.url}#${PIPELINE_VERSION}`;
     const currentVersion = await readCurrentVersion(supabase, info.source);
     const isForced =
       forceConfig.all || forceConfig.sources.has(info.source as SourceKey);
@@ -817,6 +1357,10 @@ async function main() {
         `Skipping ${info.source}, version already ingested (version ${versionKey}).`
       );
       continue;
+    } else if (currentVersion) {
+      log(
+        `Catalog updated for ${info.source}: ${currentVersion} → ${versionKey}`
+      );
     }
 
     const stream = await downloadAndDecompress(info.url);
@@ -841,10 +1385,16 @@ async function main() {
       await ingestInventoryParts(supabase, stream);
     } else if (info.source === 'inventory_minifigs') {
       await ingestInventoryMinifigs(supabase, stream);
+      await matchUnmappedMinifigs(supabase);
     }
 
     await updateVersion(supabase, info.source, versionKey);
     log(`Finished ingest for ${info.source} (stored version ${versionKey}).`);
+  }
+
+  // Standalone minifig matching (can be triggered independently with --match-minifigs)
+  if (process.argv.includes('--match-minifigs')) {
+    await matchUnmappedMinifigs(supabase);
   }
 
   log('All ingestion tasks complete.');

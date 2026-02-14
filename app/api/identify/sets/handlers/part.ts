@@ -1,5 +1,6 @@
 import { getSetsForPartLocal } from '@/app/lib/catalog';
 import { EXTERNAL } from '@/app/lib/constants';
+import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { fetchBLSupersetsFallback } from '@/app/lib/identify/blFallback';
 import { PipelineBudget } from '@/app/lib/identify/budget';
 import {
@@ -25,6 +26,8 @@ export type PartIdentifyResult = {
     partNum: string;
     name: string;
     imageUrl: string | null;
+    /** Authoritative BrickLink part ID from catalog. */
+    bricklinkPartId?: string | null;
   };
   availableColors: PartAvailableColor[];
   selectedColorId: number | null;
@@ -152,6 +155,7 @@ export async function handlePartIdentify(
       partNum: rbPart,
       name: partMetaName,
       imageUrl: partMetaImage,
+      bricklinkPartId: blPartId,
     },
     availableColors,
     selectedColorId: selectedColorId ?? null,
@@ -304,6 +308,7 @@ async function fetchSetsAllColors(
 
 /**
  * Get part metadata (name, image, BrickLink ID).
+ * Uses catalog (rb_parts.bl_part_id) for BL ID instead of external_ids JSON.
  */
 async function getPartMetadata(rbPart: string): Promise<{
   name: string;
@@ -314,32 +319,32 @@ async function getPartMetadata(rbPart: string): Promise<{
   let imageUrl: string | null = null;
   let blPartId: string | null = null;
 
+  // Try catalog first for bl_part_id
   try {
-    const partMeta = await getPart(rbPart);
-    name = partMeta.name;
-    imageUrl = partMeta.part_img_url;
-
-    const external = (
-      partMeta.external_ids as
-        | {
-            BrickLink?: { ext_ids?: unknown[] };
-          }
-        | undefined
-    )?.BrickLink;
-
-    const extIds: unknown[] = Array.isArray(external?.ext_ids)
-      ? external!.ext_ids!
-      : [];
-
-    const firstId = extIds.find(
-      id => typeof id === 'string' || typeof id === 'number'
-    );
-
-    if (firstId !== undefined && firstId !== null) {
-      blPartId = String(firstId);
+    const supabase = getCatalogReadClient();
+    const { data } = await supabase
+      .from('rb_parts')
+      .select('name, image_url, bl_part_id')
+      .eq('part_num', rbPart)
+      .maybeSingle();
+    if (data) {
+      name = data.name;
+      imageUrl = data.image_url;
+      blPartId = data.bl_part_id;
     }
   } catch {
-    // tolerate missing metadata
+    // fall through to API
+  }
+
+  // Fall back to Rebrickable API for metadata if catalog miss
+  if (!name) {
+    try {
+      const partMeta = await getPart(rbPart);
+      name = partMeta.name;
+      imageUrl = partMeta.part_img_url;
+    } catch {
+      // tolerate missing metadata
+    }
   }
 
   return { name, imageUrl, blPartId };

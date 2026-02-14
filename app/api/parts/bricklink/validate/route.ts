@@ -11,31 +11,26 @@ const RATE_WINDOW_MS =
 const RATE_LIMIT_PER_MINUTE =
   Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE ?? '', 10) || 60;
 
-async function persistMapping(
+/** Self-heal: update rb_parts.bl_part_id with the corrected BL ID. */
+async function selfHealBlPartId(
   rbPartId: string,
-  blPartId: string,
-  source: string
+  blPartId: string
 ): Promise<void> {
   try {
     const supabase = getCatalogWriteClient();
-    const { error } = await supabase.from('part_id_mappings').upsert(
-      {
-        rb_part_id: rbPartId,
-        bl_part_id: blPartId,
-        source,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'rb_part_id' }
-    );
+    const { error } = await supabase
+      .from('rb_parts')
+      .update({ bl_part_id: blPartId })
+      .eq('part_num', rbPartId);
     if (error) {
-      logger.error('parts.bricklink.validate.persist_failed', {
+      logger.error('parts.bricklink.validate.self_heal_failed', {
         rbPartId,
         blPartId,
         error: error.message,
       });
     }
   } catch (err) {
-    logger.error('parts.bricklink.validate.persist_error', {
+    logger.error('parts.bricklink.validate.self_heal_error', {
       rbPartId,
       blPartId,
       error: err instanceof Error ? err.message : String(err),
@@ -46,7 +41,7 @@ async function persistMapping(
 /**
  * On-demand validation: given a stored BL part ID (and optionally the RB part ID),
  * validate that the BL part exists. If not, try fallback candidates and return
- * the first valid one (self-healing the mapping).
+ * the first valid one (self-healing rb_parts.bl_part_id).
  *
  * Query params:
  *   blPartId - the stored BrickLink part ID to validate
@@ -111,10 +106,8 @@ export async function GET(req: NextRequest) {
       for (const candidate of candidates) {
         const result = await blValidatePart(candidate);
         if (result === 'exists') {
-          // Self-heal: persist the corrected mapping
-          if (rbPartId) {
-            await persistMapping(rbPartId, candidate, 'auto-validate');
-          }
+          // Self-heal: update rb_parts.bl_part_id with the correct BL ID
+          await selfHealBlPartId(rbPartId, candidate);
           logger.info('parts.bricklink.validate.corrected', {
             blPartId,
             rbPartId,
@@ -126,9 +119,6 @@ export async function GET(req: NextRequest) {
           });
         }
       }
-
-      // Nothing found — persist negative cache for the RB part ID
-      await persistMapping(rbPartId, '', 'bl-not-found');
     }
 
     return NextResponse.json({ validBlPartId: null, corrected: false });

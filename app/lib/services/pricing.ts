@@ -1,23 +1,22 @@
 import 'server-only';
 
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
-import { mapToBrickLink } from '@/app/lib/mappings/rebrickableToBricklink';
 import {
   DEFAULT_PRICING_PREFERENCES,
   formatPricingScopeLabel,
   type PricingPreferences,
 } from '@/app/lib/pricing';
-import { incrementCounter, logEvent, logger } from '@/lib/metrics';
+import { incrementCounter, logger } from '@/lib/metrics';
 
 export type PriceRequestItem = {
   key: string;
   partId: string;
   colorId: number;
-  /** Pre-resolved BrickLink part ID from identity (skips mapToBrickLink) */
+  /** BrickLink part ID from identity resolution */
   blPartId?: string | undefined;
-  /** Pre-resolved BrickLink color ID from identity */
+  /** BrickLink color ID from identity resolution */
   blColorId?: number | undefined;
-  /** Pre-resolved item type from identity */
+  /** Item type from identity resolution */
   itemType?: 'PART' | 'MINIFIG' | undefined;
 };
 
@@ -60,35 +59,17 @@ export async function fetchBricklinkPrices(
     await Promise.all(
       batch.map(async item => {
         try {
-          // Fast path: use pre-resolved BL IDs from identity
-          let itemNo: string;
-          let blColorId: number | undefined;
-          let itemType: 'PART' | 'MINIFIG';
-
           if (
-            item.blPartId != null &&
-            (item.blColorId != null || item.itemType === 'MINIFIG')
+            item.blPartId == null ||
+            (item.blColorId == null && item.itemType !== 'MINIFIG')
           ) {
-            itemNo = item.blPartId;
-            blColorId = item.blColorId;
-            itemType = item.itemType ?? 'PART';
-          } else {
-            // Fallback: resolve via mapToBrickLink
-            const mapped = await mapToBrickLink(item.partId, item.colorId);
-            if (!mapped) {
-              if (process.env.NODE_ENV !== 'production') {
-                logEvent(`${logPrefix}.unmapped_item`, {
-                  key: item.key,
-                  partId: item.partId,
-                  colorId: item.colorId,
-                });
-              }
-              return;
-            }
-            itemNo = mapped.itemNo;
-            blColorId = mapped.colorId ?? undefined;
-            itemType = mapped.itemType;
+            // No BL IDs available — skip (all inventory items should have identity)
+            return;
           }
+
+          const itemNo = item.blPartId;
+          const blColorId = item.blColorId;
+          const itemType: 'PART' | 'MINIFIG' = item.itemType ?? 'PART';
 
           const pg = await blGetPartPriceGuide(
             itemNo,

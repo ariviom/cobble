@@ -53,27 +53,20 @@
     - Filters OUT all RB minifig rows, replaces entirely with BL data
     - Batch-fetches all minifig subparts in one query for performance
     - Returns optional `minifigMeta` with sync status
-- **Part ID Mapping** (RB → BL):
-  - **Same-by-default**: `blPartId` defaults to `rbPartId` when no explicit mapping exists. Priority chain: explicit BL ID from `external_ids` → `part_id_mappings` override → assume same as RB ID. Color IDs are NOT same-by-default.
-  - `rb_parts.external_ids` populated by `enrichPartExternalIds()` in ingest script (Rebrickable API). ~80% of parts have different BL IDs (mainly printed/decorated parts); ~20% have no BL mapping (same-by-default handles these).
-  - `part_id_mappings` table stores manual and auto-generated mappings with columns `rb_part_id`, `bl_part_id`, `source`, `confidence`.
-  - Sources include: `'auto-suffix'` (automatic suffix stripping), `'minifig-component'` (from minifig part mapping), `'manual'`, `'auto-validate'` (on-demand BL validation), `'bl-not-found'` (negative cache).
-  - **Negative caching**: Entries with `source = 'bl-not-found'` and `bl_part_id = ''` indicate parts confirmed not on BrickLink. Re-validated after 30 days. `buildResolutionContext()` skips these entries.
-  - `/api/parts/bricklink` route lookup order:
-    1. Check `part_id_mappings` table first (returns cached positive, negative, or miss).
-    2. Fall back to Rebrickable API's `external_ids.BrickLink`.
-    3. For parts matching `/^\d+[a-z]$/i` (like `3957a`), try stripping the suffix and looking up base ID.
-    4. If suffix stripping succeeds, auto-persist to `part_id_mappings` for future lookups.
-    5. If nothing found, persist negative cache entry (`bl-not-found`).
+- **Part ID Mapping** (RB ↔ BL):
+  - **Catalog-level coverage**: `rb_parts.bl_part_id` stores BL part IDs directly. 48,537/60,947 parts have explicit mappings (where BL ID differs from RB ID). Remaining ~12,410 parts have identical IDs in both systems.
+  - **Data sources**: `scripts/ingest-bricklinkable.ts` (primary, from bricklinkable project) + `scripts/ingest-rebrickable.ts` (`enrichPartExternalIds()`, Rebrickable API fallback). Both only store mappings where IDs differ.
+  - **Same-by-default**: `blPartId` defaults to `rbPartId` when no explicit `rb_parts.bl_part_id` exists. Color IDs are NOT same-by-default (RB Black=0, BL Black=11).
+  - **Identity resolution**: `buildResolutionContext()` reads `bricklinkPartId` from catalog rows (loaded by `getSetInventoryLocal()`). No runtime API calls in the hot path.
   - `/api/parts/bricklink/validate` — on-demand validation endpoint:
     - Validates stored BL part ID via `blValidatePart()` (404-safe, doesn't trip circuit breaker).
     - Tries fallback candidates: raw RB part ID, suffix-stripped variants.
-    - Self-heals by persisting corrected mappings (`source: 'auto-validate'`).
+    - Self-heals by writing corrections to `rb_parts.bl_part_id` directly.
     - Called from `InventoryItemModal` when user opens part detail; session-level client cache prevents repeat calls.
+- **Minifig ID Mapping** (RB ↔ BL):
+  - **Catalog-level coverage**: `rb_minifigs.bl_minifig_id` stores BL minifig IDs. 16,229/16,535 minifigs (98.1%) mapped from bricklinkable pipeline (set-based matching, elimination, fingerprinting).
+  - When all minifigs in a set have catalog mappings, `inventory.ts` skips the runtime BL API call entirely (fast-path). Falls back to `getSetMinifigsBl()` for the unmapped 2%.
   - `bl_minifig_parts` caches BrickLink minifig component parts; `bricklink_minifigs.parts_sync_status` tracks sync state.
-  - Bulk mapping scripts have two phases:
-    - Phase 1: Map minifigs for each set (1 BL API call per set).
-    - Phase 2: Map minifig component parts (1 BL API call per unique minifig, capped by `MINIFIG_COMPONENT_API_BUDGET`).
 
 ## Persistence & Auth Patterns
 
@@ -233,13 +226,16 @@ Default to TTL-only caching. Add version awareness only for catalog-derived serv
 - **RB-first, BL-supersets fallback**
   - `POST /api/identify` accepts an image, calls Brickognize, and extracts candidate part numbers (including optional BrickLink IDs).
   - Candidates are resolved to Rebrickable parts via `resolvePartIdToRebrickable`; colors and sets come from `getPartColorsForPart` and `getSetsForPart`.
+  - The resolve stage batch-lookups `rb_parts.bl_part_id` for all resolved candidates and threads `bricklinkPartId` through the pipeline to the API response.
   - If no Rebrickable candidate yields sets, the handler falls back to BrickLink supersets (including per-color supersets and subset-inferred colors) and then enriches sets with Rebrickable summaries where possible.
 - **Color handling**
   - Available colors for a part are sourced from Rebrickable; a single available color is auto-selected.
   - For BrickLink fallbacks, BL color IDs are mapped to human-readable names via the Rebrickable colors catalog.
+- **External links**
+  - All UI surfaces show dual BrickLink + Rebrickable links. BL URLs use `bricklinkPartId` from catalog (not the RB part ID).
 - **Rate limiting and budgets**
   - `/api/identify` enforces per-client rate limits.
-  - An `ExternalCallBudget` limits outgoing external API calls per request; budget exhaustion yields a structured `identify_budget_exceeded` error.
+  - A `PipelineBudget` limits outgoing external API calls per request; budget exhaustion yields graceful degradation (partial results), not 429.
 
 ## Catalog & Ingestion
 
@@ -261,7 +257,7 @@ Default to TTL-only caching. Add version awareness only for catalog-derived serv
 - **Centralized client selection** (`app/lib/db/catalogAccess.ts`)
   - Tables are classified into three access levels:
     - **ANON_READABLE_TABLES**: `rb_sets`, `rb_parts`, `rb_colors`, `rb_themes`, `rb_part_categories`, `rb_set_parts`, `rb_download_versions` → use `getCatalogReadClient()` (anon key)
-    - **SERVICE_ROLE_TABLES**: `rb_inventories`, `rb_inventory_parts`, `rb_inventory_minifigs`, `rb_minifigs`, `rb_minifig_parts`, `rb_minifig_images`, `bl_*`, `bricklink_*`, `part_id_mappings` → use `getCatalogWriteClient()` (service role)
+    - **SERVICE_ROLE_TABLES**: `rb_inventories`, `rb_inventory_parts`, `rb_inventory_minifigs`, `rb_minifigs`, `rb_minifig_parts`, `rb_minifig_images`, `bl_*`, `bricklink_*` → use `getCatalogWriteClient()` (service role)
     - **USER_TABLES**: `user_profiles`, `user_preferences`, `user_sets`, `user_minifigs`, etc. → use auth server client or service role depending on context
   - This eliminates the mental overhead of choosing the right client per-table and documents RLS policy requirements in one place.
 - **Future catalog tables**

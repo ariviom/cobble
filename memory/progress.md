@@ -60,22 +60,13 @@
     - `SetPageClient` calls group-session APIs with `credentials: 'same-origin'` instead of constructing Authorization headers.
  - Supabase catalog security:
    - Added a Supabase CLI migration (`20251201060928_enable_rls_on_catalog_tables.sql`) that enables RLS on internal BrickLink/Rebrickable catalog tables (`bricklink_minifigs`, `bricklink_minifig_mappings`, `bl_sets`, `bl_set_minifigs`, `rb_minifig_parts`) so database linter rule `0013_rls_disabled_in_public` is satisfied without exposing these tables to anon/auth roles.
-- Part ID mapping infrastructure (RB→BL):
-  - Added `part_id_mappings` table for manual and auto-generated part ID mappings.
-  - Modified `/api/parts/bricklink` to check mapping table first and auto-persist successful suffix fallbacks (e.g., `3957a` → `3957`).
-  - **Fixed** `external_ids` parsing bug: Rebrickable returns `"BrickLink":["3024"]` (array), not `{ext_ids:[...]}` (object).
-  - Added `bl_minifig_parts` table to cache BrickLink minifig component parts.
-  - Extended `minifig-mapping-core.ts` with `processMinifigComponentMappings()` to map RB minifig parts → BL parts.
-  - Updated bulk mapping scripts with two phases:
-    - Phase 1: Map minifigs (controlled by `MINIFIG_MAPPING_MAX_SETS`, default 500).
-    - Phase 2: Map minifig component parts (controlled by `MINIFIG_COMPONENT_API_BUDGET`, default 500).
-  - Total daily BrickLink API budget: 2500 calls split between set mapping and component mapping.
-- BrickLink part ID propagation in UI:
-  - Added `bricklinkPartId` field to `InventoryRow` type.
-  - Updated `getSetInventoryLocal` (catalog.ts) to fetch `external_ids` and extract BrickLink IDs.
-  - Updated `getSetInventory` (rebrickable.ts) to include `inc_part_details=1` for external_ids.
-  - Updated `getMinifigPartsCached` to include `inc_part_details=1` for minifig components.
-  - Updated `InventoryItem.tsx` to use `bricklinkPartId` for constructing BrickLink URLs.
+- Part ID mapping infrastructure (RB↔BL):
+  - `rb_parts.bl_part_id` column stores BL part IDs directly from bricklinkable + Rebrickable API enrichment.
+  - `rb_minifigs.bl_minifig_id` column stores BL minifig IDs from bricklinkable pipeline.
+  - `bl_minifig_parts` table caches BrickLink minifig component parts.
+  - `getSetInventoryLocal()` loads `bl_part_id` from catalog directly.
+  - All UI surfaces use `bricklinkPartId` from identity for correct BL URLs.
+  - Dual BrickLink + Rebrickable links in `IdentifyResultCard`, `InventoryItemModal`, `InventoryItem`.
 - Distributed rate limiting backed by Supabase: `rate_limits` table, `consume_rate_limit` RPC, library wrapper with Supabase first + in-memory fallback, and tests for both paths.
 - **Local-first IndexedDB architecture (SyncedDB migration)**:
   - Added Dexie for IndexedDB abstraction (`app/lib/localDb/`).
@@ -139,20 +130,22 @@
     - Reduced `spareCache` TTL from 7 days → 24 hours (more appropriate for live Rebrickable API data).
     - Added `Cache-Control` header to `/api/catalog/versions` endpoint (60s max-age, 120s stale-while-revalidate).
   - Documented caching strategy in `memory/system-patterns.md` for future reference.
-- **Same-by-Default BL Part ID Mapping** (February 2026):
-  - `identityResolution.ts`: `blPartId` defaults to `rbPartId` when no explicit mapping exists (was `null`).
-  - `enrichPartExternalIds()` in ingest script: populates `rb_parts.external_ids` from Rebrickable API for parts where BL ID differs.
-  - 48,537 of 60,947 parts enriched with external_ids; 12,410 fall through to same-by-default.
+- **RB↔BL ID Mapping Complete** (February 2026):
+  - **Part IDs**: 48,537/60,947 parts have explicit `rb_parts.bl_part_id` (where BL ID differs from RB ID). Remaining ~12,410 parts have identical IDs in both systems — same-by-default handles them. Data from bricklinkable project + Rebrickable API `external_ids`.
+  - **Minifig IDs**: 16,229/16,535 (98.1%) mapped catalog-level in `rb_minifigs.bl_minifig_id` from bricklinkable pipeline. Runtime BL API fallback for unmapped 2%.
+  - Identity resolution simplified: `buildResolutionContext()` reads `bricklinkPartId` from catalog rows. No `part_id_mappings` queries in hot path.
+  - Legacy cleanup: Deleted `mapToBrickLink()` pipeline, `/api/parts/bricklink` route, `/api/colors/mapping` route.
+  - On-demand validation: `/api/parts/bricklink/validate` self-heals to `rb_parts.bl_part_id` directly.
+- **Identify Pipeline & Dual Links** (February 2026):
+  - Identify pipeline now batch-lookups `rb_parts.bl_part_id` for resolved candidates, returns `bricklinkPartId` in API response.
+  - All UI surfaces show dual BrickLink + Rebrickable links: `IdentifyResultCard`, `InventoryItemModal`, `InventoryItem` dropdown.
+  - BL URLs use correct BL part IDs from catalog (was using RB IDs, wrong for ~80% of parts).
   - 367 tests passing, clean tsc.
 - **Export Fixes & BL Validation** (February 2026):
-  - BL export: removed `mapToBrickLink()` fallback, `generateBrickLinkCsv()` is now synchronous/identity-only. Eliminates 429s.
-  - RB export: `includeMinifigs` toggle (default false) with warning. Filters `minifig_*` row types.
-  - `blValidatePart()`: 404-safe circuit breaker. New `BrickLinkNotFoundError` class, `safe404` option on `blGet`.
-  - Negative caching: `part_id_mappings` with `source = 'bl-not-found'`, 30-day re-validation.
-  - On-demand validation: `/api/parts/bricklink/validate` route, self-healing mappings (`auto-validate` source).
+  - BL export: `generateBrickLinkCsv()` is synchronous, identity-only. No HTTP calls during export.
+  - RB export: `includeMinifigs` toggle (default false). Filters `minifig_*` row types.
+  - `blValidatePart()`: 404-safe circuit breaker. `BrickLinkNotFoundError` class, `safe404` option on `blGet`.
   - `InventoryItemModal`: `useBricklinkValidation` hook with session-level cache. Validates BL links on modal open.
-  - Updated `buildResolutionContext()` to skip `bl-not-found` entries.
-  - 356 tests passing, clean tsc.
 - **Exclusive Pieces Feature** (January 2026):
   - New page at `/exclusive-pieces` to discover parts that appear in exactly one LEGO set worldwide.
   - Service layer (`app/lib/services/exclusivePieces.ts`) queries `rb_inventory_parts_public` to find globally unique part+color combinations.
@@ -177,14 +170,9 @@ Core MVP is feature-complete: search, inventory, owned tracking, CSV exports, pr
 ## Known Issues / Risks
 
 - Rebrickable rate limits or incomplete inventories for very old sets.
-- ID/color mapping mismatches between Rebrickable and BrickLink affecting CSV exports.
-  - Mitigated by `part_id_mappings` table with auto-suffix fallback (e.g., `3957a` → `3957`).
-  - Mitigated by `enrichPartExternalIds()` populating `rb_parts.external_ids` for ~80% of parts with different BL IDs.
-  - Mitigated by same-by-default fallback for remaining ~20% of parts without explicit mappings.
-  - Mitigated by on-demand BL validation with self-healing (Plan 08): corrects bad mappings, persists fixes, negative caching prevents repeated lookups.
-  - BL export no longer makes per-part API calls (identity-only); RB export excludes minifigs by default.
-- **RB↔BL minifig ID mapping**: No bulk mapping source exists. Currently resolved per-set at runtime via BrickLink API. Under investigation.
+- RB↔BL part ID mapping is complete (48,537 explicit + ~12,410 same-by-default). On-demand BL validation self-heals edge cases.
+- RB↔BL minifig ID mapping is 98.1% complete (catalog-level). Runtime BL API fallback handles the remaining 2%.
 - Large inventories (>1000 parts) may require careful virtualization and memoization to stay fast.
 - CSV specs must exactly match marketplace requirements to import successfully.
 - Debounced owned writes delay flush by ~500ms; acceptable trade-off for UI responsiveness.
-- BrickLink API rate limits (2500/day) constrain bulk mapping throughput; scripts are capped accordingly.
+- BrickLink API rate limits (2500/day) constrain bulk sync throughput; scripts are capped accordingly.

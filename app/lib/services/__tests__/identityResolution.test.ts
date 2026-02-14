@@ -3,12 +3,6 @@ import type { ResolutionContext } from '../identityResolution';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
-vi.mock('@/app/lib/db/catalogAccess', () => ({
-  getCatalogWriteClient: () => ({}),
-}));
-vi.mock('@/lib/metrics', () => ({
-  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}));
 
 import { resolveCatalogPartIdentity } from '../identityResolution';
 
@@ -67,7 +61,7 @@ describe('resolveCatalogPartIdentity', () => {
     expect(identity.rbPartId).toBe('3957a');
   });
 
-  it('uses part_id_mappings override over same-by-default', () => {
+  it('uses partMappings override over same-by-default', () => {
     const row = makeRow({ partId: '3957a' });
     const ctx = makeCtx({
       partMappings: new Map([['3957a', '3957']]),
@@ -78,7 +72,7 @@ describe('resolveCatalogPartIdentity', () => {
     expect(identity.blPartId).toBe('3957');
   });
 
-  it('prefers bricklinkPartId over part_id_mappings override', () => {
+  it('prefers bricklinkPartId over partMappings override', () => {
     const row = makeRow({
       partId: '3957a',
       bricklinkPartId: '3957-explicit',

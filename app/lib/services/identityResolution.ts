@@ -12,8 +12,6 @@ import {
   createUnmatchedSubpartIdentity,
   type PartIdentity,
 } from '@/app/lib/domain/partIdentity';
-import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
-import { logger } from '@/lib/metrics';
 
 // ---------------------------------------------------------------------------
 // Resolution Context — all lookup data needed for identity resolution
@@ -22,7 +20,7 @@ import { logger } from '@/lib/metrics';
 export type ResolutionContext = {
   rbToBlColor: Map<number, number>;
   blToRbColor: Map<number, number>;
-  /** RB part ID → BL part ID (from catalog external_ids + part_id_mappings) */
+  /** RB part ID → BL part ID (from rb_parts.bl_part_id, same-by-default fallback) */
   partMappings: Map<string, string>;
   /** BL part ID → RB part ID (reverse) */
   blToRbPart: Map<string, string>;
@@ -41,8 +39,8 @@ export const getRbToBlColorMap = getRbToBlColorMapFromDb;
 
 /**
  * Build all lookup maps needed for identity resolution.
- * Extracts BL part IDs from catalog rows and batch-queries part_id_mappings
- * for rows that are missing BL part IDs.
+ * Reads BL part IDs from catalog rows (rb_parts.bl_part_id column).
+ * Parts without an explicit BL ID use same-by-default (RB ID = BL ID).
  */
 export async function buildResolutionContext(
   catalogRows: InventoryRow[]
@@ -50,50 +48,17 @@ export async function buildResolutionContext(
   // 1. Color maps (both directions from DB in one call)
   const { rbToBl: rbToBlColor, blToRb: blToRbColor } = await getColorMaps();
 
-  // 2. Part mappings from catalog rows (already loaded via external_ids)
+  // 2. Part mappings from catalog rows (rb_parts.bl_part_id)
   const partMappings = new Map<string, string>();
-  const missingBlPartIds: string[] = [];
 
   for (const row of catalogRows) {
-    // Skip minifig parent rows
     if (row.partId.startsWith('fig:')) continue;
-
     if (row.bricklinkPartId) {
       partMappings.set(row.partId, row.bricklinkPartId);
-    } else {
-      missingBlPartIds.push(row.partId);
     }
   }
 
-  // 3. Batch-query part_id_mappings for rows missing BL part IDs
-  if (missingBlPartIds.length > 0) {
-    try {
-      const supabase = getCatalogWriteClient();
-      const { data, error } = await supabase
-        .from('part_id_mappings')
-        .select('rb_part_id, bl_part_id, source')
-        .in('rb_part_id', missingBlPartIds);
-
-      if (error) {
-        logger.warn('identityResolution.part_id_mappings_failed', {
-          error: error.message,
-        });
-      } else if (data) {
-        for (const row of data) {
-          // Skip negative-cache entries (bl-not-found) — treat as no mapping
-          if (row.bl_part_id && row.source !== 'bl-not-found') {
-            partMappings.set(row.rb_part_id, row.bl_part_id);
-          }
-        }
-      }
-    } catch (err) {
-      logger.warn('identityResolution.part_id_mappings_error', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
-  // 4. Build reverse part map
+  // 3. Build reverse part map
   const blToRbPart = new Map<string, string>();
   for (const [rb, bl] of partMappings) {
     blToRbPart.set(bl, rb);
@@ -113,8 +78,7 @@ export function resolveCatalogPartIdentity(
   row: InventoryRow,
   ctx: ResolutionContext
 ): PartIdentity {
-  // Same-by-default: most RB and BL part IDs are identical (~98%).
-  // Priority: explicit BL ID → part_id_mappings override → assume same as RB ID.
+  // Priority: explicit BL ID from rb_parts.bl_part_id → same-by-default.
   const blPartId =
     row.bricklinkPartId ?? ctx.partMappings.get(row.partId) ?? row.partId;
   const blColorId = ctx.rbToBlColor.get(row.colorId) ?? null;
@@ -133,9 +97,10 @@ export function resolveCatalogPartIdentity(
  * Create a PartIdentity for a BL minifig parent row.
  */
 export function resolveMinifigParentIdentity(
-  blMinifigId: string
+  blMinifigId: string,
+  rbFigNum?: string | null
 ): PartIdentity {
-  return createMinifigParentIdentity(blMinifigId);
+  return createMinifigParentIdentity(blMinifigId, rbFigNum);
 }
 
 /**

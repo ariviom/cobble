@@ -24,6 +24,7 @@ type Props = {
   isPinned?: boolean;
   onTogglePinned?: () => void;
   onShowMoreInfo?: () => void;
+  isInGroupSession?: boolean;
 };
 
 function InventoryItemComponent({
@@ -34,6 +35,7 @@ function InventoryItemComponent({
   isPinned,
   onTogglePinned,
   onShowMoreInfo,
+  isInGroupSession,
 }: Props) {
   const { user, isLoading } = useAuth();
   const isAuthenticated = !!user && !isLoading;
@@ -112,8 +114,19 @@ function InventoryItemComponent({
             />
             <MoreDropdownButton
               icon={<ExternalLink className="size-4" />}
-              label="View on BrickLink"
+              label="BrickLink"
               href={bricklinkUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+            />
+            <MoreDropdownButton
+              icon={<ExternalLink className="size-4" />}
+              label="Rebrickable"
+              href={
+                isFigId
+                  ? `https://rebrickable.com/minifigs/${encodeURIComponent(row.identity?.rbFigNum ?? rebrickableFigId ?? row.partId.replace(/^fig:/, ''))}/`
+                  : `https://rebrickable.com/parts/${encodeURIComponent(row.partId)}/${row.colorId != null ? `${row.colorId}/` : ''}`
+              }
               target="_blank"
               rel="noreferrer noopener"
             />
@@ -202,7 +215,7 @@ function InventoryItemComponent({
                 : `Need ${row.quantityRequired - owned}`}
             </p>
           </div>
-          {isAuthenticated ? (
+          {isAuthenticated || isInGroupSession ? (
             <OwnedQuantityControl
               required={row.quantityRequired}
               owned={owned}
@@ -226,7 +239,8 @@ function areEqual(prev: Props, next: Props) {
     prev.owned === next.owned &&
     prev.missing === next.missing &&
     prev.bricklinkColorId === next.bricklinkColorId &&
-    prev.isPinned === next.isPinned
+    prev.isPinned === next.isPinned &&
+    prev.isInGroupSession === next.isInGroupSession
   );
 }
 

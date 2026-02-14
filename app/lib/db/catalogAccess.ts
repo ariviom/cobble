@@ -62,9 +62,6 @@ const SERVICE_ROLE_TABLES = new Set([
   'bricklink_minifig_mappings',
   'bl_parts',
   'bl_part_sets',
-
-  // Part ID mappings (RB → BL)
-  'part_id_mappings',
 ]);
 
 /**

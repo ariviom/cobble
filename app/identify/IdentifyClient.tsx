@@ -308,6 +308,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
               confidence?: number;
               colorId?: number | null;
               colorName?: string | null;
+              bricklinkPartId?: string | null;
               isMinifig?: boolean;
               rebrickableFigId?: string | null;
               bricklinkFigId?: string | null;
@@ -324,6 +325,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
               confidence: payloadAny.part.confidence ?? 0,
               colorId: payloadAny.part.colorId ?? null,
               colorName: payloadAny.part.colorName ?? null,
+              bricklinkPartId: payloadAny.part.bricklinkPartId ?? null,
               isMinifig: payloadAny.part.isMinifig ?? false,
               rebrickableFigId: payloadAny.part.rebrickableFigId ?? null,
               bricklinkFigId: payloadAny.part.bricklinkFigId ?? null,
@@ -372,6 +374,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             confidence?: number;
             colorId?: number | null;
             colorName?: string | null;
+            bricklinkPartId?: string | null;
             isMinifig?: boolean;
             rebrickableFigId?: string | null;
             bricklinkFigId?: string | null;
@@ -396,6 +399,10 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                 typeof payloadAny.part!.colorName !== 'undefined'
                   ? payloadAny.part!.colorName!
                   : (prev?.colorName ?? null),
+              bricklinkPartId:
+                payloadAny.part!.bricklinkPartId ??
+                prev?.bricklinkPartId ??
+                null,
               isMinifig: payloadAny.part!.isMinifig ?? prev?.isMinifig ?? false,
               rebrickableFigId:
                 payloadAny.part!.rebrickableFigId ??
@@ -433,6 +440,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                   confidence: payloadAny.part.confidence ?? 0,
                   colorId: payloadAny.part.colorId ?? null,
                   colorName: payloadAny.part.colorName ?? null,
+                  bricklinkPartId: payloadAny.part.bricklinkPartId ?? null,
                   isMinifig: payloadAny.part.isMinifig ?? false,
                   rebrickableFigId: payloadAny.part.rebrickableFigId ?? null,
                   bricklinkFigId: payloadAny.part.bricklinkFigId ?? null,
@@ -750,6 +758,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           confidence: c.confidence,
           colorId: c.colorId ?? prev?.colorId ?? null,
           colorName: c.colorName ?? prev?.colorName ?? null,
+          bricklinkPartId: prev?.bricklinkPartId ?? null,
           isMinifig: prev?.isMinifig ?? false,
           rebrickableFigId: prev?.rebrickableFigId ?? null,
           bricklinkFigId: prev?.bricklinkFigId ?? null,
@@ -781,6 +790,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                 confidence: c.confidence,
                 colorId: null,
                 colorName: null,
+                bricklinkPartId: null,
               }
         );
         const url = new URL('/api/identify/sets', window.location.origin);
@@ -801,6 +811,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             confidence?: number;
             colorId?: number | null;
             colorName?: string | null;
+            bricklinkPartId?: string | null;
             isMinifig?: boolean;
             rebrickableFigId?: string | null;
             bricklinkFigId?: string | null;
@@ -820,6 +831,10 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
               confidence: payloadAny.part!.confidence ?? 0,
               colorId: payloadAny.part!.colorId ?? null,
               colorName: payloadAny.part!.colorName ?? null,
+              bricklinkPartId:
+                payloadAny.part!.bricklinkPartId ??
+                prev?.bricklinkPartId ??
+                null,
               isMinifig: payloadAny.part!.isMinifig ?? prev?.isMinifig ?? false,
               rebrickableFigId:
                 payloadAny.part!.rebrickableFigId ??

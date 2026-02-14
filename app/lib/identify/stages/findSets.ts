@@ -205,6 +205,8 @@ export type IdentifyResolved =
           confidence: number;
           colorId: number | null;
           colorName: string | null;
+          /** Authoritative BrickLink part ID from catalog. */
+          bricklinkPartId?: string | null;
         };
         candidates: ResolvedCandidate[];
         availableColors: PartAvailableColor[];
@@ -220,6 +222,8 @@ export type IdentifyResolved =
           name: string;
           imageUrl: string | null;
           confidence: number;
+          /** Authoritative BrickLink part ID from catalog. */
+          bricklinkPartId?: string | null;
         };
         blPartId: string;
         blAvailableColors: BLFallbackResult['blAvailableColors'];
@@ -266,6 +270,8 @@ export async function resolveIdentifyResult(opts: {
             name: fallback.partName,
             imageUrl: fallback.partImage,
             confidence: blCand.confidence,
+            bricklinkPartId:
+              blCand.bricklinkPartId ?? blCand.bricklinkId ?? null,
           },
           blPartId: blCand.bricklinkId,
           blAvailableColors: fallback.blAvailableColors,
@@ -303,6 +309,8 @@ export async function resolveIdentifyResult(opts: {
             name: fallback.partName,
             imageUrl: fallback.partImage,
             confidence: chosen.confidence,
+            bricklinkPartId:
+              chosen.bricklinkPartId ?? blCand.bricklinkId ?? null,
           },
           blPartId: blCand.bricklinkId,
           blAvailableColors: fallback.blAvailableColors,
@@ -333,6 +341,7 @@ export async function resolveIdentifyResult(opts: {
         confidence: chosen.confidence,
         colorId: selectedColorId ?? null,
         colorName: chosen.colorName ?? null,
+        bricklinkPartId: chosen.bricklinkPartId ?? null,
       },
       candidates: candidates.slice(0, 5),
       availableColors,
