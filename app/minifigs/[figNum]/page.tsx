@@ -1,9 +1,6 @@
 import { PageLayout } from '@/app/components/layout/PageLayout';
 import { MinifigPageClient } from '@/app/components/minifig/MinifigPageClient';
-import {
-  getBlMinifigImageUrl,
-  getMinifigMetaBl,
-} from '@/app/lib/bricklink/minifigs';
+import { getOrFetchMinifigImageUrl } from '@/app/lib/catalog/minifigs';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -32,46 +29,75 @@ async function getServerMinifigMeta(
   let imageUrl: string | null = null;
 
   try {
-    // Get name and year from BrickLink catalog
-    const meta = await getMinifigMetaBl(blMinifigNo);
-    if (meta?.name) {
-      name = meta.name;
-    }
-    if (meta?.itemYear) {
-      year = meta.itemYear;
-    }
-
-    // Try to get image from bl_set_minifigs (cached)
     const supabase = getCatalogReadClient();
-    const { data: blSetMinifig } = await supabase
-      .from('bl_set_minifigs')
-      .select('image_url, name')
-      .eq('minifig_no', blMinifigNo)
-      .not('image_url', 'is', null)
-      .limit(1)
-      .maybeSingle();
 
-    if (blSetMinifig?.image_url) {
-      imageUrl = blSetMinifig.image_url;
-    }
-    // Fall back to constructed BrickLink URL
-    if (!imageUrl) {
-      imageUrl = getBlMinifigImageUrl(blMinifigNo);
-    }
-    // Use bl_set_minifigs name as fallback
-    if (!name && blSetMinifig?.name) {
-      name = blSetMinifig.name;
+    // Lookup by bl_minifig_id first, then fall back to fig_num
+    // (inventory links use RB fig_nums like "fig-005774")
+    const { data: rbMinifigRows } = await supabase
+      .from('rb_minifigs')
+      .select('fig_num, name, bl_minifig_id')
+      .eq('bl_minifig_id', blMinifigNo)
+      .limit(1);
+    let rbMinifig = rbMinifigRows?.[0] ?? null;
+
+    if (!rbMinifig) {
+      const { data: byFigNum } = await supabase
+        .from('rb_minifigs')
+        .select('fig_num, name, bl_minifig_id')
+        .eq('fig_num', blMinifigNo)
+        .limit(1);
+      rbMinifig = byFigNum?.[0] ?? null;
     }
 
-    // Get theme/category name from bricklink_minifigs + bricklink_categories
-    if (meta?.categoryId) {
-      const { data: category } = await supabase
-        .from('bricklink_categories')
-        .select('category_name')
-        .eq('category_id', meta.categoryId)
+    if (rbMinifig?.name) {
+      name = rbMinifig.name;
+    }
+
+    // Get RB image (checks cache, fetches from API on miss)
+    if (rbMinifig?.fig_num) {
+      imageUrl = await getOrFetchMinifigImageUrl(rbMinifig.fig_num);
+    }
+
+    // Get theme from rb_sets via rb_inventory_minifigs (first containing set)
+    if (rbMinifig?.fig_num) {
+      const { data: invMinifig } = await supabase
+        .from('rb_inventory_minifigs')
+        .select('inventory_id')
+        .eq('fig_num', rbMinifig.fig_num)
+        .limit(1)
         .maybeSingle();
-      if (category?.category_name) {
-        themeName = category.category_name;
+
+      if (invMinifig?.inventory_id) {
+        const { data: inv } = await supabase
+          .from('rb_inventories')
+          .select('set_num')
+          .eq('id', invMinifig.inventory_id)
+          .not('set_num', 'like', 'fig-%')
+          .maybeSingle();
+
+        if (inv?.set_num) {
+          const { data: setRow } = await supabase
+            .from('rb_sets')
+            .select('year, theme_id')
+            .eq('set_num', inv.set_num)
+            .maybeSingle();
+
+          if (setRow) {
+            if (typeof setRow.year === 'number' && setRow.year > 0) {
+              year = setRow.year;
+            }
+            if (typeof setRow.theme_id === 'number') {
+              const { data: theme } = await supabase
+                .from('rb_themes')
+                .select('name')
+                .eq('id', setRow.theme_id)
+                .maybeSingle();
+              if (theme?.name) {
+                themeName = theme.name;
+              }
+            }
+          }
+        }
       }
     }
   } catch {

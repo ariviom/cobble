@@ -1,14 +1,7 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
-import { getBricklinkColorNames } from '@/app/lib/bricklink/colors';
-import {
-  getBlMinifigImageUrl,
-  getBlPartImageUrl,
-  getMinifigMetaBl,
-  getMinifigPartsBl,
-  getSetsForMinifigBl,
-} from '@/app/lib/bricklink/minifigs';
-import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
+import { getOrFetchMinifigImageUrl } from '@/app/lib/catalog/minifigs';
+import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { getSetSummary } from '@/app/lib/rebrickable';
 import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
@@ -98,90 +91,137 @@ export async function GET(
     });
   }
 
-  // The input is expected to be a BrickLink minifig ID (e.g., "sw0001")
-  const blMinifigNo = inputId;
+  // Input may be a BrickLink minifig ID (e.g., "sw0001") or an RB fig_num (e.g., "fig-005774")
+  const inputMinifigId = inputId;
 
   try {
-    const supabase = getCatalogWriteClient();
+    const supabase = getCatalogReadClient();
 
-    // Get BL minifig metadata from bricklink_minifigs catalog
-    const blMeta = await getMinifigMetaBl(blMinifigNo);
+    // Try bl_minifig_id first, then fall back to fig_num (inventory links use RB fig_nums)
+    const { data: rbMinifigRows } = await supabase
+      .from('rb_minifigs')
+      .select('fig_num, name, num_parts, bl_minifig_id')
+      .eq('bl_minifig_id', inputMinifigId)
+      .limit(1);
+    let rbMinifig = rbMinifigRows?.[0] ?? null;
 
-    let name = blMinifigNo;
+    if (!rbMinifig) {
+      const { data: byFigNum } = await supabase
+        .from('rb_minifigs')
+        .select('fig_num, name, num_parts, bl_minifig_id')
+        .eq('fig_num', inputMinifigId)
+        .limit(1);
+      rbMinifig = byFigNum?.[0] ?? null;
+    }
+
+    const blMinifigNo = rbMinifig?.bl_minifig_id ?? inputMinifigId;
+    const name = rbMinifig?.name || inputMinifigId;
     let year: number | null = null;
+    let numParts: number | null = rbMinifig?.num_parts ?? null;
     let imageUrl: string | null = null;
 
-    if (blMeta) {
-      name = blMeta.name || blMinifigNo;
-      year = blMeta.itemYear;
+    // Get RB image (checks cache, fetches from API on miss)
+    if (rbMinifig?.fig_num) {
+      imageUrl = await getOrFetchMinifigImageUrl(rbMinifig.fig_num);
     }
 
-    // Try to get image from bl_set_minifigs (most recent source)
-    const { data: blSetMinifig } = await supabase
-      .from('bl_set_minifigs')
-      .select('image_url, name')
-      .eq('minifig_no', blMinifigNo)
-      .not('image_url', 'is', null)
-      .limit(1)
-      .maybeSingle();
-
-    if (blSetMinifig?.image_url) {
-      imageUrl = blSetMinifig.image_url;
-    }
-    // Fallback to constructed BrickLink image URL
-    if (!imageUrl) {
-      imageUrl = getBlMinifigImageUrl(blMinifigNo);
-    }
-    if (!name || name === blMinifigNo) {
-      name = blSetMinifig?.name || blMinifigNo;
-    }
-
-    // Get sets that contain this minifig (using BL data)
+    // Get sets containing this minifig from rb_inventory_minifigs
     let sets: MinifigMetaResponse['sets'] = { count: 0, items: [] };
     let themeName: string | null = null;
 
-    try {
-      const blSets = await getSetsForMinifigBl(blMinifigNo);
-      if (blSets.length > 0) {
-        sets = {
-          count: blSets.length,
-          items: blSets.slice(0, 5).map(s => ({
-            setNumber: s.setNumber,
-            name: s.name,
-            year: s.year,
-            quantity: s.quantity,
-            imageUrl: s.imageUrl,
-          })),
-        };
+    const rbFigNum = rbMinifig?.fig_num;
+    if (rbFigNum) {
+      try {
+        // Get set inventories that contain this minifig
+        const { data: invMinifigs } = await supabase
+          .from('rb_inventory_minifigs')
+          .select('inventory_id, quantity')
+          .eq('fig_num', rbFigNum);
 
-        // Get theme from first set if needed
-        const firstSet = blSets[0];
-        if (firstSet && (year == null || themeName == null)) {
-          try {
-            const summary = await getSetSummary(firstSet.setNumber);
-            if (year == null && typeof summary.year === 'number') {
-              year = summary.year;
+        if (invMinifigs && invMinifigs.length > 0) {
+          const invIds = invMinifigs.map(im => im.inventory_id);
+
+          // Get set numbers from inventories (only set inventories, not fig-*)
+          const { data: rawInventories } = await supabase
+            .from('rb_inventories')
+            .select('id, set_num')
+            .in('id', invIds)
+            .not('set_num', 'like', 'fig-%');
+
+          const inventories = (rawInventories ?? []).filter(
+            (inv): inv is typeof inv & { set_num: string } =>
+              typeof inv.set_num === 'string'
+          );
+
+          if (inventories.length > 0) {
+            const invToQty = new Map<number, number>();
+            for (const im of invMinifigs) {
+              invToQty.set(im.inventory_id, im.quantity ?? 1);
             }
-            if (themeName == null && summary.themeName) {
-              themeName = summary.themeName;
+
+            const setNums = inventories.map(inv => inv.set_num);
+            const { data: setDetails } = await supabase
+              .from('rb_sets')
+              .select('set_num, name, year, image_url')
+              .in('set_num', setNums);
+
+            const detailMap = new Map(
+              (setDetails ?? []).map(s => [s.set_num, s])
+            );
+
+            const setItems = inventories
+              .map(inv => {
+                const details = detailMap.get(inv.set_num);
+                const qty = invToQty.get(inv.id) ?? 1;
+                return {
+                  setNumber: inv.set_num,
+                  name: details?.name ?? inv.set_num,
+                  year: details?.year ?? 0,
+                  quantity: qty,
+                  imageUrl: details?.image_url ?? null,
+                };
+              })
+              // Deduplicate by set_num (multiple inventory versions)
+              .filter(
+                (item, idx, arr) =>
+                  arr.findIndex(x => x.setNumber === item.setNumber) === idx
+              )
+              .sort((a, b) => b.quantity - a.quantity || b.year - a.year);
+
+            sets = {
+              count: setItems.length,
+              items: setItems.slice(0, 5),
+            };
+
+            // Get theme from first set
+            if (setItems.length > 0 && (year == null || themeName == null)) {
+              try {
+                const summary = await getSetSummary(setItems[0]!.setNumber);
+                if (year == null && typeof summary.year === 'number') {
+                  year = summary.year;
+                }
+                if (themeName == null && summary.themeName) {
+                  themeName = summary.themeName;
+                }
+              } catch (err) {
+                logger.warn('minifig.set_summary_fallback_failed', {
+                  blMinifigNo,
+                  setNumber: setItems[0]!.setNumber,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+              }
             }
-          } catch (err) {
-            logger.warn('minifig.set_summary_fallback_failed', {
-              blMinifigNo,
-              setNumber: firstSet.setNumber,
-              error: err instanceof Error ? err.message : String(err),
-            });
           }
         }
+      } catch (err) {
+        logger.warn('minifig.get_sets_failed', {
+          blMinifigNo,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
-    } catch (err) {
-      logger.warn('minifig.get_sets_failed', {
-        blMinifigNo,
-        error: err instanceof Error ? err.message : String(err),
-      });
     }
 
-    // Get price guide if requested
+    // Get price guide if requested (BL API stays for pricing)
     let priceGuide: MinifigMetaResponse['priceGuide'] | undefined = undefined;
     if (includePricing) {
       try {
@@ -208,46 +248,44 @@ export async function GET(
       }
     }
 
-    // Get subparts if requested (from BL data, self-healing)
+    // Get subparts if requested (from RB catalog)
     let subparts: MinifigSubpart[] | undefined = undefined;
-    let partsCount: number | null = null;
-    if (includeSubparts) {
-      const blParts = await getMinifigPartsBl(blMinifigNo);
-      partsCount = blParts.length;
+    if (includeSubparts && rbFigNum) {
+      const { data: rbParts } = await supabase
+        .from('rb_minifig_parts')
+        .select(
+          'part_num, color_id, quantity, img_url, rb_parts!inner(name, bl_part_id), rb_colors!inner(name)'
+        )
+        .eq('fig_num', rbFigNum);
 
-      if (blParts.length > 0) {
-        // Get color names using static BrickLink color mapping (fast, no DB query)
-        // Note: rb_colors uses Rebrickable IDs which differ from BrickLink IDs
-        const colorIds = blParts
-          .filter(p => !p.colorName)
-          .map(p => Number(p.blColorId));
-        const colorMap = getBricklinkColorNames(colorIds);
-
-        subparts = blParts.map(p => {
-          const numColorId = Number(p.blColorId);
+      if (rbParts && rbParts.length > 0) {
+        numParts = rbParts.length;
+        subparts = rbParts.map(p => {
+          const partMeta = p.rb_parts as unknown as {
+            name: string;
+            bl_part_id: string | null;
+          };
+          const colorMeta = p.rb_colors as unknown as {
+            name: string;
+          };
           return {
-            partId: p.blPartId, // Use BL part ID as primary
-            name: p.name ?? p.blPartId,
-            colorId: numColorId,
-            // Use color name from DB if available, else static BL mapping, else fallback
-            colorName:
-              p.colorName ?? colorMap.get(numColorId) ?? `Color ${numColorId}`,
-            quantity: p.quantity,
-            // Construct BrickLink part image URL with color
-            imageUrl: getBlPartImageUrl(p.blPartId, numColorId),
-            bricklinkPartId: p.blPartId, // Already BL ID
+            partId: p.part_num,
+            name: partMeta.name ?? p.part_num,
+            colorId: p.color_id,
+            colorName: colorMeta.name ?? `Color ${p.color_id}`,
+            quantity: p.quantity ?? 1,
+            imageUrl: (p as Record<string, unknown>).img_url as string | null,
+            bricklinkPartId: partMeta.bl_part_id,
           };
         });
       }
-    }
-
-    // numParts comes from BL subparts count (already populated above if includeSubparts)
-    // If subparts weren't requested but we need numParts, fetch from bl_minifig_parts
-    let numParts: number | null = partsCount;
-    if (numParts === null) {
-      // Quick count from bl_minifig_parts without fetching full data
-      const blParts = await getMinifigPartsBl(blMinifigNo);
-      numParts = blParts.length > 0 ? blParts.length : null;
+    } else if (numParts == null && rbFigNum) {
+      // Quick count from rb_minifig_parts
+      const { count } = await supabase
+        .from('rb_minifig_parts')
+        .select('*', { count: 'exact', head: true })
+        .eq('fig_num', rbFigNum);
+      numParts = count;
     }
 
     const payload: MinifigMetaResponse = {
@@ -267,7 +305,7 @@ export async function GET(
     return NextResponse.json(payload);
   } catch (err) {
     logger.error('minifig.unexpected_error', {
-      blMinifigNo,
+      inputMinifigId,
       error: err instanceof Error ? err.message : String(err),
     });
     return errorResponse('minifig_meta_failed', {
