@@ -55,11 +55,8 @@ const SERVICE_ROLE_TABLES = new Set([
   'rb_minifig_images',
 
   // BrickLink mapping and cache tables
-  'bl_sets',
   'bl_set_minifigs',
   'bl_minifig_parts',
-  'bricklink_minifigs',
-  'bricklink_minifig_mappings',
   'bl_parts',
   'bl_part_sets',
 ]);

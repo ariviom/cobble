@@ -337,24 +337,6 @@ export async function blValidatePart(
   }
 }
 
-export type BLMinifig = {
-  no: string; // BrickLink minifig no, e.g., sw0001
-  name?: string;
-  category_id?: number;
-  year_released?: number;
-  image_url?: string;
-};
-
-/**
- * Get minifig catalog item from BrickLink API.
- * Returns basic metadata: name, category, year, image.
- */
-export async function blGetMinifig(no: string): Promise<BLMinifig> {
-  return blGet<BLMinifig>(
-    `/items/${STORE_ITEM_TYPE_MINIFIG}/${encodeURIComponent(no)}`
-  );
-}
-
 type BLSubsetResponse =
   | { entries?: BLSubsetItem[]; [k: string]: unknown }
   | BLSubsetItem
@@ -584,87 +566,6 @@ export async function blGetPartSupersets(
   return list;
 }
 
-// Minifig supersets cache (separate from part supersets to avoid key collisions)
-const minifigSupersetsCache = new LRUCache<string, BLSupersetItem[]>(
-  CACHE.MAX_ENTRIES,
-  CACHE.TTL_MS.DEFAULT
-);
-
-/**
- * Get sets containing a minifig from BrickLink API.
- * Uses /items/MINIFIG/{minifigNo}/supersets which returns all sets that include this minifig.
- */
-export async function blGetMinifigSupersets(
-  minifigNo: string
-): Promise<BLSupersetItem[]> {
-  const trimmed = minifigNo.trim();
-  if (!trimmed) return [];
-
-  const key = `minifig:${trimmed.toLowerCase()}`;
-  const cached = minifigSupersetsCache.get(key);
-  if (cached) return cached;
-
-  const path = `/items/${STORE_ITEM_TYPE_MINIFIG}/${encodeURIComponent(trimmed)}/supersets`;
-  const data = await blGet<
-    BLSupersetResponse[] | { entries?: BLSupersetResponse[] }
-  >(path, {});
-
-  const raw: BLSupersetResponse[] = Array.isArray(data)
-    ? data
-    : Array.isArray((data as { entries?: BLSupersetResponse[] }).entries)
-      ? ((data as { entries?: BLSupersetResponse[] }).entries ?? [])
-      : [];
-
-  const list = normalizeSupersetEntries(raw);
-
-  if (process.env.NODE_ENV !== 'production') {
-    logger.debug('bricklink.minifig_supersets', {
-      minifigNo: trimmed,
-      count: list.length,
-      sample: list.slice(0, 3),
-    });
-  }
-
-  minifigSupersetsCache.set(key, list);
-  return list;
-}
-
-export async function blGetSetSubsets(setNum: string): Promise<BLSubsetItem[]> {
-  // Reuse the same shape/logic as blGetPartSubsets, but for SET items with no color.
-  const key = makeKey(setNum, undefined);
-  const cached = subsetsCache.get(key);
-  if (cached) return cached;
-  const data = await blGet<unknown[] | { entries: unknown[] }>(
-    `/items/${STORE_ITEM_TYPE_SET}/${encodeURIComponent(setNum)}/subsets`,
-    {}
-  );
-  const raw: unknown[] = Array.isArray(data)
-    ? data
-    : Array.isArray((data as { entries?: unknown[] }).entries)
-      ? ((data as { entries?: unknown[] }).entries ?? [])
-      : [];
-  const list: BLSubsetItem[] = raw
-    .flatMap(group => {
-      if (
-        group &&
-        typeof group === 'object' &&
-        Array.isArray((group as { entries?: unknown[] }).entries)
-      ) {
-        return (group as { entries: BLSubsetItem[] }).entries;
-      }
-      return [group as BLSubsetItem];
-    })
-    .filter(Boolean) as BLSubsetItem[];
-  if (process.env.NODE_ENV !== 'production') {
-    logger.debug('bricklink.set_subsets', {
-      setNum,
-      count: Array.isArray(list) ? list.length : 0,
-    });
-  }
-  subsetsCache.set(key, list);
-  return list;
-}
-
 export async function blGetPartColors(no: string): Promise<BLColorEntry[]> {
   const key = makeKey(no, undefined);
   const cached = colorsCache.get(key);
@@ -687,47 +588,6 @@ export async function blGetPartColors(no: string): Promise<BLColorEntry[]> {
   }
   colorsCache.set(key, list);
   return list;
-}
-
-export async function blGetColor(
-  colorId: number
-): Promise<{ color_id: number; color_name?: string }> {
-  const data = await blGet<{ color_id: number; color_name?: string }>(
-    `/colors/${encodeURIComponent(colorId)}`
-  );
-  if (process.env.NODE_ENV !== 'production') {
-    logger.debug('bricklink.color', {
-      colorId,
-      name: typeof data.color_name === 'string' ? data.color_name : null,
-    });
-  }
-  return data;
-}
-
-export async function blGetPartImageUrl(
-  no: string,
-  colorId: number
-): Promise<{ thumbnail_url?: string | null; type?: string; no?: string }> {
-  const data = await blGet<{
-    thumbnail_url?: string | null;
-    type?: string;
-    no?: string;
-  }>(
-    `/items/${STORE_ITEM_TYPE_PART}/${encodeURIComponent(
-      no
-    )}/images/${encodeURIComponent(colorId)}`
-  );
-  if (process.env.NODE_ENV !== 'production') {
-    logger.debug('bricklink.image', {
-      no,
-      colorId,
-      thumbnail:
-        typeof data.thumbnail_url === 'string' || data.thumbnail_url === null
-          ? data.thumbnail_url
-          : null,
-    });
-  }
-  return data;
 }
 
 type BLPriceGuideDetail = {

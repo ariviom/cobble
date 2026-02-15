@@ -1,97 +1,53 @@
-# Current Improvement Plan
+# Plan 12: Unified Data Source Audit & Dead Code Cleanup
 
-**Last Updated:** December 16, 2025  
-**Status:** Active (minimal backlog)
-
----
+**Last Updated:** February 15, 2026
+**Status:** Complete
 
 ## Summary
 
-Most architectural improvements from the December 2025 scaling review have been completed. See `PREVIOUS_IMPROVEMENT_PLANS.md` for historical details.
+After completing Plans 08-11 (RB↔BL ID mapping, same-by-default, bricklinkable ingest, RB minifig migration), the codebase has arrived at a **fully RB-catalog-driven architecture**. This plan formalized the current unified approach and removed dead code from the old BL-first minifig approach.
 
-| Risk Area                     | Severity    | Status                                     |
-| ----------------------------- | ----------- | ------------------------------------------ |
-| Multi-layer cache incoherence | 🔴 Critical | ✅ Resolved (targeted fixes)               |
-| Sync queue race conditions    | 🟠 High     | ✅ Completed (TabCoordinator)              |
-| CSRF protection gaps          | 🟠 High     | ✅ Completed                               |
-| External API cascade failures | 🟠 High     | ✅ Completed (Rebrickable circuit breaker) |
-| In-memory state leaks         | 🟡 Medium   | ✅ Verified (cleanup already in place)     |
-| Service role privilege sprawl | 🟡 Medium   | ⏳ **Deferred** (see below)                |
+## Current Architecture
 
----
+| Entity         | Primary Source                                             | BL API Usage                                        |
+| -------------- | ---------------------------------------------------------- | --------------------------------------------------- |
+| **Parts**      | `rb_parts`, `rb_inventory_parts_public`                    | None                                                |
+| **Colors**     | `rb_colors`                                                | None                                                |
+| **Sets**       | `rb_sets`, `rb_inventories`                                | None                                                |
+| **Minifigs**   | `rb_minifigs`, `rb_inventory_minifigs`, `rb_minifig_parts` | None                                                |
+| **Pricing**    | N/A (BL only)                                              | `blGetPartPriceGuide`, `blGetSetPriceGuide`         |
+| **Identify**   | RB primary                                                 | `blGetPartSupersets/Subsets/Colors/Part` (fallback) |
+| **Validation** | N/A                                                        | `blValidatePart` (on-demand)                        |
 
-## 🟡 Deferred: Service Role Privilege Sprawl
+## Changes Made
 
-**Severity:** 🟡 Medium  
-**Effort:** Medium (1 day)  
-**ROI:** Medium - security hardening  
-**Status:** Deferred to post-beta
+### Phase 1: Removed Dead BL API Functions
 
-### Problem
+- Deleted from `app/lib/bricklink.ts`: `blGetMinifig`, `blGetMinifigSupersets`, `blGetSetSubsets`, `blGetColor`, `blGetPartImageUrl`
+- Removed `BLMinifig` type and `minifigSupersetsCache`
 
-Service role client (bypasses RLS) is used in 15 files. Some may not need elevated privileges.
+### Phase 2: Removed Dead BL Ingest Script
 
-### Files Using Service Role
+- Deleted `scripts/ingest-bricklink-minifigs.ts`
+- Removed `ingest:bricklink-minifigs` npm script from `package.json`
 
-| File                                        | Reason             | Needs Service Role? |
-| ------------------------------------------- | ------------------ | ------------------- |
-| `app/api/minifigs/[figNum]/route.ts`        | Reads minifig data | 🟡 Audit needed     |
-| `app/api/identify/sets/handlers/minifig.ts` | Reads catalog      | 🟡 Audit needed     |
-| `app/lib/identify/blFallback.ts`            | Writes BL cache    | ✅ Yes              |
-| `app/lib/services/billing.ts`               | User subscriptions | ✅ Yes              |
-| `app/api/stripe/webhook/route.ts`           | Updates user data  | ✅ Yes              |
-| `app/api/user/minifigs/route.ts`            | User data          | ✅ Yes              |
+### Phase 3: Cleaned Up catalogAccess.ts
 
-### Implementation Plan
+- Removed `bl_sets` and `bricklink_minifig_mappings` from `SERVICE_ROLE_TABLES`
+- Kept `bl_set_minifigs` and `bl_minifig_parts` (still used by ingest-rebrickable.ts tier matching)
+- Removed `bricklink_minifigs` after replacing its usage in Phase 4
 
-**Step 1: Audit each usage**
+### Phase 4: Replaced /user/[handle] BL Minifig Fallback
 
-For each file importing `getSupabaseServiceRoleClient`:
+- Replaced `bricklink_minifigs` query with `rb_minifigs` lookup via `bl_minifig_id`
+- Now returns `num_parts` (which BL catalog didn't have)
 
-1. Check what tables are accessed
-2. Verify if RLS policies would block the operation
-3. If anon/auth client would work, switch to it
+### Phase 5: Database Table Cleanup
 
-**Step 2: Add documentation comment**
+- Migration `20260215165608_drop_dead_bl_tables.sql` drops `bl_sets` and `bricklink_minifigs`
 
-```typescript
-// When service role IS needed, document why:
-// Uses service role because: Writes to bl_parts which has no anon policy
-const supabase = getSupabaseServiceRoleClient();
-```
+### Phase 6: Documentation Updates
 
-### Acceptance Criteria
-
-- [ ] Audit all 15 files using service role
-- [ ] Switch to anon/auth client where possible
-- [ ] Document reasoning for remaining service role usages
-- [ ] Add lint warning for service role imports (optional)
-
-### Why Deferred
-
-This is a security hardening task, not a functional issue. The current usage is safe (service role is only used server-side), but reducing its footprint follows the principle of least privilege. Can be addressed post-beta when there's more time for careful auditing.
-
----
-
-## Useful Commands
-
-```bash
-# Find service role usages
-rg "getSupabaseServiceRoleClient" app/ --type ts -l
-
-# Find all POST routes (for CSRF audit)
-rg "export (async function |function |const )(POST|PUT|PATCH|DELETE)" app/api/ --type ts
-```
-
----
-
-## Related Documentation
-
-- `PREVIOUS_IMPROVEMENT_PLANS.md` - Completed improvement work
-- `archive/CACHE_ARCHITECTURE_PLAN.md` - Detailed caching analysis (archived)
-- `memory/system-patterns.md` - Caching strategy section
-- `docs/BACKLOG.md` - Consolidated project backlog
-
----
-
-_Last updated: December 16, 2025_
+- Updated `memory/active-context.md`: removed old BL minifig architecture section, updated data source decisions
+- Updated `memory/progress.md`: replaced old BL-first minifig entries with unified RB approach
+- Archived Plan 10 from this file

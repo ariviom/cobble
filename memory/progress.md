@@ -16,37 +16,17 @@
 - Owned-quantity persistence via `app/store/owned.ts` with in-memory cache, versioned `localStorage` key, and debounced writes.
 - Export modal (`ExportModal`) supports Rebrickable CSV and BrickLink wanted list CSV generation, including basic unmapped-row reporting.
 - Optional BrickLink pricing via `/api/prices/bricklink`, `/api/prices/bricklink-set`, and `useInventoryPrices`, triggered per-row and at the set level, with per-part BrickLink links and aggregate totals/ranges.
-- **BrickLink as Source of Truth for Minifigs (December 2025)**:
-  - Migrated from Rebrickable to BrickLink as the exclusive source of truth for minifigure data.
-  - New BL-only data access module: `app/lib/bricklink/minifigs.ts`
-    - `getSetMinifigsBl()` - Fetch minifigs for a set from `bl_set_minifigs`
-    - `getMinifigPartsBl()` - Fetch component parts from `bl_minifig_parts`
-    - `getMinifigMetaBl()` - Fetch catalog metadata from `bricklink_minifigs`
-    - `mapBlToRbFigId()` - Reverse lookup for RB compatibility
-  - Self-healing system: APIs automatically trigger BrickLink sync when data is missing
-  - Updated services:
-    - `app/lib/services/inventory.ts` - Uses BL IDs directly, no RB→BL mapping needed
-    - `app/lib/services/minifigEnrichment.ts` - BL-only enrichment
-    - `app/api/minifigs/[figNum]/route.ts` - Accepts BL minifig_no as primary ID
-    - `app/api/identify/sets/handlers/minifig.ts` - BL-first identification
-    - `app/api/user/minifigs/sync-from-sets/route.ts` - Uses BL IDs for user minifigs
-  - Deleted old RB→BL mapping logic:
-    - Removed `app/lib/minifigMapping.ts`
-    - Removed `app/lib/minifigMappingBatched.ts`
-    - Removed dev tooling: `app/api/dev/minifig-mappings/*`, `app/dev/minifig-review/`
-  - Added database migration for BL indexes (`20251229100047_bricklink_minifig_primary.sql`)
-  - User data migration scripts:
-    - `scripts/export-user-set-ids.ts` - Backup user sets before migration
-    - `scripts/nuke-user-minifigs.ts` - Clear user minifig data for re-sync
-- **BrickLink-Only Minifig Architecture (January 2026)**:
-  - **Removed RB↔BL mapping**: Dropped heuristic-based mappings that were unreliable. BrickLink is now the exclusive source of truth for minifig IDs.
-  - **Database cleanup**: Migration `20260119030048_drop_rb_minifig_mapping.sql` drops `bricklink_minifig_mappings` table and `rb_fig_id` column from `bl_set_minifigs`.
-  - **Centralized sync orchestration**: `app/lib/sync/minifigSync.ts` is now the single source of truth for all minifig sync operations (set-minifigs and minifig-parts) with centralized in-flight tracking.
-  - **Inventory service refactored**: `inventory.ts` now filters OUT all RB minifig rows and replaces entirely with BL data. Batch-fetches all minifig subparts in one query.
-  - **Deleted scripts**: `build-minifig-mappings-from-all-sets.ts`, `build-minifig-mappings-from-user-sets.ts` (mapping logic removed).
-  - **New color handling**: Added `app/lib/bricklink/colors.ts` for BrickLink color name lookup.
-  - **Type cleanup**: Removed unused `'pending'` from `SyncStatus`; renamed fields for clarity (`minifigNo` → `blMinifigId`).
-  - All 221 tests pass.
+- **Minifig Data — Fully RB Catalog (February 2026, Plan 11)**:
+  - All minifig data (metadata, subparts, set membership) sourced from RB catalog tables (`rb_minifigs`, `rb_minifig_parts`, `rb_inventory_minifigs`).
+  - BL API retained only for pricing and identify fallback.
+  - `rb_minifig_parts` materialized view kept fresh by `materializeMinifigParts()` in ingest pipeline.
+  - 98.1% BL ID coverage via `rb_minifigs.bl_minifig_id` from bricklinkable pipeline.
+- **Dead Code Cleanup (Plan 12)**:
+  - Removed unused BL API functions: `blGetMinifig`, `blGetMinifigSupersets`, `blGetSetSubsets`, `blGetColor`, `blGetPartImageUrl`.
+  - Deleted `scripts/ingest-bricklink-minifigs.ts` and npm script.
+  - Replaced `bricklink_minifigs` query in `/user/[handle]` with `rb_minifigs` lookup.
+  - Dropped dead DB tables: `bl_sets`, `bricklink_minifigs`.
+  - Cleaned up `catalogAccess.ts` table classifications.
 - Supabase SSR & auth-aware surfaces:
   - `@supabase/ssr` wired for both browser (`getSupabaseBrowserClient`) and server (`getSupabaseAuthServerClient`) clients.
   - Root `middleware.ts` + `utils/supabase/middleware.ts` keep Supabase auth cookies synchronized for SSR.
@@ -102,10 +82,7 @@
     - `getCatalogReadClient()` and `getCatalogWriteClient()` provide correct client based on table access requirements.
     - Eliminates mental overhead of choosing correct client per-query.
     - Documents RLS policy requirements in a single location.
-  - **Minifig sync module** (`app/lib/sync/minifigSync.ts`):
-    - Separates read operations (`checkSetSyncStatus()`) from write operations (`triggerMinifigSync()`).
-    - Explicit sync control with deduplication and 60-second cooldown.
-    - Sync status tracking: `'ok' | 'error' | 'pending' | 'never_synced'`.
+  - **Minifig data**: All minifig inventory data comes from RB catalog (`rb_minifig_parts`). No runtime BL API sync needed.
   - **Inventory service improvements** (`app/lib/services/inventory.ts`):
     - `getSetInventoryRowsWithMeta()` returns optional `minifigMeta` with sync status.
     - `/api/inventory` now accepts `includeMeta=true` query param to return mapping metadata.
@@ -165,7 +142,7 @@ See `docs/BACKLOG.md` for the full consolidated backlog.
 
 ## Status
 
-Core MVP is feature-complete: search, inventory, owned tracking, CSV exports, pricing, and identify flows are all working. Auth and Supabase persistence are wired up. **BrickLink is the exclusive source of truth for minifigure data** with self-healing capabilities. **Cross-device sync for recently viewed and continue building is implemented** (pending migration push). Main remaining work is Stripe UI/UX enforcement.
+Core MVP is feature-complete: search, inventory, owned tracking, CSV exports, pricing, and identify flows are all working. Auth and Supabase persistence are wired up. **Rebrickable catalog is the unified source of truth for all entity data** (parts, sets, colors, minifigs). BrickLink API retained only for pricing and identify fallback. **Cross-device sync for recently viewed and continue building is implemented** (pending migration push). Main remaining work is Stripe UI/UX enforcement.
 
 ## Known Issues / Risks
 
