@@ -1,8 +1,4 @@
-import {
-  getSetsForMinifigBl,
-  type MinifigSetInfo,
-} from '@/app/lib/bricklink/minifigs';
-import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
+import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { type PartAvailableColor, type PartInSet } from '@/app/lib/rebrickable';
 import { logEvent } from '@/lib/metrics';
 
@@ -28,11 +24,7 @@ export type MinifigIdentifyResult = {
  * Identify a minifigure and find sets containing it.
  *
  * Accepts BrickLink minifig IDs (e.g., "sw0001", "cty1234").
- * Legacy Rebrickable IDs (fig-XXXXX) are not supported as there is no
- * deterministic mapping between RB and BL minifig IDs.
- *
- * @param part - The BrickLink minifig ID (may include fig: prefix)
- * @returns Identification result with minifig info and containing sets
+ * Reverse-lookups BL→RB fig_num, then queries rb_inventory_minifigs for sets.
  */
 export async function handleMinifigIdentify(
   part: string
@@ -40,40 +32,85 @@ export async function handleMinifigIdentify(
   const tokenRaw = part.startsWith('fig:') ? part.slice(4) : part;
   const token = tokenRaw.trim();
 
-  const supabase = getCatalogWriteClient();
+  const supabase = getCatalogReadClient();
 
   // Treat input as BrickLink ID (source of truth for minifigs)
   const bricklinkFigId = token;
 
-  // Get sets containing this minifig (using BL data)
-  let sets: PartInSet[] = [];
-  try {
-    const blSets = await getSetsForMinifigBl(bricklinkFigId);
-    // Map MinifigSetInfo to PartInSet for compatibility
-    sets = blSets.map(
-      (s: MinifigSetInfo): PartInSet => ({
-        setNumber: s.setNumber,
-        name: s.name,
-        year: s.year,
-        imageUrl: s.imageUrl,
-        quantity: s.quantity,
-      })
-    );
-  } catch {
-    sets = [];
-  }
-
-  // Get display name from BL catalog
-  let displayName: string = bricklinkFigId;
-
-  const { data: blMeta } = await supabase
-    .from('bricklink_minifigs')
-    .select('name')
-    .eq('item_id', bricklinkFigId)
+  // Reverse-lookup: BL minifig ID → RB fig_num
+  const { data: rbMinifig } = await supabase
+    .from('rb_minifigs')
+    .select('fig_num, name')
+    .eq('bl_minifig_id', bricklinkFigId)
     .maybeSingle();
 
-  if (blMeta?.name) {
-    displayName = blMeta.name;
+  // Get display name
+  const displayName: string = rbMinifig?.name ?? bricklinkFigId;
+  const rbFigNum = rbMinifig?.fig_num;
+
+  // Get sets containing this minifig from RB catalog
+  let sets: PartInSet[] = [];
+  if (rbFigNum) {
+    try {
+      const { data: invMinifigs } = await supabase
+        .from('rb_inventory_minifigs')
+        .select('inventory_id, quantity')
+        .eq('fig_num', rbFigNum);
+
+      if (invMinifigs && invMinifigs.length > 0) {
+        const invIds = invMinifigs.map(im => im.inventory_id);
+        const invToQty = new Map<number, number>();
+        for (const im of invMinifigs) {
+          invToQty.set(im.inventory_id, im.quantity ?? 1);
+        }
+
+        // Get set numbers from inventories (exclude fig-* inventories)
+        const { data: inventories } = await supabase
+          .from('rb_inventories')
+          .select('id, set_num')
+          .in('id', invIds)
+          .not('set_num', 'like', 'fig-%');
+
+        const validInventories = (inventories ?? []).filter(
+          (inv): inv is typeof inv & { set_num: string } =>
+            typeof inv.set_num === 'string'
+        );
+
+        if (validInventories.length > 0) {
+          const setNums = [
+            ...new Set(validInventories.map(inv => inv.set_num)),
+          ];
+          const { data: setDetails } = await supabase
+            .from('rb_sets')
+            .select('set_num, name, year, image_url')
+            .in('set_num', setNums);
+
+          const detailMap = new Map(
+            (setDetails ?? []).map(s => [s.set_num, s])
+          );
+
+          sets = validInventories
+            .map(inv => {
+              const details = detailMap.get(inv.set_num);
+              return {
+                setNumber: inv.set_num,
+                name: details?.name ?? inv.set_num,
+                year: details?.year ?? 0,
+                imageUrl: details?.image_url ?? null,
+                quantity: invToQty.get(inv.id) ?? 1,
+              };
+            })
+            // Dedup by set_num
+            .filter(
+              (item, idx, arr) =>
+                arr.findIndex(x => x.setNumber === item.setNumber) === idx
+            )
+            .sort((a, b) => b.quantity - a.quantity || b.year - a.year);
+        }
+      }
+    } catch {
+      sets = [];
+    }
   }
 
   if (process.env.NODE_ENV !== 'production') {

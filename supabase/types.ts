@@ -693,18 +693,21 @@ export type Database = {
         Row: {
           color_id: number;
           fig_num: string;
+          img_url: string | null;
           part_num: string;
           quantity: number;
         };
         Insert: {
           color_id: number;
           fig_num: string;
+          img_url?: string | null;
           part_num: string;
           quantity: number;
         };
         Update: {
           color_id?: number;
           fig_num?: string;
+          img_url?: string | null;
           part_num?: string;
           quantity?: number;
         };
@@ -734,16 +737,25 @@ export type Database = {
       };
       rb_minifigs: {
         Row: {
+          bl_mapping_confidence: number | null;
+          bl_mapping_source: string | null;
+          bl_minifig_id: string | null;
           fig_num: string;
           name: string;
           num_parts: number | null;
         };
         Insert: {
+          bl_mapping_confidence?: number | null;
+          bl_mapping_source?: string | null;
+          bl_minifig_id?: string | null;
           fig_num: string;
           name: string;
           num_parts?: number | null;
         };
         Update: {
+          bl_mapping_confidence?: number | null;
+          bl_mapping_source?: string | null;
+          bl_minifig_id?: string | null;
           fig_num?: string;
           name?: string;
           num_parts?: number | null;
@@ -767,6 +779,7 @@ export type Database = {
       };
       rb_parts: {
         Row: {
+          bl_part_id: string | null;
           external_ids: Json | null;
           image_url: string | null;
           last_updated_at: string;
@@ -775,6 +788,7 @@ export type Database = {
           part_num: string;
         };
         Insert: {
+          bl_part_id?: string | null;
           external_ids?: Json | null;
           image_url?: string | null;
           last_updated_at?: string;
@@ -783,6 +797,7 @@ export type Database = {
           part_num: string;
         };
         Update: {
+          bl_part_id?: string | null;
           external_ids?: Json | null;
           image_url?: string | null;
           last_updated_at?: string;

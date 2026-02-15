@@ -37,6 +37,13 @@ describe('PartIdentity factories', () => {
       expect(id.rbColorId).toBe(0);
       expect(id.rowType).toBe('minifig_parent');
       expect(id.blMinifigId).toBe('sw0001');
+      expect(id.rbFigNum).toBeNull();
+    });
+
+    it('stores rbFigNum when provided', () => {
+      const id = createMinifigParentIdentity('sw0001', 'fig-000001');
+      expect(id.blMinifigId).toBe('sw0001');
+      expect(id.rbFigNum).toBe('fig-000001');
     });
   });
 

@@ -3,11 +3,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Mock server-only before importing handlers
 vi.mock('server-only', () => ({}));
 
-// Mock BrickLink minifigs module
-vi.mock('@/app/lib/bricklink/minifigs', () => ({
-  getSetsForMinifigBl: vi.fn(),
-}));
-
 // Mock rebrickable client
 vi.mock('@/app/lib/rebrickable', () => ({
   getPart: vi.fn(),
@@ -40,22 +35,27 @@ vi.mock('@/app/lib/identify/blFallback', () => ({
   }),
 }));
 
-// Mock Supabase - updated for BL queries
+// Mock Supabase - updated for RB catalog queries
 const mockMaybeSingle = vi.fn();
-const mockLimit = vi.fn(() => ({ maybeSingle: mockMaybeSingle }));
 const mockNot = vi.fn(() => ({
-  limit: mockLimit,
+  maybeSingle: mockMaybeSingle,
+}));
+const mockIn = vi.fn(() => ({
+  not: mockNot,
   maybeSingle: mockMaybeSingle,
 }));
 const mockEq = vi.fn(() => ({
   maybeSingle: mockMaybeSingle,
   not: mockNot,
-  limit: mockLimit,
+  in: mockIn,
 }));
-const mockSelect = vi.fn(() => ({ eq: mockEq }));
+const mockSelect = vi.fn(() => ({ eq: mockEq, in: mockIn }));
 const mockFrom = vi.fn(() => ({ select: mockSelect }));
 
 vi.mock('@/app/lib/db/catalogAccess', () => ({
+  getCatalogReadClient: vi.fn(() => ({
+    from: mockFrom,
+  })),
   getCatalogWriteClient: vi.fn(() => ({
     from: mockFrom,
   })),
@@ -78,7 +78,6 @@ vi.mock('@/lib/metrics', () => ({
   },
 }));
 
-import { getSetsForMinifigBl } from '@/app/lib/bricklink/minifigs';
 import { getSetsForPartLocal } from '@/app/lib/catalog';
 import {
   getPart,
@@ -91,7 +90,6 @@ import {
 } from '../handlers/minifig';
 import { handlePartIdentify } from '../handlers/part';
 
-const mockGetSetsForMinifigBl = vi.mocked(getSetsForMinifigBl);
 const mockGetPart = vi.mocked(getPart);
 const mockGetPartColors = vi.mocked(getPartColorsForPart);
 const mockGetSetsForPart = vi.mocked(getSetsForPart);
@@ -116,21 +114,21 @@ describe('looksLikeBricklinkFig', () => {
 describe('handleMinifigIdentify', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: rb_minifigs lookup returns null (no match)
     mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+    // Default: inventory_minifigs returns empty
+    mockIn.mockReturnValue({ not: mockNot, maybeSingle: mockMaybeSingle });
+    mockNot.mockReturnValue({ maybeSingle: mockMaybeSingle });
   });
 
   it('handles BrickLink minifig ID correctly', async () => {
-    mockGetSetsForMinifigBl.mockResolvedValue([
-      {
-        setNumber: '75192-1',
-        name: 'Millennium Falcon',
-        year: 2017,
-        imageUrl: null,
-        quantity: 1,
+    // rb_minifigs reverse lookup returns match with fig_num + name
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        fig_num: 'fig-000001',
+        name: 'Han Solo',
+        bl_minifig_id: 'sw0001',
       },
-    ]);
-    mockMaybeSingle.mockResolvedValue({
-      data: { name: 'Han Solo' },
       error: null,
     });
 
@@ -139,11 +137,10 @@ describe('handleMinifigIdentify', () => {
     expect(result.part.isMinifig).toBe(true);
     expect(result.part.bricklinkFigId).toBe('sw0001');
     expect(result.part.partNum).toBe('sw0001');
-    expect(result.sets).toHaveLength(1);
+    expect(result.part.name).toBe('Han Solo');
   });
 
   it('returns minifig ID as-is when no name found', async () => {
-    mockGetSetsForMinifigBl.mockResolvedValue([]);
     mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 
     const result = await handleMinifigIdentify('unknown123');
@@ -154,25 +151,12 @@ describe('handleMinifigIdentify', () => {
   });
 
   it('strips fig: prefix correctly', async () => {
-    mockGetSetsForMinifigBl.mockResolvedValue([]);
     mockMaybeSingle.mockResolvedValue({ data: null, error: null });
 
     const result = await handleMinifigIdentify('fig:sw0001');
 
     expect(result.part.bricklinkFigId).toBe('sw0001');
     expect(result.part.partNum).toBe('sw0001');
-  });
-
-  it('uses display name from BL catalog when available', async () => {
-    mockGetSetsForMinifigBl.mockResolvedValue([]);
-    mockMaybeSingle.mockResolvedValue({
-      data: { name: 'Han Solo (Hoth)' },
-      error: null,
-    });
-
-    const result = await handleMinifigIdentify('sw0343');
-
-    expect(result.part.name).toBe('Han Solo (Hoth)');
   });
 });
 

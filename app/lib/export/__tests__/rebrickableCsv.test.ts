@@ -8,17 +8,19 @@ function minifigIdentity(
   rowType:
     | 'minifig_parent'
     | 'minifig_subpart_matched'
-    | 'minifig_subpart_unmatched'
+    | 'minifig_subpart_unmatched',
+  opts?: { rbFigNum?: string; rbPartId?: string }
 ): PartIdentity {
   return {
     canonicalKey: 'test',
-    rbPartId: 'test',
+    rbPartId: opts?.rbPartId ?? 'test',
     rbColorId: 0,
     blPartId: null,
     blColorId: null,
     elementId: null,
     rowType,
     blMinifigId: null,
+    rbFigNum: opts?.rbFigNum ?? null,
   };
 }
 
@@ -192,11 +194,13 @@ describe('generateRebrickableCsv', () => {
       { setNumber: '1234-1', partId: '3001', colorId: 1, quantityMissing: 3 },
       {
         setNumber: '1234-1',
-        partId: 'fig-001',
+        partId: 'fig:sw0001',
         colorId: 0,
         quantityMissing: 1,
         quantityRequired: 2,
-        identity: minifigIdentity('minifig_parent'),
+        identity: minifigIdentity('minifig_parent', {
+          rbFigNum: 'fig-000001',
+        }),
       },
     ];
 
@@ -208,7 +212,8 @@ describe('generateRebrickableCsv', () => {
 
     expect(lines.length).toBe(3); // header + 1 regular + 1 minifig
     expect(lines[1]).toBe('3001,1,3');
-    expect(lines[2]).toBe('fig-001,0,2'); // uses quantityRequired, not quantityMissing
+    // Uses rbFigNum for RB export, not BL minifig ID
+    expect(lines[2]).toBe('fig-000001,0,2');
   });
 
   it('includes minifig rows even when quantityMissing is 0 if includeMinifigs is true', () => {
@@ -219,7 +224,9 @@ describe('generateRebrickableCsv', () => {
         colorId: 5,
         quantityMissing: 0,
         quantityRequired: 1,
-        identity: minifigIdentity('minifig_subpart_matched'),
+        identity: minifigIdentity('minifig_subpart_matched', {
+          rbPartId: '973c01',
+        }),
       },
     ];
 

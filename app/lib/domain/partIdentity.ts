@@ -22,6 +22,8 @@ export type PartIdentity = {
   elementId: string | null;
   rowType: PartIdentityRowType;
   blMinifigId: string | null;
+  /** Rebrickable fig_num (e.g., 'fig-000001') for minifig_parent rows */
+  rbFigNum: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -44,10 +46,14 @@ export function createCatalogPartIdentity(
     elementId,
     rowType: 'catalog_part',
     blMinifigId: null,
+    rbFigNum: null,
   };
 }
 
-export function createMinifigParentIdentity(blMinifigId: string): PartIdentity {
+export function createMinifigParentIdentity(
+  blMinifigId: string,
+  rbFigNum?: string | null
+): PartIdentity {
   return {
     canonicalKey: `fig:${blMinifigId}`,
     rbPartId: `fig:${blMinifigId}`,
@@ -57,6 +63,7 @@ export function createMinifigParentIdentity(blMinifigId: string): PartIdentity {
     elementId: null,
     rowType: 'minifig_parent',
     blMinifigId,
+    rbFigNum: rbFigNum ?? null,
   };
 }
 
@@ -75,6 +82,7 @@ export function createMatchedSubpartIdentity(
     elementId: null,
     rowType: 'minifig_subpart_matched',
     blMinifigId: null,
+    rbFigNum: null,
   };
 }
 
@@ -91,6 +99,7 @@ export function createUnmatchedSubpartIdentity(
     elementId: null,
     rowType: 'minifig_subpart_unmatched',
     blMinifigId: null,
+    rbFigNum: null,
   };
 }
 
