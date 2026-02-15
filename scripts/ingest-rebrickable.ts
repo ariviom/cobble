@@ -479,6 +479,89 @@ async function enrichPartExternalIds(
   );
 }
 
+/**
+ * Enrich rb_minifig_images with image URLs from the Rebrickable API.
+ *
+ * The minifigs CSV doesn't include image URLs, but the API returns
+ * `set_img_url` for each minifig. Paginates through the full catalog
+ * and upserts into rb_minifig_images.
+ */
+async function enrichMinifigImages(
+  supabase: ReturnType<typeof createClient<Database>>
+): Promise<void> {
+  const apiKey = process.env.REBRICKABLE_API;
+  if (!apiKey) {
+    log('Skipping minifig image enrichment: REBRICKABLE_API not set');
+    return;
+  }
+
+  log('Enriching rb_minifig_images from Rebrickable API...');
+
+  type ApiMinifig = {
+    set_num: string; // fig_num (e.g. "fig-000001")
+    set_img_url: string | null;
+  };
+  type ApiPage = { results: ApiMinifig[]; next: string | null };
+
+  const images: Array<{ fig_num: string; image_url: string }> = [];
+  let totalFetched = 0;
+  let url: string | null =
+    `https://rebrickable.com/api/v3/lego/minifigs/?page_size=1000&key=${apiKey}`;
+
+  while (url) {
+    const res = await fetch(url);
+    if (!res.ok) {
+      log(`Minifig image enrichment failed: ${res.status} ${res.statusText}`);
+      return;
+    }
+    const page: ApiPage = (await res.json()) as ApiPage;
+    totalFetched += page.results.length;
+
+    for (const fig of page.results) {
+      if (fig.set_img_url) {
+        images.push({
+          fig_num: fig.set_num,
+          image_url: fig.set_img_url,
+        });
+      }
+    }
+
+    const pageNum = Math.ceil(totalFetched / 1000);
+    if (pageNum % 5 === 0) {
+      log(
+        `  ...fetched ${totalFetched} minifigs (${images.length} with images)`
+      );
+    }
+    url = page.next;
+  }
+
+  log(
+    `Fetched ${totalFetched} minifigs from API, ${images.length} have images`
+  );
+
+  // Batch upsert into rb_minifig_images
+  const batchSize = 500;
+  let upserted = 0;
+  for (let i = 0; i < images.length; i += batchSize) {
+    const chunk = images.slice(i, i + batchSize);
+    const { error } = await supabase.from('rb_minifig_images').upsert(
+      chunk.map(row => ({
+        fig_num: row.fig_num,
+        image_url: row.image_url,
+        last_fetched_at: new Date().toISOString(),
+      })),
+      { onConflict: 'fig_num' }
+    );
+    if (error) {
+      log(`Failed to upsert minifig images batch: ${error.message}`);
+    } else {
+      upserted += chunk.length;
+    }
+  }
+
+  log(`Enriched ${upserted} minifig images in rb_minifig_images`);
+}
+
 async function ingestPartCategories(
   supabase: ReturnType<typeof createClient<Database>>,
   stream: NodeJS.ReadableStream
@@ -843,6 +926,125 @@ async function ingestInventoryMinifigs(
       .upsert(batch);
     if (error) throw error;
   }
+}
+
+// ===========================================================================
+// Materialize rb_minifig_parts from fig-* inventories
+// ===========================================================================
+
+async function materializeMinifigParts(
+  supabase: ReturnType<typeof createClient<Database>>
+): Promise<void> {
+  log('Materializing rb_minifig_parts from fig-* inventories...');
+
+  // Use rpc to run raw SQL — the same query as the migration
+  const { error } = await supabase.rpc(
+    'exec_sql' as never,
+    {
+      query: `
+      INSERT INTO public.rb_minifig_parts (fig_num, part_num, color_id, quantity, img_url)
+      SELECT ri.set_num, rip.part_num, rip.color_id, SUM(rip.quantity),
+             (array_agg(rip.img_url) FILTER (WHERE rip.img_url IS NOT NULL))[1]
+      FROM public.rb_inventories ri
+      JOIN public.rb_inventory_parts rip ON rip.inventory_id = ri.id
+      JOIN public.rb_parts rp ON rp.part_num = rip.part_num
+      JOIN public.rb_colors rc ON rc.id = rip.color_id
+      WHERE ri.set_num LIKE 'fig-%'
+        AND rip.is_spare = false
+      GROUP BY ri.set_num, rip.part_num, rip.color_id
+      ON CONFLICT (fig_num, part_num, color_id) DO UPDATE SET
+        quantity = EXCLUDED.quantity,
+        img_url = COALESCE(EXCLUDED.img_url, rb_minifig_parts.img_url)
+    `,
+    } as never
+  );
+
+  if (error) {
+    // Fallback: run as a multi-step approach if rpc not available
+    log('rpc exec_sql not available, using chunked materialization...');
+
+    // Get all fig-* inventory IDs
+    const { data: figInventories, error: invErr } = await supabase
+      .from('rb_inventories')
+      .select('id, set_num')
+      .like('set_num', 'fig-%');
+
+    if (invErr) throw invErr;
+    if (!figInventories || figInventories.length === 0) {
+      log('No fig-* inventories found, skipping materialization.');
+      return;
+    }
+
+    log(`Found ${figInventories.length} fig-* inventories to materialize.`);
+
+    const batchSize = 200;
+    let totalRows = 0;
+
+    for (let i = 0; i < figInventories.length; i += batchSize) {
+      const chunk = figInventories.slice(i, i + batchSize);
+      const invIds = chunk.map(inv => inv.id);
+
+      // Get all non-spare parts for these inventories
+      const { data: parts, error: partsErr } = await supabase
+        .from('rb_inventory_parts')
+        .select('inventory_id, part_num, color_id, quantity, img_url')
+        .in('inventory_id', invIds)
+        .eq('is_spare', false);
+
+      if (partsErr) throw partsErr;
+      if (!parts || parts.length === 0) continue;
+
+      // Build figNum lookup
+      const invToFig = new Map<number, string>();
+      for (const inv of chunk) {
+        if (inv.set_num) invToFig.set(inv.id, inv.set_num);
+      }
+
+      // Aggregate by (fig_num, part_num, color_id)
+      const aggregated = new Map<
+        string,
+        {
+          fig_num: string;
+          part_num: string;
+          color_id: number;
+          quantity: number;
+          img_url: string | null;
+        }
+      >();
+      for (const p of parts) {
+        const figNum = invToFig.get(p.inventory_id);
+        if (!figNum) continue;
+        const key = `${figNum}:${p.part_num}:${p.color_id}`;
+        const existing = aggregated.get(key);
+        if (existing) {
+          existing.quantity += p.quantity;
+          if (!existing.img_url && p.img_url) existing.img_url = p.img_url;
+        } else {
+          aggregated.set(key, {
+            fig_num: figNum,
+            part_num: p.part_num,
+            color_id: p.color_id,
+            quantity: p.quantity,
+            img_url: p.img_url ?? null,
+          });
+        }
+      }
+
+      const rows = Array.from(aggregated.values());
+      if (rows.length > 0) {
+        const { error: upsertErr } = await supabase
+          .from('rb_minifig_parts')
+          .upsert(rows, { onConflict: 'fig_num,part_num,color_id' });
+        if (upsertErr) throw upsertErr;
+        totalRows += rows.length;
+      }
+    }
+
+    log(`Materialized ${totalRows} rows into rb_minifig_parts.`);
+    return;
+  }
+
+  log('Materialized rb_minifig_parts via SQL.');
 }
 
 // ===========================================================================
@@ -1379,6 +1581,7 @@ async function main() {
       await ingestSets(supabase, stream);
     } else if (info.source === 'minifigs') {
       await ingestMinifigs(supabase, stream);
+      await enrichMinifigImages(supabase);
     } else if (info.source === 'inventories') {
       await ingestInventories(supabase, stream);
     } else if (info.source === 'inventory_parts') {
@@ -1386,6 +1589,7 @@ async function main() {
     } else if (info.source === 'inventory_minifigs') {
       await ingestInventoryMinifigs(supabase, stream);
       await matchUnmappedMinifigs(supabase);
+      await materializeMinifigParts(supabase);
     }
 
     await updateVersion(supabase, info.source, versionKey);
