@@ -111,6 +111,8 @@ export function resolveMinifigParentIdentity(
  * @param blColorId - BrickLink color ID from bl_minifig_parts
  * @param catalogIndex - Map of canonical keys to row indices in enrichedRows
  * @param ctx - Resolution context with color/part maps
+ *
+ * @deprecated Use resolveRbMinifigSubpartIdentity for RB-native subpart data
  */
 export function resolveMinifigSubpartIdentity(
   blPartId: string,
@@ -164,4 +166,20 @@ export function resolveMinifigSubpartIdentity(
 
   // No match found — unmatched subpart
   return createUnmatchedSubpartIdentity(blPartId, blColorId);
+}
+
+/**
+ * Resolve an RB-native minifig subpart to a matched identity.
+ * Used when subparts come from rb_minifig_parts (RB IDs are native).
+ * Every subpart is "matched" by definition — rb_minifig_parts has FK refs
+ * to rb_parts and rb_colors.
+ */
+export function resolveRbMinifigSubpartIdentity(
+  rbPartId: string,
+  rbColorId: number,
+  ctx: ResolutionContext
+): PartIdentity {
+  const blPartId = ctx.partMappings.get(rbPartId) ?? rbPartId; // same-by-default
+  const blColorId = ctx.rbToBlColor.get(rbColorId) ?? null;
+  return createMatchedSubpartIdentity(rbPartId, rbColorId, blPartId, blColorId);
 }
