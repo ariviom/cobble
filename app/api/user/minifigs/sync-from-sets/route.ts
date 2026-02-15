@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { errorResponse } from '@/app/lib/api/responses';
-import { getSetMinifigsBl } from '@/app/lib/bricklink/minifigs';
+import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import type { ApiErrorResponse } from '@/app/lib/domain/errors';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
@@ -13,7 +13,6 @@ import type { Enums, Tables } from '@/supabase/types';
 type SyncResponse = {
   ok: boolean;
   updated: number;
-  syncTriggered?: number;
 };
 
 export const POST = withCsrfProtection(async function POST(
@@ -85,48 +84,75 @@ export const POST = withCsrfProtection(async function POST(
       return NextResponse.json({ ok: true, updated: 0 });
     }
 
-    // Track minifig contributions using BL IDs (FK constraint removed)
+    // Get minifigs for all owned sets from RB catalog
+    const catalogClient = getCatalogReadClient();
+    const setNums = sets.filter(s => s.owned && s.set_num).map(s => s.set_num);
+
+    // Get inventories for these sets
+    const { data: inventories, error: invError } = await catalogClient
+      .from('rb_inventories')
+      .select('id, set_num')
+      .in('set_num', setNums)
+      .not('set_num', 'like', 'fig-%');
+
+    if (invError) {
+      logger.error('user_minifigs.sync_from_sets.inventories_failed', {
+        userId: user.id,
+        error: invError.message,
+      });
+      return errorResponse('unknown_error');
+    }
+
+    if (!inventories || inventories.length === 0) {
+      return NextResponse.json({ ok: true, updated: 0 });
+    }
+
+    const invIds = inventories.map(inv => inv.id);
+
+    // Get all minifigs for these inventories
+    const { data: invMinifigs, error: imError } = await catalogClient
+      .from('rb_inventory_minifigs')
+      .select('inventory_id, fig_num, quantity')
+      .in('inventory_id', invIds);
+
+    if (imError) {
+      logger.error('user_minifigs.sync_from_sets.inventory_minifigs_failed', {
+        userId: user.id,
+        error: imError.message,
+      });
+      return errorResponse('unknown_error');
+    }
+
+    // Map fig_num to BL minifig ID
+    const figNums = [...new Set((invMinifigs ?? []).map(im => im.fig_num))];
+
+    if (figNums.length === 0) {
+      return NextResponse.json({ ok: true, updated: 0 });
+    }
+
+    const { data: rbMinifigs } = await catalogClient
+      .from('rb_minifigs')
+      .select('fig_num, bl_minifig_id')
+      .in('fig_num', figNums);
+
+    const figToBlId = new Map<string, string>();
+    for (const m of rbMinifigs ?? []) {
+      figToBlId.set(m.fig_num, m.bl_minifig_id ?? m.fig_num);
+    }
+
+    // Track minifig contributions
     // Map: bl_minifig_no -> { owned: number }
     const contributions = new Map<string, { owned: number }>();
-    let syncTriggeredCount = 0;
 
-    for (const row of sets) {
-      if (!row.owned) continue;
-      if (!row.set_num) continue;
-
-      try {
-        // Use BL data directly (self-healing if needed)
-        const blResult = await getSetMinifigsBl(row.set_num);
-
-        if (blResult.syncTriggered) {
-          syncTriggeredCount++;
-        }
-
-        for (const minifig of blResult.minifigs) {
-          if (!minifig.blMinifigId) continue;
-
-          // Store BL minifig ID directly (FK constraint removed)
-          const blMinifigNo = minifig.blMinifigId;
-
-          const entry = contributions.get(blMinifigNo) ?? { owned: 0 };
-          entry.owned += minifig.quantity;
-          contributions.set(blMinifigNo, entry);
-        }
-      } catch (err) {
-        logger.error('user_minifigs.sync_from_sets.get_bl_minifigs_failed', {
-          setNum: row.set_num,
-          error: err instanceof Error ? err.message : String(err),
-        });
-        continue;
-      }
+    for (const im of invMinifigs ?? []) {
+      const blMinifigNo = figToBlId.get(im.fig_num) ?? im.fig_num;
+      const entry = contributions.get(blMinifigNo) ?? { owned: 0 };
+      entry.owned += im.quantity ?? 1;
+      contributions.set(blMinifigNo, entry);
     }
 
     if (contributions.size === 0) {
-      return NextResponse.json({
-        ok: true,
-        updated: 0,
-        syncTriggered: syncTriggeredCount,
-      });
+      return NextResponse.json({ ok: true, updated: 0 });
     }
 
     // Get existing user minifigs
@@ -159,7 +185,6 @@ export const POST = withCsrfProtection(async function POST(
 
     const upserts: Tables<'user_minifigs'>[] = [];
 
-    // fig_num now stores BL minifig IDs (FK constraint removed)
     for (const [blMinifigNo, counts] of contributions.entries()) {
       const existing = existingMap.get(blMinifigNo);
       const hasOwned = counts.owned > 0;
@@ -170,18 +195,14 @@ export const POST = withCsrfProtection(async function POST(
       let nextStatus: Enums<'set_status'> | null = null;
 
       if (existing?.status === 'owned') {
-        // Promote-only: once owned, never downgrade automatically.
         nextStatus = 'owned';
       } else if (existing?.status === 'want') {
         if (computedStatus === 'owned') {
-          // Promote wishlist minifig to owned when owned sets contribute.
           nextStatus = 'owned';
         } else {
-          // Keep existing wishlist even if sets no longer contribute.
           nextStatus = 'want';
         }
       } else {
-        // No existing row.
         nextStatus = computedStatus;
       }
 
@@ -198,7 +219,7 @@ export const POST = withCsrfProtection(async function POST(
 
       upserts.push({
         user_id: user.id,
-        fig_num: blMinifigNo, // BL minifig ID (e.g., sw0001)
+        fig_num: blMinifigNo,
         status: nextStatus,
         created_at: existing
           ? (undefined as unknown as string)
@@ -209,11 +230,7 @@ export const POST = withCsrfProtection(async function POST(
     }
 
     if (upserts.length === 0) {
-      return NextResponse.json({
-        ok: true,
-        updated: 0,
-        syncTriggered: syncTriggeredCount,
-      });
+      return NextResponse.json({ ok: true, updated: 0 });
     }
 
     const { error: upsertError } = await supabase
@@ -231,7 +248,6 @@ export const POST = withCsrfProtection(async function POST(
     return NextResponse.json({
       ok: true,
       updated: upserts.length,
-      syncTriggered: syncTriggeredCount,
     });
   } catch (err) {
     logger.error('user_minifigs.sync_from_sets.unexpected_error', {

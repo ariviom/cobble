@@ -1,8 +1,7 @@
 import { UserCollectionOverview } from '@/app/components/home/UserCollectionOverview';
 import { PageLayout } from '@/app/components/layout/PageLayout';
 import { PublicUserCollectionOverview } from '@/app/components/user/PublicUserCollectionOverview';
-import { fetchMinifigMetaBatch } from '@/app/lib/bricklink/minifigs';
-import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
+import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { resolvePublicUser } from '@/app/lib/publicUsers';
 import { fetchThemes } from '@/app/lib/services/themes';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
@@ -38,14 +37,6 @@ export async function generateMetadata({
     title: 'My Collection | Brick Party',
     description: 'View and manage your LEGO set collection',
   };
-}
-
-/**
- * Construct a BrickLink minifig image URL from the minifig ID.
- * Used as fallback when bl_set_minifigs doesn't have image_url.
- */
-function getBlMinifigImageUrl(minifigNo: string): string {
-  return `https://img.bricklink.com/ItemImage/MN/0/${encodeURIComponent(minifigNo)}.png`;
 }
 
 type RouteParams = {
@@ -413,86 +404,74 @@ export default async function CollectionHandlePage({
   > = {};
 
   if (allMinifigIds.length > 0) {
-    // Use catalog client for RLS-protected tables
-    const catalogClient = getCatalogWriteClient();
+    const catalogClient = getCatalogReadClient();
 
-    // Query bricklink_minifigs catalog first for names, years, and category IDs (most complete source)
-    const { data: blCatalog } = await catalogClient
-      .from('bricklink_minifigs')
-      .select('item_id,name,item_year,category_id')
-      .in('item_id', allMinifigIds);
+    // Query rb_minifigs for names, num_parts, and BL IDs
+    const { data: rbMinifigs } = await catalogClient
+      .from('rb_minifigs')
+      .select('fig_num, name, num_parts, bl_minifig_id')
+      .in(
+        'bl_minifig_id',
+        allMinifigIds.filter(id => !id.startsWith('fig-'))
+      );
 
-    for (const fig of blCatalog ?? []) {
-      if (!fig.item_id) continue;
-      minifigMeta[fig.item_id] = {
+    for (const fig of rbMinifigs ?? []) {
+      const blId = fig.bl_minifig_id;
+      if (!blId) continue;
+      minifigMeta[blId] = {
         name: fig.name ?? null,
-        num_parts: null,
+        num_parts: fig.num_parts ?? null,
         image_url: null,
-        bl_id: fig.item_id,
-        year:
-          typeof fig.item_year === 'number' && fig.item_year > 0
-            ? fig.item_year
-            : null,
-        categoryId:
-          typeof fig.category_id === 'number' ? fig.category_id : null,
+        bl_id: blId,
+        year: null,
       };
     }
 
-    // Get unique category IDs and fetch category names
-    const categoryIds = [
-      ...new Set(
-        Object.values(minifigMeta)
-          .map(m => m.categoryId)
-          .filter((id): id is number => typeof id === 'number')
-      ),
-    ];
+    // Also check for any fig-* style IDs (RB format)
+    const rbStyleIds = allMinifigIds.filter(id => id.startsWith('fig-'));
+    if (rbStyleIds.length > 0) {
+      const { data: rbByFigNum } = await catalogClient
+        .from('rb_minifigs')
+        .select('fig_num, name, num_parts, bl_minifig_id')
+        .in('fig_num', rbStyleIds);
 
-    if (categoryIds.length > 0) {
-      const { data: categories } = await catalogClient
-        .from('bricklink_categories')
-        .select('category_id,category_name')
-        .in('category_id', categoryIds);
-
-      for (const cat of categories ?? []) {
-        categoryNameById.set(cat.category_id, cat.category_name);
+      for (const fig of rbByFigNum ?? []) {
+        const key = fig.bl_minifig_id ?? fig.fig_num;
+        minifigMeta[key] = {
+          name: fig.name ?? null,
+          num_parts: fig.num_parts ?? null,
+          image_url: null,
+          bl_id: fig.bl_minifig_id ?? null,
+          year: null,
+        };
       }
     }
 
-    // Query bl_set_minifigs for images (and supplementary names)
-    const { data: blSetMinifigs } = await catalogClient
-      .from('bl_set_minifigs')
-      .select('minifig_no,name,image_url')
-      .in('minifig_no', allMinifigIds);
+    // Get images from rb_minifig_images
+    const figNums = (rbMinifigs ?? [])
+      .map(f => f.fig_num)
+      .concat(rbStyleIds)
+      .filter(Boolean);
+    if (figNums.length > 0) {
+      const { data: images } = await catalogClient
+        .from('rb_minifig_images')
+        .select('fig_num, image_url')
+        .in('fig_num', figNums);
 
-    for (const fig of blSetMinifigs ?? []) {
-      if (!fig.minifig_no) continue;
-      const existing = minifigMeta[fig.minifig_no];
-      minifigMeta[fig.minifig_no] = {
-        name: existing?.name ?? fig.name ?? null,
-        num_parts: existing?.num_parts ?? null,
-        image_url: fig.image_url ?? existing?.image_url ?? null,
-        bl_id: fig.minifig_no,
-        year: existing?.year ?? null,
-      };
-    }
+      // Build fig_num → bl_minifig_id map for image assignment
+      const figToBlId = new Map<string, string>();
+      for (const fig of rbMinifigs ?? []) {
+        if (fig.bl_minifig_id) {
+          figToBlId.set(fig.fig_num, fig.bl_minifig_id);
+        }
+      }
 
-    // Self-heal: fetch names from BrickLink API for minifigs still missing names
-    const stillMissingNames = allMinifigIds.filter(
-      id => !minifigMeta[id]?.name || minifigMeta[id]?.name === id
-    );
-
-    if (stillMissingNames.length > 0) {
-      const fetched = await fetchMinifigMetaBatch(stillMissingNames, 100);
-
-      for (const [figNum, meta] of fetched) {
-        const existing = minifigMeta[figNum];
-        minifigMeta[figNum] = {
-          name: meta.name ?? existing?.name ?? null,
-          num_parts: existing?.num_parts ?? null,
-          image_url: existing?.image_url ?? null,
-          bl_id: figNum,
-          year: meta.year ?? existing?.year ?? null,
-        };
+      for (const img of images ?? []) {
+        const blId = figToBlId.get(img.fig_num) ?? img.fig_num;
+        const existing = minifigMeta[blId];
+        if (existing && img.image_url) {
+          existing.image_url = img.image_url;
+        }
       }
     }
   }
@@ -505,8 +484,7 @@ export default async function CollectionHandlePage({
       name: meta?.name ?? figNum,
       num_parts: meta?.num_parts ?? null,
       status: minifigStatusMap.get(figNum) ?? null,
-      // Use stored image_url or construct BrickLink URL as fallback
-      image_url: meta?.image_url ?? getBlMinifigImageUrl(figNum),
+      image_url: meta?.image_url ?? null,
       bl_id: meta?.bl_id ?? figNum,
       year: meta?.year ?? null,
       categoryId,
