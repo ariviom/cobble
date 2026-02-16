@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { cn } from '@/app/components/ui/utils';
 import { SetTopBar } from '@/app/components/nav/SetTopBar';
 import { Inventory } from '@/app/components/set/Inventory';
 import { InventoryControls } from '@/app/components/set/InventoryControls';
@@ -9,28 +10,15 @@ import {
   useInventoryData,
   useInventoryControls,
 } from '@/app/components/set/InventoryProvider';
+import { SearchPartyProvider } from '@/app/components/set/SearchPartyProvider';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
+import { Button } from '@/app/components/ui/Button';
+import { Modal } from '@/app/components/ui/Modal';
 import { Toast } from '@/app/components/ui/Toast';
-import { useGroupClientId } from '@/app/hooks/useGroupClientId';
-import { useOrigin } from '@/app/hooks/useOrigin';
-import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import { useSyncRecentSet } from '@/app/hooks/useSyncRecentSet';
-import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import type { GroupParticipant } from '@/app/hooks/useGroupParticipants';
+import { useSearchPartyChannel } from '@/app/hooks/useSearchPartyChannel';
+import { useSearchPartySession } from '@/app/hooks/useSearchPartySession';
 import type { SetTab, TabViewState } from '@/app/store/open-tabs';
-import { addRecentSet } from '@/app/store/recent-sets';
-
-type GroupSessionState = {
-  id: string;
-  slug: string;
-  setNumber: string;
-  isActive: boolean;
-} | null;
-
-type GroupParticipant = {
-  id: string;
-  displayName: string;
-  piecesFound: number;
-};
 
 type SetTabContainerProps = {
   tab: SetTab;
@@ -40,6 +28,12 @@ type SetTabContainerProps = {
   onSaveState: (state: Partial<TabViewState>) => void;
   /** Whether to use desktop scroll behavior */
   isDesktop?: boolean | undefined;
+  /** Host close confirmation — set to true when host requests closing this SP tab */
+  closeRequested?: boolean;
+  /** Called when host confirms ending the session and closing the tab */
+  onConfirmClose?: (id: string) => void;
+  /** Called when host cancels the close */
+  onCancelClose?: () => void;
 };
 
 /**
@@ -57,312 +51,132 @@ export function SetTabContainer({
   savedControlsState,
   onSaveState,
   isDesktop,
+  closeRequested,
+  onConfirmClose,
+  onCancelClose,
 }: SetTabContainerProps) {
-  const clientId = useGroupClientId();
-  const origin = useOrigin();
-  const { user } = useSupabaseUser();
-  const syncRecentSet = useSyncRecentSet();
-  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const sp = useSearchPartySession(tab, isActive);
 
-  // Search Party state
-  const [groupSession, setGroupSession] = useState<GroupSessionState>(null);
-  const [currentParticipant, setCurrentParticipant] =
-    useState<GroupParticipant | null>(null);
-  const [participants, setParticipants] = useState<GroupParticipant[]>([]);
-  const [isSearchTogetherLoading, setIsSearchTogetherLoading] = useState(false);
-  const [searchPartyError, setSearchPartyError] = useState<string | null>(null);
+  const spChannel = useSearchPartyChannel({
+    groupSessionId: sp.groupSession?.id ?? null,
+    groupParticipantId: sp.currentParticipant?.id ?? null,
+    groupParticipantDisplayName: sp.currentParticipant?.displayName ?? null,
+    groupClientId: sp.groupClientId,
+    setNumber: tab.setNumber,
+    enableCloudSync: !sp.isJoiner,
+    isJoiner: sp.isJoiner,
+    piecesFoundRef: sp.piecesFoundRef,
+    onParticipantPiecesDelta: sp.handleParticipantPiecesDelta,
+    onParticipantJoined: sp.handleParticipantJoined,
+    onSessionEnded: sp.handleSessionEnded,
+    broadcastSessionEndedRef: sp.broadcastSessionEndedRef,
+    broadcastParticipantRemovedRef: sp.broadcastParticipantRemovedRef,
+  });
 
-  const joinUrl = useMemo(() => {
-    if (!groupSession || !groupSession.slug) return null;
-    if (!origin) return `/group/${groupSession.slug}`;
-    return `${origin}/group/${groupSession.slug}`;
-  }, [groupSession, origin]);
-
-  const totalPiecesFound = useMemo(
-    () => participants.reduce((sum, p) => sum + (p.piecesFound ?? 0), 0),
-    [participants]
+  const containerStyle = useMemo(
+    () => (isActive ? { display: 'flex' } : { display: 'none' }),
+    [isActive]
   );
-
-  const handleStartSearchTogether = useCallback(async () => {
-    if (!user) {
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      }
-      return;
-    }
-    if (!clientId || isSearchTogetherLoading) return;
-
-    try {
-      setIsSearchTogetherLoading(true);
-
-      const res = await fetch('/api/group-sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ setNumber: tab.id }),
-      });
-
-      const data = (await res.json()) as {
-        session?: {
-          id: string;
-          slug: string;
-          setNumber: string;
-          isActive: boolean;
-        };
-        error?: string;
-        message?: string;
-        limit?: number;
-      };
-
-      if (!res.ok || !data.session) {
-        if (res.status === 429 && data.error === 'quota_exceeded') {
-          setSearchPartyError(
-            data.message ||
-              `You've reached your limit of ${data.limit || 2} Search Party sessions this month.`
-          );
-        } else {
-          setSearchPartyError(
-            'Failed to start Search Party. Please try again.'
-          );
-        }
-        return;
-      }
-
-      const created: GroupSessionState = {
-        id: data.session.id,
-        slug: data.session.slug,
-        setNumber: data.session.setNumber ?? tab.id,
-        isActive: data.session.isActive ?? true,
-      };
-      setGroupSession(created);
-
-      const displayName =
-        (user.user_metadata &&
-          ((user.user_metadata.full_name as string | undefined) ||
-            (user.user_metadata.name as string | undefined))) ||
-        user.email ||
-        'You';
-
-      const joinRes = await fetch(
-        `/api/group-sessions/${encodeURIComponent(created.slug)}/join`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ displayName, clientToken: clientId }),
-        }
-      );
-
-      const joinData = (await joinRes.json()) as {
-        participant?: { id: string; displayName: string; piecesFound: number };
-      };
-
-      if (joinRes.ok && joinData.participant) {
-        const hostParticipant: GroupParticipant = {
-          id: joinData.participant.id,
-          displayName: joinData.participant.displayName,
-          piecesFound: joinData.participant.piecesFound ?? 0,
-        };
-        setCurrentParticipant(hostParticipant);
-        setParticipants([hostParticipant]);
-      }
-    } catch {
-      // Silently fail
-    } finally {
-      setIsSearchTogetherLoading(false);
-    }
-  }, [user, clientId, isSearchTogetherLoading, tab.id]);
-
-  const handleEndSearchTogether = useCallback(async () => {
-    if (!groupSession?.slug || !user) return;
-
-    try {
-      const res = await fetch(
-        `/api/group-sessions/${encodeURIComponent(groupSession.slug)}/end`,
-        { method: 'POST', credentials: 'same-origin' }
-      );
-
-      if (res.ok) {
-        setGroupSession(null);
-        setCurrentParticipant(null);
-        setParticipants([]);
-      }
-    } catch {
-      // Silently fail
-    }
-  }, [groupSession?.slug, user]);
-
-  const handleParticipantPiecesDelta = useCallback(
-    (participantId: string | null, delta: number) => {
-      if (!participantId || delta === 0) return;
-      setParticipants(prev =>
-        prev.map(p =>
-          p.id === participantId
-            ? { ...p, piecesFound: Math.max(0, (p.piecesFound ?? 0) + delta) }
-            : p
-        )
-      );
-      setCurrentParticipant(prev =>
-        prev && prev.id === participantId
-          ? {
-              ...prev,
-              piecesFound: Math.max(0, (prev.piecesFound ?? 0) + delta),
-            }
-          : prev
-      );
-    },
-    []
-  );
-
-  // Load and subscribe to participants
-  useEffect(() => {
-    if (!groupSession?.id) return;
-    let cancelled = false;
-
-    const loadParticipants = async () => {
-      const { data, error } = await supabase
-        .from('group_session_participants')
-        .select('id, display_name, pieces_found')
-        .eq('session_id', groupSession.id);
-
-      if (cancelled || error || !Array.isArray(data)) return;
-      setParticipants(
-        data.map(row => ({
-          id: row.id,
-          displayName: row.display_name,
-          piecesFound: row.pieces_found ?? 0,
-        }))
-      );
-    };
-
-    void loadParticipants();
-
-    const channel = supabase
-      .channel(`group_session_participants:${groupSession.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'group_session_participants',
-          filter: `session_id=eq.${groupSession.id}`,
-        },
-        () => void loadParticipants()
-      );
-
-    try {
-      channel.subscribe();
-    } catch {
-      /* best-effort */
-    }
-
-    const interval = window.setInterval(() => void loadParticipants(), 5000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-      void channel.unsubscribe();
-    };
-  }, [groupSession?.id, supabase]);
-
-  // Prepare searchParty prop for SetTopBar
-  const searchPartyProp = useMemo(
-    () => ({
-      active: !!groupSession,
-      loading: isSearchTogetherLoading || !clientId,
-      canHost: !!user && !!clientId,
-      joinUrl,
-      participants,
-      totalPiecesFound,
-      currentParticipantId: currentParticipant?.id ?? null,
-      onStart: handleStartSearchTogether,
-      onEnd: handleEndSearchTogether,
-    }),
-    [
-      groupSession,
-      isSearchTogetherLoading,
-      clientId,
-      user,
-      joinUrl,
-      participants,
-      totalPiecesFound,
-      currentParticipant?.id,
-      handleStartSearchTogether,
-      handleEndSearchTogether,
-    ]
-  );
-
-  // Add to recent sets when tab becomes active
-  useEffect(() => {
-    if (isActive) {
-      addRecentSet({
-        setNumber: tab.id,
-        name: tab.name,
-        year: tab.year,
-        imageUrl: tab.imageUrl,
-        numParts: tab.numParts,
-        themeId: tab.themeId ?? null,
-        themeName: tab.themeName ?? null,
-      });
-      syncRecentSet(tab.id);
-    }
-  }, [
-    isActive,
-    tab.id,
-    tab.name,
-    tab.year,
-    tab.imageUrl,
-    tab.numParts,
-    tab.themeId,
-    tab.themeName,
-    syncRecentSet,
-  ]);
-
-  // Compute container style
-  const containerStyle = useMemo(() => {
-    if (isActive) {
-      return { display: 'flex' };
-    }
-    return { display: 'none' };
-  }, [isActive]);
 
   return (
     <>
       <div
-        data-set-number={tab.id}
+        data-set-number={tab.setNumber}
         data-active={isActive}
         style={containerStyle}
         className="tab-container flex-col lg:min-h-0 lg:flex-1"
       >
-        <InventoryProvider
-          setNumber={tab.id}
-          setName={tab.name}
-          initialControlsState={savedControlsState}
-          enableCloudSync
-          isActive={isActive}
-          groupSessionId={groupSession?.id ?? null}
-          groupParticipantId={currentParticipant?.id ?? null}
-          groupClientId={clientId}
-          onParticipantPiecesDelta={handleParticipantPiecesDelta}
-        >
-          {isActive ? (
-            <SetTabContainerContent
-              tab={tab}
-              onSaveState={onSaveState}
-              savedScrollTop={savedScrollTop}
-              isDesktop={isDesktop}
-              searchParty={searchPartyProp}
-            />
-          ) : null}
-        </InventoryProvider>
+        <SearchPartyProvider value={spChannel.context}>
+          <InventoryProvider
+            setNumber={tab.setNumber}
+            setName={tab.name}
+            scrollerKey={tab.id}
+            initialControlsState={savedControlsState}
+            enableCloudSync={!sp.isJoiner}
+            ownedOverride={spChannel.inventoryProps.ownedOverride}
+            onAfterOwnedChange={spChannel.inventoryProps.onAfterOwnedChange}
+            ownedByKeyRef={spChannel.inventoryProps.ownedByKeyRef}
+            applyOwnedRef={spChannel.inventoryProps.applyOwnedRef}
+            isActive={isActive}
+          >
+            {isActive ? (
+              <SetTabContainerContent
+                tab={tab}
+                onSaveState={onSaveState}
+                savedScrollTop={savedScrollTop}
+                isDesktop={isDesktop}
+                searchParty={sp.searchPartyProp}
+              />
+            ) : null}
+          </InventoryProvider>
+        </SearchPartyProvider>
       </div>
 
-      {searchPartyError && (
+      {sp.searchPartyError && (
         <Toast
           variant="error"
-          description={searchPartyError}
-          onClose={() => setSearchPartyError(null)}
+          description={sp.searchPartyError}
+          onClose={sp.clearSearchPartyError}
         />
       )}
+
+      <Modal
+        open={sp.sessionEndedModalOpen}
+        onClose={sp.handleSessionEndedDismiss}
+        title="Session Ended"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-foreground-muted">
+            This Search Party session has ended.
+          </p>
+          <Button onClick={sp.handleSessionEndedDismiss}>OK</Button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!closeRequested}
+        onClose={() => onCancelClose?.()}
+        title="End Search Party?"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-foreground-muted">
+            Closing this tab will end the session for all participants.
+          </p>
+          {sp.participants.length > 0 && (
+            <ul className="space-y-2">
+              {sp.participants.map(p => {
+                const connected =
+                  Date.now() - new Date(p.lastSeenAt).getTime() < 2 * 60_000;
+                return (
+                  <li key={p.id} className="flex items-center gap-2 text-sm">
+                    <span
+                      className={cn(
+                        'size-2 flex-shrink-0 rounded-full',
+                        connected ? 'bg-success' : 'bg-foreground/20'
+                      )}
+                    />
+                    <span className="text-foreground">{p.displayName}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <div className="flex gap-2">
+            <Button
+              variant="danger"
+              onClick={async () => {
+                await sp.searchPartyProp.onEnd();
+                onConfirmClose?.(tab.id);
+              }}
+            >
+              End Session
+            </Button>
+            <Button variant="outline" onClick={() => onCancelClose?.()}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }
@@ -376,12 +190,16 @@ type SetTabContainerContentProps = {
     active: boolean;
     loading: boolean;
     canHost: boolean;
+    isHost: boolean;
     joinUrl: string | null;
     participants: GroupParticipant[];
     totalPiecesFound: number;
     currentParticipantId: string | null;
+    slug: string | null;
     onStart: () => Promise<void> | void;
     onEnd: () => Promise<void> | void;
+    onContinue: (slug: string) => Promise<void> | void;
+    onRemoveParticipant: (participantId: string) => void;
   };
 };
 
@@ -392,7 +210,7 @@ function SetTabContainerContent({
   isDesktop,
   searchParty,
 }: SetTabContainerContentProps) {
-  const { setNumber, isLoading, error } = useInventoryData();
+  const { scrollerKey, isLoading, error } = useInventoryData();
   const { getControlsState } = useInventoryControls();
   const hasRestoredScroll = useRef(false);
 
@@ -434,7 +252,7 @@ function SetTabContainerContent({
     requestAnimationFrame(() => {
       if (isDesktop) {
         const scroller = document.querySelector(
-          `[data-inventory-scroller="${setNumber}"]`
+          `[data-inventory-scroller="${scrollerKey}"]`
         );
         if (scroller) {
           scroller.scrollTop = savedScrollTop;
@@ -443,7 +261,7 @@ function SetTabContainerContent({
         window.scrollTo(0, savedScrollTop);
       }
     });
-  }, [isLoading, savedScrollTop, isDesktop, setNumber]);
+  }, [isLoading, savedScrollTop, isDesktop, scrollerKey]);
 
   // Render content - SetTopBar always visible, inventory shows loading/error/content
   return (
@@ -451,7 +269,7 @@ function SetTabContainerContent({
       {/* Top bar with set info - always visible, sticky on mobile */}
       <div className="sticky top-10 z-50 shrink-0 bg-card lg:static">
         <SetTopBar
-          setNumber={tab.id}
+          setNumber={tab.setNumber}
           setName={tab.name}
           imageUrl={tab.imageUrl}
           year={tab.year}

@@ -1,19 +1,16 @@
 'use client';
 
-import { useGroupSessionChannel } from '@/app/hooks/useGroupSessionChannel';
 import type { MinifigStatus } from '@/app/hooks/useInventory';
 import type { InventoryControlsState } from '@/app/hooks/useInventoryControls';
 import { useInventoryPrices } from '@/app/hooks/useInventoryPrices';
 import { useInventoryViewModel } from '@/app/hooks/useInventoryViewModel';
 import { useSupabaseOwned } from '@/app/hooks/useSupabaseOwned';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
-import { useOwnedStore } from '@/app/store/owned';
 import { usePinnedStore } from '@/app/store/pinned';
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -63,6 +60,7 @@ export type InventoryDataContextValue = {
   // Identity
   setNumber: string;
   setName: string | undefined;
+  scrollerKey: string;
   // Data
   rows: InventoryRow[];
   keys: string[];
@@ -89,15 +87,6 @@ export type InventoryDataContextValue = {
   // Bulk actions
   markAllMissing: () => void;
   markAllComplete: () => void;
-  // Search Party
-  broadcastPieceDelta: (payload: {
-    key: string;
-    delta: number;
-    newOwned: number;
-  }) => void;
-  connectionState: 'disconnected' | 'connecting' | 'connected';
-  hasConnectedOnce: boolean;
-  isInGroupSession: boolean;
   // Tab visibility
   isActive: boolean;
 };
@@ -221,22 +210,35 @@ export function useInventoryUI(): InventoryUIContextValue {
 // Provider Props
 // ---------------------------------------------------------------------------
 
+export type OwnedOverride = {
+  ownedByKey: Record<string, number>;
+  setOwned: (key: string, value: number) => void;
+  /** Apply multiple updates in a single state transition (avoids O(n²) spreads). */
+  setBatch: (updates: Record<string, number>) => void;
+  clearAll: () => void;
+};
+
 export type InventoryProviderProps = {
   setNumber: string;
   setName?: string;
+  /** Unique key for the data-inventory-scroller attribute (defaults to setNumber) */
+  scrollerKey?: string;
   initialInventory?: InventoryRow[] | null;
   /** Initial controls state for tab restoration */
   initialControlsState?: Partial<InventoryControlsState> | undefined;
   enableCloudSync?: boolean;
+  /** When provided, owned state is ephemeral (not persisted to store). Used by SP joiner tabs. */
+  ownedOverride?: OwnedOverride | undefined;
   /** Whether this tab is currently visible (controls scroll restoration) */
   isActive?: boolean;
-  groupSessionId?: string | null;
-  groupParticipantId?: string | null;
-  groupClientId?: string | null;
-  onParticipantPiecesDelta?: (
-    participantId: string | null,
-    delta: number
-  ) => void;
+  /** Ref kept in sync with current ownedByKey — lets external code read state. */
+  ownedByKeyRef?: React.MutableRefObject<Record<string, number>>;
+  /** Ref exposing handleOwnedChangeBase — lets external code apply owned changes. */
+  applyOwnedRef?: React.MutableRefObject<(key: string, value: number) => void>;
+  /** Fires after a user-initiated owned change (clamped). */
+  onAfterOwnedChange?:
+    | ((key: string, newValue: number, prevValue: number) => void)
+    | undefined;
   onPriceStatusChange?: (
     status: 'idle' | 'loading' | 'loaded' | 'error'
   ) => void;
@@ -251,14 +253,15 @@ export type InventoryProviderProps = {
 export function InventoryProvider({
   setNumber,
   setName,
+  scrollerKey: scrollerKeyProp,
   initialInventory,
   initialControlsState,
   enableCloudSync = true,
+  ownedOverride,
   isActive = true,
-  groupSessionId,
-  groupParticipantId,
-  groupClientId,
-  onParticipantPiecesDelta,
+  ownedByKeyRef,
+  applyOwnedRef,
+  onAfterOwnedChange,
   onPriceStatusChange,
   onPriceTotalsChange,
   children,
@@ -300,6 +303,7 @@ export function InventoryProvider({
   } = useInventoryViewModel(setNumber, {
     initialRows: initialInventory ?? null,
     initialControlsState,
+    ownedByKeyOverride: ownedOverride?.ownedByKey,
   });
 
   // -------------------------------------------------------------------------
@@ -361,9 +365,9 @@ export function InventoryProvider({
   // Cloud sync (Supabase) + bulk actions
   // -------------------------------------------------------------------------
   const {
-    handleOwnedChange: handleOwnedChangeBase,
-    markAllComplete,
-    markAllMissing,
+    handleOwnedChange: storeOwnedChange,
+    markAllComplete: storeMarkAllComplete,
+    markAllMissing: storeMarkAllMissing,
     migration,
     isMigrating,
     confirmMigration,
@@ -375,84 +379,50 @@ export function InventoryProvider({
     enableCloudSync,
   });
 
-  // Direct store access only for group session joiner cleanup (local-only)
-  const clearAllOwned = useOwnedStore(state => state.clearAll);
+  // When ownedOverride is provided, writes go to ephemeral state instead of
+  // the persistent store. Use a ref so handleOwnedChangeBase stays stable.
+  const ownedOverrideRef = useRef(ownedOverride);
+  ownedOverrideRef.current = ownedOverride;
 
-  // -------------------------------------------------------------------------
-  // Group session (Search Party)
-  // -------------------------------------------------------------------------
-  const isInGroupSession =
-    Boolean(groupSessionId) &&
-    Boolean(groupParticipantId) &&
-    Boolean(groupClientId);
+  const handleOwnedChangeBase = useCallback(
+    (key: string, value: number) => {
+      if (ownedOverrideRef.current) {
+        ownedOverrideRef.current.setOwned(key, value);
+      } else {
+        storeOwnedChange(key, value);
+      }
+    },
+    [storeOwnedChange]
+  );
 
-  // Stable refs for snapshot handshake callbacks (avoids circular deps)
-  const ownedByKeyRef = useRef(ownedByKey);
-  ownedByKeyRef.current = ownedByKey;
-  const broadcastOwnedSnapshotRef = useRef<
-    (owned: Record<string, number>) => void
-  >(() => {});
-  const requestSnapshotRef = useRef<() => void>(() => {});
-
-  const handleSnapshotRequested = useCallback(() => {
-    if (!enableCloudSync || !isInGroupSession) return;
-    broadcastOwnedSnapshotRef.current(ownedByKeyRef.current);
-  }, [enableCloudSync, isInGroupSession]);
-
-  const handleReconnected = useCallback(() => {
-    if (enableCloudSync) {
-      // Host: proactively broadcast snapshot on reconnect
-      broadcastOwnedSnapshotRef.current(ownedByKeyRef.current);
+  const markAllComplete = useCallback(() => {
+    if (ownedOverrideRef.current) {
+      const updates: Record<string, number> = {};
+      for (let i = 0; i < keys.length; i++) {
+        updates[keys[i]!] = rows[i]!.quantityRequired;
+      }
+      ownedOverrideRef.current.setBatch(updates);
     } else {
-      // Joiner: ask host for current state
-      requestSnapshotRef.current();
+      storeMarkAllComplete();
     }
-  }, [enableCloudSync]);
+  }, [keys, rows, storeMarkAllComplete]);
 
-  const {
-    broadcastPieceDelta,
-    broadcastOwnedSnapshot,
-    requestSnapshot,
-    connectionState,
-    hasConnectedOnce,
-  } = useGroupSessionChannel({
-    enabled: isInGroupSession,
-    sessionId: groupSessionId ?? null,
-    setNumber,
-    participantId: groupParticipantId ?? null,
-    clientId: groupClientId ?? '',
-    onRemoteDelta: payload => {
-      handleOwnedChangeBase(payload.key, payload.newOwned);
-    },
-    onRemoteSnapshot: snapshot => {
-      if (!snapshot || typeof snapshot !== 'object') return;
-      Object.entries(snapshot).forEach(([key, value]) => {
-        if (typeof value !== 'number' || !Number.isFinite(value)) return;
-        handleOwnedChangeBase(key, value);
-      });
-    },
-    ...(onParticipantPiecesDelta ? { onParticipantPiecesDelta } : {}),
-    onSnapshotRequested: handleSnapshotRequested,
-    onReconnected: handleReconnected,
-  });
-
-  // Keep refs in sync after hook returns
-  broadcastOwnedSnapshotRef.current = broadcastOwnedSnapshot;
-  requestSnapshotRef.current = requestSnapshot;
-
-  const hasClearedLocalForJoinerRef = useRef(false);
-
-  // Clear local data for joiners
-  useEffect(() => {
-    if (enableCloudSync) return;
-    if (!isInGroupSession) return;
-    if (hasClearedLocalForJoinerRef.current) return;
-    clearAllOwned(setNumber);
-    hasClearedLocalForJoinerRef.current = true;
-  }, [enableCloudSync, isInGroupSession, clearAllOwned, setNumber]);
+  const markAllMissing = useCallback(() => {
+    if (ownedOverrideRef.current) {
+      ownedOverrideRef.current.clearAll();
+    } else {
+      storeMarkAllMissing();
+    }
+  }, [storeMarkAllMissing]);
 
   // -------------------------------------------------------------------------
-  // Combined owned change handler (local + broadcast)
+  // Sync refs for external consumers (e.g., Search Party channel layer)
+  // -------------------------------------------------------------------------
+  if (ownedByKeyRef) ownedByKeyRef.current = ownedByKey;
+  if (applyOwnedRef) applyOwnedRef.current = handleOwnedChangeBase;
+
+  // -------------------------------------------------------------------------
+  // Combined owned change handler
   // Note: Minifig cascade (parent ↔ children sync) is handled in useSupabaseOwned
   // -------------------------------------------------------------------------
   const handleOwnedChange = useCallback(
@@ -462,24 +432,10 @@ export function InventoryProvider({
       const clamped = clampOwned(nextOwned, maxQty);
       const prevOwned = ownedByKey[key] ?? 0;
 
-      // handleOwnedChangeBase handles minifig cascade (parent ↔ children)
       handleOwnedChangeBase(key, clamped);
-
-      if (isInGroupSession) {
-        broadcastPieceDelta({
-          key,
-          delta: clamped - prevOwned,
-          newOwned: clamped,
-        });
-      }
+      onAfterOwnedChange?.(key, clamped, prevOwned);
     },
-    [
-      rows,
-      ownedByKey,
-      handleOwnedChangeBase,
-      isInGroupSession,
-      broadcastPieceDelta,
-    ]
+    [rows, ownedByKey, handleOwnedChangeBase, onAfterOwnedChange]
   );
 
   // -------------------------------------------------------------------------
@@ -523,10 +479,13 @@ export function InventoryProvider({
   // Focused context values
   // -------------------------------------------------------------------------
 
+  const scrollerKey = scrollerKeyProp ?? setNumber;
+
   const dataValue = useMemo<InventoryDataContextValue>(
     () => ({
       setNumber,
       setName,
+      scrollerKey,
       rows,
       keys,
       isLoading,
@@ -544,15 +503,12 @@ export function InventoryProvider({
       keepCloudData,
       markAllMissing,
       markAllComplete,
-      broadcastPieceDelta,
-      connectionState,
-      hasConnectedOnce,
-      isInGroupSession,
       isActive,
     }),
     [
       setNumber,
       setName,
+      scrollerKey,
       rows,
       keys,
       isLoading,
@@ -570,10 +526,6 @@ export function InventoryProvider({
       keepCloudData,
       markAllMissing,
       markAllComplete,
-      broadcastPieceDelta,
-      connectionState,
-      hasConnectedOnce,
-      isInGroupSession,
       isActive,
     ]
   );

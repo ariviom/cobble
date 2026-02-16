@@ -11,6 +11,7 @@ import { formatMinifigId } from '@/app/lib/minifigIds';
 import { cn } from '@/app/components/ui/utils';
 import { Check, ExternalLink, Info, Pin, Search } from 'lucide-react';
 import { memo } from 'react';
+import { useOptionalSearchParty } from '../SearchPartyProvider';
 import type { InventoryRow } from '../types';
 import { OwnedQuantityControl } from './OwnedQuantityControl';
 
@@ -24,7 +25,6 @@ type Props = {
   isPinned?: boolean;
   onTogglePinned?: () => void;
   onShowMoreInfo?: () => void;
-  isInGroupSession?: boolean;
 };
 
 function InventoryItemComponent({
@@ -35,10 +35,10 @@ function InventoryItemComponent({
   isPinned,
   onTogglePinned,
   onShowMoreInfo,
-  isInGroupSession,
 }: Props) {
   const { user, isLoading } = useAuth();
   const isAuthenticated = !!user && !isLoading;
+  const isInGroupSession = useOptionalSearchParty()?.isInGroupSession ?? false;
   const isFigId =
     typeof row.partId === 'string' && row.partId.startsWith('fig:');
   const isMinifig = row.parentCategory === 'Minifigure' && isFigId;
@@ -239,8 +239,7 @@ function areEqual(prev: Props, next: Props) {
     prev.owned === next.owned &&
     prev.missing === next.missing &&
     prev.bricklinkColorId === next.bricklinkColorId &&
-    prev.isPinned === next.isPinned &&
-    prev.isInGroupSession === next.isInGroupSession
+    prev.isPinned === next.isPinned
   );
 }
 

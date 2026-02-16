@@ -16,6 +16,7 @@ import {
   useInventoryUI,
 } from './InventoryProvider';
 import { InventoryItem } from './items/InventoryItem';
+import { useOptionalSearchParty } from './SearchPartyProvider';
 import {
   InventoryItemModal,
   type InventoryItemModalData,
@@ -32,14 +33,14 @@ export function Inventory() {
     isLoading,
     error,
     handleOwnedChange,
-    isInGroupSession,
-    connectionState,
-    hasConnectedOnce,
+    scrollerKey,
     migration,
     isMigrating,
     confirmMigration,
     keepCloudData,
   } = useInventoryData();
+  const sp = useOptionalSearchParty();
+  const isInGroupSession = sp?.isInGroupSession ?? false;
   const { view, itemSize, sortedIndices, gridSizes } = useInventoryControls();
   const { pricesByKey, pendingPriceKeys, requestPricesForKeys } =
     useInventoryPricing();
@@ -178,8 +179,9 @@ export function Inventory() {
     <div className="flex h-full flex-col">
       {/* Connection Status for Search Party */}
       {isInGroupSession &&
-        hasConnectedOnce &&
-        connectionState !== 'connected' && (
+        !sp?.sessionEnded &&
+        sp?.hasConnectedOnce &&
+        sp?.connectionState !== 'connected' && (
           <div className="flex items-center gap-2 border-b border-subtle bg-amber-50 px-4 py-2 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
             <span className="animate-pulse">●</span>
             <span>Reconnecting to Search Party...</span>
@@ -202,7 +204,7 @@ export function Inventory() {
         <div
           ref={scrollerRef}
           className="relative flex-1 overflow-auto bg-background"
-          data-inventory-scroller={setNumber}
+          data-inventory-scroller={scrollerKey}
           data-view={view}
           data-item-size={itemSize}
         >
