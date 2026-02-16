@@ -71,7 +71,7 @@ const USER_TABLES = new Set([
   'user_sets',
   'user_minifigs',
   'user_set_parts',
-  'user_parts_inventory',
+
   'user_lists',
   'user_list_items',
   'group_sessions',
