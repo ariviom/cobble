@@ -1,25 +1,37 @@
 # Stripe Subscriptions — Foundation and Post-Foundation Plan
 
-This document defines the foundational architecture for Stripe subscriptions (Plus/Pro), along with post-foundation steps for UI enforcement, feature gating, and pricing expansion. Foundation work focuses on schema, backend flows, and operational readiness; post-foundation extends to UX, entitlements enforcement, and rollout controls.
+This document defines the foundational architecture for Stripe subscriptions, along with post-foundation steps for UI enforcement, feature gating, and pricing expansion. Foundation work focuses on schema, backend flows, and operational readiness; post-foundation extends to UX, entitlements enforcement, and rollout controls.
 
 ## Snapshot Decisions
 
-- Tiers: Free, Plus, Pro.
-- Trial: 7 days for both Plus and Pro.
+- Tiers at launch: **Free and Plus only.** Pro deferred until features warrant it (custom MoCs, instructions uploads, potentially BYO BrickLink key pending BL approval).
+- Trial: 7 days for Plus.
 - Pricing: Monthly required; yearly supported but can be hidden at launch (omit UI use of yearly price IDs until ready).
 - Currency: USD primary. Multi-currency/localized pricing is post-foundation.
 - Countries: All Stripe-supported countries allowed.
 - Tax/VAT: Enable Stripe Tax and automatic tax collection.
 - Coupons/Promos: None at launch.
-- Feature placement: Free keeps current features/limits; Plus = unlimited identify and “Search Party” features; Pro = everything in Plus + BYO key for real-time BrickLink + custom MoCs (treated as custom user sets, not lists). Lists are specifically labeled user collections of sets; initial gating target is free capped at 3 lists, Plus/Pro unlimited. No other “custom lists” concept exists beyond these user set collections.
-- Initial throttles to validate gating: Search Party on free capped at 2 runs/month/user (usage counters), Plus/Pro unlimited; lists cap applies to user collections of sets (free up to 3, Plus/Pro unlimited).
+- Feature placement: Free keeps current features with volume caps; Plus = unlimited everything + sync + part rarity indicators. Lists are specifically labeled user collections of sets; initial gating target is free capped at 3 lists, Plus unlimited. No other "custom lists" concept exists beyond these user set collections.
+- **BrickLink pricing is free for all users** — on-demand API calls with ≤6hr server cache. BrickLink API ToS prohibits gating their free-to-members data behind a paywall. Pricing routes must not check entitlements.
+- Initial throttles to validate gating: Search Party on free capped at 2 runs/month/user (usage counters), Plus unlimited; lists cap applies to user collections of sets (free up to 3, Plus unlimited).
+
+### Pro Tier (Deferred)
+
+Pro is not offered at launch. Planned Pro-tier features for future consideration:
+
+- Custom MoC uploads (requires storage bucket setup)
+- Instructions uploads/linking
+- BYO BrickLink API key (pending BrickLink ToS confirmation — contact `apisupport@bricklink.com`)
+- Multi-set analysis (combined missing list, "next best set" recommendations)
+
+Pro can be introduced later without schema changes — the `billing_subscriptions.tier` check constraint already includes `'pro'`, and `feature_flags.min_tier` supports it.
 
 ## Implementation Status (current)
 
 - Supabase tables + RLS in place: `billing_customers`, `billing_subscriptions`, `billing_webhook_events`, `feature_flags`, `feature_overrides`.
 - Server helpers: Stripe client, price allowlist, customer ensure, subscription upsert, entitlements resolver.
 - API routes: `POST /api/billing/create-checkout-session`, `POST /api/billing/create-portal-session`, `POST /api/stripe/webhook` (idempotent).
-- Beta override: `BETA_ALL_ACCESS=true` treats all users as Plus (Pro gating not wired yet).
+- Beta override: `BETA_ALL_ACCESS=true` treats all users as Plus.
 - Pages for flows: `/billing/success`, `/billing/cancel`, `/account/billing` (billing portal entry).
 - Tests: price allowlist/mapping.
 
@@ -28,12 +40,12 @@ This document defines the foundational architecture for Stripe subscriptions (Pl
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRICE_PLUS_MONTHLY`
-- `STRIPE_PRICE_PRO_MONTHLY`
 - `STRIPE_PRICE_PLUS_YEARLY` (optional; keep unset to hide at launch)
-- `STRIPE_PRICE_PRO_YEARLY` (optional; keep unset to hide at launch)
 - `STRIPE_CHECKOUT_SUCCESS_URL`
 - `STRIPE_CHECKOUT_CANCEL_URL`
 - `STRIPE_BILLING_PORTAL_RETURN_URL`
+
+Pro pricing env vars (`STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY`) — add when Pro tier launches.
 
 Local (test) example paths:
 
@@ -46,9 +58,9 @@ Local (test) example paths:
 
 1. Products & Prices
    - Product: Plus — monthly price in USD; trial 7 days; enable tax behavior; statement descriptor set.
-   - Product: Pro — monthly price in USD; trial 7 days; enable tax behavior; statement descriptor set.
    - Yearly prices: create but do not expose in env/UI if hiding at launch.
-   - Metadata (optional): `tier=plus|pro`.
+   - Pro product: create when Pro tier launches.
+   - Metadata (optional): `tier=plus`.
 2. Billing Portal
    - Enable manage/cancel, payment method updates, invoice download.
    - Set return URL (`STRIPE_BILLING_PORTAL_RETURN_URL`).
@@ -137,16 +149,20 @@ Indexes: `billing_subscriptions(user_id)`, `billing_subscriptions(stripe_subscri
 - Effective tier: highest active/trialing subscription (pro > plus > free), else free.
 - Feature flag allow: `feature_flags.min_tier <= user tier`, overridden by `feature_overrides.force`.
 - SSR preload recommended to avoid flicker; client hook `useFeatureFlag` can consume preloaded entitlements post-foundation.
+- **BrickLink pricing**: No feature flag. Free for all users. Pricing routes must not check entitlements.
 - Initial feature keys (seed candidates; seeds aligned via `20251212090000_update_feature_flag_seeds.sql`):
   - `identify.unlimited` → min_tier `plus`
+  - `tabs.unlimited` → min_tier `plus` (free capped at 3 open tabs)
   - `lists.unlimited` → min_tier `plus` (user collections of sets; free capped at 3 lists)
+  - `exports.unlimited` → min_tier `plus` (free capped at 1/month)
+  - `sync.enabled` → min_tier `plus`
   - `search_party.unlimited` → min_tier `plus` (free capped via usage counters)
   - `search_party.advanced` → min_tier `plus` (advanced tools toggled separately)
-  - `bricklink.byo_key` → min_tier `pro`
-  - `mocs.custom` → min_tier `pro` (custom MoC uploads treated as custom user sets)
+  - `exclusive_pieces` → min_tier `plus` (part rarity/set-exclusive indicators)
+- Removed flags: `prices.detailed` (BL pricing free for all), `pricing.full_cached`, `bricklink.byo_key`, and `mocs.custom` (Pro tier deferred). Migration `20260216053312_delete_stale_feature_flags.sql` deletes these from the DB.
 - Planned quantitative limits (to enforce via `usage_counters` + per-tier rules):
-  - User lists (set collections): free tier capped at 3 lists; Plus/Pro unlimited.
-  - Search Party: free tier capped at 2 runs per month per user; Plus/Pro unlimited.
+  - User lists (set collections): free tier capped at 3 lists; Plus unlimited.
+  - Search Party: free tier capped at 2 runs per month per user; Plus unlimited.
 
 ## Foundation Implementation Steps (to execute)
 

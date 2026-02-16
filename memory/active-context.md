@@ -2,11 +2,18 @@
 
 ## Current Focus
 
-- **Stripe UI/UX Enforcement** - Wire up billing UI (Account page, upgrade CTAs, inline upsells) and feature gating (SSR preload, API guards, usage counters).
+- **Stripe UI/UX Enforcement** - Wire up billing UI (Account page, upgrade CTAs, inline upsells) and feature gating (SSR preload, API guards, usage counters). **Two tiers at launch: Free + Plus only** (Pro deferred).
+- **BrickLink API Compliance** — Pricing must be free for all users (BL ToS prohibits paywalling). ~~Remove entitlement checks from pricing routes~~ (done). Contact `apisupport@bricklink.com` pre-launch to confirm commercial use case.
 - Keep the MVP flows (search, inventory, owned vs missing, CSV exports, optional pricing) stable.
 - Preserve anonymous/local-only experience while signed-in users sync to Supabase.
 
 ## Recently Completed (February 2026)
+
+- **BrickLink API Compliance — Group A (Code Changes)**:
+  - Removed `pricing.full_cached` entitlement checks from `/api/prices/bricklink` and `/api/prices/bricklink-set` — pricing is now free for all users regardless of tier.
+  - Created migration `20260216053312_delete_stale_feature_flags.sql` to delete stale feature flag seeds (`pricing.full_cached`, `bricklink.byo_key`, `mocs.custom`) from the database.
+  - Added BrickLink attribution text to `InventoryItemModal` part detail view per BL API ToS requirements.
+  - Remaining BL compliance work: contact `apisupport@bricklink.com` pre-launch, monitor API quota post-launch.
 
 - **Dead Code Cleanup & Identify Pipeline Fixes (Post-Plan 10)**:
   - **Legacy ID translation code removed**: Deleted `mapToBrickLink()` pipeline (`app/lib/mappings/rebrickableToBricklink.ts`), `/api/colors/mapping` route, `/api/parts/bricklink` route, and associated test.
@@ -116,5 +123,10 @@ See `docs/BACKLOG.md` for full backlog of remaining work.
 
 - MVP remains fully usable without auth; Supabase accounts are additive.
 - **Data sources**: Rebrickable catalog for all entity data (parts, sets, colors, minifigs); BrickLink API for pricing and identify fallback only.
+- **BrickLink pricing is free for all users** (Feb 2026 decision). On-demand API calls with ≤6hr server cache. BrickLink API ToS prohibits gating their free-to-members data behind a paywall. See `docs/BACKLOG.md` BrickLink API Compliance section.
+- **Two tiers at launch: Free + Plus.** Pro deferred until features warrant it (custom MoCs, instructions uploads, BYO BrickLink key pending BL approval). Schema already supports Pro — no migration needed when ready.
+- **Plus tier includes**: unlimited tabs, identifies, exports, lists, Search Party, sync, part rarity indicators. Exclusive pieces moved from Pro → Plus.
+- **Removed feature flags**: `prices.detailed`, `pricing.full_cached` (pricing free for all), `bricklink.byo_key` and `mocs.custom` (Pro deferred).
+- **ID mapping tables are ToS-compliant** — sourced from bricklinkable community data and Rebrickable, not BrickLink API.
 - Out of scope: BrickOwl export, advanced rarity analytics.
 - Accessibility: "good enough for MVP"; complex widgets to be revisited (see `docs/BACKLOG.md`).

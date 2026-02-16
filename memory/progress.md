@@ -123,6 +123,10 @@
   - RB export: `includeMinifigs` toggle (default false). Filters `minifig_*` row types.
   - `blValidatePart()`: 404-safe circuit breaker. `BrickLinkNotFoundError` class, `safe404` option on `blGet`.
   - `InventoryItemModal`: `useBricklinkValidation` hook with session-level cache. Validates BL links on modal open.
+- **BrickLink API Compliance — Code Changes** (February 2026):
+  - Removed `pricing.full_cached` entitlement checks from both pricing routes — pricing free for all users per BL ToS.
+  - Migration `20260216053312` deletes stale feature flag seeds (`pricing.full_cached`, `bricklink.byo_key`, `mocs.custom`).
+  - Added BrickLink attribution to `InventoryItemModal` part detail view.
 - **Exclusive Pieces Feature** (January 2026):
   - New page at `/exclusive-pieces` to discover parts that appear in exactly one LEGO set worldwide.
   - Service layer (`app/lib/services/exclusivePieces.ts`) queries `rb_inventory_parts_public` to find globally unique part+color combinations.
@@ -135,14 +139,15 @@
 See `docs/BACKLOG.md` for the full consolidated backlog.
 
 **High priority:**
-- Stripe UI/UX enforcement (Account page, upgrade CTAs, feature gating)
+- Stripe UI/UX enforcement (Account page, upgrade CTAs, feature gating) — **Free + Plus only at launch**, Pro deferred
+- BrickLink API compliance: contact `apisupport@bricklink.com` pre-launch (code changes done — see Completed)
 
 **Medium priority:**
 - Error states hardening
 
 ## Status
 
-Core MVP is feature-complete: search, inventory, owned tracking, CSV exports, pricing, and identify flows are all working. Auth and Supabase persistence are wired up. **Rebrickable catalog is the unified source of truth for all entity data** (parts, sets, colors, minifigs). BrickLink API retained only for pricing and identify fallback. **Cross-device sync for recently viewed and continue building is implemented** (pending migration push). Main remaining work is Stripe UI/UX enforcement.
+Core MVP is feature-complete: search, inventory, owned tracking, CSV exports, pricing, and identify flows are all working. Auth and Supabase persistence are wired up. **Rebrickable catalog is the unified source of truth for all entity data** (parts, sets, colors, minifigs). BrickLink API retained only for pricing and identify fallback. **Cross-device sync for recently viewed and continue building is implemented** (pending migration push). **BrickLink API compliance code changes complete** — pricing is free for all users, stale feature flags deleted, BL attribution added. Main remaining work is Stripe UI/UX enforcement (two tiers: Free + Plus) and pre-launch BL contact/monitoring.
 
 ## Known Issues / Risks
 

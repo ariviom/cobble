@@ -5,15 +5,15 @@
   - Identify: 5 requests per calendar day (per user).
   - Search Party: joins allowed; hosting limited to 2 sessions per calendar month.
   - Custom lists: max 1 list; no uploads (lists are user groupings only).
-  - Pricing: in-app pricing disabled; show link-outs/upsell instead of fetching.
+  - Pricing: free for all users (BL ToS — no paywall on BL data).
   - Sync: local-only; cloud sync blocked. On upgrade, sync local → cloud.
   - BrickLink key: not allowed.
   - MOC uploads: not allowed (Pro only).
-- **Plus** ($6–$8/mo, cached/historical tier)
+- **Plus** ($6–$8/mo)
   - Unlimited Identify.
   - Unlimited custom lists (uploads allowed when built).
   - Unlimited Search Party (host/join).
-  - Pricing: in-app pricing allowed but uses cached/historical averages (e.g., 6-month avg); no real-time/BYO key.
+  - Pricing: free for all users (same as Free tier — BL ToS).
   - Sync across devices (cloud enabled).
   - Advanced Search Party tools (bounties/scoring) when built.
 - **Pro** ($15–$20/mo, real-time/ops tier)
@@ -25,9 +25,10 @@
 
 ### Feature Flags & Seeds (explicit rows)
 - Upsert into `feature_flags` (min_tier, rollout_pct=100):
-  - Plus/Pro (enabled): `identify.unlimited` (plus), `lists.unlimited` (plus), `search_party.unlimited` (plus), `pricing.full_cached` (plus), `sync.cloud` (plus).
+  - Plus/Pro (enabled): `identify.unlimited` (plus), `lists.unlimited` (plus), `search_party.unlimited` (plus), `sync.cloud` (plus).
   - Plus/Pro (disabled until built): `lists.upload` (plus), `search_party.advanced` (plus).
-  - Pro-only (disabled): `bricklink.byo_key` (pro), `mocs.custom` (pro), `bulk.tools` (pro), `pricing.realtime` (pro).
+  - Pro-only (disabled): `bulk.tools` (pro), `pricing.realtime` (pro).
+  - Deleted by migration `20260216053312`: `pricing.full_cached`, `bricklink.byo_key`, `mocs.custom` (stale/deferred).
 - Overrides table stays for allowlists/betas.
 
 ### Enforcement & Quotas
@@ -48,17 +49,13 @@
   - Search Party host/create: `/api/group-sessions` (or host create route) → quota; join route unmetered.
   - Lists: move create/update to server handler/RPC; enforce free max=1 list; plus/pro unlimited. Uploads/MOC import blocked for free.
   - Pricing: `/api/prices/bricklink`, `/api/prices/bricklink-set`:
-    - Free → upsell payload `{ error: 'feature_unavailable', reason: 'upgrade_required', tier: 'plus', message }` and do not fetch.
-    - Plus → cached/historical pricing pipeline (no real-time).
-    - Pro → allow on-demand/real-time when BYO key exists.
+    - All tiers → on-demand BL API calls with ≤6hr server cache. No entitlement checks (BL ToS — pricing free for all users).
   - Sync: `/api/sync` + sync worker → no-op for free with message; plus/pro allowed.
 - **Errors/UX**: normalized `feature_unavailable` with reasons `quota_exceeded | upgrade_required | coming_soon`; include `limit`, `remaining`, `reset_at` for quotas; prefer upsell over 403 for pricing.
 
-### Pricing Rework (future)
-- Split pricing pipelines:
-  - **Plus**: serve cached averages (e.g., 6m) from Supabase (new view/table), no live BL calls per request; surface “cached” state in UI.
-  - **Pro**: allow live BL fetch using user BYO key + persistence; respect rate limits and user-level auth for BL key.
-  - **Free**: do not fetch; show upsell + external links. Keep pricing buttons disabled or convert to CTA.
+### Pricing (resolved)
+- **All tiers**: on-demand BL API calls with ≤6hr server cache. BrickLink API ToS prohibits gating their free-to-members data behind a paywall. Entitlement checks removed from pricing routes (migration `20260216053312` + route handler changes).
+- **Future (Pro)**: BYO BrickLink API key for higher rate limits (pending BL approval). No tier-based pricing split needed.
 
 ### Stripe/Billing Integration Focus
 - Keep price allowlist (monthly Plus/Pro) and webhook upserts wired to `billing_subscriptions`.
