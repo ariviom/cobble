@@ -7,6 +7,8 @@ import { SetsLandingContent } from '@/app/components/sets/SetsLandingContent';
 import { cn } from '@/app/components/ui/utils';
 import { useDynamicTitle } from '@/app/hooks/useDynamicTitle';
 import { useIsDesktop } from '@/app/hooks/useIsDesktop';
+import { readStorage } from '@/app/lib/persistence/storage';
+import { clearStoredGroupSession } from '@/app/store/group-sessions';
 import {
   useOpenTabsStore,
   isSetTab,
@@ -66,7 +68,7 @@ export default function SetsPage() {
   const pageTitle = useMemo(() => {
     if (!activeTab) return null;
     if (isSetTab(activeTab)) {
-      return `${activeTab.id} ${activeTab.name}`;
+      return `${activeTab.setNumber} ${activeTab.name}`;
     }
     return 'Sets';
   }, [activeTab]);
@@ -121,9 +123,80 @@ export default function SetsPage() {
     [saveCurrentScroll, setActiveTab, tabs]
   );
 
-  // Handle tab close
-  const handleCloseTab = useCallback(
+  // Fire a leave request for an SP tab (fire-and-forget, survives page transitions)
+  const fireLeave = useCallback((slug: string) => {
+    const clientToken = readStorage('brick_party_group_client_id_v1');
+    if (!clientToken) return;
+    try {
+      void fetch(
+        `/api/group-sessions/${encodeURIComponent(slug)}/leave`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientToken }),
+          keepalive: true,
+        }
+      );
+    } catch {
+      // best-effort
+    }
+  }, []);
+
+  // Fire an end-session request for a host SP tab (fire-and-forget, survives tab close)
+  const fireEndSession = useCallback((slug: string) => {
+    try {
+      void fetch(
+        `/api/group-sessions/${encodeURIComponent(slug)}/end`,
+        {
+          method: 'POST',
+          keepalive: true,
+          credentials: 'same-origin',
+        }
+      );
+      clearStoredGroupSession(slug);
+    } catch {
+      // best-effort
+    }
+  }, []);
+
+  // End host Search Party sessions when the browser tab closes
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
+  useEffect(() => {
+    const endHostSessions = () => {
+      for (const tab of tabsRef.current) {
+        if (
+          isSetTab(tab) &&
+          tab.groupRole === 'host' &&
+          tab.groupSessionSlug
+        ) {
+          fireEndSession(tab.groupSessionSlug);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', endHostSessions);
+    window.addEventListener('pagehide', endHostSessions);
+    return () => {
+      window.removeEventListener('beforeunload', endHostSessions);
+      window.removeEventListener('pagehide', endHostSessions);
+    };
+  }, [fireEndSession]);
+
+  // Host close confirmation state
+  const [closeRequestedTabId, setCloseRequestedTabId] = useState<string | null>(
+    null
+  );
+
+  // Execute the actual close logic for a tab (shared by direct close and confirmed close)
+  const executeClose = useCallback(
     (id: string) => {
+      // If closing an SP tab, fire a leave request
+      const closingTab = tabs.find(t => t.id === id);
+      if (closingTab && isSetTab(closingTab) && closingTab.groupSessionSlug) {
+        fireLeave(closingTab.groupSessionSlug);
+      }
+
       const remainingTabs = tabs.filter(t => t.id !== id);
 
       closeTab(id);
@@ -146,8 +219,41 @@ export default function SetsPage() {
         }
       }
     },
-    [closeTab, tabs, activeTabId, openLandingTab]
+    [closeTab, tabs, activeTabId, openLandingTab, fireLeave]
   );
+
+  // Handle tab close — intercept host SP tabs for confirmation
+  const handleCloseTab = useCallback(
+    (id: string) => {
+      const closingTab = tabs.find(t => t.id === id);
+      if (
+        closingTab &&
+        isSetTab(closingTab) &&
+        closingTab.groupRole === 'host' &&
+        closingTab.groupSessionId
+      ) {
+        // Host SP tab — prompt for confirmation
+        setCloseRequestedTabId(id);
+        return;
+      }
+      executeClose(id);
+    },
+    [tabs, executeClose]
+  );
+
+  // Confirmed close from host SP modal
+  const handleConfirmClose = useCallback(
+    (id: string) => {
+      setCloseRequestedTabId(null);
+      executeClose(id);
+    },
+    [executeClose]
+  );
+
+  // Cancel close from host SP modal
+  const handleCancelClose = useCallback(() => {
+    setCloseRequestedTabId(null);
+  }, []);
 
   // Handle opening a new landing tab via "+" button
   const handleOpenLandingTab = useCallback(() => {
@@ -233,7 +339,6 @@ export default function SetsPage() {
         <SetTabBar
           tabs={tabs}
           activeTabId={activeTabId ?? ''}
-          groupSessionSetNumber={null}
           onActivateTab={handleActivateTab}
           onCloseTab={handleCloseTab}
           onOpenLandingTab={handleOpenLandingTab}
@@ -275,6 +380,9 @@ export default function SetsPage() {
                 saveTabState(tab.id, partialState);
               }}
               isDesktop={isDesktop}
+              closeRequested={closeRequestedTabId === tab.id}
+              onConfirmClose={handleConfirmClose}
+              onCancelClose={handleCancelClose}
             />
           );
         })}

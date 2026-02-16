@@ -1,5 +1,6 @@
 'use client';
 
+import { SetDisplayCard } from '@/app/components/set/SetDisplayCard';
 import { SetDisplayCardWithControls } from '@/app/components/set/SetDisplayCardWithControls';
 import { Button } from '@/app/components/ui/Button';
 import { Input } from '@/app/components/ui/Input';
@@ -12,7 +13,7 @@ import {
   type UnifiedSet,
 } from '@/app/hooks/useUnifiedSets';
 import type { SetTab } from '@/app/store/open-tabs';
-import { Camera, Search } from 'lucide-react';
+import { Camera, Search, Trophy, Users, Puzzle } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback } from 'react';
 
@@ -35,6 +36,9 @@ export function SetsLandingContent({
     setSearchQuery,
     filterOptions,
     removeRecent,
+    removeSearchParty,
+    clearAllSearchParties,
+    storedSessions,
     isLoading,
   } = useUnifiedSets(isActive);
   const { user } = useSupabaseUser();
@@ -46,6 +50,7 @@ export function SetsLandingContent({
       onSelectSet({
         type: 'set',
         id: set.setNumber,
+        setNumber: set.setNumber,
         name: set.name,
         imageUrl: set.imageUrl,
         numParts: set.numParts,
@@ -63,6 +68,8 @@ export function SetsLandingContent({
         return null; // handled with rich empty state below
       case 'continue':
         return 'Start marking pieces on a set to track your progress.';
+      case 'search-parties':
+        return 'No active Search Party sessions.';
       default:
         return 'No sets found.';
     }
@@ -121,6 +128,19 @@ export function SetsLandingContent({
             ))}
           </div>
 
+          {/* Clear all link for Search Parties */}
+          {activeFilter === 'search-parties' && sets.length > 0 && (
+            <div className="mb-2 text-right">
+              <button
+                type="button"
+                onClick={clearAllSearchParties}
+                className="text-xs text-foreground-muted underline underline-offset-2 transition-colors hover:text-foreground"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
+
           {/* Search input */}
           <div className="relative mb-6">
             <Search className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-foreground-muted" />
@@ -162,25 +182,87 @@ export function SetsLandingContent({
             )
           ) : (
             <div className="grid grid-cols-2 gap-x-2 gap-y-4 md:grid-cols-3 lg:grid-cols-4">
-              {sets.map(set => (
-                <div key={set.setNumber} onClick={e => handleSelectSet(set, e)}>
-                  <SetDisplayCardWithControls
-                    setNumber={set.setNumber}
-                    name={set.name}
-                    year={set.year}
-                    imageUrl={set.imageUrl}
-                    numParts={set.numParts}
-                    themeId={set.themeId}
-                    ownedCount={set.ownedCount}
-                    totalParts={set.totalParts}
-                    onRemove={
-                      activeFilter === 'recent'
-                        ? () => removeRecent(set.setNumber)
-                        : undefined
-                    }
-                  />
-                </div>
-              ))}
+              {sets.map(set => {
+                const isSpFilter = activeFilter === 'search-parties';
+                const stored = isSpFilter
+                  ? storedSessions.find(
+                      s =>
+                        s.setNumber.toLowerCase() ===
+                        set.setNumber.toLowerCase()
+                    )
+                  : undefined;
+
+                let onRemove: (() => void) | undefined;
+                if (activeFilter === 'recent') {
+                  onRemove = () => removeRecent(set.setNumber);
+                } else if (stored) {
+                  onRemove = () => removeSearchParty(stored.slug);
+                }
+
+                if (isSpFilter && stored) {
+                  const hasStats =
+                    stored.piecesFound != null ||
+                    stored.participantCount != null;
+                  return (
+                    <div
+                      key={set.setNumber}
+                      onClick={e => handleSelectSet(set, e)}
+                    >
+                      <SetDisplayCard
+                        setNumber={set.setNumber}
+                        name={set.name}
+                        year={set.year}
+                        imageUrl={set.imageUrl}
+                        numParts={set.numParts}
+                        themeId={set.themeId}
+                        onRemove={onRemove}
+                      >
+                        {hasStats && (
+                          <div className="grid grid-cols-3 border-t border-subtle px-2 py-2.5 text-[0.8125rem] font-semibold text-foreground-muted sm:px-3">
+                            {stored.participantCount != null && (
+                              <span className="flex items-center justify-center gap-1">
+                                <Users className="h-3.5 w-3.5 shrink-0" />
+                                {stored.participantCount}
+                              </span>
+                            )}
+                            {stored.piecesFound != null && (
+                              <span className="flex items-center justify-center gap-1">
+                                <Puzzle className="h-3.5 w-3.5 shrink-0" />
+                                {stored.piecesFound}
+                              </span>
+                            )}
+                            {stored.leaderboardPosition != null && (
+                              <span className="flex items-center justify-center gap-1">
+                                <Trophy className="h-3.5 w-3.5 shrink-0" />#
+                                {stored.leaderboardPosition}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </SetDisplayCard>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={set.setNumber}
+                    onClick={e => handleSelectSet(set, e)}
+                  >
+                    <SetDisplayCardWithControls
+                      setNumber={set.setNumber}
+                      name={set.name}
+                      year={set.year}
+                      imageUrl={set.imageUrl}
+                      numParts={set.numParts}
+                      themeId={set.themeId}
+                      ownedCount={set.ownedCount}
+                      totalParts={set.totalParts}
+                      onRemove={onRemove}
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
