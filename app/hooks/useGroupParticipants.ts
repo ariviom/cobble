@@ -75,16 +75,17 @@ export function useGroupParticipants({
       setParticipants(prev =>
         prev.map(p =>
           p.id === participantId
-            ? { ...p, piecesFound: Math.max(0, (p.piecesFound ?? 0) + delta), lastSeenAt: now }
+            ? {
+                ...p,
+                piecesFound: Math.max(0, (p.piecesFound ?? 0) + delta),
+                lastSeenAt: now,
+              }
             : p
         )
       );
       // Update the ref if this is our own participant
       if (participantId === currentParticipantId) {
-        piecesFoundRef.current = Math.max(
-          0,
-          piecesFoundRef.current + delta
-        );
+        piecesFoundRef.current = Math.max(0, piecesFoundRef.current + delta);
       }
     },
     [currentParticipantId]
@@ -119,7 +120,9 @@ export function useGroupParticipants({
         // in-memory value or current time for new participants.
         const dbLastSeen = row.last_seen_at ?? new Date().toISOString();
         const lastSeenAt = existing
-          ? existing.lastSeenAt > dbLastSeen ? existing.lastSeenAt : dbLastSeen
+          ? existing.lastSeenAt > dbLastSeen
+            ? existing.lastSeenAt
+            : dbLastSeen
           : dbLastSeen;
         return {
           id: row.id,
@@ -135,10 +138,7 @@ export function useGroupParticipants({
       // Ensure the current participant is never dropped from the list
       // (guards against RLS/timing issues where the DB query misses them)
       const currentPid = currentParticipantIdRef.current;
-      if (
-        currentPid &&
-        !merged.some(p => p.id === currentPid)
-      ) {
+      if (currentPid && !merged.some(p => p.id === currentPid)) {
         const self = byId.get(currentPid);
         if (self) {
           merged.push(self);
@@ -186,9 +186,7 @@ export function useGroupParticipants({
     // and UPDATE (soft-delete via left_at, re-join clearing left_at).
     // Heartbeat UPDATEs also trigger reloads, but since the query filters
     // left_at IS NULL the result set is small and the merge is cheap.
-    const channel = supabase.channel(
-      `group_participants_roster:${sessionId}`
-    );
+    const channel = supabase.channel(`group_participants_roster:${sessionId}`);
 
     channel.on(
       'postgres_changes',

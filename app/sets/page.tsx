@@ -128,15 +128,12 @@ export default function SetsPage() {
     const clientToken = readStorage('brick_party_group_client_id_v1');
     if (!clientToken) return;
     try {
-      void fetch(
-        `/api/group-sessions/${encodeURIComponent(slug)}/leave`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientToken }),
-          keepalive: true,
-        }
-      );
+      void fetch(`/api/group-sessions/${encodeURIComponent(slug)}/leave`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientToken }),
+        keepalive: true,
+      });
     } catch {
       // best-effort
     }
@@ -145,14 +142,11 @@ export default function SetsPage() {
   // Fire an end-session request for a host SP tab (fire-and-forget, survives tab close)
   const fireEndSession = useCallback((slug: string) => {
     try {
-      void fetch(
-        `/api/group-sessions/${encodeURIComponent(slug)}/end`,
-        {
-          method: 'POST',
-          keepalive: true,
-          credentials: 'same-origin',
-        }
-      );
+      void fetch(`/api/group-sessions/${encodeURIComponent(slug)}/end`, {
+        method: 'POST',
+        keepalive: true,
+        credentials: 'same-origin',
+      });
       clearStoredGroupSession(slug);
     } catch {
       // best-effort
@@ -165,11 +159,7 @@ export default function SetsPage() {
   useEffect(() => {
     const endHostSessions = () => {
       for (const tab of tabsRef.current) {
-        if (
-          isSetTab(tab) &&
-          tab.groupRole === 'host' &&
-          tab.groupSessionSlug
-        ) {
+        if (isSetTab(tab) && tab.groupRole === 'host' && tab.groupSessionSlug) {
           fireEndSession(tab.groupSessionSlug);
         }
       }
