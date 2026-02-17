@@ -8,10 +8,13 @@ import {
   SingleSelectList,
   formatSelectionSubLabel,
 } from '@/app/components/ui/GroupedDropdown';
+import { ClearAllButton } from '@/app/components/ui/ClearAllButton';
 import { RowButton } from '@/app/components/ui/RowButton';
+import { RowCheckbox } from '@/app/components/ui/RowCheckbox';
 import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
 import {
   CheckSquare,
+  Diamond,
   Download,
   Filter,
   FolderTree,
@@ -25,6 +28,7 @@ import type {
   GroupBy,
   InventoryFilter,
   ItemSize,
+  RarityTier,
   SortKey,
   ViewType,
 } from '../types';
@@ -254,6 +258,77 @@ export function TopBarControls({
 
       <div className="lg:relative">
         <DropdownTrigger
+          id="rarity-trigger"
+          panelId="rarity-panel"
+          label={
+            filter.rarityTiers?.length
+              ? `Rarity (${filter.rarityTiers.length})`
+              : 'Rarity'
+          }
+          labelIcon={<Diamond size={16} />}
+          isOpen={openDropdownId === 'rarity'}
+          onToggle={() => onToggleDropdown('rarity')}
+        />
+        {openDropdownId === 'rarity' && (
+          <DropdownPanelFrame
+            id="rarity-panel"
+            labelledBy="rarity-trigger"
+            isOpen={true}
+            className={
+              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
+            }
+            variant={isDesktop ? 'default' : 'sidebar'}
+          >
+            <DropdownSection>
+              <div>
+                {(
+                  [
+                    { key: 'exclusive', text: 'Exclusive' },
+                    { key: 'very_rare', text: 'Very Rare' },
+                    { key: 'rare', text: 'Rare' },
+                  ] as const
+                ).map(opt => {
+                  const selected =
+                    filter.rarityTiers?.includes(opt.key) ?? false;
+                  return (
+                    <RowButton
+                      key={opt.key}
+                      selected={selected}
+                      onClick={() => {
+                        const current: RarityTier[] = filter.rarityTiers ?? [];
+                        const next = selected
+                          ? current.filter(t => t !== opt.key)
+                          : [...current, opt.key];
+                        onChangeFilter({
+                          ...filter,
+                          rarityTiers: next.length > 0 ? next : undefined,
+                        });
+                      }}
+                      className="border-b border-foreground-accent"
+                    >
+                      <RowCheckbox checked={selected} />
+                      <span>{opt.text}</span>
+                    </RowButton>
+                  );
+                })}
+              </div>
+            </DropdownSection>
+            {(filter.rarityTiers?.length ?? 0) > 0 && (
+              <DropdownSection label="">
+                <ClearAllButton
+                  className="border-t-2"
+                  onClick={() =>
+                    onChangeFilter({ ...filter, rarityTiers: undefined })
+                  }
+                />
+              </DropdownSection>
+            )}
+          </DropdownPanelFrame>
+        )}
+      </div>
+
+      <div className="lg:relative">
+        <DropdownTrigger
           id="view-trigger"
           panelId="view-panel"
           label={view === 'grid' ? 'Grid' : 'List'}
@@ -331,6 +406,7 @@ export function TopBarControls({
                     { key: 'color', text: 'Color' },
                     { key: 'size', text: 'Size' },
                     { key: 'category', text: 'Category' },
+                    { key: 'rarity', text: 'Rarity' },
                     ...(pricingEnabled
                       ? [{ key: 'price', text: 'Price' }]
                       : []),
@@ -362,6 +438,7 @@ export function TopBarControls({
                     { key: 'color', text: 'Color' },
                     { key: 'size', text: 'Size' },
                     { key: 'category', text: 'Category' },
+                    { key: 'rarity', text: 'Rarity' },
                   ],
                   selectedKey: groupBy,
                   onChange: g => {

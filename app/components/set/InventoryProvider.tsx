@@ -22,6 +22,7 @@ import type {
   InventoryFilter,
   InventoryRow,
   ItemSize,
+  RarityTier,
   SortKey,
   ViewType,
 } from './types';
@@ -106,6 +107,7 @@ export type InventoryControlsContextValue = {
   setGroupBy: (group: GroupBy) => void;
   getControlsState: () => InventoryControlsState;
   sortedIndices: number[];
+  rarityByIndex: Array<RarityTier | null>;
   colorOptions: string[];
   availableColors: Set<string>;
   parentOptions: string[];
@@ -294,6 +296,7 @@ export function InventoryProvider({
     setGroupBy,
     getControlsState,
     sortedIndices,
+    rarityByIndex,
     subcategoriesByParent,
     colorOptions,
     availableColors,
@@ -546,6 +549,7 @@ export function InventoryProvider({
       setGroupBy,
       getControlsState,
       sortedIndices,
+      rarityByIndex,
       colorOptions,
       availableColors,
       parentOptions,
@@ -568,6 +572,7 @@ export function InventoryProvider({
       setGroupBy,
       getControlsState,
       sortedIndices,
+      rarityByIndex,
       colorOptions,
       availableColors,
       parentOptions,

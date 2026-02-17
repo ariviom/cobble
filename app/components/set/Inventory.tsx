@@ -41,7 +41,8 @@ export function Inventory() {
   } = useInventoryData();
   const sp = useOptionalSearchParty();
   const isInGroupSession = sp?.isInGroupSession ?? false;
-  const { view, itemSize, sortedIndices, gridSizes } = useInventoryControls();
+  const { view, itemSize, sortedIndices, rarityByIndex, gridSizes } =
+    useInventoryControls();
   const { pricesByKey, pendingPriceKeys, requestPricesForKeys } =
     useInventoryPricing();
   const { isPinned, togglePinned } = useInventoryPinned();
@@ -145,6 +146,7 @@ export function Inventory() {
           owned={displayOwned}
           missing={missingQty}
           bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
+          rarityTier={rarityByIndex[rowIndex]}
           onOwnedChange={nextOwned => {
             const clamped = clampOwned(nextOwned, row.quantityRequired ?? 0);
             handleOwnedChange(key, clamped);
@@ -160,6 +162,7 @@ export function Inventory() {
       pricesByKey,
       ownedByKey,
       minifigStatusByKey,
+      rarityByIndex,
       setNumber,
       handleOwnedChange,
       isPinned,

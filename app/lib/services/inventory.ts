@@ -411,5 +411,90 @@ export async function getSetInventoryRowsWithMeta(
     };
   }
 
+  // ── Rarity enrichment from precomputed tables ──
+  try {
+    const supabase = getCatalogReadClient();
+
+    // Collect unique part+color pairs (non-fig rows) and fig nums
+    const partColorPairs: Array<{ partNum: string; colorId: number }> = [];
+    const figNums: string[] = [];
+
+    for (const row of result.rows) {
+      if (row.partId.startsWith('fig:')) {
+        figNums.push(row.partId.slice(4));
+      } else {
+        partColorPairs.push({ partNum: row.partId, colorId: row.colorId });
+      }
+    }
+
+    // Batch query rb_part_rarity
+    const rarityMap = new Map<string, number>();
+    // Smaller batches: compound .or() filters are longer per item than simple .in()
+    const BATCH_SIZE = 100;
+
+    // Note: rb_part_rarity / rb_minifig_rarity are new tables.
+    // Supabase types may not include them until `npm run generate-types`.
+    // Use type casts to avoid TS errors until types are regenerated.
+    type PartRarityRow = {
+      part_num: string;
+      color_id: number;
+      set_count: number;
+    };
+    type MinifigRarityRow = {
+      fig_num: string;
+      min_subpart_set_count: number;
+    };
+
+    // Query exact (part_num, color_id) pairs to avoid 1000-row PostgREST cap.
+    // Using .or() with compound conditions returns only needed rows.
+    for (let i = 0; i < partColorPairs.length; i += BATCH_SIZE) {
+      const batch = partColorPairs.slice(i, i + BATCH_SIZE);
+      const orFilter = batch
+        .map(p => `and(part_num.eq.${p.partNum},color_id.eq.${p.colorId})`)
+        .join(',');
+
+      const { data: rarityData } = (await supabase
+        .from('rb_part_rarity' as never)
+        .select('part_num, color_id, set_count')
+        .or(orFilter)) as unknown as {
+        data: PartRarityRow[] | null;
+      };
+
+      for (const r of rarityData ?? []) {
+        rarityMap.set(`${r.part_num}:${r.color_id}`, r.set_count);
+      }
+    }
+
+    // Batch query rb_minifig_rarity
+    const minifigRarityMap = new Map<string, number>();
+    for (let i = 0; i < figNums.length; i += BATCH_SIZE) {
+      const batch = figNums.slice(i, i + BATCH_SIZE);
+      const { data: mfData } = (await supabase
+        .from('rb_minifig_rarity' as never)
+        .select('fig_num, min_subpart_set_count')
+        .in('fig_num', batch)) as unknown as {
+        data: MinifigRarityRow[] | null;
+      };
+
+      for (const m of mfData ?? []) {
+        minifigRarityMap.set(m.fig_num, m.min_subpart_set_count);
+      }
+    }
+
+    // Attach setCount to rows
+    for (const row of result.rows) {
+      if (row.partId.startsWith('fig:')) {
+        row.setCount = minifigRarityMap.get(row.partId.slice(4)) ?? null;
+      } else {
+        row.setCount = rarityMap.get(`${row.partId}:${row.colorId}`) ?? null;
+      }
+    }
+  } catch (err) {
+    logger.warn('inventory.rarity.enrich_failed', {
+      setNumber,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   return result;
 }

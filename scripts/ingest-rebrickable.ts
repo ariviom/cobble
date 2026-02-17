@@ -1048,6 +1048,259 @@ async function materializeMinifigParts(
 }
 
 // ===========================================================================
+// Part Rarity Materialization
+// ===========================================================================
+
+async function materializePartRarity(
+  supabase: ReturnType<typeof createClient<Database>>
+): Promise<void> {
+  log('Materializing rb_part_rarity + rb_minifig_rarity...');
+
+  // Primary path: single atomic SQL via exec_sql RPC
+  const { error } = await supabase.rpc(
+    'exec_sql' as never,
+    {
+      query: `
+      -- Part rarity: count distinct sets per part+color
+      TRUNCATE public.rb_part_rarity;
+      INSERT INTO public.rb_part_rarity (part_num, color_id, set_count)
+      SELECT part_num, color_id, COUNT(DISTINCT set_num)
+      FROM (
+        -- Direct parts in sets
+        SELECT rip.part_num, rip.color_id, ri.set_num
+        FROM public.rb_inventory_parts rip
+        JOIN public.rb_inventories ri ON ri.id = rip.inventory_id
+        WHERE ri.set_num NOT LIKE 'fig-%' AND rip.is_spare = false
+        UNION
+        -- Parts via minifigs
+        SELECT rmp.part_num, rmp.color_id, ri.set_num
+        FROM public.rb_minifig_parts rmp
+        JOIN public.rb_inventory_minifigs rim ON rim.fig_num = rmp.fig_num
+        JOIN public.rb_inventories ri ON ri.id = rim.inventory_id
+        WHERE ri.set_num NOT LIKE 'fig-%'
+      ) all_parts
+      GROUP BY part_num, color_id;
+
+      -- Minifig rarity: min set_count across subparts
+      TRUNCATE public.rb_minifig_rarity;
+      INSERT INTO public.rb_minifig_rarity (fig_num, min_subpart_set_count)
+      SELECT rmp.fig_num, MIN(rpr.set_count)
+      FROM public.rb_minifig_parts rmp
+      JOIN public.rb_part_rarity rpr ON rpr.part_num = rmp.part_num AND rpr.color_id = rmp.color_id
+      GROUP BY rmp.fig_num;
+    `,
+    } as never
+  );
+
+  if (error) {
+    log(
+      `exec_sql rpc failed for rarity materialization: ${error.message}. Using chunked fallback...`
+    );
+    await materializePartRarityChunked(supabase);
+    return;
+  }
+
+  log('Materialized rb_part_rarity + rb_minifig_rarity via SQL.');
+}
+
+/**
+ * Paginated fetch helper — Supabase PostgREST defaults to 1000 rows per query.
+ * Fetches all rows by paging with `.range()`.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchAllRows<T>(builder: any, pageSize = 1000): Promise<T[]> {
+  const all: T[] = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await builder.range(offset, offset + pageSize - 1);
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) break;
+    all.push(...(data as T[]));
+    if (data.length < pageSize) break; // last page
+    offset += pageSize;
+  }
+  return all;
+}
+
+async function materializePartRarityChunked(
+  supabase: ReturnType<typeof createClient<Database>>
+): Promise<void> {
+  // Step 1: Fetch ALL non-fig inventories (paginated to avoid 1000-row default limit)
+  const inventories = await fetchAllRows<{ id: number; set_num: string }>(
+    supabase
+      .from('rb_inventories')
+      .select('id, set_num')
+      .not('set_num', 'like', 'fig-%')
+  );
+
+  if (inventories.length === 0) {
+    log('No set inventories found, skipping rarity materialization.');
+    return;
+  }
+
+  log(
+    `Fetched ${inventories.length} non-fig inventories for rarity computation.`
+  );
+
+  // Build inventory ID → set_num lookup
+  const invToSet = new Map<number, string>();
+  for (const inv of inventories) {
+    if (inv.set_num) invToSet.set(inv.id, inv.set_num);
+  }
+
+  // Step 2: Aggregate direct parts → set counts
+  // Map<"part_num:color_id", Set<set_num>>
+  const partSets = new Map<string, Set<string>>();
+  const batchSize = 200;
+  const invIds = Array.from(invToSet.keys());
+
+  log(`Processing ${invIds.length} inventories for direct parts...`);
+  for (let i = 0; i < invIds.length; i += batchSize) {
+    const chunk = invIds.slice(i, i + batchSize);
+    const parts = await fetchAllRows<{
+      inventory_id: number;
+      part_num: string;
+      color_id: number;
+    }>(
+      supabase
+        .from('rb_inventory_parts')
+        .select('inventory_id, part_num, color_id')
+        .in('inventory_id', chunk)
+        .eq('is_spare', false)
+    );
+
+    for (const p of parts) {
+      const setNum = invToSet.get(p.inventory_id);
+      if (!setNum) continue;
+      const key = `${p.part_num}:${p.color_id}`;
+      if (!partSets.has(key)) partSets.set(key, new Set());
+      partSets.get(key)!.add(setNum);
+    }
+  }
+
+  // Step 3: Add parts via minifigs
+  log(`Processing ${invIds.length} inventories for minifig subparts...`);
+  for (let i = 0; i < invIds.length; i += batchSize) {
+    const chunk = invIds.slice(i, i + batchSize);
+    const minifigs = await fetchAllRows<{
+      inventory_id: number;
+      fig_num: string;
+    }>(
+      supabase
+        .from('rb_inventory_minifigs')
+        .select('inventory_id, fig_num')
+        .in('inventory_id', chunk)
+    );
+
+    // Collect fig_nums with their sets
+    const figSets = new Map<string, Set<string>>();
+    for (const mf of minifigs) {
+      const setNum = invToSet.get(mf.inventory_id);
+      if (!setNum) continue;
+      if (!figSets.has(mf.fig_num)) figSets.set(mf.fig_num, new Set());
+      figSets.get(mf.fig_num)!.add(setNum);
+    }
+
+    // For each fig, get its subparts and add set membership
+    const figNums = Array.from(figSets.keys());
+    for (let j = 0; j < figNums.length; j += batchSize) {
+      const figChunk = figNums.slice(j, j + batchSize);
+      const subparts = await fetchAllRows<{
+        fig_num: string;
+        part_num: string;
+        color_id: number;
+      }>(
+        supabase
+          .from('rb_minifig_parts')
+          .select('fig_num, part_num, color_id')
+          .in('fig_num', figChunk)
+      );
+
+      for (const sp of subparts) {
+        const sets = figSets.get(sp.fig_num);
+        if (!sets) continue;
+        const key = `${sp.part_num}:${sp.color_id}`;
+        if (!partSets.has(key)) partSets.set(key, new Set());
+        for (const s of sets) partSets.get(key)!.add(s);
+      }
+    }
+  }
+
+  // Step 4: Upsert rb_part_rarity
+  const rarityRows = Array.from(partSets.entries()).map(([key, sets]) => {
+    const [partNum, colorIdStr] = key.split(':');
+    return {
+      part_num: partNum!,
+      color_id: parseInt(colorIdStr!, 10),
+      set_count: sets.size,
+    };
+  });
+
+  log(`Inserting ${rarityRows.length} rows into rb_part_rarity...`);
+
+  // Truncate first — full recompute, not incremental
+  await supabase
+    .from('rb_part_rarity' as never)
+    .delete()
+    .neq('set_count' as never, -1 as never);
+
+  for (let i = 0; i < rarityRows.length; i += batchSize) {
+    const chunk = rarityRows.slice(i, i + batchSize);
+    const { error: upsertErr } = await supabase
+      .from('rb_part_rarity' as never)
+      .upsert(chunk as never[], { onConflict: 'part_num,color_id' } as never);
+    if (upsertErr) throw upsertErr;
+  }
+
+  // Step 5: Compute and upsert rb_minifig_rarity
+  const allMinifigParts = await fetchAllRows<{
+    fig_num: string;
+    part_num: string;
+    color_id: number;
+  }>(supabase.from('rb_minifig_parts').select('fig_num, part_num, color_id'));
+  log(
+    `Fetched ${allMinifigParts.length} minifig-part rows for minifig rarity.`
+  );
+
+  const minifigMin = new Map<string, number>();
+  for (const mp of allMinifigParts) {
+    const key = `${mp.part_num}:${mp.color_id}`;
+    const sc = partSets.get(key)?.size ?? 0;
+    const current = minifigMin.get(mp.fig_num);
+    if (current === undefined || sc < current) {
+      minifigMin.set(mp.fig_num, sc);
+    }
+  }
+
+  const minifigRows = Array.from(minifigMin.entries()).map(
+    ([figNum, minSc]) => ({
+      fig_num: figNum,
+      min_subpart_set_count: minSc,
+    })
+  );
+
+  log(`Inserting ${minifigRows.length} rows into rb_minifig_rarity...`);
+
+  // Truncate first — full recompute
+  await supabase
+    .from('rb_minifig_rarity' as never)
+    .delete()
+    .neq('min_subpart_set_count' as never, -1 as never);
+
+  for (let i = 0; i < minifigRows.length; i += batchSize) {
+    const chunk = minifigRows.slice(i, i + batchSize);
+    const { error: upsertErr } = await supabase
+      .from('rb_minifig_rarity' as never)
+      .upsert(chunk as never[], { onConflict: 'fig_num' } as never);
+    if (upsertErr) throw upsertErr;
+  }
+
+  log(
+    `Materialized ${rarityRows.length} part rarity + ${minifigRows.length} minifig rarity rows (chunked).`
+  );
+}
+
+// ===========================================================================
 // Minifig Matching — Tier-1 (set-based) + Tier-2 (fingerprinting)
 // ===========================================================================
 
@@ -1590,6 +1843,7 @@ async function main() {
       await ingestInventoryMinifigs(supabase, stream);
       await matchUnmappedMinifigs(supabase);
       await materializeMinifigParts(supabase);
+      await materializePartRarity(supabase);
     }
 
     await updateVersion(supabase, info.source, versionKey);
@@ -1599,6 +1853,11 @@ async function main() {
   // Standalone minifig matching (can be triggered independently with --match-minifigs)
   if (process.argv.includes('--match-minifigs')) {
     await matchUnmappedMinifigs(supabase);
+  }
+
+  // Standalone rarity materialization (can be triggered independently with --rarity-only)
+  if (process.argv.includes('--rarity-only')) {
+    await materializePartRarity(supabase);
   }
 
   log('All ingestion tasks complete.');

@@ -9,6 +9,17 @@
 
 ## Recently Completed (February 2026)
 
+- **Part Rarity System (Group D)**:
+  - Precomputed `rb_part_rarity` (part+color → set count) and `rb_minifig_rarity` (fig → min subpart set count) tables with RLS.
+  - `materializePartRarity()` in ingestion script, callable standalone via `--rarity-only` flag.
+  - Server-side rarity join in `inventory.ts` attaches `setCount` to every inventory row.
+  - IndexedDB cache round-trips `setCount` through `CatalogSetPart`.
+  - Rarity tiers: Exclusive (1 set), Very Rare (2-3), Rare (4-10), Common (>10, no badge).
+  - `RarityBadge` component with tier-specific colors (warning/accent/info).
+  - Sort, filter, and group by rarity in inventory controls.
+  - Rarity badge + "Found in N sets" in `InventoryItemModal`.
+  - Removed old `/exclusive-pieces` page, API route, and service.
+
 - **BrickLink API Compliance — Group A (Code Changes)**:
   - Removed `pricing.full_cached` entitlement checks from `/api/prices/bricklink` and `/api/prices/bricklink-set` — pricing is now free for all users regardless of tier.
   - Created migration `20260216053312_delete_stale_feature_flags.sql` to delete stale feature flag seeds (`pricing.full_cached`, `bricklink.byo_key`, `mocs.custom`) from the database.

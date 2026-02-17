@@ -16,7 +16,7 @@ type InventoryControlsProps = {
 };
 
 export function InventoryControls({ isLoading }: InventoryControlsProps) {
-  const { setNumber, setName, markAllMissing, markAllComplete } =
+  const { setNumber, setName, scrollerKey, markAllMissing, markAllComplete } =
     useInventoryData();
   const {
     view,
@@ -108,13 +108,13 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
 
     if (isDesktop) {
       const scroller = document.querySelector(
-        `[data-inventory-scroller="${setNumber}"]`
+        `[data-inventory-scroller="${scrollerKey}"]`
       );
       if (scroller) scroller.scrollTop = 0;
     } else {
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
-  }, [filter.display, sortKey, groupBy, isDesktop, setNumber]);
+  }, [filter.display, sortKey, groupBy, isDesktop, scrollerKey]);
 
   const handleDropdownToggle = (id: string) => {
     if (isDesktop && (id === 'parent' || id === 'color')) {
@@ -142,11 +142,13 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
       }
     } else if (dropdownId === 'sort') {
       if (groupId === 'sortBy')
-        setSortKey(key as 'name' | 'color' | 'size' | 'category' | 'price');
+        setSortKey(
+          key as 'name' | 'color' | 'size' | 'category' | 'price' | 'rarity'
+        );
       else if (groupId === 'order') {
         if (key !== sortDir) setSortDir(key === 'asc' ? 'asc' : 'desc');
       } else if (groupId === 'groupBy')
-        setGroupBy(key as 'none' | 'color' | 'size' | 'category');
+        setGroupBy(key as 'none' | 'color' | 'size' | 'category' | 'rarity');
     } else if (dropdownId === 'view') {
       if (groupId === 'viewMode') {
         setView(key as 'list' | 'grid');

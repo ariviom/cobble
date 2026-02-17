@@ -79,6 +79,8 @@ export type CatalogSetPart = {
   componentRelations?: Array<{ key: string; quantity: number }>;
   /** Unified part identity for RB↔BL resolution (round-trips through cache) */
   identity?: import('@/app/lib/domain/partIdentity').PartIdentity;
+  /** Precomputed rarity: number of distinct sets this part+color appears in */
+  setCount?: number | null;
 };
 
 /**
@@ -351,6 +353,36 @@ export class BrickPartyDB extends Dexie {
       })
       .upgrade(tx => {
         // Clear inventory cache so it gets rebuilt with per-color imageUrls
+        return Promise.all([
+          tx.table('catalogSetParts').clear(),
+          tx.table('catalogSetMeta').clear(),
+        ]);
+      });
+
+    // Version 8: Add setCount to catalogSetParts (part rarity).
+    // Clear inventory cache so it gets rebuilt with rarity data.
+    this.version(8)
+      .stores({
+        catalogSets: 'setNumber, themeId, year, cachedAt',
+        catalogParts: 'partNum, categoryId, parentCategory, cachedAt',
+        catalogColors: 'id, cachedAt',
+        catalogSetParts:
+          '++id, setNumber, partNum, colorId, inventoryKey, [setNumber+inventoryKey], [setNumber+colorId]',
+        catalogSetMeta: 'setNumber, inventoryCachedAt, inventoryVersion',
+        catalogMinifigs: 'figNum, cachedAt',
+
+        localOwned:
+          '++id, setNumber, inventoryKey, [setNumber+inventoryKey], updatedAt',
+        localCollections: 'id, userId, type, updatedAt',
+        localCollectionItems: '++id, collectionId, itemType, itemId, addedAt',
+
+        syncQueue: '++id, userId, table, createdAt, retryCount',
+        meta: 'key',
+
+        uiState: 'key',
+        recentSets: 'setNumber, visitedAt',
+      })
+      .upgrade(tx => {
         return Promise.all([
           tx.table('catalogSetParts').clear(),
           tx.table('catalogSetMeta').clear(),

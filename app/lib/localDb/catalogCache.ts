@@ -104,6 +104,7 @@ export async function getCachedInventory(
       if (sp.bricklinkFigId) row.bricklinkFigId = sp.bricklinkFigId;
       if (part?.bricklinkPartId) row.bricklinkPartId = part.bricklinkPartId;
       if (sp.identity) row.identity = sp.identity;
+      if (sp.setCount != null) row.setCount = sp.setCount;
 
       return row;
     });
@@ -177,6 +178,7 @@ export async function setCachedInventory(
       if (row.componentRelations)
         setPart.componentRelations = row.componentRelations;
       if (row.identity) setPart.identity = row.identity;
+      if (row.setCount != null) setPart.setCount = row.setCount;
       setParts.push(setPart);
 
       // Collect minifig metadata for cross-set reuse

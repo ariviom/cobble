@@ -33,26 +33,10 @@
   - Set pages load inventories through Route Handlers that talk to the Rebrickable/Supabase catalog.
   - TanStack Query owns server data (inventories, prices); Zustand owns UI state and per-set owned quantities.
   - The `useInventoryViewModel` hook centralizes sorting, filtering, grouping, and derived totals so table components remain largely presentational.
-  - **BrickLink as exclusive minifig source**: BrickLink is the sole source of truth for minifig IDs. No RB↔BL mapping is performed.
-  - **Minifig sync orchestration** (`app/lib/sync/minifigSync.ts`):
-    - Single source of truth for all minifig sync operations (set-minifigs and minifig-parts)
-    - Centralized in-flight tracking prevents duplicate BrickLink API calls
-    - Sync status: `'ok' | 'error' | 'never_synced'` (no 'pending')
-    - 60-second cooldown between syncs to prevent API hammering
-    - Key functions: `triggerSetMinifigSync()`, `triggerMinifigPartsSync()`, `checkSetSyncStatus()`
-  - **BrickLink API execution** (`scripts/minifig-mapping-core.ts`):
-    - `processSetForMinifigMapping()` syncs set minifigs from BL API
-    - `fetchAndCacheMinifigParts()` syncs minifig component parts
-    - Caches to `bl_set_minifigs` and `bl_minifig_parts` tables
-  - **Data access** (`app/lib/bricklink/minifigs.ts`):
-    - Read-only access to cached BL minifig data
-    - Delegates sync operations to minifigSync.ts
-    - `getSetMinifigsBl()` - minifigs for a set with self-healing
-    - `getSetsForMinifigBl()` - sets containing a minifig with self-healing
+  - **Minifig data — fully RB catalog** (Plans 11-12): All minifig metadata, subparts, and set membership come from RB catalog tables (`rb_minifigs`, `rb_minifig_parts`). BL API retained only for pricing and image URL helpers. No runtime BL API calls for minifig data.
   - **Inventory service** (`app/lib/services/inventory.ts`):
-    - Filters OUT all RB minifig rows, replaces entirely with BL data
+    - Minifig parent rows and subpart rows built from `rb_minifig_parts` JOIN `rb_parts`/`rb_colors`
     - Batch-fetches all minifig subparts in one query for performance
-    - Returns optional `minifigMeta` with sync status
 - **Part ID Mapping** (RB ↔ BL):
   - **Catalog-level coverage**: `rb_parts.bl_part_id` stores BL part IDs directly. 48,537/60,947 parts have explicit mappings (where BL ID differs from RB ID). Remaining ~12,410 parts have identical IDs in both systems.
   - **Data sources**: `scripts/ingest-bricklinkable.ts` (primary, from bricklinkable project) + `scripts/ingest-rebrickable.ts` (`enrichPartExternalIds()`, Rebrickable API fallback). Both only store mappings where IDs differ.
@@ -65,8 +49,15 @@
     - Called from `InventoryItemModal` when user opens part detail; session-level client cache prevents repeat calls.
 - **Minifig ID Mapping** (RB ↔ BL):
   - **Catalog-level coverage**: `rb_minifigs.bl_minifig_id` stores BL minifig IDs. 16,229/16,535 minifigs (98.1%) mapped from bricklinkable pipeline (set-based matching, elimination, fingerprinting).
-  - When all minifigs in a set have catalog mappings, `inventory.ts` skips the runtime BL API call entirely (fast-path). Falls back to `getSetMinifigsBl()` for the unmapped 2%.
-  - `bl_minifig_parts` caches BrickLink minifig component parts; `bricklink_minifigs.parts_sync_status` tracks sync state.
+  - All minifig data comes from catalog tables; no runtime BL API fallback needed.
+- **Part Rarity**:
+  - Precomputed in `rb_part_rarity` (part_num + color_id → set_count) and `rb_minifig_rarity` (fig_num → min subpart set_count).
+  - Materialized by `materializePartRarity()` in `scripts/ingest-rebrickable.ts` (runs after `materializeMinifigParts`; standalone via `--rarity-only`).
+  - Counts include both direct set appearances and indirect via minifigs.
+  - Server-side: `inventory.ts` batch-queries rarity tables and attaches `row.setCount` to every inventory row.
+  - Client-side: tiers derived by `getRarityTier()` in `types.ts` — Exclusive (1), Very Rare (2-3), Rare (4-10), Common (>10).
+  - `rarityByIndex` array pre-computed in `useInventoryViewModel`, threaded through `InventoryProvider` controls context.
+  - UI: `RarityBadge` component renders tier-specific badges; sort/filter/group by rarity in inventory controls.
 
 ## Persistence & Auth Patterns
 
@@ -273,8 +264,12 @@ Default to TTL-only caching. Add version awareness only for catalog-derived serv
   - **BL export** (`bricklinkCsv.ts`): Synchronous, identity-only. No HTTP calls during export. Rows without BL IDs go to `unmapped` list.
   - **RB export** (`rebrickableCsv.ts`): `includeMinifigs` option (default: false). Filters rows where `identity?.rowType` starts with `minifig_`. Warning shown in `ExportModal` when minifigs included.
 - **BrickLink pricing**
+  - **Free for all users** — BrickLink API ToS prohibits gating their free-to-members data behind a paywall. Pricing routes must not check entitlements.
   - Pricing is opt-in and triggered explicitly (per-row or at the set level) via UI actions.
+  - On-demand API calls with ≤6hr server-side cache (BL ToS requires item data ≤6hrs old; current 1hr TTL is compliant).
   - Route Handlers call BrickLink price guide endpoints server-side; the UI surfaces aggregate ranges and per-part links without storing sensitive pricing settings client-side.
+  - **API quota**: 5,000 calls/day default. Monitor usage post-launch; contact `apisupport@bricklink.com` if approaching limit.
+  - **Attribution required**: Must display notice that app uses BrickLink API but is not endorsed by BrickLink.
 
 ## Error Handling & UX Patterns
 

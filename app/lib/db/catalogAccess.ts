@@ -39,6 +39,8 @@ const ANON_READABLE_TABLES = new Set([
   'rb_part_categories',
   'rb_set_parts',
   'rb_download_versions',
+  'rb_part_rarity',
+  'rb_minifig_rarity',
 ]);
 
 /**
@@ -55,7 +57,6 @@ const SERVICE_ROLE_TABLES = new Set([
   'rb_minifig_images',
 
   // BrickLink mapping and cache tables
-  'bl_set_minifigs',
   'bl_minifig_parts',
   'bl_parts',
   'bl_part_sets',

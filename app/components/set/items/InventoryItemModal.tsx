@@ -8,7 +8,8 @@ import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import type { InventoryRow } from '../types';
+import { getRarityTier, type InventoryRow } from '../types';
+import { RarityBadge } from './RarityBadge';
 
 export type InventoryItemModalData = {
   row: InventoryRow;
@@ -181,8 +182,8 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
     query: {
       mode: 'part',
       part: identifyPart,
-      ...(typeof bricklinkColorId === 'number' && !isFigId
-        ? { blColorId: bricklinkColorId }
+      ...(!isFigId && typeof row.colorId === 'number'
+        ? { colorId: row.colorId }
         : {}),
     },
   };
@@ -212,10 +213,20 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
             {isMinifig ? (
               <p>{minifigIdDisplay.label}</p>
             ) : (
-              <>
-                <p>ID: {displayId}</p>
-                <p>Color: {row.colorName}</p>
-              </>
+              <p>
+                Part {displayId}
+                {row.colorName ? ` in ${row.colorName}` : ''}
+              </p>
+            )}
+            {row.setCount != null && (
+              <p className="flex items-center gap-1.5">
+                {getRarityTier(row.setCount) && (
+                  <RarityBadge tier={getRarityTier(row.setCount)!} />
+                )}
+                <span className="text-foreground-muted">
+                  Found in {row.setCount} {row.setCount === 1 ? 'set' : 'sets'}
+                </span>
+              </p>
             )}
           </div>
         </div>
@@ -240,6 +251,19 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
               ) : (
                 <p className="text-foreground-muted italic">
                   Price unavailable.
+                </p>
+              )}
+              {(hasPrice || hasRange) && (
+                <p className="text-2xs text-foreground-muted">
+                  Price data from{' '}
+                  <a
+                    href="https://www.bricklink.com/"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="underline"
+                  >
+                    BrickLink
+                  </a>
                 </p>
               )}
             </>
@@ -289,9 +313,9 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
         >
           View more sets with this piece
         </Link>
-        {isMinifig && rebrickableFigId && (
+        {isMinifig && effectiveMinifigId && (
           <Link
-            href={`/minifigs/${encodeURIComponent(rebrickableFigId)}`}
+            href={`/minifigs/${encodeURIComponent(effectiveMinifigId)}`}
             className={buttonVariants({ variant: 'secondary', size: 'xs' })}
             onClick={event => event.stopPropagation()}
           >

@@ -5,13 +5,15 @@ import {
   deriveCategory,
   parseStudAreaFromName,
 } from '@/app/components/set/inventory-utils';
-import type {
-  GroupBy,
-  InventoryFilter,
-  InventoryRow,
-  ItemSize,
-  SortKey,
-  ViewType,
+import {
+  getRarityTier,
+  type GroupBy,
+  type InventoryFilter,
+  type InventoryRow,
+  type ItemSize,
+  type RarityTier,
+  type SortKey,
+  type ViewType,
 } from '@/app/components/set/types';
 import { useInventory } from '@/app/hooks/useInventory';
 import {
@@ -66,6 +68,7 @@ export type InventoryViewModel = {
   sizeByIndex: number[];
   categoryByIndex: Array<string | null>;
   parentByIndex: string[];
+  rarityByIndex: Array<RarityTier | null>;
   visibleIndices: number[];
   sortedIndices: number[];
   groupKeyByIndex: string[] | null;
@@ -83,6 +86,8 @@ export type InventoryViewModelOptions = {
   initialRows?: InventoryRow[] | null;
   /** Initial controls state for tab restoration */
   initialControlsState?: Partial<InventoryControlsState> | undefined;
+  /** When provided, used instead of the Zustand owned store. */
+  ownedByKeyOverride?: Record<string, number> | undefined;
 };
 
 export function useInventoryViewModel(
@@ -102,7 +107,10 @@ export function useInventoryViewModel(
     isOwnedHydrated,
     isStorageAvailable,
     computeMissingRows,
-  } = useInventory(setNumber, { initialRows: options?.initialRows ?? null });
+  } = useInventory(setNumber, {
+    initialRows: options?.initialRows ?? null,
+    ownedByKeyOverride: options?.ownedByKeyOverride,
+  });
 
   const {
     sortKey,
@@ -138,12 +146,14 @@ export function useInventoryViewModel(
     sizeByIndex,
     categoryByIndex,
     parentByIndex,
+    rarityByIndex,
     subcategoriesByParent,
     colorOptions,
   } = useMemo(() => {
     const sizeByIndex: number[] = [];
     const categoryByIndex: Array<string | null> = [];
     const parentByIndex: string[] = [];
+    const rarityByIndex: Array<RarityTier | null> = [];
     const colorOptionsSet = new Set<string>();
     const subcategoryMap = new Map<string, Set<string>>();
 
@@ -157,6 +167,8 @@ export function useInventoryViewModel(
 
       const parent = row.parentCategory ?? 'Misc';
       parentByIndex.push(parent);
+
+      rarityByIndex.push(getRarityTier(row.setCount));
 
       colorOptionsSet.add(row.colorName);
 
@@ -175,6 +187,7 @@ export function useInventoryViewModel(
       sizeByIndex,
       categoryByIndex,
       parentByIndex,
+      rarityByIndex,
       subcategoriesByParent,
       colorOptions: Array.from(colorOptionsSet).sort((a, b) =>
         a.localeCompare(b)
@@ -215,9 +228,22 @@ export function useInventoryViewModel(
         if (!colorSet.has(colorName)) return false;
       }
 
+      if (filter.rarityTiers && filter.rarityTiers.length > 0) {
+        const tier = rarityByIndex[i];
+        if (!tier || !filter.rarityTiers.includes(tier)) return false;
+      }
+
       return true;
     });
-  }, [rows, keys, categoryByIndex, parentByIndex, filter, ownedByKey]);
+  }, [
+    rows,
+    keys,
+    categoryByIndex,
+    parentByIndex,
+    rarityByIndex,
+    filter,
+    ownedByKey,
+  ]);
 
   const sortedIndices = useMemo(() => {
     const idxs = [...visibleIndices];
@@ -252,6 +278,12 @@ export function useInventoryViewModel(
           base = sa - sb;
           break;
         }
+        case 'rarity': {
+          const scA = ra.setCount ?? Infinity;
+          const scB = rb.setCount ?? Infinity;
+          base = scA - scB;
+          break;
+        }
       }
 
       if (base === 0) {
@@ -279,6 +311,8 @@ export function useInventoryViewModel(
             r.partCategoryName ??
             String(r.partCategoryId ?? deriveCategory(r.partName))
           );
+        case 'rarity':
+          return getRarityTier(r.setCount) ?? 'common';
         default:
           return '';
       }
@@ -388,6 +422,7 @@ export function useInventoryViewModel(
     sizeByIndex,
     categoryByIndex,
     parentByIndex,
+    rarityByIndex,
     visibleIndices,
     sortedIndices,
     groupKeyByIndex,

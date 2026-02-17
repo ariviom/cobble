@@ -7,13 +7,14 @@ import {
   MoreDropdownButton,
 } from '@/app/components/ui/MoreDropdown';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
-import { formatMinifigId } from '@/app/lib/minifigIds';
 import { cn } from '@/app/components/ui/utils';
+import { formatMinifigId } from '@/app/lib/minifigIds';
 import { Check, ExternalLink, Info, Pin, Search } from 'lucide-react';
 import { memo } from 'react';
 import { useOptionalSearchParty } from '../SearchPartyProvider';
-import type { InventoryRow } from '../types';
+import type { InventoryRow, RarityTier } from '../types';
 import { OwnedQuantityControl } from './OwnedQuantityControl';
+import { RarityBadge } from './RarityBadge';
 
 type Props = {
   setNumber: string;
@@ -21,6 +22,7 @@ type Props = {
   owned: number;
   missing: number;
   bricklinkColorId?: number | null;
+  rarityTier?: RarityTier | null;
   onOwnedChange: (next: number) => void;
   isPinned?: boolean;
   onTogglePinned?: () => void;
@@ -31,6 +33,7 @@ function InventoryItemComponent({
   row,
   owned,
   bricklinkColorId,
+  rarityTier,
   onOwnedChange,
   isPinned,
   onTogglePinned,
@@ -80,8 +83,8 @@ function InventoryItemComponent({
     query: {
       mode: 'part',
       part: identifyPart,
-      ...(typeof bricklinkColorId === 'number' && !isFigId
-        ? { blColorId: bricklinkColorId }
+      ...(!isFigId && typeof row.colorId === 'number'
+        ? { colorId: row.colorId }
         : {}),
     },
   };
@@ -195,9 +198,16 @@ function InventoryItemComponent({
             {isMinifig ? (
               <p>{minifigIdDisplay.label}</p>
             ) : (
-              <p>Part ID: {displayId}</p>
+              <p>
+                Part {displayId}
+                {row.colorName ? ` in ${row.colorName}` : ''}
+              </p>
             )}
-            {!isMinifig && row.colorName && <p>Color: {row.colorName}</p>}
+            {rarityTier && (
+              <div className="mt-1">
+                <RarityBadge tier={rarityTier} />
+              </div>
+            )}
           </div>
         </div>
         <div className="w-full sm:list:w-auto">
@@ -239,6 +249,7 @@ function areEqual(prev: Props, next: Props) {
     prev.owned === next.owned &&
     prev.missing === next.missing &&
     prev.bricklinkColorId === next.bricklinkColorId &&
+    prev.rarityTier === next.rarityTier &&
     prev.isPinned === next.isPinned
   );
 }
