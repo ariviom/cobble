@@ -82,52 +82,52 @@ export async function handlePartIdentify(
   // Find sets containing this part
   let sets = await findSetsForPart(rbPart, selectedColorId, availableColors);
 
-  // Get part metadata
+  // Get part metadata, preferring color-specific image from available colors
+  const colorImage =
+    typeof selectedColorId === 'number'
+      ? (availableColors.find(c => c.id === selectedColorId)?.partImageUrl ??
+        null)
+      : null;
   const partMeta = await getPartMetadata(rbPart);
   let partMetaName = partMeta.name;
-  let partMetaImage = partMeta.imageUrl;
+  let partMetaImage = colorImage ?? partMeta.imageUrl;
   const { blPartId } = partMeta;
 
-  // BrickLink superset fallback.
-  //
-  // Trigger when:
-  //  1. No RB sets found at all — the part may only exist in BrickLink.
-  //  2. Resolution changed the part ID (rbPart !== part) — the original input
-  //     is likely a BL assembly ID (e.g. "6129c03") that resolved to the base
-  //     mold ("6129"). RB sets for the base mold are irrelevant; we need the
-  //     BL supersets for the specific assembly variant.
-  //
-  // In case (2) we always prefer the original input as the BL part ID.
-  const inputChangedByResolution = rbPart !== part;
-  const shouldTryBlFallback = !sets.length || inputChangedByResolution;
-  const effectiveBlPartId = inputChangedByResolution
-    ? part
-    : (blPartId ?? part);
+  // BrickLink superset fallback: when RB has no sets for this part,
+  // try BL supersets API (the part may only exist in BrickLink's catalog).
+  const effectiveBlPartId = blPartId ?? part;
 
-  if (shouldTryBlFallback && effectiveBlPartId) {
-    const budget = new PipelineBudget(EXTERNAL.EXTERNAL_CALL_BUDGET);
-    const result = await fetchBLSupersetsFallback(effectiveBlPartId, budget, {
-      initialName: partMetaName,
-      initialImage: partMetaImage,
-    });
-    if (result.sets.length) {
-      sets = result.sets.map(s => ({
-        setNumber: s.setNumber,
-        name: s.name,
-        year: s.year,
-        imageUrl: s.imageUrl,
-        quantity: s.quantity,
-        numParts: s.numParts ?? null,
-        themeId: s.themeId ?? null,
-        themeName: s.themeName ?? null,
-      }));
-    }
-    // Use BL metadata when RB metadata was empty
-    if (!partMetaName && result.partName) partMetaName = result.partName;
-    if (!partMetaImage && result.partImage) partMetaImage = result.partImage;
-    if (budget.isExhausted) {
-      logger.warn('identify.sets.bl_fallback_budget_exhausted', {
+  if (!sets.length && effectiveBlPartId) {
+    try {
+      const budget = new PipelineBudget(EXTERNAL.EXTERNAL_CALL_BUDGET);
+      const result = await fetchBLSupersetsFallback(effectiveBlPartId, budget, {
+        initialName: partMetaName,
+        initialImage: partMetaImage,
+      });
+      if (result.sets.length) {
+        sets = result.sets.map(s => ({
+          setNumber: s.setNumber,
+          name: s.name,
+          year: s.year,
+          imageUrl: s.imageUrl,
+          quantity: s.quantity,
+          numParts: s.numParts ?? null,
+          themeId: s.themeId ?? null,
+          themeName: s.themeName ?? null,
+        }));
+      }
+      // Use BL metadata when RB metadata was empty
+      if (!partMetaName && result.partName) partMetaName = result.partName;
+      if (!partMetaImage && result.partImage) partMetaImage = result.partImage;
+      if (budget.isExhausted) {
+        logger.warn('identify.sets.bl_fallback_budget_exhausted', {
+          blPartId: effectiveBlPartId,
+        });
+      }
+    } catch (err) {
+      logger.warn('identify.sets.bl_fallback_failed', {
         blPartId: effectiveBlPartId,
+        error: err instanceof Error ? err.message : String(err),
       });
     }
   }
@@ -166,11 +166,10 @@ export async function handlePartIdentify(
 /**
  * Resolve a part ID to its Rebrickable equivalent.
  *
- * Falls back to stripping BrickLink-style variant suffixes (e.g. "6129c03" → "6129")
- * when the full ID isn't found in Rebrickable.
+ * Uses direct RB lookup, then bricklinkId hint for parts where BL and RB
+ * use different IDs. Returns the original input unchanged if no match found.
  */
 async function resolvePartToRebrickable(part: string): Promise<string> {
-  // 1. Try the full input as-is
   try {
     await getPart(part);
     return part;
@@ -183,24 +182,7 @@ async function resolvePartToRebrickable(part: string): Promise<string> {
         return resolved.partNum;
       }
     } catch {
-      // keep going
-    }
-  }
-
-  // 2. Try base part number (strip BL-style variant suffix)
-  //    Assembly variants: 6129c03 → 6129
-  //    Mold variants: 3001a → 3001
-  //    Print variants: 2336p68 → 2336
-  const baseMatch = part.match(/^(\d+)[a-z]/i);
-  if (baseMatch) {
-    const basePart = baseMatch[1]!;
-    if (basePart !== part) {
-      try {
-        await getPart(basePart);
-        return basePart;
-      } catch {
-        // base part also not found
-      }
+      // not found in Rebrickable
     }
   }
 
@@ -341,7 +323,7 @@ async function getPartMetadata(rbPart: string): Promise<{
     try {
       const partMeta = await getPart(rbPart);
       name = partMeta.name;
-      imageUrl = partMeta.part_img_url;
+      if (!imageUrl) imageUrl = partMeta.part_img_url;
     } catch {
       // tolerate missing metadata
     }
