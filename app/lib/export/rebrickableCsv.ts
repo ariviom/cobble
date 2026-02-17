@@ -17,31 +17,15 @@ export type MissingRow = {
   quantityRequired?: number;
 };
 
-export type RebrickableOptions = {
-  /** Include minifig parents and subparts (default: false). */
-  includeMinifigs?: boolean;
-};
-
 // Rebrickable import spec generally supports headers: part_num,color_id,quantity
-export function generateRebrickableCsv(
-  rows: MissingRow[],
-  opts?: RebrickableOptions
-): string {
-  const isMinifig = (r: MissingRow) =>
-    r.identity?.rowType.startsWith('minifig_');
-
-  const nonMinifigRows = rows
-    .filter(r => !isMinifig(r))
-    .filter(r => r.quantityMissing > 0);
-
-  const minifigRows = opts?.includeMinifigs
-    ? rows.filter(r => isMinifig(r))
-    : [];
+export function generateRebrickableCsv(rows: MissingRow[]): string {
+  // Exclude minifig parent rows — Rebrickable only accepts parts, not minifigs.
+  // Minifig subparts are real parts and import fine.
+  const filtered = rows.filter(
+    r => r.identity?.rowType !== 'minifig_parent' && r.quantityMissing > 0
+  );
 
   const headers = ['part_num', 'color_id', 'quantity'];
-  const body = [
-    ...nonMinifigRows.map(r => [r.partId, r.colorId, r.quantityMissing]),
-    ...minifigRows.map(r => [r.partId, r.colorId, r.quantityRequired ?? 0]),
-  ];
+  const body = filtered.map(r => [r.partId, r.colorId, r.quantityMissing]);
   return toCsv(headers, body, /* includeBom */ true);
 }

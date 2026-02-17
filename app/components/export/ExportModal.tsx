@@ -55,7 +55,6 @@ export function ExportModal({
     'rebrickable' | 'bricklink' | 'pickABrick'
   >('rebrickable');
   const [missingOnly, setMissingOnly] = useState(true);
-  const [includeMinifigs, setIncludeMinifigs] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function downloadCsv(filename: string, csv: string) {
@@ -77,7 +76,7 @@ export function ExportModal({
     const filenameSuffix = missingOnly ? 'missing' : 'all';
 
     if (target === 'rebrickable') {
-      const csv = generateRebrickableCsv(rows, { includeMinifigs });
+      const csv = generateRebrickableCsv(rows);
       downloadCsv(`${setNumber}_${filenameSuffix}_rebrickable.csv`, csv);
       onClose();
       return;
@@ -169,26 +168,6 @@ export function ExportModal({
             </>
           )}
         </div>
-
-        {target === 'rebrickable' && (
-          <div className="flex flex-col gap-1.5">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={includeMinifigs}
-                onChange={() => setIncludeMinifigs(!includeMinifigs)}
-              />
-              Include minifig parts
-            </label>
-            {includeMinifigs && (
-              <p className="text-xs text-amber-600">
-                Minifig parts use BrickLink IDs which may not import correctly
-                into Rebrickable. As a temporary workaround, we export all
-                minifig parts as &ldquo;missing&rdquo; and you will need to
-                manually edit them when importing into Rebrickable.
-              </p>
-            )}
-          </div>
-        )}
 
         {!isAuthenticated && (
           <div className="text-xs text-amber-600">
