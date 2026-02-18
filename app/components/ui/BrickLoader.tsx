@@ -4,18 +4,15 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { useEffect, useState } from 'react';
 
 const LOADING_MESSAGES = [
-  'Digging through the brick bin\u2026',
-  'Sorting studs by color\u2026',
-  'Checking under the couch cushions\u2026',
-  'Flipping through instruction booklets\u2026',
-  'Stepping on bricks so you don\u2019t have to\u2026',
-  'Asking the minifigs for directions\u2026',
-  'Raiding the parts drawer\u2026',
-  'Consulting the master builders\u2026',
-  'Counting every last stud\u2026',
-  'Untangling the Technic pins\u2026',
-  'Searching every baseplate\u2026',
-  'Peeking inside the mystery bags\u2026',
+  'Testing clutch power\u2026',
+  'Counting studs\u2026',
+  'Looking for the brick separator\u2026',
+  'Orienting SNOT bricks\u2026',
+  'Sorting plates from tiles\u2026',
+  'Checking the anti-studs\u2026',
+  'Reinforcing the Technic pins\u2026',
+  'Aligning the jumper plates\u2026',
+  'Attaching the minifig accessories\u2026',
 ];
 
 function pickRandom(exclude: number): number {
