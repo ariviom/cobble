@@ -32,10 +32,12 @@ type UseGroupParticipantsResult = {
     id: string;
     displayName: string;
   }) => void;
+  /** Optimistically remove a participant by ID (e.g. from a broadcast). */
+  handleParticipantLeft: (participantId: string) => void;
 };
 
 /** Polling interval for roster refresh (ms). */
-const ROSTER_POLL_INTERVAL = 30_000;
+const ROSTER_POLL_INTERVAL = 60_000;
 
 /**
  * Shared hook for participant roster tracking used by both host (SetTabContainer)
@@ -182,22 +184,33 @@ export function useGroupParticipants({
 
     void loadRoster();
 
-    // Subscribe to all changes — INSERT (new joiner), DELETE (hard delete),
-    // and UPDATE (soft-delete via left_at, re-join clearing left_at).
-    // Heartbeat UPDATEs also trigger reloads, but since the query filters
-    // left_at IS NULL the result set is small and the merge is cheap.
+    // Subscribe to INSERT + DELETE only — excludes heartbeat UPDATEs which
+    // caused N^2 query amplification (every participant's 60s heartbeat
+    // triggered loadRoster on all N subscribers). Polling handles convergence
+    // for soft-deletes (left_at) and re-joins.
     const channel = supabase.channel(`group_participants_roster:${sessionId}`);
 
-    channel.on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'group_session_participants',
-        filter: `session_id=eq.${sessionId}`,
-      },
-      () => void loadRoster()
-    );
+    channel
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'group_session_participants',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        () => void loadRoster()
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'group_session_participants',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        () => void loadRoster()
+      );
 
     try {
       channel.subscribe(status => {
@@ -242,6 +255,10 @@ export function useGroupParticipants({
     []
   );
 
+  const handleParticipantLeft = useCallback((participantId: string) => {
+    setParticipants(prev => prev.filter(p => p.id !== participantId));
+  }, []);
+
   const totalPiecesFound = useMemo(
     () => participants.reduce((sum, p) => sum + (p.piecesFound ?? 0), 0),
     [participants]
@@ -254,5 +271,6 @@ export function useGroupParticipants({
     piecesFoundRef,
     handleParticipantPiecesDelta,
     handleParticipantJoined,
+    handleParticipantLeft,
   };
 }

@@ -68,6 +68,7 @@ export function SetTabContainer({
     piecesFoundRef: sp.piecesFoundRef,
     onParticipantPiecesDelta: sp.handleParticipantPiecesDelta,
     onParticipantJoined: sp.handleParticipantJoined,
+    onParticipantLeft: sp.handleParticipantLeft,
     onSessionEnded: sp.handleSessionEnded,
     broadcastSessionEndedRef: sp.broadcastSessionEndedRef,
     broadcastParticipantRemovedRef: sp.broadcastParticipantRemovedRef,

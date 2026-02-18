@@ -32,7 +32,7 @@ type FetchOptions = {
   blColorId?: number;
 };
 
-const BL_FALLBACK_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const BL_FALLBACK_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours (BL ToS: item data ≤6hrs old)
 
 function normalizeBLImageUrl(url: string | null | undefined): string | null {
   if (!url) return null;

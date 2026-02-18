@@ -1,7 +1,7 @@
 'use client';
 
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import { logEvent } from '@/lib/metrics';
+import { logger, logEvent } from '@/lib/metrics';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -46,6 +46,25 @@ type UseGroupSessionChannelArgs = {
    * client can request a fresh snapshot from the host.
    */
   onReconnected?: () => void;
+  /**
+   * Ref tracking current participant's pieces_found for heartbeat persistence.
+   */
+  piecesFoundRef?: React.RefObject<number>;
+  /**
+   * Called when the host broadcasts that the session has ended.
+   */
+  onSessionEnded?: () => void;
+  /**
+   * Called when a remote participant broadcasts that they joined.
+   */
+  onParticipantJoined?: (participant: {
+    id: string;
+    displayName: string;
+  }) => void;
+  /**
+   * Called when a remote participant broadcasts that they left (tab close).
+   */
+  onParticipantLeft?: (participantId: string) => void;
 };
 
 type UseGroupSessionChannelResult = {
@@ -56,8 +75,16 @@ type UseGroupSessionChannelResult = {
   }) => void;
   broadcastOwnedSnapshot: (ownedByKey: Record<string, number>) => void;
   requestSnapshot: () => void;
+  broadcastSessionEnded: () => void;
+  broadcastParticipantRemoved: (participantId: string) => void;
+  broadcastParticipantJoined: (participant: {
+    id: string;
+    displayName: string;
+  }) => void;
+  broadcastParticipantLeft: () => void;
   connectionState: 'disconnected' | 'connecting' | 'connected';
   hasConnectedOnce: boolean;
+  sessionEnded: boolean;
 };
 
 /** Debounce window for piece_delta broadcasts (ms). Batches rapid changes to same piece. */
@@ -74,6 +101,10 @@ export function useGroupSessionChannel({
   onParticipantPiecesDelta,
   onSnapshotRequested,
   onReconnected,
+  piecesFoundRef,
+  onSessionEnded,
+  onParticipantJoined,
+  onParticipantLeft,
 }: UseGroupSessionChannelArgs): UseGroupSessionChannelResult {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const [connectionState, setConnectionState] = useState<
@@ -82,8 +113,7 @@ export function useGroupSessionChannel({
   // Track if we've ever connected successfully - only show reconnecting banner after first connection
   const hasConnectedOnceRef = useRef(false);
   const [hasConnectedOnce, setHasConnectedOnce] = useState(false);
-  const reconnectAttemptRef = useRef(0);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [sessionEnded, setSessionEnded] = useState(false);
   const disconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Debounce state for piece_delta broadcasts - accumulates rapid changes per key
@@ -92,6 +122,26 @@ export function useGroupSessionChannel({
   >(new Map());
   const deltaTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Stable refs for callbacks — prevents channel teardown/resubscribe on every render
+  const onRemoteDeltaRef = useRef(onRemoteDelta);
+  onRemoteDeltaRef.current = onRemoteDelta;
+  const onRemoteSnapshotRef = useRef(onRemoteSnapshot);
+  onRemoteSnapshotRef.current = onRemoteSnapshot;
+  const onParticipantPiecesDeltaRef = useRef(onParticipantPiecesDelta);
+  onParticipantPiecesDeltaRef.current = onParticipantPiecesDelta;
+  const onSnapshotRequestedRef = useRef(onSnapshotRequested);
+  onSnapshotRequestedRef.current = onSnapshotRequested;
+  const onReconnectedRef = useRef(onReconnected);
+  onReconnectedRef.current = onReconnected;
+  const piecesFoundRefRef = useRef(piecesFoundRef);
+  piecesFoundRefRef.current = piecesFoundRef;
+  const onSessionEndedRef = useRef(onSessionEnded);
+  onSessionEndedRef.current = onSessionEnded;
+  const onParticipantJoinedRef = useRef(onParticipantJoined);
+  onParticipantJoinedRef.current = onParticipantJoined;
+  const onParticipantLeftRef = useRef(onParticipantLeft);
+  onParticipantLeftRef.current = onParticipantLeft;
 
   useEffect(() => {
     if (!enabled || !sessionId) {
@@ -116,11 +166,12 @@ export function useGroupSessionChannel({
       // applied the change locally.
       if (data.clientId === clientId) return;
 
-      onRemoteDelta(data);
+      onRemoteDeltaRef.current(data);
 
-      if (onParticipantPiecesDelta) {
-        onParticipantPiecesDelta(data.participantId ?? null, data.delta);
-      }
+      onParticipantPiecesDeltaRef.current?.(
+        data.participantId ?? null,
+        data.delta
+      );
     });
 
     channel.on('broadcast', { event: 'owned_snapshot' }, ({ payload }) => {
@@ -133,7 +184,7 @@ export function useGroupSessionChannel({
       if (data.setNumber !== setNumber) return;
       if (data.clientId === clientId) return;
       if (!data.ownedByKey || typeof data.ownedByKey !== 'object') return;
-      onRemoteSnapshot?.(data.ownedByKey);
+      onRemoteSnapshotRef.current?.(data.ownedByKey);
     });
 
     channel.on('broadcast', { event: 'request_snapshot' }, ({ payload }) => {
@@ -145,7 +196,52 @@ export function useGroupSessionChannel({
       if (data.setNumber !== setNumber) return;
       // Ignore our own requests
       if (data.clientId === clientId) return;
-      onSnapshotRequested?.();
+      onSnapshotRequestedRef.current?.();
+    });
+
+    // Listen for session_ended broadcast from host
+    channel.on('broadcast', { event: 'session_ended' }, () => {
+      setSessionEnded(true);
+      onSessionEndedRef.current?.();
+    });
+
+    // Listen for participant_removed broadcast from host
+    channel.on('broadcast', { event: 'participant_removed' }, ({ payload }) => {
+      const data = payload as { participantId?: string } | null;
+      if (!data?.participantId) return;
+      // If we are the removed participant, treat it like session ended
+      if (data.participantId === participantId) {
+        setSessionEnded(true);
+        onSessionEndedRef.current?.();
+      }
+    });
+
+    // Listen for participant_joined broadcast (fast path, sidesteps postgres_changes)
+    channel.on('broadcast', { event: 'participant_joined' }, ({ payload }) => {
+      const data = payload as {
+        id?: string;
+        displayName?: string;
+        clientId?: string;
+      } | null;
+      if (!data?.id || !data?.displayName) return;
+      // Ignore our own join broadcast
+      if (data.clientId === clientId) return;
+      onParticipantJoinedRef.current?.({
+        id: data.id,
+        displayName: data.displayName,
+      });
+    });
+
+    // Listen for participant_left broadcast (fast departure visibility)
+    channel.on('broadcast', { event: 'participant_left' }, ({ payload }) => {
+      const data = payload as {
+        participantId?: string;
+        clientId?: string;
+      } | null;
+      if (!data?.participantId) return;
+      // Ignore our own leave broadcast
+      if (data.clientId === clientId) return;
+      onParticipantLeftRef.current?.(data.participantId);
     });
 
     try {
@@ -163,13 +259,8 @@ export function useGroupSessionChannel({
             hasConnectedOnceRef.current = true;
             setHasConnectedOnce(true);
           }
-          reconnectAttemptRef.current = 0; // Reset on successful connection
-          if (reconnectTimeoutRef.current) {
-            clearTimeout(reconnectTimeoutRef.current);
-            reconnectTimeoutRef.current = null;
-          }
 
-          // Start heartbeat to keep last_seen_at fresh (enables stale cleanup)
+          // Start heartbeat to keep last_seen_at + pieces_found fresh
           if (heartbeatIntervalRef.current) {
             clearInterval(heartbeatIntervalRef.current);
           }
@@ -178,13 +269,16 @@ export function useGroupSessionChannel({
               const sb = getSupabaseBrowserClient();
               void sb
                 .from('group_session_participants')
-                .update({ last_seen_at: new Date().toISOString() })
+                .update({
+                  last_seen_at: new Date().toISOString(),
+                  pieces_found: piecesFoundRefRef.current?.current ?? 0,
+                })
                 .eq('id', participantId);
             }, 60_000);
           }
 
           // Notify caller of (re)connection so they can request/send snapshots
-          onReconnected?.();
+          onReconnectedRef.current?.();
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
           // Debounce disconnected state to avoid flickering
           // Only show disconnected after 2 seconds of being disconnected
@@ -194,25 +288,10 @@ export function useGroupSessionChannel({
           disconnectTimeoutRef.current = setTimeout(() => {
             setConnectionState('disconnected');
             disconnectTimeoutRef.current = null;
-          }, 2000); // Wait 2 seconds before showing disconnected banner
-
-          // Attempt reconnect with exponential backoff
-          const delay = Math.min(
-            1000 * Math.pow(2, reconnectAttemptRef.current),
-            30000 // Max 30 seconds
-          );
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttemptRef.current += 1;
-            setConnectionState('connecting');
-            // Re-subscription will happen on next effect run
-          }, delay);
+          }, 2000);
 
           if (process.env.NODE_ENV !== 'production') {
-            logEvent('group_session.channel_disconnected', {
-              sessionId,
-              reconnectAttempt: reconnectAttemptRef.current,
-              retryDelayMs: delay,
-            });
+            logEvent('group_session.channel_disconnected', { sessionId });
           }
         } else {
           // Handle other states like SUBSCRIBING, TIMED_OUT
@@ -233,12 +312,10 @@ export function useGroupSessionChannel({
         }
       });
     } catch (err) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('[GroupSessionChannel] subscribe failed', {
-          sessionId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
+      logger.warn('[GroupSessionChannel] subscribe failed', {
+        sessionId,
+        error: err instanceof Error ? err.message : String(err),
+      });
       setConnectionState('disconnected');
     }
 
@@ -280,7 +357,7 @@ export function useGroupSessionChannel({
         flushPendingDeltas();
       }
       // On visible: Supabase Realtime auto-reconnects, which triggers
-      // SUBSCRIBED → onReconnected → snapshot handshake (Phase 3)
+      // SUBSCRIBED → onReconnected → snapshot handshake
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -294,10 +371,6 @@ export function useGroupSessionChannel({
         clearInterval(heartbeatIntervalRef.current);
         heartbeatIntervalRef.current = null;
       }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
       if (disconnectTimeoutRef.current) {
         clearTimeout(disconnectTimeoutRef.current);
         disconnectTimeoutRef.current = null;
@@ -310,6 +383,18 @@ export function useGroupSessionChannel({
       pendingDeltas.clear();
 
       if (channelRef.current) {
+        // Broadcast departure before unsubscribing so peers learn immediately
+        if (participantId) {
+          channelRef.current
+            .send({
+              type: 'broadcast',
+              event: 'participant_left',
+              payload: { participantId, clientId },
+            })
+            .catch(() => {
+              // Best-effort — channel may already be closing
+            });
+        }
         void channelRef.current.unsubscribe();
         channelRef.current = null;
       }
@@ -318,20 +403,9 @@ export function useGroupSessionChannel({
       setHasConnectedOnce(false);
       setConnectionState('disconnected');
     };
-    // Note: connectionState is intentionally not in deps to avoid re-subscribing on every state change
+    // Callbacks accessed via refs — only channel identity triggers resubscription
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    enabled,
-    sessionId,
-    setNumber,
-    clientId,
-    participantId,
-    onRemoteDelta,
-    onParticipantPiecesDelta,
-    onRemoteSnapshot,
-    onSnapshotRequested,
-    onReconnected,
-  ]);
+  }, [enabled, sessionId, setNumber, clientId, participantId]);
 
   const broadcastPieceDelta = useCallback(
     (args: { key: string; delta: number; newOwned: number }) => {
@@ -392,12 +466,10 @@ export function useGroupSessionChannel({
             payload,
           })
           .catch(err => {
-            if (process.env.NODE_ENV !== 'production') {
-              console.error('[GroupSessionChannel] broadcast failed', {
-                sessionId,
-                error: err instanceof Error ? err.message : String(err),
-              });
-            }
+            logger.warn('[GroupSessionChannel] broadcast failed', {
+              sessionId,
+              error: err instanceof Error ? err.message : String(err),
+            });
           });
       }, PIECE_DELTA_DEBOUNCE_MS);
 
@@ -433,12 +505,10 @@ export function useGroupSessionChannel({
           payload,
         })
         .catch(err => {
-          if (process.env.NODE_ENV !== 'production') {
-            console.error('[GroupSessionChannel] snapshot broadcast failed', {
-              sessionId,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
+          logger.warn('[GroupSessionChannel] snapshot broadcast failed', {
+            sessionId,
+            error: err instanceof Error ? err.message : String(err),
+          });
         });
     },
     [enabled, sessionId, setNumber, clientId]
@@ -456,20 +526,97 @@ export function useGroupSessionChannel({
         payload: { setNumber, clientId },
       })
       .catch(err => {
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('[GroupSessionChannel] request_snapshot failed', {
-            sessionId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+        logger.warn('[GroupSessionChannel] request_snapshot failed', {
+          sessionId,
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
   }, [enabled, sessionId, setNumber, clientId]);
+
+  const broadcastSessionEnded = useCallback(() => {
+    if (!enabled || !sessionId) return;
+    const channel = channelRef.current;
+    if (!channel) return;
+
+    channel
+      .send({
+        type: 'broadcast',
+        event: 'session_ended',
+        payload: {},
+      })
+      .catch(() => {
+        // Best-effort
+      });
+  }, [enabled, sessionId]);
+
+  const broadcastParticipantRemoved = useCallback(
+    (removedParticipantId: string) => {
+      if (!enabled || !sessionId) return;
+      const channel = channelRef.current;
+      if (!channel) return;
+
+      channel
+        .send({
+          type: 'broadcast',
+          event: 'participant_removed',
+          payload: { participantId: removedParticipantId },
+        })
+        .catch(() => {
+          // Best-effort
+        });
+    },
+    [enabled, sessionId]
+  );
+
+  const broadcastParticipantJoined = useCallback(
+    (participant: { id: string; displayName: string }) => {
+      if (!enabled || !sessionId) return;
+      const channel = channelRef.current;
+      if (!channel) return;
+
+      channel
+        .send({
+          type: 'broadcast',
+          event: 'participant_joined',
+          payload: {
+            id: participant.id,
+            displayName: participant.displayName,
+            clientId,
+          },
+        })
+        .catch(() => {
+          // Best-effort
+        });
+    },
+    [enabled, sessionId, clientId]
+  );
+
+  const broadcastParticipantLeft = useCallback(() => {
+    if (!enabled || !sessionId || !participantId) return;
+    const channel = channelRef.current;
+    if (!channel) return;
+
+    channel
+      .send({
+        type: 'broadcast',
+        event: 'participant_left',
+        payload: { participantId, clientId },
+      })
+      .catch(() => {
+        // Best-effort
+      });
+  }, [enabled, sessionId, participantId, clientId]);
 
   return {
     broadcastPieceDelta,
     broadcastOwnedSnapshot,
     requestSnapshot,
+    broadcastSessionEnded,
+    broadcastParticipantRemoved,
+    broadcastParticipantJoined,
+    broadcastParticipantLeft,
     connectionState,
     hasConnectedOnce,
+    sessionEnded,
   };
 }

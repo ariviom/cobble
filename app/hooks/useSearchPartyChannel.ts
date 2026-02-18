@@ -29,6 +29,7 @@ type UseSearchPartyChannelArgs = {
     id: string;
     displayName: string;
   }) => void;
+  onParticipantLeft: (participantId: string) => void;
   onSessionEnded: () => void;
   // Refs for broadcast functions (owned by useSearchPartySession)
   broadcastSessionEndedRef: React.MutableRefObject<() => void>;
@@ -65,6 +66,7 @@ export function useSearchPartyChannel(
     piecesFoundRef,
     onParticipantPiecesDelta,
     onParticipantJoined,
+    onParticipantLeft,
     onSessionEnded,
     broadcastSessionEndedRef,
     broadcastParticipantRemovedRef,
@@ -208,6 +210,7 @@ export function useSearchPartyChannel(
     },
     onParticipantPiecesDelta,
     onParticipantJoined,
+    onParticipantLeft,
     onSnapshotRequested: handleSnapshotRequested,
     onReconnected: handleReconnected,
     piecesFoundRef,
