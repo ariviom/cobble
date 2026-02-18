@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { errorResponse } from '@/app/lib/api/responses';
-import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
+import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import type { ApiErrorResponse } from '@/app/lib/domain/errors';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
@@ -85,7 +85,7 @@ export const POST = withCsrfProtection(async function POST(
     }
 
     // Get minifigs for all owned sets from RB catalog
-    const catalogClient = getCatalogReadClient();
+    const catalogClient = getCatalogWriteClient();
     const setNums = sets.filter(s => s.owned && s.set_num).map(s => s.set_num);
 
     // Get inventories for these sets

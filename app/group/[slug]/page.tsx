@@ -43,7 +43,7 @@ export default async function GroupSessionPage({
   }
 
   return (
-    <PageLayout constrainHeight>
+    <PageLayout>
       <GroupSessionPageClient
         sessionId={session.id}
         slug={slug}

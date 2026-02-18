@@ -78,6 +78,7 @@ See `docs/billing/stripe-subscriptions.md` for full spec.
 - [ ] Loader animation: standardize placement across loading states
 - [ ] Minifig/set detail modal UI review (from set inventory)
 - [ ] Thorough testing: entitlements, gating, Stripe webhooks, usage counters, pricing
+- [ ] Address launch audit hardening items from [`docs/LAUNCH_AUDIT_REPORT_2026-02-17.md`](LAUNCH_AUDIT_REPORT_2026-02-17.md)
 
 ### Dependency / Parallelization Map
 
@@ -96,6 +97,21 @@ E (import/export) ─────┘   (independent, can parallel)
 ## Post-Launch Work
 
 Larger features and improvements for after launch.
+
+### Derived Pricing System
+
+**Plan:** [`docs/dev/DERIVED_PRICING_PLAN.md`](dev/DERIVED_PRICING_PLAN.md)
+
+Replace real-time-only BL API pricing with a three-layer system (BL cache → observations → derived averages) that stays within BL ToS and the 5K daily API limit. Derived prices are independently-computed averages served indefinitely; raw BL data still respects the 6-hour TTL.
+
+- [ ] Supabase migration: `bl_price_cache`, `bl_price_observations`, `bl_derived_prices` tables + RLS
+- [ ] Price cache service (`priceCache.ts`): DB read/write for all three layers
+- [ ] Derived pricing service (`derivedPricing.ts`): observation recording, threshold check, average computation
+- [ ] Integrate DB layers into `blGetPartPriceGuide()` and `fetchBricklinkPrices()`
+- [ ] Update `pricingSource` in API responses (`derived`, `stale` values)
+- [ ] Batch crawl script (`daily-prices.ts`) for proactive observation seeding
+- [ ] Admin introspection endpoint (`/api/prices/derived-stats`)
+- [ ] Monitor API budget decline as derived coverage grows
 
 ### Identify Page Improvements
 
@@ -197,7 +213,7 @@ Technical debt and improvements to pull from when ready.
 
 Deferred features requiring research or significant scope.
 
-- Price history (requires persistent storage; **BrickLink ToS requires data ≤6hrs old** — would need a non-BL source or explicit BL permission)
+- Price history (addressed by derived pricing plan — observation log provides historical data; derived averages are independently computed and not subject to BL's 6hr display rule)
 - Marketplace scanner / store finder — **Researched Feb 2026:**
   - Rebrickable's store finder uses a **privileged BrickLink partnership API** (not public) for cross-store inventory search
   - The public BrickLink API has no endpoint to search other stores' inventories — only price guides (which we already use) and own-store management
@@ -242,6 +258,7 @@ Major completed initiatives - see `docs/dev/archive/` for detailed plans:
 
 ## Related Documentation
 
+- `docs/dev/DERIVED_PRICING_PLAN.md` - Derived pricing system (BL ToS compliance + API budget)
 - `docs/dev/CURRENT_IMPROVEMENT_PLAN.md` - Service role audit details
 - `docs/billing/stripe-subscriptions.md` - Full Stripe implementation spec
 - `memory/system-patterns.md` - Caching strategy and architecture patterns

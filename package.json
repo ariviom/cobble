@@ -19,10 +19,12 @@
     "backfill:image-hashes": "tsx scripts/backfill-image-hashes.ts",
     "enrich:color-ids": "tsx scripts/enrich-color-external-ids.ts",
     "backfill:rb-colors": "tsx scripts/backfill-rb-color-ids.ts",
+    "ingest:bricklinkable-prices": "tsx scripts/ingest-bricklinkable-prices.ts",
     "generate-types": "npx supabase gen types typescript --schema public --project-id nrrunazjjrwxaonlvvhh > supabase/types.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
+    "@sentry/nextjs": "^10.39.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.89.0",
     "@tanstack/react-query": "^5.90.2",

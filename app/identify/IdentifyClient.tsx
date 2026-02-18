@@ -139,11 +139,19 @@ const EMPTY_TAB: TabState = {
   blColors: null,
 };
 
-function updateUrlParams(partNum: string, mode: 'camera' | 'part') {
+function updateUrlParams(
+  partNum: string,
+  mode: 'camera' | 'part',
+  replace = false
+) {
   const url = new URL(window.location.href);
   url.searchParams.set('part', partNum);
   url.searchParams.set('mode', mode);
-  window.history.pushState(null, '', url.toString());
+  if (replace) {
+    window.history.replaceState(null, '', url.toString());
+  } else {
+    window.history.pushState(null, '', url.toString());
+  }
 }
 
 type IdentifyPageProps = {
@@ -268,10 +276,12 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
       partId,
       colorId,
       blColorId,
+      replaceUrl = false,
     }: {
       partId: string;
       colorId?: number | null;
       blColorId?: number | null;
+      replaceUrl?: boolean;
     }) => {
       const trimmed = partId.trim();
       if (!trimmed) return;
@@ -354,7 +364,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             );
           }
           if (payloadAny.part) {
-            updateUrlParams(payloadAny.part.partNum, 'part');
+            updateUrlParams(payloadAny.part.partNum, 'part', replaceUrl);
           }
           setLoadingPhase(null);
           setHasSearched(true);
@@ -475,7 +485,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           );
         }
         if (payloadAny.part) {
-          updateUrlParams(payloadAny.part.partNum, 'part');
+          updateUrlParams(payloadAny.part.partNum, 'part', replaceUrl);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -978,6 +988,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         partId: partFromQuery,
         colorId,
         blColorId,
+        replaceUrl: true,
       });
       return;
     }
@@ -1000,7 +1011,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
       }
       if (partFromUrl && partFromUrl.trim() !== '') {
         setError(null);
-        void performPartLookup({ partId: partFromUrl });
+        void performPartLookup({ partId: partFromUrl, replaceUrl: true });
       } else {
         // Navigated back to empty state
         setPart(null);

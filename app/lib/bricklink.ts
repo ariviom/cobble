@@ -8,6 +8,18 @@ import {
   DEFAULT_PRICING_PREFERENCES,
   type PricingPreferences,
 } from '@/app/lib/pricing';
+import {
+  cacheEntryToPriceGuide,
+  derivedEntryToPriceGuide,
+  getCachedPrice,
+  getDerivedPrice,
+  priceGuideToCacheEntry,
+  recordObservation,
+  tryComputeDerivedPrice,
+  writePriceCache,
+  type PriceCacheEntry,
+  type PriceCacheKey,
+} from '@/app/lib/services/priceCache';
 import { logger } from '@/lib/metrics';
 
 const BL_STORE_BASE = 'https://api.bricklink.com/api/store/v1';
@@ -278,6 +290,8 @@ export type BLPriceGuide = {
   currencyCode: string | null;
   /** Internal marker to indicate a miss (all prices null) for negative caching */
   __miss?: boolean;
+  /** Internal marker for pricing source (not serialized to client) */
+  __source?: 'derived' | 'cached' | 'real_time';
 };
 
 // LRU caches with TTL for BrickLink API responses
@@ -705,6 +719,53 @@ async function fetchPriceGuide(
   if (inFlight) return inFlight;
 
   const promise = (async (): Promise<BLPriceGuide> => {
+    // DB cache key for this request
+    const dbKey: PriceCacheKey = {
+      itemId: no,
+      itemType,
+      colorId: typeof colorId === 'number' ? colorId : 0,
+      condition: 'U',
+      currencyCode: effectivePrefs.currencyCode,
+      countryCode: effectivePrefs.countryCode ?? '',
+    };
+
+    // 1. Check bp_derived_prices (90d TTL)
+    try {
+      const derived = await getDerivedPrice(dbKey);
+      if (derived) {
+        const pg: BLPriceGuide = {
+          ...derivedEntryToPriceGuide(derived),
+          __source: 'derived',
+        };
+        priceGuideCache.set(key, pg);
+        return pg;
+      }
+    } catch (err) {
+      logger.warn('bricklink.derived_price_check_failed', {
+        no,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // 2. Check bl_price_cache (6hr TTL)
+    try {
+      const cached = await getCachedPrice(dbKey);
+      if (cached) {
+        const pg: BLPriceGuide = {
+          ...cacheEntryToPriceGuide(cached),
+          __source: 'cached',
+        };
+        priceGuideCache.set(key, pg);
+        return pg;
+      }
+    } catch (err) {
+      logger.warn('bricklink.price_cache_check_failed', {
+        no,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // 3. Call BL API
     const typeSegment =
       itemType === 'MINIFIG'
         ? STORE_ITEM_TYPE_MINIFIG
@@ -748,6 +809,7 @@ async function fetchPriceGuide(
       minPriceUsed,
       maxPriceUsed,
       currencyCode: data.currency_code ?? effectivePrefs.currencyCode,
+      __source: 'real_time',
     };
 
     if (
@@ -756,6 +818,20 @@ async function fetchPriceGuide(
       pg.maxPriceUsed == null
     ) {
       pg.__miss = true;
+    }
+
+    // 4. Fire-and-forget: persist to DB cache + record observation + try derived
+    if (!pg.__miss) {
+      const cacheEntry = priceGuideToCacheEntry(
+        pg,
+        no,
+        itemType,
+        typeof colorId === 'number' ? colorId : 0,
+        'U',
+        effectivePrefs.currencyCode,
+        effectivePrefs.countryCode ?? ''
+      );
+      void writePriceCacheAndObservation(cacheEntry, dbKey);
     }
 
     priceGuideCache.set(key, pg);
@@ -795,4 +871,32 @@ export async function blGetSetPriceGuide(
 ): Promise<BLPriceGuide> {
   // Sets do not use color scoping for price guides.
   return blGetPartPriceGuide(setNumber, null, 'SET', prefs);
+}
+
+// =============================================================================
+// Fire-and-forget DB persistence (after BL API call)
+// =============================================================================
+
+async function writePriceCacheAndObservation(
+  entry: PriceCacheEntry,
+  dbKey: PriceCacheKey
+): Promise<void> {
+  try {
+    await Promise.all([writePriceCache(entry), recordObservation(entry)]);
+  } catch (err) {
+    logger.warn('bricklink.price_persist_failed', {
+      itemId: entry.itemId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // Try computing derived price (may be a no-op if threshold not met)
+  try {
+    await tryComputeDerivedPrice(dbKey);
+  } catch (err) {
+    logger.warn('bricklink.derived_compute_failed', {
+      itemId: entry.itemId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }

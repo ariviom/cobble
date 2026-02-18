@@ -2,8 +2,8 @@
 
 import { cn } from '@/app/components/ui/utils';
 import type { OpenTab } from '@/app/store/open-tabs';
-import { isLandingTab } from '@/app/store/open-tabs';
-import { Layers, X } from 'lucide-react';
+import { isLandingTab, isSetTab } from '@/app/store/open-tabs';
+import { Layers, Users, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback } from 'react';
@@ -61,8 +61,9 @@ export function SetTabItem({
     [onClose, tab.id]
   );
 
-  // Landing tabs link to /sets; set tabs link to /sets/{id}
-  const tabUrl = isLanding ? '/sets' : `/sets/${tab.id}`;
+  // Landing tabs link to /sets; set tabs link to /sets/{setNumber}
+  const displaySetNumber = isSetTab(tab) ? tab.setNumber : tab.id;
+  const tabUrl = isLanding ? '/sets' : `/sets/${displaySetNumber}`;
 
   // Landing tab display
   if (isLanding) {
@@ -155,7 +156,7 @@ export function SetTabItem({
           prefetch={true}
           role="tab"
           aria-selected={isActive}
-          aria-label={`${tab.id}: ${tab.name}`}
+          aria-label={`${displaySetNumber}: ${tab.name}`}
           onClick={handleClick}
           className={cn(
             'group relative flex h-full w-32 flex-shrink-0 items-center gap-2 px-3 pr-10 transition-colors lg:w-auto lg:pr-8',
@@ -187,7 +188,7 @@ export function SetTabItem({
 
           {/* Set number and name */}
           <div className="flex min-w-16 items-center gap-1.5 text-xs font-medium">
-            <span className="font-bold">{tab.id}</span>
+            <span className="font-bold">{displaySetNumber}</span>
             <span className="hidden text-foreground-muted lg:inline">
               {displayName}
             </span>
@@ -196,9 +197,11 @@ export function SetTabItem({
           {/* Search Party indicator */}
           {hasSearchParty && (
             <span
-              className="absolute -top-1 -right-1 size-2.5 rounded-full bg-brand-blue"
+              className="flex size-4 items-center justify-center rounded-full bg-theme-primary ring-1 ring-theme-primary"
               title="Search Party active"
-            />
+            >
+              <Users size={10} className="text-theme-primary-contrast" />
+            </span>
           )}
 
           {/* Close button - always visible */}
@@ -212,7 +215,7 @@ export function SetTabItem({
                 ? 'text-foreground-muted hover:bg-neutral-200 hover:text-foreground dark:hover:bg-neutral-700'
                 : 'text-foreground-muted/70 hover:bg-theme-primary/15 hover:text-foreground'
             )}
-            aria-label={`Close ${tab.id}`}
+            aria-label={`Close ${displaySetNumber}`}
           >
             <X size={12} />
           </button>

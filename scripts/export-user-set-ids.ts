@@ -11,7 +11,7 @@
  */
 
 import { writeFileSync } from 'node:fs';
-import { createSupabaseClient } from './minifig-mapping-core';
+import { createSupabaseClient } from './script-utils';
 
 const DEFAULT_OUTPUT = 'user-set-ids-export.json';
 

@@ -10,7 +10,7 @@
 import dotenv from 'dotenv';
 
 import type { Json } from '@/supabase/types';
-import { createSupabaseClient, requireEnv } from './minifig-mapping-core';
+import { createSupabaseClient, requireEnv } from './script-utils';
 
 dotenv.config();
 if (process.env.NODE_ENV !== 'production') {

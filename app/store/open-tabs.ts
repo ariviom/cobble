@@ -20,13 +20,19 @@ import { create } from 'zustand';
 
 export type SetTab = {
   type: 'set';
-  id: string; // set number e.g. '75192-1'
+  id: string; // unique key: set number OR 'sp:{setNumber}'
+  setNumber: string; // always the real set number
   name: string;
   imageUrl: string | null;
   numParts: number;
   year: number;
   themeId?: number | null;
   themeName?: string | null;
+  // Group session (Search Party) — present when this tab is part of a session
+  groupSessionId?: string | null;
+  groupSessionSlug?: string | null;
+  groupParticipantId?: string | null;
+  groupRole?: 'host' | 'joiner' | null;
 };
 
 export type LandingTab = {
@@ -42,6 +48,24 @@ export function isSetTab(tab: OpenTab): tab is SetTab {
 
 export function isLandingTab(tab: OpenTab): tab is LandingTab {
   return tab.type === 'landing';
+}
+
+// ---------------------------------------------------------------------------
+// Search Party tab ID helpers
+// ---------------------------------------------------------------------------
+
+const SP_PREFIX = 'sp:';
+
+export function spTabId(setNumber: string): string {
+  return `${SP_PREFIX}${setNumber}`;
+}
+
+export function isSpTabId(id: string): boolean {
+  return id.startsWith(SP_PREFIX);
+}
+
+export function setNumberFromTabId(id: string): string {
+  return isSpTabId(id) ? id.slice(SP_PREFIX.length) : id;
 }
 
 export type TabViewState = {
@@ -68,6 +92,7 @@ type OpenTabsState = {
   saveTabState: (id: string, state: Partial<TabViewState>) => void;
   getTabState: (id: string) => TabViewState | undefined;
   getActiveTab: () => OpenTab | undefined;
+  clearGroupSession: (tabId: string) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -220,6 +245,7 @@ function migrateV1ToV2(): PersistedShape | null {
         const setTab: SetTab = {
           type: 'set',
           id: v1.setNumber,
+          setNumber: v1.setNumber,
           name: v1.name,
           imageUrl:
             typeof v1.imageUrl === 'string' || v1.imageUrl === null
@@ -289,6 +315,7 @@ type DataState = Omit<
   | 'saveTabState'
   | 'getTabState'
   | 'getActiveTab'
+  | 'clearGroupSession'
 >;
 
 function parsePersisted(raw: string | null): DataState {
@@ -311,6 +338,10 @@ function parsePersisted(raw: string | null): DataState {
             tabs.push({
               type: 'set',
               id: t.id,
+              setNumber:
+                typeof t.setNumber === 'string' && t.setNumber.length > 0
+                  ? t.setNumber
+                  : t.id,
               name: t.name,
               imageUrl:
                 typeof t.imageUrl === 'string' || t.imageUrl === null
@@ -321,6 +352,18 @@ function parsePersisted(raw: string | null): DataState {
               ...(typeof t.themeId === 'number' ? { themeId: t.themeId } : {}),
               ...(typeof t.themeName === 'string'
                 ? { themeName: t.themeName }
+                : {}),
+              ...(typeof t.groupSessionId === 'string'
+                ? { groupSessionId: t.groupSessionId }
+                : {}),
+              ...(typeof t.groupSessionSlug === 'string'
+                ? { groupSessionSlug: t.groupSessionSlug }
+                : {}),
+              ...(typeof t.groupParticipantId === 'string'
+                ? { groupParticipantId: t.groupParticipantId }
+                : {}),
+              ...(t.groupRole === 'host' || t.groupRole === 'joiner'
+                ? { groupRole: t.groupRole }
                 : {}),
             });
           } else {
@@ -549,6 +592,26 @@ export const useOpenTabsStore = create<OpenTabsState>((set, get) => ({
       activeTabId: setTab.id,
       tabStates: nextTabStates,
     };
+    set(nextState);
+    persistState(nextState);
+  },
+
+  clearGroupSession: (tabId: string) => {
+    const { tabs } = get();
+    const normalizedId = tabId.toLowerCase();
+
+    const nextTabs = tabs.map(t => {
+      if (!isSetTab(t) || t.id.toLowerCase() !== normalizedId) return t;
+      return {
+        ...t,
+        groupSessionId: null,
+        groupSessionSlug: null,
+        groupParticipantId: null,
+        groupRole: null,
+      };
+    });
+
+    const nextState: OpenTabsState = { ...get(), tabs: nextTabs };
     set(nextState);
     persistState(nextState);
   },

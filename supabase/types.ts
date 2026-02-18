@@ -196,130 +196,153 @@ export type Database = {
         };
         Relationships: [];
       };
-      bl_set_minifigs: {
+      bl_price_cache: {
         Row: {
-          image_url: string | null;
-          last_refreshed_at: string | null;
-          minifig_no: string;
-          name: string | null;
-          quantity: number;
-          set_num: string;
+          avg_price: number | null;
+          color_id: number;
+          condition: string;
+          country_code: string;
+          currency_code: string;
+          fetched_at: string;
+          item_id: string;
+          item_type: string;
+          max_price: number | null;
+          min_price: number | null;
+          qty_avg_price: number | null;
+          total_quantity: number | null;
+          unit_quantity: number | null;
         };
         Insert: {
-          image_url?: string | null;
-          last_refreshed_at?: string | null;
-          minifig_no: string;
-          name?: string | null;
-          quantity?: number;
-          set_num: string;
+          avg_price?: number | null;
+          color_id?: number;
+          condition: string;
+          country_code?: string;
+          currency_code: string;
+          fetched_at?: string;
+          item_id: string;
+          item_type: string;
+          max_price?: number | null;
+          min_price?: number | null;
+          qty_avg_price?: number | null;
+          total_quantity?: number | null;
+          unit_quantity?: number | null;
         };
         Update: {
-          image_url?: string | null;
-          last_refreshed_at?: string | null;
-          minifig_no?: string;
-          name?: string | null;
-          quantity?: number;
-          set_num?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'bl_set_minifigs_set_num_fkey';
-            columns: ['set_num'];
-            isOneToOne: false;
-            referencedRelation: 'bl_sets';
-            referencedColumns: ['set_num'];
-          },
-        ];
-      };
-      bl_sets: {
-        Row: {
-          last_error: string | null;
-          last_minifig_sync_at: string | null;
-          minifig_sync_status: string | null;
-          name: string | null;
-          set_num: string;
-          year: number | null;
-        };
-        Insert: {
-          last_error?: string | null;
-          last_minifig_sync_at?: string | null;
-          minifig_sync_status?: string | null;
-          name?: string | null;
-          set_num: string;
-          year?: number | null;
-        };
-        Update: {
-          last_error?: string | null;
-          last_minifig_sync_at?: string | null;
-          minifig_sync_status?: string | null;
-          name?: string | null;
-          set_num?: string;
-          year?: number | null;
+          avg_price?: number | null;
+          color_id?: number;
+          condition?: string;
+          country_code?: string;
+          currency_code?: string;
+          fetched_at?: string;
+          item_id?: string;
+          item_type?: string;
+          max_price?: number | null;
+          min_price?: number | null;
+          qty_avg_price?: number | null;
+          total_quantity?: number | null;
+          unit_quantity?: number | null;
         };
         Relationships: [];
       };
-      bricklink_categories: {
+      bl_price_observations: {
         Row: {
-          category_id: number;
-          category_name: string;
-          created_at: string;
-          parent_id: number | null;
-          updated_at: string;
+          avg_price: number | null;
+          color_id: number;
+          condition: string;
+          country_code: string;
+          currency_code: string;
+          id: number;
+          item_id: string;
+          item_type: string;
+          max_price: number | null;
+          min_price: number | null;
+          observed_at: string;
+          qty_avg_price: number | null;
+          source: string;
+          total_quantity: number | null;
+          unit_quantity: number | null;
         };
         Insert: {
-          category_id: number;
-          category_name: string;
-          created_at?: string;
-          parent_id?: number | null;
-          updated_at?: string;
+          avg_price?: number | null;
+          color_id?: number;
+          condition: string;
+          country_code?: string;
+          currency_code: string;
+          id?: never;
+          item_id: string;
+          item_type: string;
+          max_price?: number | null;
+          min_price?: number | null;
+          observed_at?: string;
+          qty_avg_price?: number | null;
+          source?: string;
+          total_quantity?: number | null;
+          unit_quantity?: number | null;
         };
         Update: {
-          category_id?: number;
-          category_name?: string;
-          created_at?: string;
-          parent_id?: number | null;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'bricklink_categories_parent_id_fkey';
-            columns: ['parent_id'];
-            isOneToOne: false;
-            referencedRelation: 'bricklink_categories';
-            referencedColumns: ['category_id'];
-          },
-        ];
-      };
-      bricklink_minifigs: {
-        Row: {
-          category_id: number | null;
-          created_at: string;
-          item_id: string;
-          item_year: number | null;
-          last_parts_sync_at: string | null;
-          name: string;
-          parts_sync_status: string | null;
-          updated_at: string;
-        };
-        Insert: {
-          category_id?: number | null;
-          created_at?: string;
-          item_id: string;
-          item_year?: number | null;
-          last_parts_sync_at?: string | null;
-          name: string;
-          parts_sync_status?: string | null;
-          updated_at?: string;
-        };
-        Update: {
-          category_id?: number | null;
-          created_at?: string;
+          avg_price?: number | null;
+          color_id?: number;
+          condition?: string;
+          country_code?: string;
+          currency_code?: string;
+          id?: never;
           item_id?: string;
-          item_year?: number | null;
-          last_parts_sync_at?: string | null;
-          name?: string;
-          parts_sync_status?: string | null;
-          updated_at?: string;
+          item_type?: string;
+          max_price?: number | null;
+          min_price?: number | null;
+          observed_at?: string;
+          qty_avg_price?: number | null;
+          source?: string;
+          total_quantity?: number | null;
+          unit_quantity?: number | null;
+        };
+        Relationships: [];
+      };
+      bp_derived_prices: {
+        Row: {
+          color_id: number;
+          computed_at: string;
+          condition: string;
+          country_code: string;
+          currency_code: string;
+          derived_avg: number;
+          derived_max: number | null;
+          derived_min: number | null;
+          first_observed_at: string;
+          item_id: string;
+          item_type: string;
+          last_observed_at: string;
+          observation_count: number;
+        };
+        Insert: {
+          color_id?: number;
+          computed_at?: string;
+          condition: string;
+          country_code?: string;
+          currency_code: string;
+          derived_avg: number;
+          derived_max?: number | null;
+          derived_min?: number | null;
+          first_observed_at: string;
+          item_id: string;
+          item_type: string;
+          last_observed_at: string;
+          observation_count: number;
+        };
+        Update: {
+          color_id?: number;
+          computed_at?: string;
+          condition?: string;
+          country_code?: string;
+          currency_code?: string;
+          derived_avg?: number;
+          derived_max?: number | null;
+          derived_min?: number | null;
+          first_observed_at?: string;
+          item_id?: string;
+          item_type?: string;
+          last_observed_at?: string;
+          observation_count?: number;
         };
         Relationships: [];
       };
@@ -463,33 +486,6 @@ export type Database = {
             referencedColumns: ['set_num'];
           },
         ];
-      };
-      part_id_mappings: {
-        Row: {
-          bl_part_id: string;
-          confidence: number | null;
-          created_at: string | null;
-          rb_part_id: string;
-          source: string;
-          updated_at: string | null;
-        };
-        Insert: {
-          bl_part_id: string;
-          confidence?: number | null;
-          created_at?: string | null;
-          rb_part_id: string;
-          source: string;
-          updated_at?: string | null;
-        };
-        Update: {
-          bl_part_id?: string;
-          confidence?: number | null;
-          created_at?: string | null;
-          rb_part_id?: string;
-          source?: string;
-          updated_at?: string | null;
-        };
-        Relationships: [];
       };
       rate_limits: {
         Row: {
@@ -735,6 +731,21 @@ export type Database = {
           },
         ];
       };
+      rb_minifig_rarity: {
+        Row: {
+          fig_num: string;
+          min_subpart_set_count: number;
+        };
+        Insert: {
+          fig_num: string;
+          min_subpart_set_count?: number;
+        };
+        Update: {
+          fig_num?: string;
+          min_subpart_set_count?: number;
+        };
+        Relationships: [];
+      };
       rb_minifigs: {
         Row: {
           bl_mapping_confidence: number | null;
@@ -774,6 +785,24 @@ export type Database = {
         Update: {
           id?: number;
           name?: string;
+        };
+        Relationships: [];
+      };
+      rb_part_rarity: {
+        Row: {
+          color_id: number;
+          part_num: string;
+          set_count: number;
+        };
+        Insert: {
+          color_id: number;
+          part_num: string;
+          set_count?: number;
+        };
+        Update: {
+          color_id?: number;
+          part_num?: string;
+          set_count?: number;
         };
         Relationships: [];
       };
@@ -1088,45 +1117,6 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [];
-      };
-      user_parts_inventory: {
-        Row: {
-          color_id: number;
-          part_num: string;
-          quantity: number;
-          updated_at: string;
-          user_id: string;
-        };
-        Insert: {
-          color_id: number;
-          part_num: string;
-          quantity?: number;
-          updated_at?: string;
-          user_id: string;
-        };
-        Update: {
-          color_id?: number;
-          part_num?: string;
-          quantity?: number;
-          updated_at?: string;
-          user_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'user_parts_inventory_color_id_fkey';
-            columns: ['color_id'];
-            isOneToOne: false;
-            referencedRelation: 'rb_colors';
-            referencedColumns: ['id'];
-          },
-          {
-            foreignKeyName: 'user_parts_inventory_part_num_fkey';
-            columns: ['part_num'];
-            isOneToOne: false;
-            referencedRelation: 'rb_parts';
-            referencedColumns: ['part_num'];
-          },
-        ];
       };
       user_preferences: {
         Row: {

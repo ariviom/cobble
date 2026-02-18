@@ -2,7 +2,6 @@ import { errorResponse } from '@/app/lib/api/responses';
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
 import { getOrFetchMinifigImageUrl } from '@/app/lib/catalog/minifigs';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
-import { getSetSummary } from '@/app/lib/rebrickable';
 import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -39,6 +38,7 @@ type MinifigPriceGuide = {
     maxPrice: number | null;
     currency: string | null;
   };
+  source?: 'derived' | 'cached' | 'real_time';
 };
 
 type MinifigSubpart = {
@@ -162,7 +162,7 @@ export async function GET(
             const setNums = inventories.map(inv => inv.set_num);
             const { data: setDetails } = await supabase
               .from('rb_sets')
-              .select('set_num, name, year, image_url')
+              .select('set_num, name, year, image_url, theme_id')
               .in('set_num', setNums);
 
             const detailMap = new Map(
@@ -193,22 +193,26 @@ export async function GET(
               items: setItems.slice(0, 5),
             };
 
-            // Get theme from first set
+            // Get theme/year from first set (catalog only — no external API call)
             if (setItems.length > 0 && (year == null || themeName == null)) {
-              try {
-                const summary = await getSetSummary(setItems[0]!.setNumber);
-                if (year == null && typeof summary.year === 'number') {
-                  year = summary.year;
+              const firstSetDetail = detailMap.get(setItems[0]!.setNumber);
+              if (firstSetDetail) {
+                if (year == null && typeof firstSetDetail.year === 'number') {
+                  year = firstSetDetail.year;
                 }
-                if (themeName == null && summary.themeName) {
-                  themeName = summary.themeName;
+                if (
+                  themeName == null &&
+                  typeof firstSetDetail.theme_id === 'number'
+                ) {
+                  const { data: theme } = await supabase
+                    .from('rb_themes')
+                    .select('name')
+                    .eq('id', firstSetDetail.theme_id)
+                    .maybeSingle();
+                  if (theme?.name) {
+                    themeName = theme.name;
+                  }
                 }
-              } catch (err) {
-                logger.warn('minifig.set_summary_fallback_failed', {
-                  blMinifigNo,
-                  setNumber: setItems[0]!.setNumber,
-                  error: err instanceof Error ? err.message : String(err),
-                });
               }
             }
           }
@@ -239,6 +243,7 @@ export async function GET(
             maxPrice: null,
             currency: pg.currencyCode,
           },
+          source: pg.__source ?? 'real_time',
         };
       } catch (err) {
         logger.warn('minifig.price_guide_failed', {

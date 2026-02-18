@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
+vi.mock('@/lib/metrics', () => ({
+  logger: { warn: vi.fn(), debug: vi.fn(), info: vi.fn(), error: vi.fn() },
+}));
 
 import { PipelineBudget } from '../budget';
 
@@ -58,6 +61,23 @@ describe('PipelineBudget', () => {
       const result = await budget.withBudget(() => Promise.resolve('c'));
       expect(result).toBeNull();
       expect(budget.remaining).toBe(0);
+    });
+
+    it('returns null when callback throws', async () => {
+      const budget = new PipelineBudget(2);
+      const result = await budget.withBudget(() =>
+        Promise.reject(new Error('API failure'))
+      );
+      expect(result).toBeNull();
+      // Budget was consumed even though the call failed
+      expect(budget.remaining).toBe(1);
+    });
+
+    it('does not propagate callback errors', async () => {
+      const budget = new PipelineBudget(1);
+      await expect(
+        budget.withBudget(() => Promise.reject(new Error('boom')))
+      ).resolves.toBeNull();
     });
   });
 

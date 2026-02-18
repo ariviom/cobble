@@ -60,6 +60,11 @@ const SERVICE_ROLE_TABLES = new Set([
   'bl_minifig_parts',
   'bl_parts',
   'bl_part_sets',
+
+  // Pricing tables
+  'bl_price_cache',
+  'bl_price_observations',
+  'bp_derived_prices',
 ]);
 
 /**

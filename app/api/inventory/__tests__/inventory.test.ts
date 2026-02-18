@@ -124,8 +124,6 @@ describe('GET /api/inventory', () => {
     it('includes meta when includeMeta=true', async () => {
       const mockMeta = {
         totalMinifigs: 6,
-        syncStatus: 'ok' as const,
-        syncTriggered: false,
       };
 
       mockGetSetInventory.mockResolvedValue({
@@ -148,8 +146,6 @@ describe('GET /api/inventory', () => {
         rows: [],
         minifigMeta: {
           totalMinifigs: 6,
-          syncStatus: 'ok' as const,
-          syncTriggered: false,
         },
       });
 
@@ -188,8 +184,6 @@ describe('GET /api/inventory', () => {
         rows: [createMockRow()],
         minifigMeta: {
           totalMinifigs: 2,
-          syncStatus: 'ok' as const,
-          syncTriggered: false,
         },
       });
 

@@ -44,7 +44,6 @@
   - **Identity resolution**: `buildResolutionContext()` reads `bricklinkPartId` from catalog rows (loaded by `getSetInventoryLocal()`). No runtime API calls in the hot path.
   - `/api/parts/bricklink/validate` — on-demand validation endpoint:
     - Validates stored BL part ID via `blValidatePart()` (404-safe, doesn't trip circuit breaker).
-    - Tries fallback candidates: raw RB part ID, suffix-stripped variants.
     - Self-heals by writing corrections to `rb_parts.bl_part_id` directly.
     - Called from `InventoryItemModal` when user opens part detail; session-level client cache prevents repeat calls.
 - **Minifig ID Mapping** (RB ↔ BL):
@@ -216,9 +215,10 @@ Default to TTL-only caching. Add version awareness only for catalog-derived serv
 
 - **RB-first, BL-supersets fallback**
   - `POST /api/identify` accepts an image, calls Brickognize, and extracts candidate part numbers (including optional BrickLink IDs).
-  - Candidates are resolved to Rebrickable parts via `resolvePartIdToRebrickable`; colors and sets come from `getPartColorsForPart` and `getSetsForPart`.
+  - Candidates are resolved to Rebrickable parts via `resolvePartIdToRebrickable` (uses `bricklinkId` hint for authoritative BL→RB mapping); colors and sets come from `getPartColorsForPart` and `getSetsForPart`.
   - The resolve stage batch-lookups `rb_parts.bl_part_id` for all resolved candidates and threads `bricklinkPartId` through the pipeline to the API response.
   - If no Rebrickable candidate yields sets, the handler falls back to BrickLink supersets (including per-color supersets and subset-inferred colors) and then enriches sets with Rebrickable summaries where possible.
+  - BL fallback results are cached in `bl_parts` + `bl_part_sets` Supabase tables (sparse, on-demand — only populated when the fallback runs).
 - **Color handling**
   - Available colors for a part are sourced from Rebrickable; a single available color is auto-selected.
   - For BrickLink fallbacks, BL color IDs are mapped to human-readable names via the Rebrickable colors catalog.
@@ -266,9 +266,15 @@ Default to TTL-only caching. Add version awareness only for catalog-derived serv
 - **BrickLink pricing**
   - **Free for all users** — BrickLink API ToS prohibits gating their free-to-members data behind a paywall. Pricing routes must not check entitlements.
   - Pricing is opt-in and triggered explicitly (per-row or at the set level) via UI actions.
-  - On-demand API calls with ≤6hr server-side cache (BL ToS requires item data ≤6hrs old; current 1hr TTL is compliant).
+  - **Current state**: In-memory LRU cache only (500 entries, 30min TTL in `app/lib/bricklink.ts`). No database persistence — prices lost on deploy/restart. HTTP cache: `max-age=300, stale-while-revalidate=3600`.
+  - **Planned**: Three-layer DB-backed system (see `docs/dev/DERIVED_PRICING_PLAN.md`):
+    - `bl_price_cache`: raw BL data, 6hr TTL (ToS compliant)
+    - `bl_price_observations`: append-only audit trail (never deleted)
+    - `bl_derived_prices`: independently-computed averages, 90d TTL
+    - Derived prices served after activation threshold (3 observations over 7 days)
+    - In-memory LRU remains as hot layer above DB
   - Route Handlers call BrickLink price guide endpoints server-side; the UI surfaces aggregate ranges and per-part links without storing sensitive pricing settings client-side.
-  - **API quota**: 5,000 calls/day default. Monitor usage post-launch; contact `apisupport@bricklink.com` if approaching limit.
+  - **API quota**: 5,000 calls/day default. Derived pricing system designed to reduce API pressure over time as coverage grows.
   - **Attribution required**: Must display notice that app uses BrickLink API but is not endorsed by BrickLink.
 
 ## Error Handling & UX Patterns

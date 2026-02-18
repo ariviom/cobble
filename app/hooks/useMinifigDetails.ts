@@ -25,6 +25,7 @@ export type MinifigPriceGuide = {
     maxPrice: number | null;
     currency: string | null;
   };
+  source?: 'derived' | 'cached' | 'real_time';
 };
 
 export type MinifigSetItem = {

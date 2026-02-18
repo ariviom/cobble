@@ -125,6 +125,32 @@ export const VALIDATION = {
 // Circuit Breaker (BrickLink)
 // =============================================================================
 
+// =============================================================================
+// Pricing (DB-backed cache + derived averages)
+// =============================================================================
+
+export const PRICING = {
+  /** BL price cache TTL in hours (BL ToS: ≤6hr) */
+  BL_CACHE_TTL_HOURS: Number(process.env.BL_CACHE_TTL_HOURS) || 6,
+  /** Derived price TTL in days */
+  DERIVED_TTL_DAYS: Number(process.env.DERIVED_TTL_DAYS) || 90,
+  /** Minimum observations to compute a derived price */
+  DERIVED_MIN_OBSERVATIONS: Number(process.env.DERIVED_MIN_OBSERVATIONS) || 3,
+  /** Minimum time span (days) between first and last observation */
+  DERIVED_MIN_SPAN_DAYS: Number(process.env.DERIVED_MIN_SPAN_DAYS) || 7,
+  /** Observation retention in days */
+  OBSERVATION_RETENTION_DAYS:
+    Number(process.env.OBSERVATION_RETENTION_DAYS) || 180,
+  /** Batch size for Supabase .in() queries */
+  QUERY_BATCH_SIZE: 200,
+  /** Batch size for Supabase writes */
+  WRITE_BATCH_SIZE: 200,
+} as const;
+
+// =============================================================================
+// Circuit Breaker (BrickLink)
+// =============================================================================
+
 export const CIRCUIT_BREAKER = {
   /** Maximum concurrent BrickLink requests */
   MAX_CONCURRENCY: 8,

@@ -13,7 +13,7 @@
  * Without --confirm, the script will only show what would be deleted.
  */
 
-import { createSupabaseClient } from './minifig-mapping-core';
+import { createSupabaseClient } from './script-utils';
 
 async function main() {
   const args = process.argv.slice(2);

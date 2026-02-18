@@ -169,6 +169,8 @@ export type PartAvailableColor = {
   isTrans: boolean;
   numSets: number;
   numSetParts: number;
+  /** Color-specific part image URL from Rebrickable (may be null). */
+  partImageUrl: string | null;
 };
 
 /** Set containing a specific part */

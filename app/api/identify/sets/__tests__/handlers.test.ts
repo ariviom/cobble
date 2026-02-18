@@ -195,6 +195,7 @@ describe('handlePartIdentify', () => {
         isTrans: false,
         numSets: 100,
         numSetParts: 1000,
+        partImageUrl: null,
       },
       {
         id: 4,
@@ -203,6 +204,7 @@ describe('handlePartIdentify', () => {
         isTrans: false,
         numSets: 80,
         numSetParts: 800,
+        partImageUrl: null,
       },
     ]);
     mockGetSetsForPartLocal.mockResolvedValue(localSets);
@@ -261,6 +263,7 @@ describe('handlePartIdentify', () => {
         isTrans: false,
         numSets: 100,
         numSetParts: 1000,
+        partImageUrl: null,
       },
       {
         id: 4,
@@ -269,6 +272,7 @@ describe('handlePartIdentify', () => {
         isTrans: false,
         numSets: 80,
         numSetParts: 800,
+        partImageUrl: null,
       },
     ]);
     mockGetSetsForPartLocal.mockResolvedValue([]);
@@ -295,6 +299,7 @@ describe('handlePartIdentify', () => {
         isTrans: false,
         numSets: 100,
         numSetParts: 1000,
+        partImageUrl: null,
       },
     ]);
     mockGetSetsForPartLocal.mockResolvedValue([]);
@@ -314,6 +319,7 @@ describe('handlePartIdentify', () => {
         isTrans: false,
         numSets: 100,
         numSetParts: 1000,
+        partImageUrl: null,
       },
       {
         id: 4,
@@ -322,6 +328,7 @@ describe('handlePartIdentify', () => {
         isTrans: false,
         numSets: 80,
         numSetParts: 800,
+        partImageUrl: null,
       },
       {
         id: 14,
@@ -330,6 +337,7 @@ describe('handlePartIdentify', () => {
         isTrans: false,
         numSets: 60,
         numSetParts: 600,
+        partImageUrl: null,
       },
     ];
 

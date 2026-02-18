@@ -1,6 +1,7 @@
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { AuthProvider } from '@/app/components/providers/auth-provider';
 import { ReactQueryProvider } from '@/app/components/providers/react-query-provider';
+import { SentryUserContext } from '@/app/components/providers/sentry-user-context';
 import { SyncProvider } from '@/app/components/providers/sync-provider';
 import { ThemeProvider } from '@/app/components/providers/theme-provider';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
@@ -178,6 +179,7 @@ export default async function RootLayout({
       </head>
       <body className="bg-background text-foreground antialiased">
         <AuthProvider initialUser={initialUser} initialHandle={initialHandle}>
+          <SentryUserContext />
           <SyncProvider>
             <ThemeProvider
               initialTheme={initialTheme}

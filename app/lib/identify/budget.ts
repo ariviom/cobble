@@ -1,11 +1,13 @@
 import 'server-only';
 
+import { logger } from '@/lib/metrics';
+
 /**
  * Result-based budget tracker for the identify pipeline.
  *
  * Replaces the thrown-error pattern of ExternalCallBudget: consumers call
  * `budget.withBudget(cb)` which returns `T | null` instead of throwing
- * when exhausted.
+ * when exhausted or when the callback fails.
  */
 export class PipelineBudget {
   private _remaining: number;
@@ -27,12 +29,19 @@ export class PipelineBudget {
   }
 
   /**
-   * Execute `cb` if budget allows; return null if exhausted.
+   * Execute `cb` if budget allows; return null if exhausted or on error.
    * This is the primary API for budget-gated calls.
    */
   async withBudget<T>(cb: () => Promise<T>): Promise<T | null> {
     if (!this.tryConsume()) return null;
-    return cb();
+    try {
+      return await cb();
+    } catch (err) {
+      logger.warn('pipeline.budget.callback_failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
   }
 
   get isExhausted(): boolean {

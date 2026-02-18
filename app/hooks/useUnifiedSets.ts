@@ -5,7 +5,13 @@ import { useCompletionStats } from '@/app/hooks/useCompletionStats';
 import { useRecentSets } from '@/app/hooks/useRecentSets';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useUserLists } from '@/app/hooks/useUserLists';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  getStoredGroupSessions,
+  clearStoredGroupSession,
+  clearAllStoredGroupSessions,
+  type StoredGroupSession,
+} from '@/app/store/group-sessions';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export type UnifiedSet = {
   setNumber: string;
@@ -30,6 +36,7 @@ export type UnifiedSet = {
 export type UnifiedFilter =
   | 'recent'
   | 'continue'
+  | 'search-parties'
   | 'all'
   | 'owned'
   | 'wishlist'
@@ -60,6 +67,29 @@ export function useUnifiedSets(isActive = true) {
 
   const [activeFilter, setActiveFilter] = useState<UnifiedFilter>('recent');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Read stored SP sessions (re-read on tab activation)
+  const [storedSessions, setStoredSessions] = useState<StoredGroupSession[]>(
+    () => getStoredGroupSessions()
+  );
+  const prevActiveRef2 = useRef(isActive);
+  useEffect(() => {
+    if (isActive && !prevActiveRef2.current) {
+      setStoredSessions(getStoredGroupSessions());
+    }
+    prevActiveRef2.current = isActive;
+  }, [isActive]);
+
+  const removeSearchParty = useCallback((slug: string) => {
+    clearStoredGroupSession(slug);
+    setStoredSessions(prev => prev.filter(s => s.slug !== slug));
+  }, []);
+
+  const clearAllSearchParties = useCallback(() => {
+    clearAllStoredGroupSessions();
+    setStoredSessions([]);
+    setActiveFilter('recent');
+  }, []);
 
   // Reset to "recent" if user logs out while on a collection filter
   const prevUserRef = useRef(user?.id ?? null);
@@ -168,6 +198,15 @@ export function useUnifiedSets(isActive = true) {
       { key: 'continue', label: 'Continue Building', count: continueCount },
     ];
 
+    // Add Search Parties chip when there are stored sessions
+    if (storedSessions.length > 0) {
+      options.push({
+        key: 'search-parties',
+        label: 'Search Parties',
+        count: storedSessions.length,
+      });
+    }
+
     // Add collection filters when authenticated and collection is non-empty.
     // "All" goes last so specific filters are more prominent.
     if (user && !collectionEmpty) {
@@ -188,7 +227,7 @@ export function useUnifiedSets(isActive = true) {
     }
 
     return options;
-  }, [unified, user, collectionEmpty, collectionFilterOptions]);
+  }, [unified, user, collectionEmpty, collectionFilterOptions, storedSessions]);
 
   // Apply filter + search
   const filteredSets = useMemo(() => {
@@ -215,6 +254,25 @@ export function useUnifiedSets(isActive = true) {
             }
             return a.name.localeCompare(b.name);
           });
+        break;
+      case 'search-parties':
+        // Build UnifiedSet objects from stored sessions (not from unified map)
+        result = storedSessions
+          .sort((a, b) => b.joinedAt - a.joinedAt)
+          .map(s => ({
+            setNumber: s.setNumber,
+            name: s.setName,
+            year: s.year,
+            imageUrl: s.imageUrl,
+            numParts: s.numParts,
+            themeId: s.themeId,
+            isRecentlyViewed: false,
+            lastViewedAt: s.joinedAt,
+            ownedCount: 0,
+            totalParts: 0,
+            isOwned: false,
+            listIds: [],
+          }));
         break;
       case 'all':
         result = unified
@@ -258,7 +316,7 @@ export function useUnifiedSets(isActive = true) {
     }
 
     return result;
-  }, [unified, activeFilter, searchQuery, wishlist]);
+  }, [unified, activeFilter, searchQuery, wishlist, storedSessions]);
 
   return {
     sets: filteredSets,
@@ -268,6 +326,9 @@ export function useUnifiedSets(isActive = true) {
     setSearchQuery,
     filterOptions,
     removeRecent,
+    removeSearchParty,
+    clearAllSearchParties,
+    storedSessions,
     isLoading: completionLoading || collectionLoading,
   };
 }

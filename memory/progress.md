@@ -117,6 +117,8 @@
   - Identify pipeline now batch-lookups `rb_parts.bl_part_id` for resolved candidates, returns `bricklinkPartId` in API response.
   - All UI surfaces show dual BrickLink + Rebrickable links: `IdentifyResultCard`, `InventoryItemModal`, `InventoryItem` dropdown.
   - BL URLs use correct BL part IDs from catalog (was using RB IDs, wrong for ~80% of parts).
+  - Removed legacy suffix-stripping from `resolvePartToRebrickable` — `bricklinkId` hint handles BL→RB mapping authoritatively.
+  - BL fallback trigger simplified to `!sets.length` only (removed `inputChangedByResolution` heuristic).
   - 367 tests passing, clean tsc.
 - **Export Fixes & BL Validation** (February 2026):
   - BL export: `generateBrickLinkCsv()` is synchronous, identity-only. No HTTP calls during export.
@@ -142,6 +144,9 @@ See `docs/BACKLOG.md` for the full consolidated backlog.
 - Stripe UI/UX enforcement (Account page, upgrade CTAs, feature gating) — **Free + Plus only at launch**, Pro deferred
 - BrickLink API compliance: contact `apisupport@bricklink.com` pre-launch (code changes done — see Completed)
 
+**Post-launch (planned):**
+- Derived Pricing System — three-layer DB-backed pricing to replace in-memory-only LRU. Plan at `docs/dev/DERIVED_PRICING_PLAN.md`. New tables: `bl_price_cache`, `bl_price_observations`, `bl_derived_prices`. Independently-computed averages served after 3 observations over 7 days. Batch crawl + on-demand flow both contribute observations.
+
 **Medium priority:**
 - Error states hardening
 
@@ -157,4 +162,6 @@ Core MVP is feature-complete: search, inventory, owned tracking, CSV exports, pr
 - Large inventories (>1000 parts) may require careful virtualization and memoization to stay fast.
 - CSV specs must exactly match marketplace requirements to import successfully.
 - Debounced owned writes delay flush by ~500ms; acceptable trade-off for UI responsiveness.
-- BrickLink API rate limits (2500/day) constrain bulk sync throughput; scripts are capped accordingly.
+- BrickLink API rate limits (5,000/day) constrain bulk sync throughput; scripts are capped accordingly.
+- **`bl_part_sets` 30-day TTL** (`BL_FALLBACK_TTL_MS` in `blFallback.ts:35`) exceeds BL ToS 6-hour max for API-sourced data. Needs reduction or justification.
+- **No persistent metrics** — all `incrementCounter`/`logEvent`/`logger` output goes to ephemeral `console.*`. Cannot measure BL fallback usage or other operational metrics historically.

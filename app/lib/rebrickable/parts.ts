@@ -154,6 +154,7 @@ export async function getPartColorsForPart(
           color: import('@/app/lib/rebrickable/types').RebrickableColor;
           num_sets?: number;
           num_set_parts?: number;
+          part_img_url?: string | null;
         }
       | {
           color_id: number;
@@ -162,6 +163,7 @@ export async function getPartColorsForPart(
           rgb?: string | null;
           num_sets?: number;
           num_set_parts?: number;
+          part_img_url?: string | null;
         }
     >;
     next: string | null;
@@ -191,6 +193,10 @@ export async function getPartColorsForPart(
     });
   }
   return results.map(r => {
+    const partImageUrl =
+      typeof r.part_img_url === 'string' && r.part_img_url.trim()
+        ? r.part_img_url.trim()
+        : null;
     if ('color' in r) {
       return {
         id: r.color.id,
@@ -199,6 +205,7 @@ export async function getPartColorsForPart(
         isTrans: r.color.is_trans,
         numSets: typeof r.num_sets === 'number' ? r.num_sets : 0,
         numSetParts: typeof r.num_set_parts === 'number' ? r.num_set_parts : 0,
+        partImageUrl,
       };
     }
     const top = r as {
@@ -217,6 +224,7 @@ export async function getPartColorsForPart(
       numSets: typeof top.num_sets === 'number' ? top.num_sets : 0,
       numSetParts:
         typeof top.num_set_parts === 'number' ? top.num_set_parts : 0,
+      partImageUrl,
     };
   });
 }

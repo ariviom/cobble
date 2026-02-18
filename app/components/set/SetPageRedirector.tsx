@@ -48,6 +48,7 @@ export function SetPageRedirector({
     openTab({
       type: 'set',
       id: setNumber,
+      setNumber,
       name: setName,
       imageUrl,
       numParts,

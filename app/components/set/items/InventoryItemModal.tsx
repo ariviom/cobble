@@ -281,8 +281,6 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
             <p className="text-foreground-muted italic">
               Not available on BrickLink
             </p>
-          ) : blValidation.status === 'loading' ? (
-            <p className="text-foreground-muted italic">Checking BrickLink…</p>
           ) : (
             <a
               href={bricklinkUrl}

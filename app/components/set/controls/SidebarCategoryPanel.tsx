@@ -53,7 +53,7 @@ export function SidebarCategoryPanel({
           return (
             <div
               key={parent}
-              className="relative flex border-b border-foreground-accent"
+              className="relative flex h-13 border-b border-foreground-accent"
             >
               <RowButton
                 selected={selected}

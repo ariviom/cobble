@@ -2,12 +2,35 @@
 
 ## Current Focus
 
+- **Derived Pricing System** — Plan documented at `docs/dev/DERIVED_PRICING_PLAN.md`. Three-layer pricing architecture (BL cache 6hr → observations append-only → derived averages 90d TTL) to stay within BL ToS and 5K daily API limit. Currently all pricing is in-memory LRU only (30min TTL, lost on deploy). New Supabase tables: `bl_price_cache`, `bl_price_observations`, `bl_derived_prices`. Batch crawl script + on-demand flow both contribute observations toward independently-computed averages.
 - **Stripe UI/UX Enforcement** - Wire up billing UI (Account page, upgrade CTAs, inline upsells) and feature gating (SSR preload, API guards, usage counters). **Two tiers at launch: Free + Plus only** (Pro deferred).
-- **BrickLink API Compliance** — Pricing must be free for all users (BL ToS prohibits paywalling). ~~Remove entitlement checks from pricing routes~~ (done). Contact `apisupport@bricklink.com` pre-launch to confirm commercial use case.
+- **BrickLink API Compliance** — Pricing must be free for all users (BL ToS prohibits paywalling). ~~Remove entitlement checks from pricing routes~~ (done). Contact `apisupport@bricklink.com` pre-launch to confirm commercial use case. **Outstanding: `bl_part_sets` 30-day TTL exceeds 6-hour BL ToS max** — needs reduction or exemption justification.
 - Keep the MVP flows (search, inventory, owned vs missing, CSV exports, optional pricing) stable.
 - Preserve anonymous/local-only experience while signed-in users sync to Supabase.
 
 ## Recently Completed (February 2026)
+
+- **Derived Pricing Plan** (`docs/dev/DERIVED_PRICING_PLAN.md`):
+  - Documented three-layer pricing architecture to replace in-memory-only LRU cache with DB-backed system.
+  - Layer 1: `bl_price_cache` (raw BL data, 6hr TTL per ToS). Layer 2: `bl_price_observations` (append-only audit trail, never deleted). Layer 3: `bl_derived_prices` (independently-computed averages, 90d TTL).
+  - Activation threshold: 3 observations spanning 7 days before derived price is served.
+  - On-demand flow: LRU → derived → BL cache → API → record observation.
+  - Batch crawl script seeds observations proactively within API budget.
+  - Added to backlog (`docs/BACKLOG.md`) under Post-Launch Work with 8 subtasks.
+
+- **Identify Pipeline Cleanup — Removed Legacy Suffix Stripping** (34deeb4):
+  - Removed regex-based BL variant suffix stripping (`6129c03→6129`) from `resolvePartToRebrickable` in `app/api/identify/sets/handlers/part.ts` — the `bricklinkId` hint in `resolvePartIdToRebrickable` handles BL→RB mapping authoritatively now.
+  - Simplified BL fallback trigger from `!sets.length || inputChangedByResolution` to `!sets.length` — the `inputChangedByResolution` heuristic was only meaningful with suffix stripping.
+  - Simplified `effectiveBlPartId` to `blPartId ?? part` (always uses catalog's `bl_part_id` when available).
+
+- **BrickLink API Audit** (research, no code changes):
+  - Documented all 5 BL API endpoints used: price guide, subsets, supersets, colors, part details.
+  - Documented all 5 route handlers proxying BL data: `/api/prices/bricklink`, `/api/prices/bricklink-set`, `/api/parts/bricklink/validate`, `/api/identify/bl-supersets`, `/api/minifigs/[figNum]`.
+  - Confirmed `bl_minifig_parts` has zero runtime consumers — only used by ingest pipeline fingerprint matching (keep).
+  - Confirmed `bl_parts` is a sparse on-demand cache (not self-healing, not complete) — metadata redundant with RB but serves as FK parent for `bl_part_sets`.
+  - Confirmed `bl_part_sets` is needed for BL superset fallback in identify — caches results to avoid repeated API calls.
+  - **Found**: `bl_part_sets` uses 30-day TTL (`BL_FALLBACK_TTL_MS` in `blFallback.ts:35`) — exceeds 6-hour BL ToS max for API-sourced data.
+  - **Found**: All metrics (`incrementCounter`, `logEvent`, `logger`) are ephemeral `console.*` — no persistent observability. Cannot measure BL fallback usage historically.
 
 - **Part Rarity System (Group D)**:
   - Precomputed `rb_part_rarity` (part+color → set count) and `rb_minifig_rarity` (fig → min subpart set count) tables with RLS.

@@ -8,7 +8,6 @@ import { Plus } from 'lucide-react';
 type SetTabBarProps = {
   tabs: OpenTab[];
   activeTabId: string;
-  groupSessionSetNumber: string | null;
   /** Callback when a tab is activated (for SPA mode). */
   onActivateTab?: ((id: string) => void) | undefined;
   /** Callback when a tab is closed (for SPA mode). */
@@ -20,7 +19,6 @@ type SetTabBarProps = {
 export function SetTabBar({
   tabs,
   activeTabId,
-  groupSessionSetNumber,
   onActivateTab,
   onCloseTab,
   onOpenLandingTab,
@@ -61,11 +59,7 @@ export function SetTabBar({
               tab={tab}
               isActive={isActive}
               showDivider={showDivider}
-              hasSearchParty={
-                tab.type === 'set' &&
-                groupSessionSetNumber !== null &&
-                tab.id.toLowerCase() === groupSessionSetNumber.toLowerCase()
-              }
+              hasSearchParty={tab.type === 'set' && !!tab.groupSessionId}
               onActivate={onActivateTab}
               onClose={onCloseTab}
             />

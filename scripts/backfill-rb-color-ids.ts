@@ -7,7 +7,7 @@
  */
 import dotenv from 'dotenv';
 
-import { createSupabaseClient } from './minifig-mapping-core';
+import { createSupabaseClient } from './script-utils';
 import { buildBlToRbColorMap } from './color-mapping';
 
 dotenv.config();

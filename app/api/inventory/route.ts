@@ -62,7 +62,6 @@ export async function GET(req: NextRequest) {
       setNumber: set,
       count: result.rows.length,
       totalMinifigs: result.minifigMeta?.totalMinifigs,
-      syncTriggered: result.minifigMeta?.syncTriggered,
     });
 
     // Return rows and optionally include metadata

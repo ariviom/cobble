@@ -31,6 +31,7 @@ function buildRelaxedCsp(): string {
       "'self'",
       'https://*.supabase.co',
       'https://api.brickognize.com',
+      'https://*.ingest.sentry.io',
       'ws:',
       'wss:',
     ].join(' '),

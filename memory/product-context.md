@@ -18,9 +18,16 @@
 
 ## Scope & Boundaries (MVP)
 - Core flows: search set → view inventory table → mark owned → see missing totals → export CSV (RB/BL).
-- Optional pricing: user-triggered BrickLink estimates.
+- Optional pricing: user-triggered BrickLink estimates — **free for all users** (BL API ToS requirement).
 - Persistence: local-first (IndexedDB) with optional Supabase sync for signed-in users.
 - Out of scope for now: auth-heavy features beyond basics, advanced analytics, BrickOwl/Pick-a-Brick, full image hosting; Identify and minifig mapping are complementary but not core to the CSV MVP.
+
+## Monetization
+- **Two tiers at launch: Free + Plus.** Pro deferred until features warrant it.
+- Free tier: full functionality with volume caps (3 tabs, 5-10 identifies/month, 1 export/month, 3 lists, 2 Search Party runs/month). BrickLink pricing included.
+- Plus tier: unlimited everything + cross-device sync + part rarity indicators.
+- BrickLink pricing is never gated — ToS prohibits charging for access to data BrickLink provides free to members.
+- Collection import/export available on free tier (acquisition tool for users migrating from BrickScan etc.).
 
 
 

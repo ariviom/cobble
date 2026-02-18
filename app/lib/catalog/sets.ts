@@ -12,7 +12,6 @@ import { filterExactMatches } from '@/app/lib/searchExactMatch';
 import { dedup } from '@/app/lib/utils/dedup';
 import type { MatchType } from '@/app/types/search';
 import { logger } from '@/lib/metrics';
-import type { Json } from '@/supabase/types';
 
 import {
   buildThemeMetaHelpers,
@@ -372,7 +371,7 @@ export async function getSetInventoryLocal(
   // filter out parts that belong to minifigs. This ensures parts only appear
   // once: either as a regular part OR as a minifig component, not both.
   // ==========================================================================
-  // Track minifig parent info (components handled by inventory.ts via bl_minifig_parts)
+  // Track minifig parent info (components handled by inventory.ts via rb_minifig_parts)
   let figNumsEarly: string[] = [];
   let inventoryMinifigsEarly: Array<{ fig_num: string; quantity: number }> = [];
 
@@ -409,8 +408,7 @@ export async function getSetInventoryLocal(
     );
 
     // NOTE: Minifig component parts are NOT loaded here.
-    // They are loaded from bl_minifig_parts in inventory.ts to use BrickLink IDs exclusively.
-    // This avoids the RB/BL part ID and color ID mismatch issues.
+    // They are loaded from rb_minifig_parts in inventory.ts with identity resolution.
   }
 
   // ==========================================================================
@@ -428,7 +426,7 @@ export async function getSetInventoryLocal(
     partNums.length
       ? supabase
           .from('rb_parts')
-          .select('part_num, name, part_cat_id, image_url, external_ids')
+          .select('part_num, name, part_cat_id, image_url, bl_part_id')
           .in('part_num', partNums)
       : Promise.resolve({ data: [], error: null } as {
           data: {
@@ -436,7 +434,7 @@ export async function getSetInventoryLocal(
             name: string;
             part_cat_id: number | null;
             image_url: string | null;
-            external_ids: Json;
+            bl_part_id: string | null;
           }[];
           error: null;
         }),
@@ -469,37 +467,11 @@ export async function getSetInventoryLocal(
       name: string;
       part_cat_id: number | null;
       image_url: string | null;
-      external_ids: Json;
+      bl_part_id: string | null;
     }
   >();
   for (const part of parts) {
     partMap.set(part.part_num, part);
-  }
-
-  // Helper to extract BrickLink part ID from external_ids
-  function extractBricklinkPartId(
-    externalIds: Json | null | undefined
-  ): string | null {
-    if (!externalIds || typeof externalIds !== 'object') return null;
-    const record = externalIds as Record<string, unknown>;
-    const blIds = record.BrickLink as unknown;
-    // BrickLink IDs can be an array ["3024"] or object {ext_ids: [...]}
-    if (Array.isArray(blIds) && blIds.length > 0) {
-      const first = blIds[0];
-      return typeof first === 'string' || typeof first === 'number'
-        ? String(first)
-        : null;
-    }
-    if (blIds && typeof blIds === 'object' && 'ext_ids' in blIds) {
-      const extIds = (blIds as { ext_ids?: unknown }).ext_ids;
-      if (Array.isArray(extIds) && extIds.length > 0) {
-        const first = extIds[0];
-        return typeof first === 'string' || typeof first === 'number'
-          ? String(first)
-          : null;
-      }
-    }
-    return null;
   }
 
   const colorMap = new Map<number, { id: number; name: string }>();
@@ -542,7 +514,7 @@ export async function getSetInventoryLocal(
       typeof catId === 'number' ? categoryMap.get(catId)?.name : undefined;
     const parentCategory =
       catName != null ? mapCategoryNameToParent(catName) : undefined;
-    const bricklinkPartId = extractBricklinkPartId(part?.external_ids);
+    const bricklinkPartId = part?.bl_part_id ?? null;
     const elementId =
       typeof row.element_id === 'string' && row.element_id.trim().length > 0
         ? row.element_id.trim()
@@ -580,8 +552,8 @@ export async function getSetInventoryLocal(
   }
 
   // ---- Minifigs (parent rows only) ----
-  // Component parts are loaded from bl_minifig_parts in inventory.ts
-  // to use BrickLink IDs exclusively (avoids RB/BL part+color ID mismatch)
+  // Component parts are loaded from rb_minifig_parts in inventory.ts
+  // with identity resolution for RB↔BL mapping
   const parentRows: InventoryRow[] = [];
 
   if (figNumsEarly.length > 0) {
@@ -591,7 +563,7 @@ export async function getSetInventoryLocal(
     const [figMetaRes, figImagesRes] = await Promise.all([
       supabase
         .from('rb_minifigs')
-        .select('fig_num, name, num_parts')
+        .select('fig_num, name, num_parts, bl_minifig_id')
         .in('fig_num', figNums),
       supabase
         .from('rb_minifig_images')
@@ -612,12 +584,17 @@ export async function getSetInventoryLocal(
 
     const figMetaById = new Map<
       string,
-      { name?: string | null; num_parts?: number | null }
+      {
+        name?: string | null;
+        num_parts?: number | null;
+        bl_minifig_id?: string | null;
+      }
     >();
     for (const m of figMetaRes.data ?? []) {
       figMetaById.set(m.fig_num, {
         name: m.name ?? null,
         num_parts: m.num_parts ?? null,
+        bl_minifig_id: m.bl_minifig_id ?? null,
       });
     }
 
@@ -641,6 +618,7 @@ export async function getSetInventoryLocal(
           : 1;
       const parentKey = `fig:${figNum}`;
       const meta = figMetaById.get(figNum);
+      const blMinifigId = meta?.bl_minifig_id ?? null;
       const parentRow: InventoryRow = {
         setNumber: trimmedSet,
         partId: parentKey,
@@ -652,7 +630,8 @@ export async function getSetInventoryLocal(
         partCategoryName: 'Minifig',
         parentCategory: 'Minifigure',
         inventoryKey: parentKey,
-        // componentRelations populated by inventory.ts from bl_minifig_parts
+        ...(blMinifigId && { bricklinkFigId: blMinifigId }),
+        // componentRelations populated by inventory.ts from rb_minifig_parts
       };
 
       parentRows.push(parentRow);

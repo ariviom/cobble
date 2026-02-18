@@ -11,13 +11,12 @@ import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useUserMinifigs } from '@/app/hooks/useUserMinifigs';
 import { formatMinifigId, pickMinifigRouteId } from '@/app/lib/minifigIds';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import type { MinifigSearchPage } from '@/app/types/search';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import {
-  ArrowLeft,
   Box,
   Calendar,
   ChevronDown,
+  DollarSign,
   ExternalLink,
   Layers,
   Tag,
@@ -25,6 +24,53 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+
+function formatPrice(value: number, currency: string | null): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currency ?? 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return `${currency ?? '$'}${value.toFixed(2)}`;
+  }
+}
+
+function PriceCell({
+  label,
+  unitPrice,
+  minPrice,
+  maxPrice,
+  currency,
+}: {
+  label: string;
+  unitPrice: number;
+  minPrice: number | null;
+  maxPrice: number | null;
+  currency: string | null;
+}) {
+  const hasRange =
+    minPrice != null && maxPrice != null && minPrice !== maxPrice;
+  return (
+    <div className="flex items-center gap-2.5 bg-card px-4 py-3">
+      <DollarSign className="size-4 shrink-0 text-foreground-muted" />
+      <div>
+        <div className="text-xs text-foreground-muted">{label}</div>
+        <div className="text-sm font-medium">
+          {formatPrice(unitPrice, currency)}
+        </div>
+        {hasRange && (
+          <div className="text-xs text-foreground-muted">
+            {formatPrice(minPrice, currency)} –{' '}
+            {formatPrice(maxPrice!, currency)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 type MinifigPageClientProps = {
   figNum: string;
@@ -36,6 +82,12 @@ type MinifigPageClientProps = {
   initialYear?: number | null;
   /** Server-side resolved theme/category name */
   initialThemeName?: string | null;
+  /** Server-side resolved part count */
+  initialNumParts?: number | null;
+  /** Server-side resolved BrickLink minifig ID */
+  initialBlId?: string | null;
+  /** Server-side resolved sets count */
+  initialSetsCount?: number;
 };
 
 export function MinifigPageClient({
@@ -44,28 +96,30 @@ export function MinifigPageClient({
   initialImageUrl,
   initialYear,
   initialThemeName,
+  initialNumParts,
+  initialBlId,
+  initialSetsCount = 0,
 }: MinifigPageClientProps) {
   const trimmedFigNum = figNum.trim();
-  const { details, isLoading, error } = useMinifigDetails(trimmedFigNum, {
-    includeSubparts: false,
-    includePricing: false,
-    cache: 'no-store',
-  });
   const ownership = useMinifigOwnershipState({ figNum: trimmedFigNum });
   const { user, isLoading: isUserLoading } = useSupabaseUser();
   const { minifigs } = useUserMinifigs();
   const [showSubparts, setShowSubparts] = useState(false);
+  const [subpartsRequested, setSubpartsRequested] = useState(false);
   const { details: subpartsDetails, isLoading: isLoadingSubparts } =
     useMinifigDetails(trimmedFigNum, {
-      includeSubparts: showSubparts,
+      includeSubparts: true,
       includePricing: false,
       cache: 'no-store',
-      enabled: showSubparts,
+      enabled: subpartsRequested,
     });
-  // Initialize resolved name with server-provided value for immediate display
-  const [resolvedName, setResolvedName] = useState<string | null>(
-    initialName?.trim() || null
-  );
+
+  const { details: pricingData, isLoading: isPricingLoading } =
+    useMinifigDetails(trimmedFigNum, {
+      includeSubparts: false,
+      includePricing: true,
+    });
+  const priceGuide = pricingData?.priceGuide;
 
   const current = useMemo(
     () => minifigs.find(fig => fig.figNum === trimmedFigNum) ?? null,
@@ -82,86 +136,28 @@ export function MinifigPageClient({
     setQuantity(typeof q === 'number' && Number.isFinite(q) && q >= 0 ? q : 0);
   }, [current]);
 
-  const candidateName =
-    (details?.name && details.name.trim()) ||
-    (subpartsDetails?.name && subpartsDetails.name.trim()) ||
-    (current?.name && current.name.trim()) ||
-    initialName?.trim() ||
-    null;
-
-  useEffect(() => {
-    let cancelled = false;
-
-    // If we already have a good name (from meta/details/user collection), prefer it.
-    if (candidateName && candidateName !== trimmedFigNum) {
-      setResolvedName(candidateName);
-      return;
-    }
-
-    // If we've already resolved a better name or we don't have a fig id, skip.
-    if (resolvedName || !trimmedFigNum) {
-      return;
-    }
-
-    const run = async () => {
-      try {
-        const res = await fetch(
-          `/api/search/minifigs?q=${encodeURIComponent(trimmedFigNum)}&pageSize=10`,
-          { cache: 'force-cache' }
-        );
-        if (!res.ok) return;
-        const data = (await res.json()) as MinifigSearchPage;
-        if (cancelled || !data?.results?.length) return;
-
-        const exact =
-          data.results.find(r => r.figNum === trimmedFigNum) ?? data.results[0];
-        const nameFromSearch = exact?.name?.trim();
-        if (nameFromSearch && nameFromSearch !== trimmedFigNum) {
-          setResolvedName(nameFromSearch);
-        }
-      } catch {
-        // best-effort only; ignore search failures
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [candidateName, trimmedFigNum, resolvedName]);
-
   const displayName =
-    (resolvedName && resolvedName.trim()) ||
-    candidateName ||
+    initialName?.trim() ||
+    current?.name?.trim() ||
     trimmedFigNum ||
     'Minifigure';
-  // Use server-provided values as fallbacks for immediate display
-  const imageUrl =
-    details?.imageUrl ??
-    subpartsDetails?.imageUrl ??
-    current?.imageUrl ??
-    initialImageUrl ??
-    null;
-  const bricklinkId =
-    details?.blId ?? subpartsDetails?.blId ?? current?.blId ?? null;
+  const imageUrl = initialImageUrl ?? current?.imageUrl ?? null;
+  const bricklinkId = initialBlId ?? current?.blId ?? null;
   const idDisplay = formatMinifigId({
     bricklinkId: bricklinkId ?? undefined,
     rebrickableId: trimmedFigNum,
   });
   const routeId = pickMinifigRouteId(bricklinkId ?? undefined, trimmedFigNum);
   const partsCount =
-    typeof details?.numParts === 'number' && Number.isFinite(details.numParts)
-      ? details.numParts
+    typeof initialNumParts === 'number' && Number.isFinite(initialNumParts)
+      ? initialNumParts
       : null;
-  const themeName = details?.themeName ?? initialThemeName ?? null;
+  const themeName = initialThemeName ?? null;
   const year =
-    typeof details?.year === 'number' && Number.isFinite(details.year)
-      ? details.year
-      : typeof initialYear === 'number' && Number.isFinite(initialYear)
-        ? initialYear
-        : null;
-  const setsCount = subpartsDetails?.sets?.count ?? details?.sets?.count ?? 0;
+    typeof initialYear === 'number' && Number.isFinite(initialYear)
+      ? initialYear
+      : null;
+  const setsCount = initialSetsCount;
 
   const canEditQuantity =
     ownership.isAuthenticated &&
@@ -183,19 +179,10 @@ export function MinifigPageClient({
       .eq('fig_num', trimmedFigNum);
   };
 
-  const subparts = subpartsDetails?.subparts ?? details?.subparts ?? [];
+  const subparts = subpartsDetails?.subparts ?? [];
 
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-6 lg:py-10">
-      {/* Back navigation */}
-      <Link
-        href="/search?type=minifig"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-foreground-muted transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" />
-        <span>Back to search</span>
-      </Link>
-
       {/* Hero Section - Collectible showcase */}
       <Card variant="theme" elevated padding="none" className="overflow-hidden">
         {/* Image hero with subtle gradient backdrop */}
@@ -248,17 +235,6 @@ export function MinifigPageClient({
               </Link>
             )}
           </div>
-
-          {isLoading && (
-            <p className="mt-3 text-sm text-foreground-muted">
-              Loading details…
-            </p>
-          )}
-          {error && !isLoading && (
-            <p className="mt-3 text-sm text-danger">
-              Failed to load minifig details.
-            </p>
-          )}
         </div>
 
         {/* Stats grid */}
@@ -309,6 +285,41 @@ export function MinifigPageClient({
           </div>
         )}
 
+        {/* Pricing section */}
+        {isPricingLoading && (
+          <div className="border-t-2 border-subtle px-5 py-3 sm:px-6">
+            <p className="text-sm text-foreground-muted">Fetching price…</p>
+          </div>
+        )}
+        {!isPricingLoading && priceGuide?.used?.unitPrice != null && (
+          <div className="grid grid-cols-2 gap-px border-t-2 border-subtle bg-subtle">
+            <PriceCell
+              label={priceGuide.source === 'derived' ? 'Est. Used' : 'Used'}
+              unitPrice={priceGuide.used.unitPrice}
+              minPrice={priceGuide.used.minPrice}
+              maxPrice={priceGuide.used.maxPrice}
+              currency={priceGuide.used.currency}
+            />
+            {priceGuide.new?.unitPrice != null ? (
+              <PriceCell
+                label={priceGuide.source === 'derived' ? 'Est. New' : 'New'}
+                unitPrice={priceGuide.new.unitPrice}
+                minPrice={priceGuide.new.minPrice}
+                maxPrice={priceGuide.new.maxPrice}
+                currency={priceGuide.new.currency}
+              />
+            ) : (
+              <div className="flex items-center gap-2.5 bg-card px-4 py-3">
+                <DollarSign className="size-4 shrink-0 text-foreground-muted" />
+                <div>
+                  <div className="text-xs text-foreground-muted">New</div>
+                  <div className="text-sm text-foreground-muted">–</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Ownership section */}
         <div className="border-t-2 border-subtle bg-card-muted/30 px-5 py-4 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -341,25 +352,6 @@ export function MinifigPageClient({
               </p>
             )}
         </div>
-
-        {/* Price guide if available */}
-        {details?.priceGuide &&
-          bricklinkId &&
-          details.priceGuide.used.minPrice != null &&
-          details.priceGuide.used.maxPrice != null && (
-            <div className="border-t-2 border-subtle px-5 py-3 sm:px-6">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-foreground-muted">Used price range</span>
-                <span className="font-medium">
-                  ${details.priceGuide.used.minPrice.toFixed(2)} – $
-                  {details.priceGuide.used.maxPrice.toFixed(2)}{' '}
-                  <span className="text-foreground-muted">
-                    {details.priceGuide.used.currency ?? 'USD'}
-                  </span>
-                </span>
-              </div>
-            </div>
-          )}
       </Card>
 
       {/* Subparts section */}
@@ -367,7 +359,10 @@ export function MinifigPageClient({
         <button
           type="button"
           className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-card-muted/50 sm:px-6"
-          onClick={() => setShowSubparts(prev => !prev)}
+          onClick={() => {
+            if (!showSubparts) setSubpartsRequested(true);
+            setShowSubparts(prev => !prev);
+          }}
           aria-expanded={showSubparts}
         >
           <div className="flex items-center gap-2.5">

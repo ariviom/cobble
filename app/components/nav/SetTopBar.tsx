@@ -11,13 +11,14 @@ import {
   CardTitle,
 } from '@/app/components/ui/Card';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
+import { IconButton } from '@/app/components/ui/IconButton';
 import { Modal } from '@/app/components/ui/Modal';
 import { MoreDropdown } from '@/app/components/ui/MoreDropdown';
 import { cn } from '@/app/components/ui/utils';
 import { useOptionalInventoryData } from '@/app/components/set/InventoryProvider';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import { Check, Copy, Trophy, Users } from 'lucide-react';
+import { Check, Copy, Trophy, Users, X } from 'lucide-react';
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import QRCode from 'react-qr-code';
@@ -34,17 +35,22 @@ type SetTopBarProps = {
     active: boolean;
     loading: boolean;
     canHost: boolean;
+    isHost?: boolean;
     joinUrl: string | null;
     participants: Array<{
       id: string;
       displayName: string;
       piecesFound: number;
+      lastSeenAt: string;
     }>;
     totalPiecesFound: number;
     currentParticipantId?: string | null;
     buttonDisabled?: boolean;
+    slug: string | null;
     onStart: () => Promise<void> | void;
     onEnd: () => Promise<void> | void;
+    onContinue: (slug: string) => Promise<void> | void;
+    onRemoveParticipant: (participantId: string) => void;
   };
 };
 
@@ -74,6 +80,10 @@ export function SetTopBar({
     resetDateFormatted?: string;
     loading: boolean;
   }>({ canHost: true, loading: false });
+  const [previousSession, setPreviousSession] = useState<{
+    slug: string;
+    endedAt: string;
+  } | null>(null);
   const inventoryData = useOptionalInventoryData();
   const isLoading = inventoryData?.isLoading ?? false;
   const ownedTotal = inventoryData?.ownedTotal ?? 0;
@@ -105,6 +115,10 @@ export function SetTopBar({
       return last ? last.toUpperCase() : null;
     }
   }, [searchParty?.joinUrl]);
+  const isConnected = useCallback((lastSeenAt: string) => {
+    return Date.now() - new Date(lastSeenAt).getTime() < 2 * 60 * 1000;
+  }, []);
+
   const rankedParticipants = useMemo(
     () =>
       (searchParty?.participants ?? []).slice().sort((a, b) => {
@@ -120,6 +134,12 @@ export function SetTopBar({
     if (!searchParty) return;
     if (searchParty.loading || searchParty.active) return;
     await searchParty.onStart?.();
+  };
+
+  const handleContinuePreviousSession = async () => {
+    if (!searchParty || !previousSession) return;
+    if (searchParty.loading || searchParty.active) return;
+    await searchParty.onContinue?.(previousSession.slug);
   };
 
   const handleEndSearchTogether = async () => {
@@ -163,7 +183,25 @@ export function SetTopBar({
     };
 
     void fetchQuota();
-  }, [searchPartyModalOpen, user, searchParty?.active]);
+
+    const fetchPrevious = async () => {
+      try {
+        const res = await fetch(
+          `/api/group-sessions/previous?setNumber=${encodeURIComponent(setNumber)}`
+        );
+        if (res.ok) {
+          const data = (await res.json()) as {
+            session: { slug: string; endedAt: string } | null;
+          };
+          setPreviousSession(data.session);
+        }
+      } catch {
+        // Silently fail — continue-previous is optional
+      }
+    };
+
+    void fetchPrevious();
+  }, [searchPartyModalOpen, user, searchParty?.active, setNumber]);
 
   const handleImageError = async () => {
     if (hasTriedRefresh) {
@@ -358,19 +396,37 @@ export function SetTopBar({
                       >
                         Loading…
                       </Button>
-                    ) : quotaInfo.canHost ? (
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="lg"
-                        className="w-full"
-                        onClick={() => void handleStartSearchTogether()}
-                        disabled={searchParty.loading}
-                      >
-                        {searchParty.loading
-                          ? 'Starting…'
-                          : 'Start New Session'}
-                      </Button>
+                    ) : quotaInfo.canHost || previousSession ? (
+                      <div className="flex w-full flex-col gap-2">
+                        {previousSession && (
+                          <Button
+                            type="button"
+                            variant="primary"
+                            size="lg"
+                            className="w-full"
+                            onClick={() => void handleContinuePreviousSession()}
+                            disabled={searchParty.loading}
+                          >
+                            {searchParty.loading
+                              ? 'Continuing…'
+                              : 'Continue Previous Session'}
+                          </Button>
+                        )}
+                        {quotaInfo.canHost && (
+                          <Button
+                            type="button"
+                            variant={previousSession ? 'outline' : 'primary'}
+                            size="lg"
+                            className="w-full"
+                            onClick={() => void handleStartSearchTogether()}
+                            disabled={searchParty.loading}
+                          >
+                            {searchParty.loading && !previousSession
+                              ? 'Starting…'
+                              : 'Start New Session'}
+                          </Button>
+                        )}
+                      </div>
                     ) : (
                       <div className="flex w-full flex-col gap-2">
                         <Button
@@ -486,43 +542,79 @@ export function SetTopBar({
                           return (
                             <li
                               key={participant.id}
-                              className={cn(
-                                'flex items-center justify-between gap-3 rounded-md border-2 px-3 py-2',
-                                isFirst
-                                  ? 'border-brand-yellow/40 bg-brand-yellow/10'
-                                  : 'border-subtle bg-card-muted'
-                              )}
+                              className="flex items-center gap-1.5"
                             >
-                              <div className="flex min-w-0 items-center gap-3">
-                                <span
-                                  className={cn(
-                                    'flex size-6 items-center justify-center rounded-full text-xs font-bold',
-                                    isFirst
-                                      ? 'bg-brand-yellow text-neutral-900'
-                                      : 'bg-foreground/10 text-foreground-muted'
-                                  )}
-                                >
-                                  {index + 1}
-                                </span>
-                                <span
-                                  className={cn(
-                                    'truncate text-sm',
-                                    isCurrent ? 'font-bold' : 'font-medium'
-                                  )}
-                                >
-                                  {isCurrent ? 'You' : participant.displayName}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 text-sm font-bold">
-                                {isFirst && (
-                                  <Trophy className="size-4 text-brand-yellow" />
+                              <div
+                                className={cn(
+                                  'flex min-w-0 flex-1 items-center justify-between gap-3 rounded-md border-2 px-3 py-2',
+                                  isFirst
+                                    ? 'border-brand-yellow/40 bg-brand-yellow/10'
+                                    : 'border-subtle bg-card-muted'
                                 )}
-                                <span>
-                                  {(
-                                    participant.piecesFound ?? 0
-                                  ).toLocaleString()}
-                                </span>
+                              >
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <span
+                                    className={cn(
+                                      'flex size-6 items-center justify-center rounded-full text-xs font-bold',
+                                      isFirst
+                                        ? 'bg-brand-yellow text-neutral-900'
+                                        : 'bg-foreground/10 text-foreground-muted'
+                                    )}
+                                  >
+                                    {index + 1}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      'size-2 flex-shrink-0 rounded-full',
+                                      isConnected(participant.lastSeenAt)
+                                        ? 'bg-success'
+                                        : 'bg-foreground/20'
+                                    )}
+                                    title={
+                                      isConnected(participant.lastSeenAt)
+                                        ? 'Connected'
+                                        : 'Disconnected'
+                                    }
+                                  />
+                                  <span
+                                    className={cn(
+                                      'truncate text-sm',
+                                      isCurrent ? 'font-bold' : 'font-medium'
+                                    )}
+                                  >
+                                    {isCurrent
+                                      ? 'You'
+                                      : participant.displayName}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-sm font-bold">
+                                  {isFirst && (
+                                    <Trophy className="size-4 text-brand-yellow" />
+                                  )}
+                                  <span>
+                                    {(
+                                      participant.piecesFound ?? 0
+                                    ).toLocaleString()}
+                                  </span>
+                                </div>
                               </div>
+                              {searchParty.isHost &&
+                                (isCurrent ? (
+                                  <div className="w-7 flex-shrink-0" />
+                                ) : (
+                                  <IconButton
+                                    aria-label={`Remove ${participant.displayName}`}
+                                    icon={<X className="size-3.5" />}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="flex-shrink-0 rounded-full hover:bg-danger/10 hover:text-danger"
+                                    onClick={() =>
+                                      searchParty.onRemoveParticipant(
+                                        participant.id
+                                      )
+                                    }
+                                  />
+                                ))}
                             </li>
                           );
                         })}
@@ -530,7 +622,7 @@ export function SetTopBar({
                     )}
                   </CardContent>
                   <CardFooter className="mt-4">
-                    {searchParty.canHost ? (
+                    {searchParty.isHost ? (
                       <Button
                         type="button"
                         variant="destructive"
