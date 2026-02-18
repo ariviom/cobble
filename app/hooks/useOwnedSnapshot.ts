@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { useOwnedStore, type OwnedState } from '@/app/store/owned';
+import {
+  useOwnedStore,
+  readOwnedCache,
+  type OwnedState,
+} from '@/app/store/owned';
 
 export type UseOwnedSnapshotResult = {
   ownedByKey: Record<string, number>;
@@ -9,10 +13,7 @@ export type UseOwnedSnapshotResult = {
   isStorageAvailable: boolean;
 };
 
-export function useOwnedSnapshot(
-  setNumber: string,
-  keys: string[]
-): UseOwnedSnapshotResult {
+export function useOwnedSnapshot(setNumber: string): UseOwnedSnapshotResult {
   const version = useOwnedStore((state: OwnedState) => state._version);
   const hydratedSets = useOwnedStore(
     (state: OwnedState) => state._hydratedSets
@@ -20,7 +21,6 @@ export function useOwnedSnapshot(
   const storageAvailable = useOwnedStore(
     (state: OwnedState) => state._storageAvailable
   );
-  const getOwned = useOwnedStore((state: OwnedState) => state.getOwned);
   const hydrateFromIndexedDB = useOwnedStore(
     (state: OwnedState) => state.hydrateFromIndexedDB
   );
@@ -32,16 +32,13 @@ export function useOwnedSnapshot(
 
   const isHydrated = hydratedSets.has(setNumber);
 
+  // O(1) — direct Map lookup instead of O(n) key-by-key rebuild
   const ownedByKey = useMemo(() => {
-    // Touch version so React Hooks exhaustive-deps understands this dependency
-    // is intentional: we want to recompute whenever the owned store changes.
+    // Touch version so React understands this dependency is intentional:
+    // we want to recompute whenever the owned store changes.
     void version;
-    const result: Record<string, number> = {};
-    for (const key of keys) {
-      result[key] = getOwned(setNumber, key);
-    }
-    return result;
-  }, [getOwned, setNumber, keys, version]);
+    return readOwnedCache(setNumber);
+  }, [setNumber, version]);
 
   return {
     ownedByKey,

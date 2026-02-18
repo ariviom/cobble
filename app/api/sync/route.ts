@@ -1,8 +1,10 @@
 import { errorResponse } from '@/app/lib/api/responses';
+import { RATE_LIMIT, VALIDATION } from '@/app/lib/constants';
 import type { ApiErrorResponse } from '@/app/lib/domain/errors';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { incrementCounter, logEvent } from '@/lib/metrics';
+import { consumeRateLimit } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -24,11 +26,16 @@ type SyncResponse = {
 const MAX_OPERATIONS_PER_REQUEST = 100;
 
 const userSetPartsPayloadSchema = z.object({
-  set_num: z.string(),
-  part_num: z.string(),
-  color_id: z.number(),
+  set_num: z.string().min(1).max(VALIDATION.SET_NUM_MAX),
+  part_num: z.string().min(1).max(VALIDATION.PART_NUM_MAX),
+  color_id: z.number().int().min(0).max(VALIDATION.COLOR_ID_MAX),
   is_spare: z.boolean().default(false).optional(),
-  owned_quantity: z.number().optional(),
+  owned_quantity: z
+    .number()
+    .int()
+    .min(0)
+    .max(VALIDATION.OWNED_QTY_MAX)
+    .optional(),
 });
 
 const syncOperationSchema = z.object({
@@ -60,6 +67,19 @@ export const POST = withCsrfProtection(
       if (authError || !user) {
         incrementCounter('sync_unauthorized');
         return errorResponse('unauthorized');
+      }
+
+      // User-based rate limit
+      const userLimit = await consumeRateLimit(`sync:user:${user.id}`, {
+        windowMs: RATE_LIMIT.WINDOW_MS,
+        maxHits: RATE_LIMIT.SYNC_MAX,
+      });
+      if (!userLimit.allowed) {
+        return errorResponse('rate_limited', {
+          status: 429,
+          headers: { 'Retry-After': String(userLimit.retryAfterSeconds) },
+          details: { retryAfterSeconds: userLimit.retryAfterSeconds },
+        });
       }
 
       const parsed = syncRequestSchema.safeParse(await req.json());

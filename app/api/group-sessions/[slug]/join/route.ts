@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { errorResponse } from '@/app/lib/api/responses';
+import { VALIDATION } from '@/app/lib/constants';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
@@ -11,8 +12,16 @@ import type { Tables } from '@/supabase/types';
 type GroupSessionParticipantRow = Tables<'group_session_participants'>;
 
 const joinBodySchema = z.object({
-  displayName: z.string().trim().min(1, 'display_name_required'),
-  clientToken: z.string().trim().min(1, 'client_token_required'),
+  displayName: z
+    .string()
+    .trim()
+    .min(1, 'display_name_required')
+    .max(VALIDATION.DISPLAY_NAME_MAX),
+  clientToken: z
+    .string()
+    .trim()
+    .min(1, 'client_token_required')
+    .max(VALIDATION.CLIENT_TOKEN_MAX),
 });
 
 function extractSlug(req: NextRequest): string | null {
@@ -22,9 +31,12 @@ function extractSlug(req: NextRequest): string | null {
   if (!match || !match[1]) return null;
   try {
     const decoded = decodeURIComponent(match[1]).trim();
-    return decoded.length ? decoded : null;
+    if (!decoded.length || decoded.length > VALIDATION.SLUG_MAX) return null;
+    return decoded;
   } catch {
-    return match[1].trim() || null;
+    const trimmed = match[1].trim();
+    if (!trimmed || trimmed.length > VALIDATION.SLUG_MAX) return null;
+    return trimmed;
   }
 }
 
@@ -130,6 +142,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
           display_name: displayName,
           user_id: userId ?? existing.user_id,
           last_seen_at: new Date().toISOString(),
+          left_at: null,
         })
         .eq('id', existing.id as GroupSessionParticipantRow['id'])
         .select('*')

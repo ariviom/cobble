@@ -189,6 +189,12 @@ function read(setNumber: string): Record<string, number> {
 }
 
 /**
+ * Public read access to the owned cache — O(1) Map lookup.
+ * Used by `useOwnedSnapshot` to avoid rebuilding the object key-by-key.
+ */
+export const readOwnedCache = read;
+
+/**
  * Write owned data for a set.
  * Updates in-memory cache immediately, then schedules async persistence to IndexedDB.
  */

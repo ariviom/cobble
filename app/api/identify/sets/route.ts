@@ -1,6 +1,8 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { LRUCache } from '@/app/lib/cache/lru';
+import { RATE_LIMIT } from '@/app/lib/constants';
 import { logger } from '@/lib/metrics';
+import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
 import {
@@ -28,6 +30,20 @@ const identifySetsCache = new LRUCache<
  * - blColorId: BrickLink color ID (optional, mapped to RB if colorId not provided)
  */
 export async function GET(req: NextRequest) {
+  // IP-based rate limit
+  const clientIp = (await getClientIp(req)) ?? 'unknown';
+  const ipLimit = await consumeRateLimit(`identify-sets:ip:${clientIp}`, {
+    windowMs: RATE_LIMIT.WINDOW_MS,
+    maxHits: RATE_LIMIT.IDENTIFY_SETS_MAX,
+  });
+  if (!ipLimit.allowed) {
+    return errorResponse('rate_limited', {
+      status: 429,
+      headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+      details: { retryAfterSeconds: ipLimit.retryAfterSeconds },
+    });
+  }
+
   const { searchParams } = new URL(req.url);
   const part = searchParams.get('part');
   const colorIdRaw = searchParams.get('colorId');

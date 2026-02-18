@@ -16,6 +16,12 @@ export const RATE_LIMIT = {
   MAX_HITS: 60,
   /** Maximum identify requests per window */
   IDENTIFY_MAX: 12,
+  /** Maximum search requests per window per IP */
+  SEARCH_MAX: 30,
+  /** Maximum identify/sets requests per window per IP */
+  IDENTIFY_SETS_MAX: 20,
+  /** Maximum sync requests per window per user */
+  SYNC_MAX: 30,
 } as const;
 
 // =============================================================================
@@ -88,6 +94,31 @@ export const EXTERNAL = {
   EXTERNAL_CALL_BUDGET: 40,
   /** Maximum sets to enrich with Rebrickable metadata */
   ENRICH_LIMIT: 30,
+} as const;
+
+// =============================================================================
+// Circuit Breaker (BrickLink)
+// =============================================================================
+
+// =============================================================================
+// Request Validation
+// =============================================================================
+
+export const VALIDATION = {
+  /** Maximum display name length */
+  DISPLAY_NAME_MAX: 50,
+  /** Maximum client token length */
+  CLIENT_TOKEN_MAX: 255,
+  /** Maximum slug length */
+  SLUG_MAX: 50,
+  /** Maximum set number length */
+  SET_NUM_MAX: 20,
+  /** Maximum part number length */
+  PART_NUM_MAX: 50,
+  /** Maximum color ID value */
+  COLOR_ID_MAX: 10_000,
+  /** Maximum owned quantity value */
+  OWNED_QTY_MAX: 9_999,
 } as const;
 
 // =============================================================================

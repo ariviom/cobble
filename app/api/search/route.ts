@@ -1,7 +1,9 @@
 import { errorResponse } from '@/app/lib/api/responses';
+import { RATE_LIMIT } from '@/app/lib/constants';
 import { searchSetsPage } from '@/app/lib/services/search';
 import type { FilterType } from '@/app/types/search';
 import { incrementCounter, logEvent, logger } from '@/lib/metrics';
+import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
@@ -38,6 +40,20 @@ const querySchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
+  // IP-based rate limit
+  const clientIp = (await getClientIp(req)) ?? 'unknown';
+  const ipLimit = await consumeRateLimit(`search:ip:${clientIp}`, {
+    windowMs: RATE_LIMIT.WINDOW_MS,
+    maxHits: RATE_LIMIT.SEARCH_MAX,
+  });
+  if (!ipLimit.allowed) {
+    return errorResponse('rate_limited', {
+      status: 429,
+      headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+      details: { retryAfterSeconds: ipLimit.retryAfterSeconds },
+    });
+  }
+
   const { searchParams } = new URL(req.url);
   const parsed = querySchema.safeParse(
     Object.fromEntries(searchParams.entries())

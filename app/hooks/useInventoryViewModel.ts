@@ -23,6 +23,7 @@ import {
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
 import {
   useCallback,
+  useDeferredValue,
   useMemo,
   type Dispatch,
   type SetStateAction,
@@ -141,6 +142,9 @@ export function useInventoryViewModel(
     }),
     [sortKey, sortDir, filter, view, itemSize, groupBy]
   );
+
+  // Defer ownedByKey for non-critical derivations (countsByParent, availableColors)
+  const deferredOwnedByKey = useDeferredValue(ownedByKey);
 
   const {
     sizeByIndex,
@@ -331,7 +335,7 @@ export function useInventoryViewModel(
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
       const key = keys[i]!;
-      const ownedValue = ownedByKey[key] ?? 0;
+      const ownedValue = deferredOwnedByKey[key] ?? 0;
 
       if (filter.display === 'missing') {
         if (computeMissing(r.quantityRequired, ownedValue) === 0) continue;
@@ -347,7 +351,7 @@ export function useInventoryViewModel(
       counts[parent] = (counts[parent] ?? 0) + 1;
     }
     return counts;
-  }, [rows, keys, filter, parentByIndex, ownedByKey]);
+  }, [rows, keys, filter, parentByIndex, deferredOwnedByKey]);
 
   // Colors that have at least one matching piece after display and category filters
   // (but before color filter is applied) - used to disable color options with no matches
@@ -362,7 +366,7 @@ export function useInventoryViewModel(
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
       const key = keys[i]!;
-      const ownedValue = ownedByKey[key] ?? 0;
+      const ownedValue = deferredOwnedByKey[key] ?? 0;
 
       // Apply display filter
       if (filter.display === 'missing') {
@@ -387,7 +391,7 @@ export function useInventoryViewModel(
     }
 
     return available;
-  }, [rows, keys, filter, parentByIndex, categoryByIndex, ownedByKey]);
+  }, [rows, keys, filter, parentByIndex, categoryByIndex, deferredOwnedByKey]);
 
   const parentOptions = useMemo(
     () => Array.from(new Set(parentByIndex)).filter(Boolean).sort(),

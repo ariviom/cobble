@@ -428,17 +428,21 @@ export function InventoryProvider({
   // Combined owned change handler
   // Note: Minifig cascade (parent ↔ children sync) is handled in useSupabaseOwned
   // -------------------------------------------------------------------------
+  // Use a ref for ownedByKey so handleOwnedChange doesn't re-create on every edit
+  const ownedByKeyStableRef = useRef(ownedByKey);
+  ownedByKeyStableRef.current = ownedByKey;
+
   const handleOwnedChange = useCallback(
     (key: string, nextOwned: number) => {
       const row = rows.find(r => r.inventoryKey === key);
       const maxQty = row?.quantityRequired ?? 999;
       const clamped = clampOwned(nextOwned, maxQty);
-      const prevOwned = ownedByKey[key] ?? 0;
+      const prevOwned = ownedByKeyStableRef.current[key] ?? 0;
 
       handleOwnedChangeBase(key, clamped);
       onAfterOwnedChange?.(key, clamped, prevOwned);
     },
-    [rows, ownedByKey, handleOwnedChangeBase, onAfterOwnedChange]
+    [rows, handleOwnedChangeBase, onAfterOwnedChange]
   );
 
   // -------------------------------------------------------------------------

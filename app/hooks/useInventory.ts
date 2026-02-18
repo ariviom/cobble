@@ -13,7 +13,7 @@ import {
 } from '@/app/lib/localDb';
 import { migrateOwnedKeys } from '@/app/lib/localDb/ownedStore';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef } from 'react';
 
 export type MinifigStatus = {
   state: 'complete' | 'missing' | 'unknown';
@@ -130,7 +130,11 @@ async function fetchInventory(
 
 export function useInventory(
   setNumber: string,
-  options?: { initialRows?: InventoryRow[] | null }
+  options?: {
+    initialRows?: InventoryRow[] | null;
+    /** When provided, used instead of the Zustand owned store. */
+    ownedByKeyOverride?: Record<string, number> | undefined;
+  }
 ): UseInventoryResult {
   const { data, isLoading, error } = useQuery<FetchInventoryResult>({
     queryKey: ['inventory', setNumber],
@@ -177,11 +181,21 @@ export function useInventory(
   );
   const required = useMemo(() => rows.map(r => r.quantityRequired), [rows]);
 
-  const {
-    ownedByKey,
-    isHydrated: isOwnedHydrated,
-    isStorageAvailable,
-  } = useOwnedSnapshot(setNumber, keys);
+  const snapshot = useOwnedSnapshot(setNumber);
+
+  // When an override is provided (SP joiner ephemeral state), use it instead
+  // of the persisted store. The snapshot hook still runs (hooks can't be conditional)
+  // but its values are ignored.
+  const ownedByKey = options?.ownedByKeyOverride ?? snapshot.ownedByKey;
+  const isOwnedHydrated = options?.ownedByKeyOverride
+    ? true
+    : snapshot.isHydrated;
+  const isStorageAvailable = options?.ownedByKeyOverride
+    ? true
+    : snapshot.isStorageAvailable;
+
+  // Defer non-critical derivations so they don't block input responsiveness
+  const deferredOwnedByKey = useDeferredValue(ownedByKey);
 
   // One-time migration of owned data from legacy BL keys to canonical keys
   const migrationRanRef = useRef(false);
@@ -218,7 +232,7 @@ export function useInventory(
         continue; // fig parent rows are UX-only; exclude from totals
       }
       totalRequired += r.quantityRequired;
-      const owned = ownedByKey[k] ?? 0;
+      const owned = deferredOwnedByKey[k] ?? 0;
       totalMissing += Math.max(0, r.quantityRequired - owned);
     }
     return {
@@ -226,7 +240,7 @@ export function useInventory(
       totalMissing,
       ownedTotal: totalRequired - totalMissing,
     };
-  }, [rows, keys, ownedByKey]);
+  }, [rows, keys, deferredOwnedByKey]);
 
   // Compute minifig status based on subparts (Children → Parent display)
   const minifigStatusByKey = useMemo(() => {
@@ -257,7 +271,7 @@ export function useInventory(
       let missingCount = 0;
 
       for (const rel of relations) {
-        const childOwned = ownedByKey[rel.key] ?? 0;
+        const childOwned = deferredOwnedByKey[rel.key] ?? 0;
         const childRow = rowByKey.get(rel.key);
 
         // Total parts needed for THIS minifig type (per-minifig × minifig count)
@@ -285,7 +299,7 @@ export function useInventory(
     }
 
     return result;
-  }, [rows, ownedByKey]);
+  }, [rows, deferredOwnedByKey]);
 
   const computeMissingRows = () => {
     const result: MissingRow[] = [];
