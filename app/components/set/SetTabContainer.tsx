@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/app/components/ui/utils';
 import { SetTopBar } from '@/app/components/nav/SetTopBar';
 import { Inventory } from '@/app/components/set/Inventory';
@@ -56,6 +56,7 @@ export function SetTabContainer({
   onCancelClose,
 }: SetTabContainerProps) {
   const sp = useSearchPartySession(tab, isActive);
+  const [searchPartyModalOpen, setSearchPartyModalOpen] = useState(false);
 
   const spChannel = useSearchPartyChannel({
     groupSessionId: sp.groupSession?.id ?? null,
@@ -107,6 +108,8 @@ export function SetTabContainer({
                 savedScrollTop={savedScrollTop}
                 isDesktop={isDesktop}
                 searchParty={sp.searchPartyProp}
+                searchPartyModalOpen={searchPartyModalOpen}
+                setSearchPartyModalOpen={setSearchPartyModalOpen}
               />
             ) : null}
           </InventoryProvider>
@@ -202,6 +205,8 @@ type SetTabContainerContentProps = {
     onContinue: (slug: string) => Promise<void> | void;
     onRemoveParticipant: (participantId: string) => void;
   };
+  searchPartyModalOpen: boolean;
+  setSearchPartyModalOpen: (open: boolean) => void;
 };
 
 function SetTabContainerContent({
@@ -210,6 +215,8 @@ function SetTabContainerContent({
   savedScrollTop,
   isDesktop,
   searchParty,
+  searchPartyModalOpen,
+  setSearchPartyModalOpen,
 }: SetTabContainerContentProps) {
   const { scrollerKey, isLoading, error } = useInventoryData();
   const { getControlsState } = useInventoryControls();
@@ -277,6 +284,8 @@ function SetTabContainerContent({
           numParts={tab.numParts}
           themeId={tab.themeId ?? null}
           searchParty={searchParty}
+          searchPartyModalOpen={searchPartyModalOpen}
+          setSearchPartyModalOpen={setSearchPartyModalOpen}
         />
         <InventoryControls isLoading={isLoading} />
       </div>

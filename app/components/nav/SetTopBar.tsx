@@ -52,6 +52,8 @@ type SetTopBarProps = {
     onContinue: (slug: string) => Promise<void> | void;
     onRemoveParticipant: (participantId: string) => void;
   };
+  searchPartyModalOpen?: boolean;
+  setSearchPartyModalOpen?: (open: boolean) => void;
 };
 
 export function SetTopBar({
@@ -63,12 +65,20 @@ export function SetTopBar({
   themeId,
   hideMoreMenu,
   searchParty,
+  searchPartyModalOpen: searchPartyModalOpenProp,
+  setSearchPartyModalOpen: setSearchPartyModalOpenProp,
 }: SetTopBarProps) {
+  // Modal state: use hoisted props when provided (survives conditional remounts),
+  // fall back to local state for standalone usage (e.g. group join page).
+  const [localModalOpen, setLocalModalOpen] = useState(false);
+  const searchPartyModalOpen = searchPartyModalOpenProp ?? localModalOpen;
+  const setSearchTogetherModalOpen =
+    setSearchPartyModalOpenProp ?? setLocalModalOpen;
+
   const [resolvedImageUrl, setResolvedImageUrl] = useState<string | null>(
     imageUrl ?? null
   );
   const [hasTriedRefresh, setHasTriedRefresh] = useState(false);
-  const [searchPartyModalOpen, setSearchTogetherModalOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [quotaInfo, setQuotaInfo] = useState<{
@@ -146,6 +156,7 @@ export function SetTopBar({
     if (!searchParty) return;
     if (!searchParty.active || searchParty.loading) return;
     await searchParty.onEnd?.();
+    setSearchTogetherModalOpen(false);
   };
 
   const handleCopyShareLink = useCallback(() => {
@@ -322,7 +333,7 @@ export function SetTopBar({
                   <Users className="size-3.5" />
                   Search Party
                   {searchParty.active && (
-                    <div className="text-2xs absolute -top-2.5 right-[-14px] flex size-6 items-center justify-center rounded-full border-2 border-white bg-brand-yellow font-extrabold text-neutral-900 shadow-sm">
+                    <div className="absolute -top-2.5 right-[-14px] flex size-6 items-center justify-center rounded-full border-2 border-white bg-brand-yellow text-2xs font-extrabold text-neutral-900 shadow-sm">
                       {participantCount.toLocaleString()}
                     </div>
                   )}

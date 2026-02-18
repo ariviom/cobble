@@ -93,6 +93,7 @@ type OpenTabsState = {
   getTabState: (id: string) => TabViewState | undefined;
   getActiveTab: () => OpenTab | undefined;
   clearGroupSession: (tabId: string) => void;
+  replaceTabWithLanding: (tabId: string) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -316,6 +317,7 @@ type DataState = Omit<
   | 'getTabState'
   | 'getActiveTab'
   | 'clearGroupSession'
+  | 'replaceTabWithLanding'
 >;
 
 function parsePersisted(raw: string | null): DataState {
@@ -612,6 +614,28 @@ export const useOpenTabsStore = create<OpenTabsState>((set, get) => ({
     });
 
     const nextState: OpenTabsState = { ...get(), tabs: nextTabs };
+    set(nextState);
+    persistState(nextState);
+  },
+
+  replaceTabWithLanding: (tabId: string) => {
+    const { tabs, tabStates } = get();
+    const normalizedId = tabId.toLowerCase();
+
+    const landing = createLandingTab();
+    const nextTabs = tabs.map(t =>
+      t.id.toLowerCase() === normalizedId ? landing : t
+    );
+
+    const nextTabStates = { ...tabStates };
+    delete nextTabStates[tabId];
+
+    const nextState: OpenTabsState = {
+      ...get(),
+      tabs: nextTabs,
+      activeTabId: landing.id,
+      tabStates: nextTabStates,
+    };
     set(nextState);
     persistState(nextState);
   },

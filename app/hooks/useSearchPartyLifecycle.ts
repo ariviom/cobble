@@ -21,8 +21,8 @@ type UseSearchPartyLifecycleArgs = {
   clientId: string | null;
   setParticipants: React.Dispatch<React.SetStateAction<GroupParticipant[]>>;
   openTab: (tab: SetTab) => void;
-  closeTab: (id: string) => void;
   clearGroupSession: (tabId: string) => void;
+  replaceTabWithLanding: (tabId: string) => void;
   broadcastSessionEndedRef: React.MutableRefObject<() => void>;
   broadcastParticipantRemovedRef: React.MutableRefObject<(id: string) => void>;
 };
@@ -51,8 +51,8 @@ export function useSearchPartyLifecycle({
   clientId,
   setParticipants,
   openTab,
-  closeTab,
   clearGroupSession,
+  replaceTabWithLanding,
   broadcastSessionEndedRef,
   broadcastParticipantRemovedRef,
 }: UseSearchPartyLifecycleArgs): UseSearchPartyLifecycleResult {
@@ -71,24 +71,24 @@ export function useSearchPartyLifecycle({
     if (slug) clearStoredGroupSession(slug);
 
     if (isSpTab) {
-      if (isActiveRef.current) {
-        clearGroupSession(tab.id);
-        setSessionEndedModalOpen(true);
-      } else {
-        closeTab(tab.id);
-      }
+      // SP tabs are joiner-only — replace with landing to prevent
+      // the tab from persisting as a free set tab after the session ends.
+      replaceTabWithLanding(tab.id);
     } else {
       clearGroupSession(tab.id);
       setSessionEndedModalOpen(true);
     }
-  }, [clearGroupSession, closeTab, tab.id, tab.groupSessionSlug, isSpTab]);
+  }, [
+    clearGroupSession,
+    replaceTabWithLanding,
+    tab.id,
+    tab.groupSessionSlug,
+    isSpTab,
+  ]);
 
   const handleSessionEndedDismiss = useCallback(() => {
     setSessionEndedModalOpen(false);
-    if (isSpTab) {
-      closeTab(tab.id);
-    }
-  }, [isSpTab, closeTab, tab.id]);
+  }, []);
 
   const handleStartSearchTogether = useCallback(async () => {
     if (!user) {

@@ -90,8 +90,10 @@ export function useSearchPartySession(
   const origin = useOrigin();
   const { user } = useSupabaseUser();
   const openTab = useOpenTabsStore(state => state.openTab);
-  const closeTab = useOpenTabsStore(state => state.closeTab);
   const clearGroupSession = useOpenTabsStore(state => state.clearGroupSession);
+  const replaceTabWithLanding = useOpenTabsStore(
+    state => state.replaceTabWithLanding
+  );
 
   // ---------------------------------------------------------------------------
   // Derived session state from tab (single source of truth)
@@ -131,8 +133,8 @@ export function useSearchPartySession(
     clientId,
     setParticipants: (...args) => setParticipantsRef.current(...args),
     openTab,
-    closeTab,
     clearGroupSession,
+    replaceTabWithLanding,
     broadcastSessionEndedRef,
     broadcastParticipantRemovedRef,
   });
@@ -172,7 +174,13 @@ export function useSearchPartySession(
     hasActiveSession: !!groupSession,
     setParticipants,
     openTab,
-    onSessionNotFound: () => setAutoRejoinModalOpen(true),
+    onSessionNotFound: () => {
+      if (isSpTab) {
+        replaceTabWithLanding(tab.id);
+      } else {
+        setAutoRejoinModalOpen(true);
+      }
+    },
   });
 
   // Combine session-ended modals from lifecycle and auto-rejoin
