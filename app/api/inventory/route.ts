@@ -17,7 +17,21 @@ const querySchema = z.object({
   includeMeta: z.enum(['true', 'false']).optional(),
 });
 
+// In-process cache for inventory version (changes only on catalog re-ingestion)
+const VERSION_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+let versionCache: { at: number; version: string | null } | null = null;
+
+/** Reset cache (for testing). */
+export function _resetVersionCache(): void {
+  versionCache = null;
+}
+
 async function getInventoryVersion(): Promise<string | null> {
+  const now = Date.now();
+  if (versionCache && now - versionCache.at < VERSION_CACHE_TTL_MS) {
+    return versionCache.version;
+  }
+
   try {
     const supabase = getCatalogReadClient();
     const { data, error } = await supabase
@@ -29,7 +43,9 @@ async function getInventoryVersion(): Promise<string | null> {
       logger.warn('inventory.version.read_failed', { error: error.message });
       return null;
     }
-    return (data?.version as string | null | undefined) ?? null;
+    const version = (data?.version as string | null | undefined) ?? null;
+    versionCache = { at: now, version };
+    return version;
   } catch (err) {
     logger.warn('inventory.version.error', {
       error: err instanceof Error ? err.message : String(err),
@@ -55,8 +71,10 @@ export async function GET(req: NextRequest) {
   const includeMeta = parsed.data.includeMeta === 'true';
 
   try {
-    const inventoryVersion = await getInventoryVersion();
-    const result = await getSetInventoryRowsWithMeta(set);
+    const [inventoryVersion, result] = await Promise.all([
+      getInventoryVersion(),
+      getSetInventoryRowsWithMeta(set),
+    ]);
     incrementCounter('inventory_fetched', { setNumber: set });
     logEvent('inventory_response', {
       setNumber: set,
@@ -69,14 +87,10 @@ export async function GET(req: NextRequest) {
       rows: typeof result.rows;
       meta?: typeof result.minifigMeta;
       inventoryVersion: string | null;
-      spares?: typeof result.spares;
     } = { rows: result.rows, inventoryVersion };
 
     if (includeMeta && result.minifigMeta) {
       response.meta = result.minifigMeta;
-    }
-    if (result.spares) {
-      response.spares = result.spares;
     }
 
     return NextResponse.json(response, {

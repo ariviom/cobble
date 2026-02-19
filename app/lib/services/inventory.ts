@@ -1,9 +1,7 @@
 import type { InventoryRow } from '@/app/components/set/types';
-import { LRUCache } from '@/app/lib/cache/lru';
 import { getSetInventoryLocal } from '@/app/lib/catalog';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { getSetInventory } from '@/app/lib/rebrickable';
-import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import {
   buildResolutionContext,
   resolveCatalogPartIdentity,
@@ -19,99 +17,7 @@ export type InventoryResult = {
     /** How many minifigs in the set */
     totalMinifigs: number;
   };
-  /** Spare-part enrichment metadata */
-  spares?: {
-    status: 'ok' | 'error';
-    spareCount: number;
-    lastChecked: string | null;
-  };
 };
-
-/** Spare keys cached per set number */
-type SpareCacheValue = Set<string>;
-
-const SPARE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const SPARE_CACHE_MAX = 200;
-const spareCache = new LRUCache<string, SpareCacheValue>(
-  SPARE_CACHE_MAX,
-  SPARE_CACHE_TTL_MS
-);
-const inFlightSpares = new Map<string, Promise<SpareCacheValue>>();
-
-type RebrickableSparePage = {
-  results: Array<{
-    part: { part_num: string };
-    color: { id: number };
-    is_spare: boolean;
-  }>;
-  next: string | null;
-};
-
-function buildSpareKeys(results: RebrickableSparePage['results']): Set<string> {
-  const keys = new Set<string>();
-  for (const row of results) {
-    if (!row?.is_spare) continue;
-    const partNum = row.part?.part_num;
-    const colorId = row.color?.id;
-    if (typeof partNum === 'string' && typeof colorId === 'number') {
-      keys.add(`${partNum}:${colorId}`);
-    }
-  }
-  return keys;
-}
-
-async function fetchSparesFromRebrickable(
-  setNumber: string
-): Promise<SpareCacheValue> {
-  const first = await rbFetch<RebrickableSparePage>(
-    `/lego/sets/${encodeURIComponent(setNumber)}/parts/`,
-    { page_size: 1000, inc_part_details: 1 }
-  );
-  const all: RebrickableSparePage['results'] = [...(first.results ?? [])];
-  let next = first.next;
-  while (next) {
-    const page = await rbFetchAbsolute<RebrickableSparePage>(next);
-    if (Array.isArray(page.results)) {
-      all.push(...page.results);
-    }
-    next = page.next;
-  }
-  return buildSpareKeys(all);
-}
-
-async function getSpareCacheEntry(
-  setNumber: string
-): Promise<SpareCacheValue | null> {
-  const cached = spareCache.get(setNumber);
-  if (cached) {
-    return cached;
-  }
-  if (inFlightSpares.has(setNumber)) {
-    return inFlightSpares.get(setNumber)!;
-  }
-  const promise = fetchSparesFromRebrickable(setNumber)
-    .then(keys => {
-      spareCache.set(setNumber, keys);
-      return keys;
-    })
-    .catch(err => {
-      logger.warn('inventory.spares.fetch_failed', {
-        setNumber,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      throw err;
-    })
-    .finally(() => {
-      inFlightSpares.delete(setNumber);
-    });
-
-  inFlightSpares.set(setNumber, promise);
-  try {
-    return await promise;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Get inventory rows for a set with minifig subpart data from RB catalog.
@@ -376,125 +282,80 @@ export async function getSetInventoryRowsWithMeta(
     };
   }
 
-  // Spare-part filtering with cached live fetch (best-effort)
+  // ── Rarity enrichment for subpart rows ──
+  // Catalog parts and minifig parents get rarity from getSetInventoryLocal.
+  // Only new child rows (from rb_minifig_parts) need rarity attached here.
   try {
-    const spareKeys = await getSpareCacheEntry(setNumber);
-    if (spareKeys) {
-      if (spareKeys.size > 0) {
-        const filteredRows = result.rows.filter(row => {
-          const key = row.inventoryKey ?? `${row.partId}:${row.colorId}`;
-          return key ? !spareKeys.has(key) : true;
-        });
-        result.rows = filteredRows;
-      }
-      result.spares = {
-        status: 'ok',
-        spareCount: spareKeys.size,
-        lastChecked: new Date().toISOString(),
-      };
-    } else {
-      result.spares = {
-        status: 'error',
-        spareCount: 0,
-        lastChecked: null,
-      };
-    }
-  } catch (err) {
-    logger.warn('inventory.spares.apply_failed', {
-      setNumber,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    result.spares = {
-      status: 'error',
-      spareCount: 0,
-      lastChecked: null,
-    };
-  }
-
-  // ── Rarity enrichment from precomputed tables ──
-  try {
-    const supabase = getCatalogReadClient();
-
-    // Collect unique part+color pairs (non-fig rows) and fig nums
-    const partColorPairs: Array<{ partNum: string; colorId: number }> = [];
-    const figNums: string[] = [];
-
+    const subpartPairs: Array<{ partNum: string; colorId: number }> = [];
+    const subpartRows: InventoryRow[] = [];
     for (const row of result.rows) {
-      if (row.partId.startsWith('fig:')) {
-        figNums.push(row.partId.slice(4));
-      } else {
-        partColorPairs.push({ partNum: row.partId, colorId: row.colorId });
+      if (row.setCount == null && !row.partId.startsWith('fig:')) {
+        subpartPairs.push({ partNum: row.partId, colorId: row.colorId });
+        subpartRows.push(row);
       }
     }
 
-    // Batch query rb_part_rarity
-    const rarityMap = new Map<string, number>();
-    // Smaller batches: compound .or() filters are longer per item than simple .in()
-    const BATCH_SIZE = 100;
-
-    // Note: rb_part_rarity / rb_minifig_rarity are new tables.
-    // Supabase types may not include them until `npm run generate-types`.
-    // Use type casts to avoid TS errors until types are regenerated.
-    type PartRarityRow = {
-      part_num: string;
-      color_id: number;
-      set_count: number;
-    };
-    type MinifigRarityRow = {
-      fig_num: string;
-      min_subpart_set_count: number;
-    };
-
-    // Query exact (part_num, color_id) pairs to avoid 1000-row PostgREST cap.
-    // Using .or() with compound conditions returns only needed rows.
-    for (let i = 0; i < partColorPairs.length; i += BATCH_SIZE) {
-      const batch = partColorPairs.slice(i, i + BATCH_SIZE);
-      const orFilter = batch
-        .map(p => `and(part_num.eq.${p.partNum},color_id.eq.${p.colorId})`)
-        .join(',');
-
-      const { data: rarityData } = (await supabase
-        .from('rb_part_rarity' as never)
-        .select('part_num, color_id, set_count')
-        .or(orFilter)) as unknown as {
-        data: PartRarityRow[] | null;
-      };
-
-      for (const r of rarityData ?? []) {
-        rarityMap.set(`${r.part_num}:${r.color_id}`, r.set_count);
-      }
-    }
-
-    // Batch query rb_minifig_rarity
-    const minifigRarityMap = new Map<string, number>();
-    for (let i = 0; i < figNums.length; i += BATCH_SIZE) {
-      const batch = figNums.slice(i, i + BATCH_SIZE);
-      const { data: mfData } = (await supabase
-        .from('rb_minifig_rarity' as never)
-        .select('fig_num, min_subpart_set_count')
-        .in('fig_num', batch)) as unknown as {
-        data: MinifigRarityRow[] | null;
-      };
-
-      for (const m of mfData ?? []) {
-        minifigRarityMap.set(m.fig_num, m.min_subpart_set_count);
-      }
-    }
-
-    // Attach setCount to rows
-    for (const row of result.rows) {
-      if (row.partId.startsWith('fig:')) {
-        row.setCount = minifigRarityMap.get(row.partId.slice(4)) ?? null;
-      } else {
+    if (subpartPairs.length > 0) {
+      const rarityClient = getCatalogReadClient();
+      const rarityMap = await queryPartRarity(rarityClient, subpartPairs);
+      for (const row of subpartRows) {
         row.setCount = rarityMap.get(`${row.partId}:${row.colorId}`) ?? null;
       }
     }
   } catch (err) {
-    logger.warn('inventory.rarity.enrich_failed', {
+    logger.warn('inventory.rarity.subpart_enrich_failed', {
       setNumber,
       error: err instanceof Error ? err.message : String(err),
     });
   }
 
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Rarity query helper — fires all batches in parallel
+// ---------------------------------------------------------------------------
+
+type PartRarityRow = {
+  part_num: string;
+  color_id: number;
+  set_count: number;
+};
+
+const RARITY_BATCH_SIZE = 100;
+
+async function queryPartRarity(
+  supabase: ReturnType<typeof getCatalogReadClient>,
+  pairs: Array<{ partNum: string; colorId: number }>
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (pairs.length === 0) return map;
+
+  // Split into batches and fire all in parallel
+  const batches: Array<Array<{ partNum: string; colorId: number }>> = [];
+  for (let i = 0; i < pairs.length; i += RARITY_BATCH_SIZE) {
+    batches.push(pairs.slice(i, i + RARITY_BATCH_SIZE));
+  }
+
+  const results = await Promise.all(
+    batches.map(batch => {
+      const orFilter = batch
+        .map(p => `and(part_num.eq.${p.partNum},color_id.eq.${p.colorId})`)
+        .join(',');
+      return supabase
+        .from('rb_part_rarity' as never)
+        .select('part_num, color_id, set_count')
+        .or(orFilter) as unknown as Promise<{
+        data: PartRarityRow[] | null;
+      }>;
+    })
+  );
+
+  for (const { data } of results) {
+    for (const r of data ?? []) {
+      map.set(`${r.part_num}:${r.color_id}`, r.set_count);
+    }
+  }
+
+  return map;
 }

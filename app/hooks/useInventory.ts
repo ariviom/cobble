@@ -8,6 +8,7 @@ import { getLegacyKeys } from '@/app/lib/domain/partIdentity';
 import type { MissingRow } from '@/app/lib/export/rebrickableCsv';
 import {
   getCachedInventory,
+  getLocalDb,
   isIndexedDBAvailable,
   setCachedInventory,
 } from '@/app/lib/localDb';
@@ -48,54 +49,87 @@ type FetchInventoryResult = {
 };
 
 /**
+ * Fetch the catalog inventory version from the API.
+ * Returns null on failure (graceful degradation to TTL-only validation).
+ */
+async function fetchInventoryVersion(
+  signal?: AbortSignal
+): Promise<string | null> {
+  try {
+    const versionRes = await fetch(
+      `/api/catalog/versions?sources=inventory_parts`,
+      { cache: 'no-store', signal: signal ?? null }
+    );
+    if (versionRes.ok) {
+      const payload = (await versionRes.json()) as {
+        versions?: Record<string, string | null>;
+      };
+      return payload.versions?.inventory_parts ?? null;
+    }
+  } catch (err) {
+    // AbortError is expected during React strict mode cleanup - don't log it
+    const isAbort = err instanceof DOMException && err.name === 'AbortError';
+    if (!isAbort) {
+      console.warn(
+        'Failed to fetch inventory version (will fall back to TTL):',
+        err
+      );
+    }
+  }
+  return null;
+}
+
+/**
  * Fetch inventory with local-first caching.
  *
  * Flow:
- * 1. Check IndexedDB cache for valid cached data
- * 2. If found and fresh, return immediately (no network)
- * 3. Otherwise, fetch from /api/inventory
+ * 1. Fire version fetch and IDB cache read in parallel
+ * 2. On cache hit, validate version; return if valid
+ * 3. On cache miss, skip straight to /api/inventory (no version wait)
  * 4. Cache the result in IndexedDB for future use
  */
 async function fetchInventory(
   setNumber: string,
   signal?: AbortSignal
 ): Promise<FetchInventoryResult> {
-  // Try to fetch catalog inventory version so we can validate local cache
-  let inventoryVersion: string | null = null;
   if (isIndexedDBAvailable()) {
-    try {
-      const versionRes = await fetch(
-        `/api/catalog/versions?sources=inventory_parts`,
-        { cache: 'no-store', signal: signal ?? null }
-      );
-      if (versionRes.ok) {
-        const payload = (await versionRes.json()) as {
-          versions?: Record<string, string | null>;
-        };
-        inventoryVersion = payload.versions?.inventory_parts ?? null;
-      }
-    } catch (err) {
-      // AbortError is expected during React strict mode cleanup - don't log it
-      const isAbort = err instanceof DOMException && err.name === 'AbortError';
-      if (!isAbort) {
-        console.warn(
-          'Failed to fetch inventory version (will fall back to TTL):',
-          err
-        );
-      }
-    }
-  }
+    // Fire version fetch and IDB read in parallel — IDB read uses TTL-only
+    // validation so it doesn't block on the network request
+    const versionPromise = fetchInventoryVersion(signal);
+    let cached: InventoryRow[] | null = null;
 
-  // Try local cache first (if IndexedDB is available)
-  if (isIndexedDBAvailable()) {
     try {
-      const cached = await getCachedInventory(setNumber, inventoryVersion);
-      if (cached && cached.length > 0) {
-        return { rows: cached, fromCache: true, inventoryVersion };
-      }
+      cached = await getCachedInventory(setNumber);
     } catch (error) {
       console.warn('Failed to read inventory from cache:', error);
     }
+
+    if (cached && cached.length > 0) {
+      // Cache hit — validate version (await the background fetch)
+      const inventoryVersion = await versionPromise;
+      if (inventoryVersion) {
+        // Check stored version against fetched version
+        try {
+          const db = getLocalDb();
+          const meta = await db.catalogSetMeta.get(setNumber);
+          if (
+            meta?.inventoryVersion &&
+            meta.inventoryVersion !== inventoryVersion
+          ) {
+            // Version mismatch — data is stale, fall through to API
+          } else {
+            return { rows: cached, fromCache: true, inventoryVersion };
+          }
+        } catch {
+          // Meta read failed — trust the cached data
+          return { rows: cached, fromCache: true, inventoryVersion };
+        }
+      } else {
+        // No version available — trust TTL validation
+        return { rows: cached, fromCache: true, inventoryVersion: null };
+      }
+    }
+    // Cache miss — fall through to API without waiting for version
   }
 
   const fetchInit: RequestInit = signal ? { signal } : {};
@@ -111,7 +145,7 @@ async function fetchInventory(
     inventoryVersion?: string | null;
   };
   const rows = data.rows;
-  const responseVersion = data.inventoryVersion ?? inventoryVersion ?? null;
+  const responseVersion = data.inventoryVersion ?? null;
 
   if (isIndexedDBAvailable() && rows.length > 0) {
     setCachedInventory(setNumber, rows, {

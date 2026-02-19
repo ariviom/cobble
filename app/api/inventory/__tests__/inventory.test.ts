@@ -34,7 +34,7 @@ vi.mock('@/lib/metrics', () => ({
 }));
 
 import { getSetInventoryRowsWithMeta } from '@/app/lib/services/inventory';
-import { GET } from '../route';
+import { GET, _resetVersionCache } from '../route';
 
 const mockGetSetInventory = vi.mocked(getSetInventoryRowsWithMeta);
 
@@ -54,6 +54,7 @@ const createMockRow = (overrides = {}) => ({
 describe('GET /api/inventory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    _resetVersionCache();
     mockMaybeSingle.mockResolvedValue({
       data: { version: '2024-01-15' },
       error: null,
@@ -157,26 +158,6 @@ describe('GET /api/inventory', () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.meta).toBeUndefined();
-    });
-
-    it('includes spares when available', async () => {
-      const mockSpares = {
-        status: 'ok' as const,
-        spareCount: 5,
-        lastChecked: '2024-01-15T00:00:00Z',
-      };
-
-      mockGetSetInventory.mockResolvedValue({
-        rows: [],
-        spares: mockSpares,
-      });
-
-      const req = new NextRequest('http://localhost/api/inventory?set=75192-1');
-      const res = await GET(req);
-
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.spares).toEqual(mockSpares);
     });
 
     it('does not include minifigEnrichmentNeeded in response', async () => {

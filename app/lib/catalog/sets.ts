@@ -20,6 +20,43 @@ import {
   type LocalTheme,
 } from './themes';
 
+// ---------------------------------------------------------------------------
+// In-process category cache (small static table, ~50 rows)
+// ---------------------------------------------------------------------------
+const CATEGORY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+let categoryCache: {
+  at: number;
+  map: Map<number, { id: number; name: string }>;
+} | null = null;
+
+async function getCategoryMap(): Promise<
+  Map<number, { id: number; name: string }>
+> {
+  const now = Date.now();
+  if (categoryCache && now - categoryCache.at < CATEGORY_CACHE_TTL_MS) {
+    return categoryCache.map;
+  }
+
+  const supabase = getCatalogReadClient();
+  const { data, error } = await supabase
+    .from('rb_part_categories')
+    .select('id, name');
+
+  const map = new Map<number, { id: number; name: string }>();
+  if (error) {
+    logger.warn('catalog.category_cache_build_failed', {
+      error: error.message,
+    });
+    return map;
+  }
+
+  for (const cat of data ?? []) {
+    map.set(cat.id, cat);
+  }
+  categoryCache = { at: now, map };
+  return map;
+}
+
 export async function searchSetsLocal(
   query: string,
   sort: string,
@@ -71,7 +108,7 @@ export async function searchSetsLocal(
 
   function getMatchTypeForTheme(themeId: number | null | undefined): MatchType {
     if (themeId == null || !Number.isFinite(themeId)) {
-      return 'theme';
+      return 'set';
     }
     const theme = themeById.get(themeId as number);
     if (theme && theme.parent_id != null) {
@@ -101,10 +138,19 @@ export async function searchSetsLocal(
     const key = row.set_num.toLowerCase();
     const existing = seen.get(key);
     if (existing) {
-      const existingType = existing.matchType ?? 'theme';
-      if (MATCH_PRIORITY[matchType] > MATCH_PRIORITY[existingType]) {
-        seen.set(key, { ...existing, matchType });
-      }
+      const types = new Set(
+        existing.matchTypes ?? [existing.matchType ?? 'set']
+      );
+      types.add(matchType);
+      const typesArr = Array.from(types);
+      const bestType = typesArr.reduce((a, b) =>
+        MATCH_PRIORITY[a] >= MATCH_PRIORITY[b] ? a : b
+      );
+      seen.set(key, {
+        ...existing,
+        matchType: bestType,
+        matchTypes: typesArr,
+      });
       return;
     }
 
@@ -124,6 +170,7 @@ export async function searchSetsLocal(
       ...(themeName ? { themeName } : {}),
       ...(themePath ? { themePath } : {}),
       matchType,
+      matchTypes: [matchType],
     });
   }
 
@@ -326,24 +373,60 @@ export async function getSetInventoryLocal(
       row => typeof row?.id === 'number' && Number.isFinite(row.id)
     ) ?? [];
 
+  // Track minifig parent info (components handled by inventory.ts via rb_minifig_parts)
+  let figNumsEarly: string[] = [];
+  let inventoryMinifigsEarly: Array<{ fig_num: string; quantity: number }> = [];
+
   if (inventoryCandidates.length > 0) {
     inventoryCandidates.sort((a, b) => (b.version ?? -1) - (a.version ?? -1));
     const selectedInventoryId = inventoryCandidates[0]!.id;
-    const { data: inventoryParts, error: inventoryPartsError } = await supabase
-      .from('rb_inventory_parts_public')
-      .select('part_num, color_id, quantity, is_spare, element_id, img_url')
-      .eq('inventory_id', selectedInventoryId)
-      .eq('is_spare', false);
 
-    if (inventoryPartsError) {
+    // Fire inventory parts + minifigs queries in parallel (both depend only on selectedInventoryId)
+    const [partsResult, minifigsResult] = await Promise.all([
+      supabase
+        .from('rb_inventory_parts_public')
+        .select('part_num, color_id, quantity, is_spare, element_id, img_url')
+        .eq('inventory_id', selectedInventoryId)
+        .eq('is_spare', false),
+      supabase
+        .from('rb_inventory_minifigs')
+        .select('fig_num, quantity')
+        .eq('inventory_id', selectedInventoryId),
+    ]);
+
+    if (partsResult.error) {
       throw new Error(
-        `Supabase getSetInventoryLocal rb_inventory_parts failed: ${inventoryPartsError.message}`
+        `Supabase getSetInventoryLocal rb_inventory_parts failed: ${partsResult.error.message}`
+      );
+    }
+    if (minifigsResult.error) {
+      throw new Error(
+        `Supabase getSetInventoryLocal rb_inventory_minifigs failed: ${minifigsResult.error.message}`
       );
     }
 
-    if (inventoryParts?.length) {
-      setParts = inventoryParts as InventoryPartRow[];
+    if (partsResult.data?.length) {
+      setParts = partsResult.data as InventoryPartRow[];
     }
+
+    // Process minifig parent info
+    inventoryMinifigsEarly = (minifigsResult.data ?? [])
+      .filter(
+        f =>
+          typeof f?.fig_num === 'string' &&
+          f.fig_num.trim().length > 0 &&
+          typeof f?.quantity === 'number'
+      )
+      .map(f => ({
+        fig_num: f.fig_num.trim(),
+        quantity: f.quantity as number,
+      }));
+
+    figNumsEarly = Array.from(
+      new Set(inventoryMinifigsEarly.map(f => f.fig_num))
+    );
+    // NOTE: Minifig component parts are NOT loaded here.
+    // They are loaded from rb_minifig_parts in inventory.ts with identity resolution.
   }
 
   // Fallback to legacy rb_set_parts when no inventory records were found.
@@ -366,52 +449,6 @@ export async function getSetInventoryLocal(
   if (mainParts.length === 0) return [];
 
   // ==========================================================================
-  // EARLY MINIFIG COMPONENT LOADING (for deduplication)
-  // Load minifig component parts BEFORE processing regular parts so we can
-  // filter out parts that belong to minifigs. This ensures parts only appear
-  // once: either as a regular part OR as a minifig component, not both.
-  // ==========================================================================
-  // Track minifig parent info (components handled by inventory.ts via rb_minifig_parts)
-  let figNumsEarly: string[] = [];
-  let inventoryMinifigsEarly: Array<{ fig_num: string; quantity: number }> = [];
-
-  if (inventoryCandidates.length > 0) {
-    const selectedInventoryId = inventoryCandidates[0]!.id;
-
-    // Load minifigs for this set (parent rows only - components come from BrickLink)
-    const { data: invMinifigsData, error: invFigsEarlyError } = await supabase
-      .from('rb_inventory_minifigs')
-      .select('fig_num, quantity')
-      .eq('inventory_id', selectedInventoryId);
-
-    if (invFigsEarlyError) {
-      throw new Error(
-        `Supabase getSetInventoryLocal rb_inventory_minifigs (early) failed: ${invFigsEarlyError.message}`
-      );
-    }
-
-    // Store the full inventory minifigs data for later use
-    inventoryMinifigsEarly = (invMinifigsData ?? [])
-      .filter(
-        f =>
-          typeof f?.fig_num === 'string' &&
-          f.fig_num.trim().length > 0 &&
-          typeof f?.quantity === 'number'
-      )
-      .map(f => ({
-        fig_num: f.fig_num.trim(),
-        quantity: f.quantity as number,
-      }));
-
-    figNumsEarly = Array.from(
-      new Set(inventoryMinifigsEarly.map(f => f.fig_num))
-    );
-
-    // NOTE: Minifig component parts are NOT loaded here.
-    // They are loaded from rb_minifig_parts in inventory.ts with identity resolution.
-  }
-
-  // ==========================================================================
   // END EARLY MINIFIG LOADING (components deferred to inventory.ts)
   // ==========================================================================
 
@@ -422,7 +459,13 @@ export async function getSetInventoryLocal(
     new Set(mainParts.map(row => row.color_id).filter(id => id != null))
   );
 
-  const [partsRes, colorsRes] = await Promise.all([
+  // Build part+color pairs for parallel rarity query
+  const partColorPairs = mainParts.map(row => ({
+    partNum: row.part_num,
+    colorId: row.color_id,
+  }));
+
+  const [partsRes, colorsRes, categoryMap, partRarityMap] = await Promise.all([
     partNums.length
       ? supabase
           .from('rb_parts')
@@ -444,6 +487,8 @@ export async function getSetInventoryLocal(
           data: { id: number; name: string }[];
           error: null;
         }),
+    getCategoryMap(),
+    queryPartRarityBatch(supabase, partColorPairs),
   ]);
 
   if (partsRes.error) {
@@ -479,32 +524,6 @@ export async function getSetInventoryLocal(
     colorMap.set(color.id, color);
   }
 
-  const categoryIds = Array.from(
-    new Set(
-      parts
-        .map(p => p.part_cat_id)
-        .filter((id): id is number => typeof id === 'number')
-    )
-  );
-
-  const categoryMap = new Map<number, { id: number; name: string }>();
-  if (categoryIds.length > 0) {
-    const { data: categories, error: categoriesError } = await supabase
-      .from('rb_part_categories')
-      .select('id, name')
-      .in('id', categoryIds);
-
-    if (categoriesError) {
-      throw new Error(
-        `Supabase getSetInventoryLocal rb_part_categories failed: ${categoriesError.message}`
-      );
-    }
-
-    for (const cat of categories ?? []) {
-      categoryMap.set(cat.id, cat);
-    }
-  }
-
   const rows: InventoryRow[] = mainParts.map(row => {
     const part = partMap.get(row.part_num);
     const color = colorMap.get(row.color_id);
@@ -526,6 +545,9 @@ export async function getSetInventoryLocal(
       part?.image_url ??
       null;
 
+    const setCount =
+      partRarityMap.get(`${row.part_num}:${row.color_id}`) ?? null;
+
     return {
       setNumber: trimmedSet,
       partId: row.part_num,
@@ -544,6 +566,7 @@ export async function getSetInventoryLocal(
         bricklinkPartId !== row.part_num && {
           bricklinkPartId,
         }),
+      ...(setCount != null && { setCount }),
     };
   });
   const partRowMap = new Map<string, InventoryRow>();
@@ -559,8 +582,14 @@ export async function getSetInventoryLocal(
   if (figNumsEarly.length > 0) {
     const figNums = figNumsEarly;
 
-    // Fetch metadata and images for minifig parent rows
-    const [figMetaRes, figImagesRes] = await Promise.all([
+    // Fetch metadata, images, and rarity for minifig parent rows in parallel
+    type MinifigRarityRow = {
+      fig_num: string;
+      min_subpart_set_count: number;
+      set_count: number;
+    };
+
+    const [figMetaRes, figImagesRes, figRarityRes] = await Promise.all([
       supabase
         .from('rb_minifigs')
         .select('fig_num, name, num_parts, bl_minifig_id')
@@ -569,6 +598,13 @@ export async function getSetInventoryLocal(
         .from('rb_minifig_images')
         .select('fig_num, image_url')
         .in('fig_num', figNums),
+      supabase
+        .from('rb_minifig_rarity' as never)
+        .select('fig_num, min_subpart_set_count, set_count')
+        .in('fig_num', figNums) as unknown as Promise<{
+        data: MinifigRarityRow[] | null;
+        error: { message: string } | null;
+      }>,
     ]);
 
     if (figMetaRes.error) {
@@ -580,6 +616,17 @@ export async function getSetInventoryLocal(
       throw new Error(
         `Supabase getSetInventoryLocal rb_minifig_images failed: ${figImagesRes.error.message}`
       );
+    }
+    // Rarity failure is non-fatal
+    if (figRarityRes.error) {
+      logger.warn('catalog.minifig_rarity_failed', {
+        error: figRarityRes.error.message,
+      });
+    }
+
+    const figRarityById = new Map<string, number>();
+    for (const r of figRarityRes.data ?? []) {
+      figRarityById.set(r.fig_num, r.min_subpart_set_count);
     }
 
     const figMetaById = new Map<
@@ -619,6 +666,7 @@ export async function getSetInventoryLocal(
       const parentKey = `fig:${figNum}`;
       const meta = figMetaById.get(figNum);
       const blMinifigId = meta?.bl_minifig_id ?? null;
+      const figSetCount = figRarityById.get(figNum) ?? null;
       const parentRow: InventoryRow = {
         setNumber: trimmedSet,
         partId: parentKey,
@@ -631,6 +679,7 @@ export async function getSetInventoryLocal(
         parentCategory: 'Minifigure',
         inventoryKey: parentKey,
         ...(blMinifigId && { bricklinkFigId: blMinifigId }),
+        ...(figSetCount != null && { setCount: figSetCount }),
         // componentRelations populated by inventory.ts from rb_minifig_parts
       };
 
@@ -840,4 +889,55 @@ async function getSetsForPartLocalImpl(
   }
 
   return Array.from(bySet.values());
+}
+
+// ---------------------------------------------------------------------------
+// Rarity query helper — fires all batches in parallel
+// ---------------------------------------------------------------------------
+
+type PartRarityRow = {
+  part_num: string;
+  color_id: number;
+  set_count: number;
+};
+
+const RARITY_BATCH_SIZE = 100;
+
+/**
+ * Query rb_part_rarity for a set of (part_num, color_id) pairs.
+ * Fires all batches in parallel and returns a Map keyed by "partNum:colorId".
+ */
+async function queryPartRarityBatch(
+  supabase: ReturnType<typeof getCatalogReadClient>,
+  pairs: Array<{ partNum: string; colorId: number }>
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (pairs.length === 0) return map;
+
+  const batches: Array<Array<{ partNum: string; colorId: number }>> = [];
+  for (let i = 0; i < pairs.length; i += RARITY_BATCH_SIZE) {
+    batches.push(pairs.slice(i, i + RARITY_BATCH_SIZE));
+  }
+
+  const results = await Promise.all(
+    batches.map(batch => {
+      const orFilter = batch
+        .map(p => `and(part_num.eq.${p.partNum},color_id.eq.${p.colorId})`)
+        .join(',');
+      return supabase
+        .from('rb_part_rarity' as never)
+        .select('part_num, color_id, set_count')
+        .or(orFilter) as unknown as Promise<{
+        data: PartRarityRow[] | null;
+      }>;
+    })
+  );
+
+  for (const { data } of results) {
+    for (const r of data ?? []) {
+      map.set(`${r.part_num}:${r.color_id}`, r.set_count);
+    }
+  }
+
+  return map;
 }
