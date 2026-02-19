@@ -126,6 +126,43 @@ const waitQueue: Array<() => void> = [];
 let consecutiveFailures = 0;
 let breakerOpenUntil = 0;
 
+// =============================================================================
+// Daily API quota tracking (in-process, resets at UTC midnight)
+// =============================================================================
+
+const BL_DAILY_QUOTA = Number(process.env.BL_DAILY_QUOTA) || 5000;
+const BL_DAILY_QUOTA_MARGIN = Number(process.env.BL_DAILY_QUOTA_MARGIN) || 500;
+const effectiveQuota = BL_DAILY_QUOTA - BL_DAILY_QUOTA_MARGIN;
+
+let dailyApiCalls = 0;
+let dailyCounterResetAt = 0;
+
+function nextMidnightUtc(): number {
+  const now = new Date();
+  const tomorrow = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+  );
+  return tomorrow.getTime();
+}
+
+function isDailyQuotaExhausted(): boolean {
+  const now = Date.now();
+  if (now >= dailyCounterResetAt) {
+    dailyApiCalls = 0;
+    dailyCounterResetAt = nextMidnightUtc();
+  }
+  return dailyApiCalls >= effectiveQuota;
+}
+
+function incrementDailyCounter(): void {
+  dailyApiCalls++;
+}
+
+/** Current daily API call count (for monitoring/debugging). */
+export function getDailyApiCallCount(): number {
+  return dailyApiCalls;
+}
+
 async function acquireSlot(): Promise<void> {
   if (activeRequests < BL_MAX_CONCURRENCY) {
     activeRequests += 1;
@@ -291,7 +328,7 @@ export type BLPriceGuide = {
   /** Internal marker to indicate a miss (all prices null) for negative caching */
   __miss?: boolean;
   /** Internal marker for pricing source (not serialized to client) */
-  __source?: 'derived' | 'cached' | 'real_time';
+  __source?: 'derived' | 'cached' | 'real_time' | 'quota_exhausted';
 };
 
 // LRU caches with TTL for BrickLink API responses
@@ -765,7 +802,23 @@ async function fetchPriceGuide(
       });
     }
 
-    // 3. Call BL API
+    // 3. Check daily quota before calling BL API
+    if (isDailyQuotaExhausted()) {
+      logger.warn('bricklink.daily_quota_exhausted', { dailyApiCalls });
+      const pg: BLPriceGuide = {
+        unitPriceUsed: null,
+        unitPriceNew: null,
+        minPriceUsed: null,
+        maxPriceUsed: null,
+        currencyCode: null,
+        __miss: true,
+        __source: 'quota_exhausted',
+      };
+      priceGuideCache.set(key, pg);
+      return pg;
+    }
+
+    // 4. Call BL API
     const typeSegment =
       itemType === 'MINIFIG'
         ? STORE_ITEM_TYPE_MINIFIG
@@ -800,6 +853,8 @@ async function fetchPriceGuide(
       });
     }
 
+    incrementDailyCounter();
+
     const { unitPriceUsed, minPriceUsed, maxPriceUsed } =
       parsePriceGuideDetails(data);
 
@@ -820,7 +875,7 @@ async function fetchPriceGuide(
       pg.__miss = true;
     }
 
-    // 4. Fire-and-forget: persist to DB cache + record observation + try derived
+    // 5. Fire-and-forget: persist to DB cache + record observation + try derived
     if (!pg.__miss) {
       const cacheEntry = priceGuideToCacheEntry(
         pg,

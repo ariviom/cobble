@@ -78,6 +78,13 @@ export async function fetchBricklinkPrices(
             effectivePrefs
           );
 
+          const pricingSource: PriceResponseEntry['pricingSource'] =
+            pg.__source === 'derived'
+              ? 'historical'
+              : pg.__source === 'quota_exhausted'
+                ? 'unavailable'
+                : 'real_time';
+
           prices[item.key] = {
             unitPrice: pg.unitPriceUsed,
             minPrice: pg.minPriceUsed,
@@ -86,7 +93,7 @@ export async function fetchBricklinkPrices(
             bricklinkColorId: blColorId ?? null,
             itemType,
             scopeLabel,
-            pricingSource: 'real_time',
+            pricingSource,
             lastUpdatedAt: null,
             nextRefreshAt: null,
           };
