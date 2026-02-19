@@ -1,6 +1,10 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
-import { getOrFetchMinifigImageUrl } from '@/app/lib/catalog/minifigs';
+import {
+  getOrFetchMinifigImageUrl,
+  getRarestSubpartSets,
+  type RarestSubpartSetsResult,
+} from '@/app/lib/catalog/minifigs';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
@@ -38,7 +42,7 @@ type MinifigPriceGuide = {
     maxPrice: number | null;
     currency: string | null;
   };
-  source?: 'derived' | 'cached' | 'real_time';
+  source?: 'derived' | 'cached' | 'real_time' | 'quota_exhausted';
 };
 
 type MinifigSubpart = {
@@ -49,11 +53,23 @@ type MinifigSubpart = {
   quantity: number;
   imageUrl: string | null;
   bricklinkPartId: string | null;
+  setCount?: number | null;
+};
+
+type RarestSubpartSetsPayload = {
+  setNumber: string;
+  name: string;
+  year: number;
+  imageUrl: string | null;
+  quantity: number;
+  numParts?: number | null;
+  themeName?: string | null;
 };
 
 type MinifigMetaResponse = MinifigMetaLight & {
   priceGuide?: MinifigPriceGuide;
   subparts?: MinifigSubpart[];
+  rarestSubpartSets?: RarestSubpartSetsPayload[];
 };
 
 export async function GET(
@@ -127,9 +143,15 @@ export async function GET(
 
     // Get sets containing this minifig from rb_inventory_minifigs
     let sets: MinifigMetaResponse['sets'] = { count: 0, items: [] };
+    let allDirectSetNums: string[] = [];
     let themeName: string | null = null;
 
     const rbFigNum = rbMinifig?.fig_num;
+
+    // Kick off rarest subpart sets lookup in parallel (resolved later)
+    let rarestSubpartSetsPromise: Promise<RarestSubpartSetsResult | null> =
+      Promise.resolve(null);
+
     if (rbFigNum) {
       try {
         // Get set inventories that contain this minifig
@@ -160,6 +182,7 @@ export async function GET(
             }
 
             const setNums = inventories.map(inv => inv.set_num);
+            allDirectSetNums = [...new Set(setNums)];
             const { data: setDetails } = await supabase
               .from('rb_sets')
               .select('set_num, name, year, image_url, theme_id')
@@ -223,6 +246,14 @@ export async function GET(
           error: err instanceof Error ? err.message : String(err),
         });
       }
+
+      // Now that we know direct sets, start rarest subpart lookup in parallel
+      const directSetNums = new Set(allDirectSetNums);
+      rarestSubpartSetsPromise = getRarestSubpartSets(
+        supabase,
+        rbFigNum,
+        directSetNums
+      );
     }
 
     // Get price guide if requested (BL API stays for pricing)
@@ -265,6 +296,20 @@ export async function GET(
 
       if (rbParts && rbParts.length > 0) {
         numParts = rbParts.length;
+
+        // Batch-query per-subpart rarity from rb_part_rarity
+        const orClauses = rbParts.map(
+          p => `and(part_num.eq.${p.part_num},color_id.eq.${p.color_id})`
+        );
+        const { data: rarityRows } = await supabase
+          .from('rb_part_rarity')
+          .select('part_num, color_id, set_count')
+          .or(orClauses.join(','));
+        const rarityMap = new Map<string, number>();
+        for (const r of rarityRows ?? []) {
+          rarityMap.set(`${r.part_num}:${r.color_id}`, r.set_count);
+        }
+
         subparts = rbParts.map(p => {
           const partMeta = p.rb_parts as unknown as {
             name: string;
@@ -281,6 +326,7 @@ export async function GET(
             quantity: p.quantity ?? 1,
             imageUrl: (p as Record<string, unknown>).img_url as string | null,
             bricklinkPartId: partMeta.bl_part_id,
+            setCount: rarityMap.get(`${p.part_num}:${p.color_id}`) ?? null,
           };
         });
       }
@@ -293,6 +339,19 @@ export async function GET(
       numParts = count;
     }
 
+    // Resolve rarest subpart sets (was running in parallel)
+    const rarestResult = await rarestSubpartSetsPromise;
+    const rarestSubpartSets: RarestSubpartSetsPayload[] =
+      rarestResult?.sets?.map(s => ({
+        setNumber: s.setNumber,
+        name: s.name,
+        year: s.year,
+        imageUrl: s.imageUrl,
+        quantity: s.quantity,
+        numParts: s.numParts ?? null,
+        themeName: s.themeName ?? null,
+      })) ?? [];
+
     const payload: MinifigMetaResponse = {
       blId: blMinifigNo,
       imageUrl,
@@ -302,6 +361,7 @@ export async function GET(
       themeName,
       sets,
       ...(subparts ? { subparts } : {}),
+      ...(rarestSubpartSets.length > 0 ? { rarestSubpartSets } : {}),
     };
     if (priceGuide) {
       payload.priceGuide = priceGuide;

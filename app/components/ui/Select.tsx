@@ -39,12 +39,8 @@ export const Select = forwardRef<HTMLSelectElement, Props>(function Select(
   const iconSize = iconSizeMap[size ?? 'md'];
 
   return (
-    <div className="relative w-full min-w-0">
-      <select
-        ref={ref}
-        className={cn(selectVariants({ size }), className)}
-        {...props}
-      />
+    <div className={cn('relative w-full min-w-0', className)}>
+      <select ref={ref} className={cn(selectVariants({ size }))} {...props} />
       <ChevronDown
         className={cn(
           'pointer-events-none absolute top-1/2 -translate-y-1/2 text-foreground-muted',

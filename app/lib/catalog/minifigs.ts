@@ -6,6 +6,8 @@ import { normalizeText } from '@/app/lib/rebrickable';
 import { logger } from '@/lib/metrics';
 import type { MinifigMatchSource, MinifigSortOption } from '@/app/types/search';
 
+import type { PartInSet } from '@/app/lib/rebrickable';
+
 import {
   buildThemeMetaHelpers,
   getThemesLocal,
@@ -645,4 +647,135 @@ export async function getOrFetchMinifigImageUrl(
     });
     return null;
   }
+}
+
+/** Max set_count for a subpart to be considered "rare" enough to show. */
+const RAREST_SUBPART_MAX_SET_COUNT = 10;
+
+export type RarestSubpartSetsResult = {
+  count: number | null;
+  sets: PartInSet[];
+};
+
+/**
+ * Find the rarest subpart of a minifig and return the sets it appears in.
+ *
+ * Steps:
+ * 1. Get subpart (part_num, color_id) pairs from rb_minifig_parts
+ * 2. Batch-query rb_part_rarity for set_count per subpart
+ * 3. Pick subpart with minimum set_count (skip if > RAREST_SUBPART_MAX_SET_COUNT)
+ * 4. Find sets containing that specific part+color via rb_inventory_parts → rb_inventories → rb_sets
+ * 5. Filter out excludeSetNums (the minifig's own direct sets, already shown elsewhere)
+ */
+export async function getRarestSubpartSets(
+  supabase: ReturnType<typeof getCatalogReadClient>,
+  rbFigNum: string,
+  excludeSetNums: Set<string>
+): Promise<RarestSubpartSetsResult> {
+  // 1. Get subparts
+  const { data: subparts } = await supabase
+    .from('rb_minifig_parts')
+    .select('part_num, color_id')
+    .eq('fig_num', rbFigNum);
+
+  if (!subparts?.length) return { count: null, sets: [] };
+
+  // 2. Batch-query rarity
+  const orClauses = subparts.map(
+    p => `and(part_num.eq.${p.part_num},color_id.eq.${p.color_id})`
+  );
+  const { data: rarityRows } = await supabase
+    .from('rb_part_rarity')
+    .select('part_num, color_id, set_count')
+    .or(orClauses.join(','));
+
+  if (!rarityRows?.length) return { count: null, sets: [] };
+
+  // 3. Pick subpart with minimum set_count
+  let minRow: (typeof rarityRows)[0] | null = null;
+  for (const r of rarityRows) {
+    if (minRow == null || r.set_count < minRow.set_count) {
+      minRow = r;
+    }
+  }
+  if (!minRow || minRow.set_count > RAREST_SUBPART_MAX_SET_COUNT) {
+    return { count: minRow?.set_count ?? null, sets: [] };
+  }
+
+  // 4. Find sets containing this part+color (both direct and via minifig paths,
+  //    matching how rb_part_rarity.set_count is computed)
+  const [directResult, minifigPathResult] = await Promise.all([
+    // Path A: Direct parts in set inventories
+    supabase
+      .from('rb_inventory_parts')
+      .select('inventory_id')
+      .eq('part_num', minRow.part_num)
+      .eq('color_id', minRow.color_id),
+    // Path B: Parts via minifigs → minifig inventories
+    supabase
+      .from('rb_minifig_parts')
+      .select('fig_num')
+      .eq('part_num', minRow.part_num)
+      .eq('color_id', minRow.color_id),
+  ]);
+
+  // Resolve path A: inventory_ids → set_nums
+  const directInvIds = [
+    ...new Set((directResult.data ?? []).map(ip => ip.inventory_id)),
+  ];
+
+  // Resolve path B: fig_nums → inventory_minifigs → inventory_ids
+  const figNums = [
+    ...new Set((minifigPathResult.data ?? []).map(mp => mp.fig_num)),
+  ];
+  let minifigInvIds: number[] = [];
+  if (figNums.length > 0) {
+    const { data: invMinifigs } = await supabase
+      .from('rb_inventory_minifigs')
+      .select('inventory_id')
+      .in('fig_num', figNums.slice(0, 200));
+    minifigInvIds = [
+      ...new Set((invMinifigs ?? []).map(im => im.inventory_id)),
+    ];
+  }
+
+  const allInvIds = [...new Set([...directInvIds, ...minifigInvIds])];
+  if (!allInvIds.length) return { count: minRow.set_count, sets: [] };
+
+  const { data: inventories } = await supabase
+    .from('rb_inventories')
+    .select('set_num')
+    .in('id', allInvIds.slice(0, 200))
+    .not('set_num', 'like', 'fig-%');
+
+  const setNums = [
+    ...new Set(
+      (inventories ?? [])
+        .map(inv => inv.set_num)
+        .filter(
+          (s): s is string => typeof s === 'string' && !excludeSetNums.has(s)
+        )
+    ),
+  ];
+
+  if (!setNums.length) return { count: minRow.set_count, sets: [] };
+
+  // 5. Get set details
+  const { data: setDetails } = await supabase
+    .from('rb_sets')
+    .select('set_num, name, year, image_url')
+    .in('set_num', setNums.slice(0, 200));
+
+  const sets: PartInSet[] = (setDetails ?? []).map(s => ({
+    setNumber: s.set_num,
+    name: s.name ?? s.set_num,
+    year: s.year ?? 0,
+    imageUrl: s.image_url ?? null,
+    quantity: 1,
+  }));
+
+  // Sort by year descending
+  sets.sort((a, b) => b.year - a.year);
+
+  return { count: minRow.set_count, sets };
 }

@@ -10,6 +10,7 @@ export type MinifigSubpart = {
   quantity: number;
   imageUrl: string | null;
   bricklinkPartId: string | null;
+  setCount?: number | null;
 };
 
 export type MinifigPriceGuide = {
@@ -25,7 +26,7 @@ export type MinifigPriceGuide = {
     maxPrice: number | null;
     currency: string | null;
   };
-  source?: 'derived' | 'cached' | 'real_time';
+  source?: 'derived' | 'cached' | 'real_time' | 'quota_exhausted';
 };
 
 export type MinifigSetItem = {
@@ -34,6 +35,16 @@ export type MinifigSetItem = {
   year: number;
   quantity: number;
   imageUrl: string | null;
+};
+
+export type RarestSubpartSet = {
+  setNumber: string;
+  name: string;
+  year: number;
+  imageUrl: string | null;
+  quantity: number;
+  numParts?: number | null;
+  themeName?: string | null;
 };
 
 export type MinifigDetails = {
@@ -47,6 +58,7 @@ export type MinifigDetails = {
   sets: { count: number; items: MinifigSetItem[] } | undefined;
   priceGuide: MinifigPriceGuide | undefined;
   subparts: MinifigSubpart[] | undefined;
+  rarestSubpartSets?: RarestSubpartSet[];
 };
 
 export type UseMinifigDetailsResult = {

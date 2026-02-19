@@ -1,3 +1,7 @@
+import {
+  getOrFetchMinifigImageUrl,
+  getRarestSubpartSets,
+} from '@/app/lib/catalog/minifigs';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { type PartAvailableColor, type PartInSet } from '@/app/lib/rebrickable';
 import { logEvent } from '@/lib/metrics';
@@ -8,16 +12,19 @@ export type MinifigIdentifyResult = {
   part: {
     partNum: string;
     name: string;
-    imageUrl: null;
+    imageUrl: string | null;
     confidence: number;
     colorId: null;
     colorName: null;
     isMinifig: true;
     bricklinkFigId: string | null;
+    rebrickableFigId: string | null;
   };
   availableColors: PartAvailableColor[];
   selectedColorId: null;
   sets: PartInSet[];
+  rarestSubpartSetCount?: number | null;
+  rarestSubpartSets?: PartInSet[];
 };
 
 /**
@@ -44,9 +51,10 @@ export async function handleMinifigIdentify(
     .eq('bl_minifig_id', bricklinkFigId)
     .maybeSingle();
 
-  // Get display name
+  // Get display name and image
   const displayName: string = rbMinifig?.name ?? bricklinkFigId;
   const rbFigNum = rbMinifig?.fig_num;
+  const imageUrl = rbFigNum ? await getOrFetchMinifigImageUrl(rbFigNum) : null;
 
   // Get sets containing this minifig from RB catalog
   let sets: PartInSet[] = [];
@@ -137,20 +145,40 @@ export async function handleMinifigIdentify(
     });
   }
 
+  // Get rarest subpart sets (excludes the minifig's own direct sets)
+  let rarestSubpartSetCount: number | null = null;
+  let rarestSubpartSets: PartInSet[] = [];
+  if (rbFigNum) {
+    const directSetNums = new Set(sets.map(s => s.setNumber));
+    const rarityResult = await getRarestSubpartSets(
+      supabase,
+      rbFigNum,
+      directSetNums
+    );
+    rarestSubpartSetCount = rarityResult.count;
+    rarestSubpartSets = rarityResult.sets;
+    if (rarestSubpartSets.length) {
+      rarestSubpartSets = await enrichSets(rarestSubpartSets, 30);
+    }
+  }
+
   return {
     part: {
       partNum: bricklinkFigId,
       name: displayName,
-      imageUrl: null,
+      imageUrl,
       confidence: 0,
       colorId: null,
       colorName: null,
       isMinifig: true,
       bricklinkFigId,
+      rebrickableFigId: rbFigNum ?? null,
     },
     availableColors: [],
     selectedColorId: null,
     sets: ensureSetNames(sets),
+    rarestSubpartSetCount,
+    rarestSubpartSets: ensureSetNames(rarestSubpartSets),
   };
 }
 

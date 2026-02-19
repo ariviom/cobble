@@ -124,6 +124,8 @@ type TabState = {
   colors: Array<{ id: number; name: string }> | null;
   blPartId: string | null;
   blColors: Array<{ id: number; name: string }> | null;
+  rarestSubpartSetCount: number | null;
+  rarestSubpartSets: IdentifySet[];
 };
 
 const EMPTY_TAB: TabState = {
@@ -137,6 +139,8 @@ const EMPTY_TAB: TabState = {
   colors: null,
   blPartId: null,
   blColors: null,
+  rarestSubpartSetCount: null,
+  rarestSubpartSets: [],
 };
 
 function updateUrlParams(
@@ -173,6 +177,10 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
     id: number;
     name: string;
   }> | null>(null);
+  const [rarestSubpartSetCount, setRarestSubpartSetCount] = useState<
+    number | null
+  >(null);
+  const [rarestSubpartSets, setRarestSubpartSets] = useState<IdentifySet[]>([]);
   // BL assembly fallback color handling (no component list)
   const [blPartId, setBlPartId] = useState<string | null>(null);
   const [blColors, setBlColors] = useState<Array<{
@@ -210,6 +218,8 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
     colors,
     blPartId,
     blColors,
+    rarestSubpartSetCount,
+    rarestSubpartSets,
   };
 
   const recordHistory = useCallback(
@@ -326,6 +336,8 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             sets?: IdentifySet[];
             availableColors?: Array<{ id: number; name: string }>;
             selectedColorId?: number | null;
+            rarestSubpartSetCount?: number | null;
+            rarestSubpartSets?: IdentifySet[];
           };
           if (payloadAny.part) {
             setPart({
@@ -351,6 +363,10 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           }
           setBlPartId(null);
           setBlColors(null);
+          setRarestSubpartSetCount(payloadAny.rarestSubpartSetCount ?? null);
+          setRarestSubpartSets(
+            (payloadAny.rarestSubpartSets as IdentifySet[]) ?? []
+          );
           if (payloadAny.part && (payloadAny.sets?.length ?? 0) > 0) {
             recordHistory(
               {
@@ -392,6 +408,8 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           sets?: IdentifySet[];
           availableColors?: Array<{ id: number; name: string }>;
           selectedColorId?: number | null;
+          rarestSubpartSetCount?: number | null;
+          rarestSubpartSets?: IdentifySet[];
         };
 
         if (payloadAny.part) {
@@ -438,6 +456,10 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
 
         setBlPartId(null);
         setBlColors(null);
+        setRarestSubpartSetCount(payloadAny.rarestSubpartSetCount ?? null);
+        setRarestSubpartSets(
+          (payloadAny.rarestSubpartSets as IdentifySet[]) ?? []
+        );
 
         // Cache only when we got meaningful results (non-empty sets)
         if ((payloadAny.sets?.length ?? 0) > 0)
@@ -467,6 +489,9 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             sets: (payloadAny.sets as IdentifySet[]) ?? [],
             availableColors: payloadAny.availableColors ?? [],
             selectedColorId: payloadAny.selectedColorId ?? null,
+            rarestSubpartSetCount: payloadAny.rarestSubpartSetCount ?? null,
+            rarestSubpartSets:
+              (payloadAny.rarestSubpartSets as IdentifySet[]) ?? [],
           });
 
         // Only record history when the lookup found sets — avoids overwriting
@@ -541,6 +566,10 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           }
           setBlPartId(null);
           setBlColors(null);
+          setRarestSubpartSetCount(data.rarestSubpartSetCount ?? null);
+          setRarestSubpartSets(
+            (data as IdentifyResponse).rarestSubpartSets ?? []
+          );
           setLoadingPhase(null);
           setHasSearched(true);
           if (data.part) {
@@ -640,6 +669,12 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             setColors([]);
           }
         }
+        setRarestSubpartSetCount(
+          (data as IdentifyResponse).rarestSubpartSetCount ?? null
+        );
+        setRarestSubpartSets(
+          (data as IdentifyResponse).rarestSubpartSets ?? []
+        );
         setCachedIdentify(hashHex, data as IdentifyResponse);
         // Also cache under the text-search URL key so history clicks are instant
         if (data.part?.partNum) {
@@ -688,6 +723,8 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
     setColors(state.colors);
     setBlPartId(state.blPartId);
     setBlColors(state.blColors);
+    setRarestSubpartSetCount(state.rarestSubpartSetCount);
+    setRarestSubpartSets(state.rarestSubpartSets);
   }, []);
 
   const handleModeChange = useCallback(
@@ -729,6 +766,8 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
       setBlPartId(null);
       setBlColors(null);
       setColors(null);
+      setRarestSubpartSetCount(null);
+      setRarestSubpartSets([]);
       const url = URL.createObjectURL(file);
       setImagePreview(url);
 
@@ -866,6 +905,9 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         }
         setBlPartId(null);
         setBlColors(null);
+        // Clear rarest subpart state (candidate switch changes the part)
+        setRarestSubpartSetCount(null);
+        setRarestSubpartSets([]);
       } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') return;
         setError(e instanceof Error ? e.message : String(e));
@@ -929,6 +971,9 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           const selected = (payload as { selectedColorId?: number | null })
             .selectedColorId;
           setSets(setsAny);
+          // Color change is not applicable to minifigs — clear stale rarest data
+          setRarestSubpartSetCount(null);
+          setRarestSubpartSets([]);
           if (Array.isArray(avail)) {
             setColors(
               avail
@@ -1287,13 +1332,15 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                     selectedColorId={selectedColorId}
                     onSelectCandidate={onSelectCandidate}
                     onChangeColor={onChangeColor}
+                    rarestSubpartSetCount={rarestSubpartSetCount}
+                    setsCount={sets.length}
                   />
                 </Suspense>
               )}
 
               {hasSearched && (
                 <>
-                  <div className="mt-5 mb-2 flex items-center gap-2">
+                  <div className="mt-5 mb-2 flex flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold tracking-wide text-foreground-muted uppercase">
                       {sets.length > 0
                         ? `Found in ${sets.length} set${sets.length !== 1 ? 's' : ''}`
@@ -1312,6 +1359,25 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                       source={blPartId ? 'bl_supersets' : 'rb'}
                     />
                   </Suspense>
+
+                  {part?.isMinifig && rarestSubpartSets.length > 0 && (
+                    <>
+                      <div className="mt-6 mb-2">
+                        <span className="text-xs font-semibold tracking-wide text-foreground-muted uppercase">
+                          May also appear in
+                        </span>
+                        <p className="mt-0.5 text-xs text-foreground-muted">
+                          Rarest minifig part appears in these sets.
+                        </p>
+                      </div>
+                      <Suspense fallback={<BrickLoader />}>
+                        <IdentifySetList
+                          items={rarestSubpartSets}
+                          source="rb"
+                        />
+                      </Suspense>
+                    </>
+                  )}
                 </>
               )}
 

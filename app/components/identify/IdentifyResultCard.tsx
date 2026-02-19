@@ -1,5 +1,7 @@
 'use client';
 
+import { RarityBadge } from '@/app/components/set/items/RarityBadge';
+import { getRarityTier } from '@/app/components/set/types';
 import { useMinifigMeta } from '@/app/hooks/useMinifigMeta';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import type { IdentifyCandidate, IdentifyPart } from './types';
@@ -17,6 +19,8 @@ export function IdentifyResultCard({
   selectedColorId,
   onChangeColor,
   showConfidence = true,
+  rarestSubpartSetCount,
+  setsCount,
 }: {
   part: IdentifyPart | null;
   candidates: IdentifyCandidate[];
@@ -25,6 +29,9 @@ export function IdentifyResultCard({
   selectedColorId?: number | null;
   onChangeColor?: (id: number | null) => void;
   showConfidence?: boolean;
+  rarestSubpartSetCount?: number | null;
+  /** Total number of sets this part appears in (used for part rarity). */
+  setsCount?: number;
 }) {
   const hasPart = Boolean(part?.partNum);
   const partNum = part?.partNum ?? '';
@@ -33,12 +40,13 @@ export function IdentifyResultCard({
     part?.rebrickableFigId ?? (looksLikeRbFigId ? partNum : null);
   const isMinifig = (part?.isMinifig ?? false) || Boolean(rebrickableFigId);
 
-  const idLabel = isMinifig
+  const minifigIdInfo = isMinifig
     ? formatMinifigId({
         bricklinkId: part?.bricklinkFigId ?? undefined,
         rebrickableId: rebrickableFigId ?? undefined,
-      }).label
-    : partNum;
+      })
+    : null;
+  const idLabel = minifigIdInfo?.label ?? partNum;
 
   const { meta } = useMinifigMeta(
     isMinifig && rebrickableFigId ? rebrickableFigId : ''
@@ -53,6 +61,12 @@ export function IdentifyResultCard({
   const displayName =
     (isMinifig && meta?.name && meta.name.trim()) || partSafe.name || partNum;
   const displayImageUrl = (isMinifig && meta?.imageUrl) || partSafe.imageUrl;
+
+  const rarityTier = isMinifig
+    ? getRarityTier(rarestSubpartSetCount ?? null)
+    : typeof setsCount === 'number'
+      ? getRarityTier(setsCount)
+      : null;
 
   return (
     <Card variant="green" padding="sm">
@@ -70,18 +84,27 @@ export function IdentifyResultCard({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-base font-semibold">{displayName}</div>
-          <div className="mt-1 text-xs text-foreground-muted">
-            {idLabel}
-            {showConfidence &&
-              typeof partSafe.confidence === 'number' &&
-              !Number.isNaN(partSafe.confidence) &&
-              partSafe.confidence > 0 && (
-                <>
-                  {' '}
-                  &bull; confidence {(partSafe.confidence * 100).toFixed(0)}%
-                </>
-              )}
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-medium">{displayName}</p>
+            {rarityTier && <RarityBadge tier={rarityTier} />}
+          </div>
+          <div className="mt-1 text-sm text-foreground-muted">
+            {isMinifig ? (
+              <p>Minifigure {idLabel}</p>
+            ) : (
+              <p>
+                Part {idLabel}
+                {partSafe.colorName ? ` in ${partSafe.colorName}` : ''}
+                {showConfidence &&
+                  typeof partSafe.confidence === 'number' &&
+                  !Number.isNaN(partSafe.confidence) &&
+                  partSafe.confidence > 0 && (
+                    <span className="ml-1 text-foreground-muted">
+                      &middot; {(partSafe.confidence * 100).toFixed(0)}%
+                    </span>
+                  )}
+              </p>
+            )}
           </div>
           <div className="mt-1 flex gap-3">
             <a
@@ -136,7 +159,7 @@ export function IdentifyResultCard({
       </div>
       {candidates.length > 1 && onSelectCandidate && (
         <div className="mt-3 border-t border-subtle pt-3">
-          <div className="text-2xs mb-2 font-medium tracking-wide text-foreground-muted uppercase">
+          <div className="mb-2 text-2xs font-medium tracking-wide text-foreground-muted uppercase">
             Other matches
           </div>
           <div className="flex flex-wrap gap-2">

@@ -53,4 +53,8 @@ export type IdentifyResponse = {
   blPartId?: string;
   blAvailableColors?: Array<{ id: number; name: string }>;
   selectedColorId?: number | null;
+  /** Rarest subpart set count for minifigs (from rb_minifig_rarity). */
+  rarestSubpartSetCount?: number | null;
+  /** Sets that the rarest subpart appears in (excluding the minifig's own direct sets). */
+  rarestSubpartSets?: IdentifySet[];
 };

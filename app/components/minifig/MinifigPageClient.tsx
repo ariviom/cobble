@@ -1,5 +1,7 @@
 'use client';
 
+import { IdentifySetList } from '@/app/components/identify/IdentifySetList';
+import type { IdentifySet } from '@/app/components/identify/types';
 import { MinifigOwnershipAndCollectionsRow } from '@/app/components/minifig/MinifigOwnershipAndCollectionsRow';
 import { Badge } from '@/app/components/ui/Badge';
 import { Card } from '@/app/components/ui/Card';
@@ -12,6 +14,8 @@ import { useUserMinifigs } from '@/app/hooks/useUserMinifigs';
 import { formatMinifigId, pickMinifigRouteId } from '@/app/lib/minifigIds';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
+import { RarityBadge } from '@/app/components/set/items/RarityBadge';
+import { getRarityTier } from '@/app/components/set/types';
 import {
   Box,
   Calendar,
@@ -88,6 +92,8 @@ type MinifigPageClientProps = {
   initialBlId?: string | null;
   /** Server-side resolved sets count */
   initialSetsCount?: number;
+  /** Rarest subpart set count from rb_minifig_rarity */
+  initialMinSubpartSetCount?: number | null;
 };
 
 export function MinifigPageClient({
@@ -99,6 +105,7 @@ export function MinifigPageClient({
   initialNumParts,
   initialBlId,
   initialSetsCount = 0,
+  initialMinSubpartSetCount,
 }: MinifigPageClientProps) {
   const trimmedFigNum = figNum.trim();
   const ownership = useMinifigOwnershipState({ figNum: trimmedFigNum });
@@ -181,6 +188,21 @@ export function MinifigPageClient({
 
   const subparts = subpartsDetails?.subparts ?? [];
 
+  // Rarest subpart sets come from the pricing fetch (no extra call needed)
+  const rarestSubpartSets: IdentifySet[] = useMemo(
+    () =>
+      (pricingData?.rarestSubpartSets ?? []).map(s => ({
+        setNumber: s.setNumber,
+        name: s.name,
+        year: s.year,
+        imageUrl: s.imageUrl,
+        quantity: s.quantity,
+        numParts: s.numParts ?? null,
+        themeName: s.themeName ?? null,
+      })),
+    [pricingData?.rarestSubpartSets]
+  );
+
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-6 lg:py-10">
       {/* Hero Section - Collectible showcase */}
@@ -220,6 +242,14 @@ export function MinifigPageClient({
                   <Badge variant="muted" size="sm">
                     {partsCount} parts
                   </Badge>
+                )}
+                {getRarityTier(initialMinSubpartSetCount ?? setsCount) !=
+                  null && (
+                  <RarityBadge
+                    tier={
+                      getRarityTier(initialMinSubpartSetCount ?? setsCount)!
+                    }
+                  />
                 )}
               </div>
             </div>
@@ -291,10 +321,19 @@ export function MinifigPageClient({
             <p className="text-sm text-foreground-muted">Fetching price…</p>
           </div>
         )}
+        {!isPricingLoading &&
+          priceGuide?.source === 'quota_exhausted' &&
+          priceGuide?.used?.unitPrice == null && (
+            <div className="border-t-2 border-subtle px-5 py-3 sm:px-6">
+              <p className="text-sm text-foreground-muted italic">
+                Pricing data currently unavailable
+              </p>
+            </div>
+          )}
         {!isPricingLoading && priceGuide?.used?.unitPrice != null && (
           <div className="grid grid-cols-2 gap-px border-t-2 border-subtle bg-subtle">
             <PriceCell
-              label={priceGuide.source === 'derived' ? 'Est. Used' : 'Used'}
+              label="Used"
               unitPrice={priceGuide.used.unitPrice}
               minPrice={priceGuide.used.minPrice}
               maxPrice={priceGuide.used.maxPrice}
@@ -302,7 +341,7 @@ export function MinifigPageClient({
             />
             {priceGuide.new?.unitPrice != null ? (
               <PriceCell
-                label={priceGuide.source === 'derived' ? 'Est. New' : 'New'}
+                label="New"
                 unitPrice={priceGuide.new.unitPrice}
                 minPrice={priceGuide.new.minPrice}
                 maxPrice={priceGuide.new.maxPrice}
@@ -353,6 +392,21 @@ export function MinifigPageClient({
             )}
         </div>
       </Card>
+
+      {/* May also appear in — rarest subpart sets */}
+      {rarestSubpartSets.length > 0 && (
+        <Card elevated className="mt-6" padding="none">
+          <div className="px-5 py-4 sm:px-6">
+            <span className="text-xs font-semibold tracking-wide text-foreground-muted uppercase">
+              May also appear in
+            </span>
+            <p className="mt-0.5 text-xs text-foreground-muted">
+              Rarest minifig part appears in these sets.
+            </p>
+            <IdentifySetList items={rarestSubpartSets} source="rb" />
+          </div>
+        </Card>
+      )}
 
       {/* Subparts section */}
       <Card elevated className="mt-6" padding="none">
@@ -439,6 +493,21 @@ export function MinifigPageClient({
                             <span>{item.colorName}</span>
                             <span>•</span>
                             <span>×{item.quantity}</span>
+                            {item.setCount != null &&
+                              getRarityTier(item.setCount) != null && (
+                                <>
+                                  <span>•</span>
+                                  <span className="inline-flex items-center gap-1">
+                                    <RarityBadge
+                                      tier={getRarityTier(item.setCount)!}
+                                    />
+                                    <span>
+                                      {item.setCount}{' '}
+                                      {item.setCount === 1 ? 'set' : 'sets'}
+                                    </span>
+                                  </span>
+                                </>
+                              )}
                             {bricklinkUrl && (
                               <>
                                 <span>•</span>
