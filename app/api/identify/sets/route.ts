@@ -1,6 +1,7 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { LRUCache } from '@/app/lib/cache/lru';
 import { RATE_LIMIT } from '@/app/lib/constants';
+import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
@@ -55,11 +56,25 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Check if this is a minifig identification request
-  const isMinifig = part.startsWith('fig:') || looksLikeBricklinkFig(part);
-
-  if (isMinifig) {
+  // Unambiguous minifig prefix — always route to minifig handler
+  if (part.startsWith('fig:')) {
     return handleMinifigRequest(part);
+  }
+
+  // Heuristic match (e.g. "sw0001", "cty1234") — verify against catalog
+  // because printed part IDs like "pi004" also match the pattern.
+  if (looksLikeBricklinkFig(part)) {
+    const supabase = getCatalogReadClient();
+    const { data: fig } = await supabase
+      .from('rb_minifigs')
+      .select('fig_num')
+      .eq('bl_minifig_id', part.trim())
+      .maybeSingle();
+
+    if (fig) {
+      return handleMinifigRequest(part);
+    }
+    // Not a known minifig — fall through to part handler
   }
 
   return handlePartRequest(part, colorIdRaw, blColorIdRaw);
