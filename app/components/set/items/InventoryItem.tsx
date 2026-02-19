@@ -7,6 +7,7 @@ import {
   MoreDropdownButton,
 } from '@/app/components/ui/MoreDropdown';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
+import { SignInPrompt } from '@/app/components/ui/SignInPrompt';
 import { cn } from '@/app/components/ui/utils';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import { Check, ExternalLink, Info, Pin, Search } from 'lucide-react';
@@ -232,9 +233,7 @@ function InventoryItemComponent({
               onChange={onOwnedChange}
             />
           ) : (
-            <div className="flex h-12 w-full min-w-min items-center justify-center rounded-lg border-2 border-subtle px-3 text-xs text-foreground-muted">
-              Sign in to track inventory
-            </div>
+            <SignInPrompt variant="inline" />
           )}
         </div>
       </div>

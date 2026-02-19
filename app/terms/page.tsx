@@ -74,7 +74,7 @@ export default function TermsPage() {
           */}
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">4. User Accounts</h2>
+            <h2 className="mb-3 text-xl font-semibold">3. User Accounts</h2>
             <div className="space-y-3 text-foreground-muted">
               <p>
                 You may use the Service anonymously with local-only storage, or
@@ -109,7 +109,7 @@ export default function TermsPage() {
           */}
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">6. Acceptable Use</h2>
+            <h2 className="mb-3 text-xl font-semibold">4. Acceptable Use</h2>
             <div className="space-y-3 text-foreground-muted">
               <p>You agree NOT to:</p>
               <ul className="list-inside list-disc space-y-1">
@@ -135,7 +135,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="mb-3 text-xl font-semibold">
-              7. Rate Limits and Quotas
+              5. Rate Limits and Quotas
             </h2>
             <p className="text-foreground-muted">
               The Service implements rate limiting and feature quotas (e.g.,
@@ -147,7 +147,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="mb-3 text-xl font-semibold">
-              8. Third-Party Services
+              6. Third-Party Services
             </h2>
             <p className="text-foreground-muted">
               The Service integrates with third-party services including
@@ -165,7 +165,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="mb-3 text-xl font-semibold">
-              9. Intellectual Property
+              7. Intellectual Property
             </h2>
             <div className="space-y-3 text-foreground-muted">
               <p>
@@ -185,7 +185,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">10. User Data</h2>
+            <h2 className="mb-3 text-xl font-semibold">8. User Data</h2>
             <div className="space-y-3 text-foreground-muted">
               <p>
                 You retain ownership of any data you input into the Service
@@ -203,7 +203,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="mb-3 text-xl font-semibold">
-              11. Disclaimer of Warranties
+              9. Disclaimer of Warranties
             </h2>
             <p className="text-foreground-muted">
               THE SERVICE IS PROVIDED &quot;AS IS&quot; AND &quot;AS
@@ -217,7 +217,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="mb-3 text-xl font-semibold">
-              12. Limitation of Liability
+              10. Limitation of Liability
             </h2>
             <p className="text-foreground-muted">
               TO THE MAXIMUM EXTENT PERMITTED BY LAW, BRICK PARTY SHALL NOT BE
@@ -229,7 +229,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">13. Beta Service</h2>
+            <h2 className="mb-3 text-xl font-semibold">11. Beta Service</h2>
             <p className="text-foreground-muted">
               The Service is currently in beta. Features may change, and the
               Service may experience downtime or data loss. We recommend
@@ -238,7 +238,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">14. Termination</h2>
+            <h2 className="mb-3 text-xl font-semibold">12. Termination</h2>
             <p className="text-foreground-muted">
               We reserve the right to suspend or terminate your access to the
               Service at any time, with or without notice, for any reason,
@@ -248,7 +248,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">15. Changes to Terms</h2>
+            <h2 className="mb-3 text-xl font-semibold">13. Changes to Terms</h2>
             <p className="text-foreground-muted">
               We reserve the right to modify these Terms at any time. We will
               notify users of any material changes by posting the new Terms on
@@ -259,7 +259,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">16. Governing Law</h2>
+            <h2 className="mb-3 text-xl font-semibold">14. Governing Law</h2>
             <p className="text-foreground-muted">
               These Terms shall be governed by and construed in accordance with
               the laws of the jurisdiction in which Brick Party operates,
@@ -268,7 +268,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">17. Contact</h2>
+            <h2 className="mb-3 text-xl font-semibold">15. Contact</h2>
             <p className="text-foreground-muted">
               If you have questions about these Terms, please contact us through
               the feedback form in your account settings.

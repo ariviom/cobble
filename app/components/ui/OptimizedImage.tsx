@@ -4,6 +4,7 @@ import Image, { type ImageProps } from 'next/image';
 import { useCallback, useState } from 'react';
 
 import { getImageSizeConfig, type ImageVariant } from '@/app/config/imageSizes';
+import { Skeleton } from '@/app/components/ui/Skeleton';
 import { cn } from '@/app/components/ui/utils';
 
 type OptimizedImageProps = {
@@ -60,21 +61,26 @@ export function OptimizedImage({
   const shouldFade = !disableFade && !priority;
 
   return (
-    <Image
-      src={src}
-      alt={alt}
-      width={width}
-      height={height}
-      sizes={sizesOverride ?? sizes}
-      {...(finalQuality !== undefined ? { quality: finalQuality } : {})}
-      className={cn(
-        className,
-        shouldFade && 'transition-opacity duration-200',
-        shouldFade && !isLoaded && 'opacity-0'
+    <div className="relative">
+      {shouldFade && !isLoaded && (
+        <Skeleton variant="image" className="absolute inset-0 h-full w-full" />
       )}
-      priority={priority === true}
-      onLoad={handleLoad}
-      {...rest}
-    />
+      <Image
+        src={src}
+        alt={alt}
+        width={width}
+        height={height}
+        sizes={sizesOverride ?? sizes}
+        {...(finalQuality !== undefined ? { quality: finalQuality } : {})}
+        className={cn(
+          className,
+          shouldFade && 'transition-opacity duration-200',
+          shouldFade && !isLoaded && 'opacity-0'
+        )}
+        priority={priority === true}
+        onLoad={handleLoad}
+        {...rest}
+      />
+    </div>
   );
 }

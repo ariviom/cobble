@@ -141,14 +141,14 @@ export function SetsLandingContent({
             </div>
           )}
 
-          {/* Search input */}
+          {/* Filter / search input */}
           <div className="relative mb-6">
             <Search className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-foreground-muted" />
             <Input
               size="lg"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search by name or number..."
+              placeholder="Filter by name or number..."
               className="pl-11"
             />
           </div>
@@ -176,9 +176,19 @@ export function SetsLandingContent({
                 )}
               </p>
             ) : (
-              <p className="py-8 text-center text-sm text-foreground-muted">
-                {emptyMessage}
-              </p>
+              <div className="py-8 text-center text-sm text-foreground-muted">
+                <p>{emptyMessage}</p>
+                {searchQuery.trim() && (
+                  <p className="mt-3">
+                    <Link
+                      href={`/search?q=${encodeURIComponent(searchQuery.trim())}`}
+                      className="font-medium text-theme-text underline underline-offset-2"
+                    >
+                      Search the catalog for &ldquo;{searchQuery.trim()}&rdquo;
+                    </Link>
+                  </p>
+                )}
+              </div>
             )
           ) : (
             <div className="grid grid-cols-2 gap-x-2 gap-y-4 md:grid-cols-3 lg:grid-cols-4">

@@ -212,12 +212,12 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-10 lg:px-6">
+    <div className="relative mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-10 lg:px-6">
       <header className="text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <h1 className="text-3xl font-extrabold tracking-tight">
           Create account
         </h1>
-        <p className="mt-2 text-sm text-foreground-muted">
+        <p className="mt-2 text-base text-foreground-muted">
           Sign up to save your collection and sync across devices.
         </p>
       </header>
@@ -275,7 +275,7 @@ export default function SignupPage() {
             />
             <label
               htmlFor="signup-password"
-              className="text-2xs mt-2 font-medium text-foreground"
+              className="mt-2 text-2xs font-medium text-foreground"
             >
               Password
             </label>
@@ -291,7 +291,7 @@ export default function SignupPage() {
             />
             <label
               htmlFor="signup-confirm"
-              className="text-2xs mt-2 font-medium text-foreground"
+              className="mt-2 text-2xs font-medium text-foreground"
             >
               Confirm password
             </label>

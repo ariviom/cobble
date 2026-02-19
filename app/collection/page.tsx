@@ -1,4 +1,6 @@
 import { PageLayout } from '@/app/components/layout/PageLayout';
+import { CollectionHero } from './CollectionHero';
+import { SignInPrompt } from '@/app/components/ui/SignInPrompt';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { buildUserHandle } from '@/app/lib/users';
 import type { Metadata } from 'next';
@@ -83,24 +85,13 @@ export default async function CollectionPage({
   if (!userId) {
     return (
       <PageLayout>
-        <section className="mb-8">
-          <div className="mx-auto w-full max-w-3xl px-4 py-12">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Create an account to track your collection
-            </h1>
-            <p className="mt-3 text-sm text-foreground-muted">
-              Search, Identify, and Search Party work without an account, but
-              managing lists of sets and minifigures requires signing in.
-            </p>
-            <div className="mt-6">
-              <a
-                href="/login"
-                className="inline-flex items-center rounded-md bg-theme-primary px-4 py-2 text-sm font-medium text-theme-primary-contrast shadow-sm transition-colors hover:bg-theme-primary/90"
-              >
-                Sign in to manage your collection
-              </a>
-            </div>
-          </div>
+        <CollectionHero />
+        <section className="container-default py-8">
+          <SignInPrompt
+            title="Create an account to track your collection"
+            description="Search, Identify, and Search Party work without an account, but managing lists of sets and minifigures requires signing in."
+            buttonText="Sign in to manage your collection"
+          />
         </section>
       </PageLayout>
     );

@@ -22,6 +22,7 @@ import type {
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { Button } from '@/app/components/ui/Button';
 import { Card } from '@/app/components/ui/Card';
+import { SignInPrompt } from '@/app/components/ui/SignInPrompt';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
@@ -1267,22 +1268,10 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
       {/* Unauthenticated: sign-in card */}
       {!isAuthenticated && (
         <section className="container-default py-8">
-          <Card
-            variant="green"
-            padding="lg"
-            className="mx-auto max-w-3xl text-center shadow-md"
-          >
-            <h2 className="mb-3 text-2xl font-bold">Sign In Required</h2>
-            <p className="text-body text-foreground-muted">
-              Sign in to use Identify and track your daily quota (5 per day on
-              Free).
-            </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <Button href="/login" variant="primary" size="lg">
-                Sign in
-              </Button>
-            </div>
-            <div className="mt-4">
+          <SignInPrompt
+            title="Sign In Required"
+            description="Sign in to use Identify and track your daily quota (5 per day on Free)."
+            footer={
               <a
                 href="https://brickognize.com/"
                 target="_blank"
@@ -1291,8 +1280,8 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
               >
                 Powered by Brickognize
               </a>
-            </div>
-          </Card>
+            }
+          />
         </section>
       )}
 
