@@ -204,6 +204,7 @@ export type Database = {
           country_code: string;
           currency_code: string;
           fetched_at: string;
+          hit_count: number;
           item_id: string;
           item_type: string;
           max_price: number | null;
@@ -219,6 +220,7 @@ export type Database = {
           country_code?: string;
           currency_code: string;
           fetched_at?: string;
+          hit_count?: number;
           item_id: string;
           item_type: string;
           max_price?: number | null;
@@ -234,6 +236,7 @@ export type Database = {
           country_code?: string;
           currency_code?: string;
           fetched_at?: string;
+          hit_count?: number;
           item_id?: string;
           item_type?: string;
           max_price?: number | null;

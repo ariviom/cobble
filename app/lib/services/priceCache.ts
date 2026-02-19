@@ -98,6 +98,18 @@ export async function getCachedPrice(
   }
   if (!data) return null;
 
+  // Fire-and-forget hit count increment (safe if column doesn't exist yet)
+  if ('hit_count' in data) {
+    void db
+      .from('bl_price_cache')
+      .update({ hit_count: (data.hit_count ?? 0) + 1 })
+      .match(filter)
+      .then(({ error: hitErr }) => {
+        if (hitErr)
+          logger.warn('priceCache.hitCount.error', { error: hitErr.message });
+      });
+  }
+
   return {
     itemId: data.item_id,
     itemType: data.item_type,
