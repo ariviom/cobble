@@ -112,7 +112,7 @@
   --font-sans: var(--font-cera-pro);
 
   /* Font sizes - fill gaps in Tailwind's scale */
-  --font-size-2xs: 0.6875rem; /* 11px - compact UI text */
+  --text-2xs: 0.6875rem; /* 11px - compact UI text */
 
   /* Component widths - common min-width values */
   --width-xs: 4.375rem; /* 70px */

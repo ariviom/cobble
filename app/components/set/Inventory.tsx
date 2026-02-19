@@ -94,16 +94,12 @@ export function Inventory() {
         priceInfo?.pricingSource ?? priceInfo?.pricing_source ?? null,
       bricklinkColorId: priceInfo?.bricklinkColorId ?? null,
       isPricePending: pendingPriceKeys?.has(selectedItemKey) ?? false,
-      canRequestPrice: Boolean(
-        !pendingPriceKeys?.has(selectedItemKey) &&
-          !pricesByKey?.[selectedItemKey] &&
-          requestPricesForKeys
-      ),
       hasPrice,
       hasRange,
-      onRequestPrice: requestPricesForKeys
-        ? () => requestPricesForKeys([selectedItemKey])
-        : undefined,
+      unitPrice: priceInfo?.unitPrice ?? null,
+      minPrice: priceInfo?.minPrice ?? null,
+      maxPrice: priceInfo?.maxPrice ?? null,
+      currency: priceInfo?.currency ?? null,
     };
   }, [
     selectedItemKey,
@@ -251,20 +247,20 @@ export function Inventory() {
       >
         <div className="space-y-4">
           <p className="text-muted-foreground text-sm">
-            Choose whether to keep your Supabase data or push your local data.
+            Choose whether to keep your cloud data or push your local data.
           </p>
           <p>Local total: {migration?.localTotal ?? 0}</p>
-          <p>Supabase total: {migration?.supabaseTotal ?? 0}</p>
+          <p>Cloud total: {migration?.supabaseTotal ?? 0}</p>
           <div className="flex gap-3">
             <Button disabled={isMigrating} onClick={confirmMigration}>
-              Push local to Supabase
+              Push local to cloud
             </Button>
             <Button
               variant="secondary"
               disabled={isMigrating}
               onClick={keepCloudData}
             >
-              Keep Supabase data
+              Keep cloud data
             </Button>
           </div>
         </div>

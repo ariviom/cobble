@@ -196,7 +196,7 @@ function InventoryItemComponent({
           </p>
           <div className="mt-1 w-full text-sm text-foreground-muted">
             {isMinifig ? (
-              <p>{minifigIdDisplay.label}</p>
+              <p>Minifigure {minifigIdDisplay.label}</p>
             ) : (
               <p>
                 Part {displayId}
