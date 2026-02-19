@@ -646,6 +646,13 @@ export async function getSetInventoryLocal(
   return [...mergedRows, ...sortedParentRows];
 }
 
+/**
+ * Find sets containing a part using the normalized inventory tables.
+ *
+ * Matches the rarity system's UNION logic:
+ *  1. Direct parts in sets (rb_inventory_parts → rb_inventories)
+ *  2. Parts via minifig subparts (rb_minifig_parts → rb_inventory_minifigs → rb_inventories)
+ */
 export async function getSetsForPartLocal(
   partNum: string,
   colorId?: number | null
@@ -653,117 +660,183 @@ export async function getSetsForPartLocal(
   const trimmed = partNum.trim();
   if (!trimmed) return [];
 
-  const supabase = getCatalogReadClient();
-  const data = await dedup(
+  return dedup(
     `getSetsForPartLocal:${trimmed.toLowerCase()}:${colorId ?? ''}`,
-    async () => {
-      const query = supabase
-        .from('rb_set_parts')
-        .select(
-          `
-            set_num,
-            quantity,
-            color_id,
-            rb_sets!inner (
-              set_num,
-              name,
-              year,
-              num_parts,
-              image_url,
-              theme_id
-            )
-          `
-        )
-        .eq('part_num', trimmed)
-        .eq('is_spare', false)
-        .limit(1000);
+    () => getSetsForPartLocalImpl(trimmed, colorId)
+  );
+}
 
-      if (typeof colorId === 'number') {
-        query.eq('color_id', colorId);
-      }
+async function getSetsForPartLocalImpl(
+  partNum: string,
+  colorId?: number | null
+): Promise<PartInSet[]> {
+  const supabase = getCatalogReadClient();
 
-      const { data, error } = await query;
+  // ── Step 1: Parallel fetch — direct inventory parts + minifig subparts ──
+  const directQuery = supabase
+    .from('rb_inventory_parts')
+    .select('inventory_id, quantity')
+    .eq('part_num', partNum)
+    .eq('is_spare', false)
+    .limit(2000);
+  if (typeof colorId === 'number') directQuery.eq('color_id', colorId);
+
+  const figQuery = supabase
+    .from('rb_minifig_parts')
+    .select('fig_num, quantity')
+    .eq('part_num', partNum)
+    .limit(500);
+  if (typeof colorId === 'number') figQuery.eq('color_id', colorId);
+
+  const [directRes, figRes] = await Promise.all([directQuery, figQuery]);
+  if (directRes.error) {
+    throw new Error(
+      `Supabase getSetsForPartLocal direct failed: ${directRes.error.message}`
+    );
+  }
+  if (figRes.error) {
+    throw new Error(
+      `Supabase getSetsForPartLocal minifig_parts failed: ${figRes.error.message}`
+    );
+  }
+
+  const directParts = directRes.data ?? [];
+  const figParts = figRes.data ?? [];
+
+  // ── Step 2: For minifig path, find inventories containing those figs ──
+  const figInvData: {
+    inventory_id: number;
+    fig_num: string;
+    quantity: number;
+  }[] = [];
+  if (figParts.length > 0) {
+    const figNums = [...new Set(figParts.map(f => f.fig_num))];
+    for (let i = 0; i < figNums.length; i += 200) {
+      const batch = figNums.slice(i, i + 200);
+      const { data, error } = await supabase
+        .from('rb_inventory_minifigs')
+        .select('inventory_id, fig_num, quantity')
+        .in('fig_num', batch);
       if (error) {
         throw new Error(
-          `Supabase getSetsForPartLocal failed: ${error.message}`
+          `Supabase getSetsForPartLocal inv_minifigs failed: ${error.message}`
         );
       }
-
-      return data ?? [];
+      figInvData.push(...(data ?? []));
     }
-  );
+  }
 
-  if (!data || data.length === 0) return [];
+  // ── Step 3: Resolve inventory_ids → set_nums (excluding fig-* inventories) ──
+  const allInvIds = [
+    ...new Set([
+      ...directParts.map(r => r.inventory_id),
+      ...figInvData.map(r => r.inventory_id),
+    ]),
+  ];
+  if (allInvIds.length === 0) return [];
 
+  const inventoryRows: { id: number; set_num: string }[] = [];
+  for (let i = 0; i < allInvIds.length; i += 200) {
+    const batch = allInvIds.slice(i, i + 200);
+    const { data, error } = await supabase
+      .from('rb_inventories')
+      .select('id, set_num')
+      .in('id', batch)
+      .not('set_num', 'like', 'fig-%');
+    if (error) {
+      throw new Error(
+        `Supabase getSetsForPartLocal inventories failed: ${error.message}`
+      );
+    }
+    for (const row of data ?? []) {
+      if (row.set_num) inventoryRows.push({ id: row.id, set_num: row.set_num });
+    }
+  }
+
+  const invToSet = new Map<number, string>();
+  for (const inv of inventoryRows) {
+    if (inv.set_num) invToSet.set(inv.id, inv.set_num);
+  }
+
+  // ── Step 4: Aggregate quantities per set ──
+  const setQuantities = new Map<string, number>();
+
+  for (const dp of directParts) {
+    const setNum = invToSet.get(dp.inventory_id);
+    if (!setNum) continue;
+    setQuantities.set(
+      setNum,
+      (setQuantities.get(setNum) ?? 0) + (dp.quantity ?? 1)
+    );
+  }
+
+  // Parts via minifigs: total = minifig_qty_in_set × part_qty_in_minifig
+  const figPartQty = new Map<string, number>();
+  for (const fp of figParts) {
+    figPartQty.set(fp.fig_num, fp.quantity ?? 1);
+  }
+  for (const mf of figInvData) {
+    const setNum = invToSet.get(mf.inventory_id);
+    if (!setNum) continue;
+    const partQty = figPartQty.get(mf.fig_num) ?? 1;
+    setQuantities.set(
+      setNum,
+      (setQuantities.get(setNum) ?? 0) + (mf.quantity ?? 1) * partQty
+    );
+  }
+
+  if (setQuantities.size === 0) return [];
+
+  // ── Step 5: Fetch rb_sets metadata ──
+  const setNums = [...setQuantities.keys()];
+  type SetRow = {
+    set_num: string;
+    name: string;
+    year: number | null;
+    num_parts: number | null;
+    image_url: string | null;
+    theme_id: number | null;
+  };
+  const setRows: SetRow[] = [];
+  for (let i = 0; i < setNums.length; i += 200) {
+    const batch = setNums.slice(i, i + 200);
+    const { data, error } = await supabase
+      .from('rb_sets')
+      .select('set_num, name, year, num_parts, image_url, theme_id')
+      .in('set_num', batch);
+    if (error) {
+      throw new Error(
+        `Supabase getSetsForPartLocal sets failed: ${error.message}`
+      );
+    }
+    setRows.push(...((data as SetRow[]) ?? []));
+  }
+
+  // ── Build result with theme enrichment ──
   const themes = await getThemesLocal();
   const themeById = new Map<number, LocalTheme>(
     (themes ?? []).map(t => [t.id, t])
   );
 
   const bySet = new Map<string, PartInSet>();
-
-  for (const row of data) {
-    const set = (row as unknown as { rb_sets?: Record<string, unknown> })
-      .rb_sets;
-    if (!set) continue;
-
-    const setNum = String(
-      (set as { set_num?: unknown }).set_num ?? row.set_num ?? ''
-    ).trim();
-    if (!setNum) continue;
-
-    const key = setNum.toLowerCase();
-    const quantity =
-      typeof row.quantity === 'number' && Number.isFinite(row.quantity)
-        ? row.quantity
-        : 1;
-
+  for (const row of setRows) {
+    const quantity = setQuantities.get(row.set_num) ?? 1;
     const rawThemeId =
-      typeof (set as { theme_id?: unknown }).theme_id === 'number' &&
-      Number.isFinite((set as { theme_id?: number }).theme_id)
-        ? (set as { theme_id: number }).theme_id
+      typeof row.theme_id === 'number' && Number.isFinite(row.theme_id)
+        ? row.theme_id
         : null;
     const themeName = deriveRootThemeName(themeById, rawThemeId);
 
-    const base: PartInSet = {
-      setNumber: setNum,
-      name: String((set as { name?: unknown }).name ?? setNum),
-      year:
-        typeof (set as { year?: unknown }).year === 'number' &&
-        Number.isFinite((set as { year: number }).year)
-          ? (set as { year: number }).year
-          : 0,
-      imageUrl:
-        typeof (set as { image_url?: unknown }).image_url === 'string'
-          ? ((set as { image_url: string }).image_url ?? null)
-          : null,
+    bySet.set(row.set_num.toLowerCase(), {
+      setNumber: row.set_num,
+      name: row.name ?? row.set_num,
+      year: row.year ?? 0,
+      imageUrl: row.image_url ?? null,
       quantity,
-      numParts:
-        typeof (set as { num_parts?: unknown }).num_parts === 'number' &&
-        Number.isFinite((set as { num_parts: number }).num_parts)
-          ? (set as { num_parts: number }).num_parts
-          : null,
+      numParts: row.num_parts ?? null,
       themeId: rawThemeId,
       themeName: themeName ?? null,
-    };
-
-    const existing = bySet.get(key);
-    if (!existing) {
-      bySet.set(key, base);
-    } else {
-      existing.quantity += base.quantity;
-      if (existing.year === 0 && base.year !== 0) existing.year = base.year;
-      if (existing.numParts == null && base.numParts != null) {
-        existing.numParts = base.numParts;
-      }
-      if (!existing.themeId && base.themeId) existing.themeId = base.themeId;
-      if (!existing.themeName && base.themeName) {
-        existing.themeName = base.themeName;
-      }
-      if (!existing.imageUrl && base.imageUrl)
-        existing.imageUrl = base.imageUrl;
-      if (!existing.name && base.name) existing.name = base.name;
-    }
+    });
   }
 
   return Array.from(bySet.values());
