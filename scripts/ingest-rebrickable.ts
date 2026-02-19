@@ -1081,13 +1081,29 @@ async function materializePartRarity(
       ) all_parts
       GROUP BY part_num, color_id;
 
-      -- Minifig rarity: min set_count across subparts
+      -- Minifig rarity: min subpart set_count + actual minifig set membership count
       TRUNCATE public.rb_minifig_rarity;
-      INSERT INTO public.rb_minifig_rarity (fig_num, min_subpart_set_count)
-      SELECT rmp.fig_num, MIN(rpr.set_count)
-      FROM public.rb_minifig_parts rmp
-      JOIN public.rb_part_rarity rpr ON rpr.part_num = rmp.part_num AND rpr.color_id = rmp.color_id
-      GROUP BY rmp.fig_num;
+      INSERT INTO public.rb_minifig_rarity (fig_num, min_subpart_set_count, set_count)
+      SELECT
+        sub.fig_num,
+        sub.min_subpart_set_count,
+        COALESCE(mem.set_count, 0)
+      FROM (
+        -- Rarest subpart per minifig
+        SELECT rmp.fig_num, MIN(rpr.set_count) AS min_subpart_set_count
+        FROM public.rb_minifig_parts rmp
+        JOIN public.rb_part_rarity rpr
+          ON rpr.part_num = rmp.part_num AND rpr.color_id = rmp.color_id
+        GROUP BY rmp.fig_num
+      ) sub
+      LEFT JOIN (
+        -- Actual set membership count per minifig
+        SELECT rim.fig_num, COUNT(DISTINCT ri.set_num) AS set_count
+        FROM public.rb_inventory_minifigs rim
+        JOIN public.rb_inventories ri ON ri.id = rim.inventory_id
+        WHERE ri.set_num NOT LIKE 'fig-%'
+        GROUP BY rim.fig_num
+      ) mem ON mem.fig_num = sub.fig_num;
     `,
     } as never
   );
@@ -1179,6 +1195,8 @@ async function materializePartRarityChunked(
   }
 
   // Step 3: Add parts via minifigs
+  // Also accumulate minifig → set membership for set_count in rb_minifig_rarity
+  const minifigMemberSets = new Map<string, Set<string>>();
   log(`Processing ${invIds.length} inventories for minifig subparts...`);
   for (let i = 0; i < invIds.length; i += batchSize) {
     const chunk = invIds.slice(i, i + batchSize);
@@ -1199,6 +1217,10 @@ async function materializePartRarityChunked(
       if (!setNum) continue;
       if (!figSets.has(mf.fig_num)) figSets.set(mf.fig_num, new Set());
       figSets.get(mf.fig_num)!.add(setNum);
+      // Also accumulate into global minifig membership map
+      if (!minifigMemberSets.has(mf.fig_num))
+        minifigMemberSets.set(mf.fig_num, new Set());
+      minifigMemberSets.get(mf.fig_num)!.add(setNum);
     }
 
     // For each fig, get its subparts and add set membership
@@ -1276,6 +1298,7 @@ async function materializePartRarityChunked(
     ([figNum, minSc]) => ({
       fig_num: figNum,
       min_subpart_set_count: minSc,
+      set_count: minifigMemberSets.get(figNum)?.size ?? 0,
     })
   );
 

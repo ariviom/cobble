@@ -70,7 +70,8 @@ export type InventoryRow = {
   identity?: import('@/app/lib/domain/partIdentity').PartIdentity;
   /**
    * Number of distinct sets this part+color appears in (precomputed).
-   * For minifig parent rows, this is the min set_count across all subparts.
+   * For minifig parent rows, this is min_subpart_set_count — the set_count
+   * of the rarest subpart, reflecting sourcing difficulty.
    */
   setCount?: number | null;
 };

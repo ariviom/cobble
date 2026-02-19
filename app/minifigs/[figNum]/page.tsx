@@ -21,6 +21,7 @@ type ServerMinifigMeta = {
   numParts: number | null;
   blId: string | null;
   setsCount: number;
+  minSubpartSetCount: number | null;
 };
 
 async function getServerMinifigMeta(
@@ -34,6 +35,7 @@ async function getServerMinifigMeta(
     numParts: null,
     blId: null,
     setsCount: 0,
+    minSubpartSetCount: null,
   };
 
   try {
@@ -61,12 +63,20 @@ async function getServerMinifigMeta(
 
     const rbFigNum = rbMinifig.fig_num;
 
-    // Parallelize independent work: image fetch + sets/theme lookup
-    const [imageUrl, setsResult] = await Promise.all([
+    // Parallelize independent work: image fetch + sets/theme lookup + rarity
+    const [imageUrl, setsResult, rarityRow] = await Promise.all([
       rbFigNum ? getOrFetchMinifigImageUrl(rbFigNum) : Promise.resolve(null),
       rbFigNum
         ? getSetsCountAndTheme(supabase, rbFigNum)
         : Promise.resolve({ setsCount: 0, year: null, themeName: null }),
+      rbFigNum
+        ? supabase
+            .from('rb_minifig_rarity')
+            .select('min_subpart_set_count')
+            .eq('fig_num', rbFigNum)
+            .maybeSingle()
+            .then(({ data }) => data)
+        : Promise.resolve(null),
     ]);
 
     return {
@@ -77,6 +87,7 @@ async function getServerMinifigMeta(
       numParts: rbMinifig.num_parts ?? null,
       blId: rbMinifig.bl_minifig_id ?? null,
       setsCount: setsResult.setsCount,
+      minSubpartSetCount: rarityRow?.min_subpart_set_count ?? null,
     };
   } catch {
     // Best-effort only
@@ -193,6 +204,7 @@ export default async function MinifigPage({ params }: MinifigPageProps) {
         initialNumParts={initialMeta.numParts}
         initialBlId={initialMeta.blId}
         initialSetsCount={initialMeta.setsCount}
+        initialMinSubpartSetCount={initialMeta.minSubpartSetCount}
       />
     </PageLayout>
   );
