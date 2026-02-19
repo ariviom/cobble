@@ -137,9 +137,12 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
           // Thread BL IDs from identity when available
           const id = item.identity;
           if (id) {
+            // For minifig parents, the BL item number is blMinifigId (not blPartId)
+            const blPartId =
+              id.rowType === 'minifig_parent' ? id.blMinifigId : id.blPartId;
             return {
               ...base,
-              ...(id.blPartId != null ? { blPartId: id.blPartId } : {}),
+              ...(blPartId != null ? { blPartId } : {}),
               ...(id.blColorId != null ? { blColorId: id.blColorId } : {}),
               ...(id.rowType === 'minifig_parent'
                 ? { itemType: 'MINIFIG' as const }

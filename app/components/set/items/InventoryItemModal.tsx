@@ -1,11 +1,11 @@
 'use client';
 
-import { buttonVariants } from '@/app/components/ui/Button';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { Modal } from '@/app/components/ui/Modal';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
 import { formatMinifigId } from '@/app/lib/minifigIds';
+import { DollarSign, ExternalLink, Layers } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { getRarityTier, type InventoryRow } from '../types';
@@ -16,10 +16,12 @@ export type InventoryItemModalData = {
   pricingSource?: 'real_time' | 'historical' | 'unavailable' | null | undefined;
   bricklinkColorId?: number | null | undefined;
   isPricePending?: boolean | undefined;
-  canRequestPrice?: boolean | undefined;
   hasPrice?: boolean | undefined;
   hasRange?: boolean | undefined;
-  onRequestPrice?: (() => void) | undefined;
+  unitPrice?: number | null | undefined;
+  minPrice?: number | null | undefined;
+  maxPrice?: number | null | undefined;
+  currency?: string | null | undefined;
 };
 
 type Props = {
@@ -101,6 +103,22 @@ function useBricklinkValidation(
   return state;
 }
 
+function formatModalPrice(
+  value: number,
+  currency: string | null | undefined
+): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currency ?? 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return `${currency ?? '$'}${value.toFixed(2)}`;
+  }
+}
+
 export function InventoryItemModal({ open, onClose, data }: Props) {
   const pricingEnabled = usePricingEnabled();
 
@@ -126,10 +144,12 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
   const {
     pricingSource,
     isPricePending,
-    canRequestPrice,
     hasPrice,
     hasRange,
-    onRequestPrice,
+    unitPrice,
+    minPrice,
+    maxPrice,
+    currency,
   } = data;
 
   const isMinifig = row.parentCategory === 'Minifigure' && isFigId;
@@ -189,106 +209,135 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
   };
 
   const blLinkUnavailable = !isFigId && blValidation.status === 'not_found';
+  const rarityTier = row.setCount != null ? getRarityTier(row.setCount) : null;
+
+  // Determine if we have stats to show in the grid
+  const showPriceCell =
+    pricingEnabled &&
+    (hasPrice || hasRange || isPricePending || pricingSource === 'unavailable');
+  const showSetsCell = row.setCount != null;
+  const showStatsGrid = showPriceCell || showSetsCell;
 
   return (
     <Modal open={open} onClose={onClose} title={row.partName}>
-      <div className="flex flex-col gap-4 text-xs">
-        <div className="flex gap-3">
-          {row.imageUrl ? (
-            <OptimizedImage
-              src={row.imageUrl}
-              alt={row.partName}
-              variant="inventoryModal"
-              className="h-24 w-24 rounded border border-subtle object-contain"
-            />
-          ) : (
-            <ImagePlaceholder
-              variant="simple"
-              text="No image"
-              className="aspect-auto h-24 w-24 rounded border border-subtle"
-            />
-          )}
-          <div className="flex flex-1 flex-col gap-1">
-            <p className="text-sm font-medium">{row.partName}</p>
-            {isMinifig ? (
-              <p>{minifigIdDisplay.label}</p>
+      <div className="-mx-5 -my-5">
+        {/* Hero: image + identity */}
+        <div className="flex gap-4 px-5 py-4">
+          <div className="size-20 shrink-0 overflow-hidden rounded-lg border-2 border-subtle bg-card-muted">
+            {row.imageUrl ? (
+              <OptimizedImage
+                src={row.imageUrl}
+                alt={row.partName}
+                variant="inventoryModal"
+                className="size-full object-contain"
+              />
             ) : (
-              <p>
+              <ImagePlaceholder
+                variant="simple"
+                text="No image"
+                className="size-full"
+              />
+            )}
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
+            {isMinifig ? (
+              <p className="text-xs text-foreground-muted">
+                Minifigure #{effectiveMinifigId ?? displayId}
+              </p>
+            ) : (
+              <p className="text-xs text-foreground-muted">
                 Part {displayId}
                 {row.colorName ? ` in ${row.colorName}` : ''}
               </p>
             )}
-            {row.setCount != null && (
-              <p className="flex items-center gap-1.5">
-                {getRarityTier(row.setCount) && (
-                  <RarityBadge tier={getRarityTier(row.setCount)!} />
-                )}
-                <span className="text-foreground-muted">
-                  Found in {row.setCount} {row.setCount === 1 ? 'set' : 'sets'}
-                </span>
-              </p>
+            {rarityTier && (
+              <div>
+                <RarityBadge tier={rarityTier} />
+              </div>
             )}
           </div>
         </div>
-        <div className="space-y-1">
-          {pricingEnabled ? (
-            <>
-              {hasPrice || hasRange ? null : isPricePending ? (
-                <p className="text-foreground-muted italic">Fetching price…</p>
-              ) : pricingSource === 'unavailable' ? (
-                <p className="text-foreground-muted italic">
-                  Price unavailable; BrickLink limit hit. Retry after daily
-                  reset.
-                </p>
-              ) : canRequestPrice && onRequestPrice ? (
-                <button
-                  type="button"
-                  className={buttonVariants({ variant: 'link' })}
-                  onClick={() => onRequestPrice()}
-                >
-                  Get BrickLink price
-                </button>
-              ) : (
-                <p className="text-foreground-muted italic">
-                  Price unavailable.
-                </p>
-              )}
-              {(hasPrice || hasRange) && (
-                <p className="text-2xs text-foreground-muted">
-                  Price data from{' '}
-                  <a
-                    href="https://www.bricklink.com/"
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="underline"
-                  >
-                    BrickLink
-                  </a>
-                </p>
-              )}
-            </>
-          ) : (
-            <div className="text-xs text-foreground-muted italic">
-              <p>Price data coming soon</p>
-              <p className="text-2xs mt-0.5">
-                We&apos;re building a reliable price database
-              </p>
-            </div>
-          )}
-        </div>
-        <div className="flex gap-3">
+
+        {/* Stats grid — mirrors MinifigPageClient pattern */}
+        {showStatsGrid && (
+          <div className="grid grid-cols-2 gap-px border-t-2 border-subtle bg-subtle">
+            {/* Price cell */}
+            {showPriceCell && (
+              <div className="flex items-center gap-2.5 bg-card px-4 py-3">
+                <DollarSign className="size-4 shrink-0 text-foreground-muted" />
+                <div className="min-w-0">
+                  <div className="text-xs text-foreground-muted">
+                    Used Price
+                  </div>
+                  {hasPrice && unitPrice != null ? (
+                    <>
+                      <div className="text-sm font-medium">
+                        {formatModalPrice(unitPrice, currency)}
+                      </div>
+                      {hasRange &&
+                        minPrice != null &&
+                        maxPrice != null &&
+                        minPrice !== maxPrice && (
+                          <div className="text-xs text-foreground-muted">
+                            {formatModalPrice(minPrice, currency)} –{' '}
+                            {formatModalPrice(maxPrice, currency)}
+                          </div>
+                        )}
+                    </>
+                  ) : isPricePending ? (
+                    <div className="text-sm text-foreground-muted">
+                      Loading…
+                    </div>
+                  ) : pricingSource === 'unavailable' ? (
+                    <div className="text-sm text-foreground-muted">
+                      Unavailable
+                    </div>
+                  ) : (
+                    <div className="text-sm text-foreground-muted">–</div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Sets cell */}
+            {showSetsCell && (
+              <Link
+                href={identifyHref}
+                className="flex items-center gap-2.5 bg-card px-4 py-3 transition-colors hover:bg-card-muted"
+                onClick={e => e.stopPropagation()}
+              >
+                <Layers className="size-4 shrink-0 text-foreground-muted" />
+                <div>
+                  <div className="text-xs text-foreground-muted">
+                    {isMinifig ? 'Rarest part in' : 'Appears in'}
+                  </div>
+                  <div className="text-sm font-medium text-theme-text">
+                    {row.setCount} {row.setCount === 1 ? 'set' : 'sets'} →
+                  </div>
+                </div>
+              </Link>
+            )}
+
+            {/* If only one cell is shown, add an empty cell to maintain grid */}
+            {showPriceCell !== showSetsCell && <div className="bg-card" />}
+          </div>
+        )}
+
+        {/* External links */}
+        <div className="flex gap-px border-t-2 border-subtle bg-subtle">
           {blLinkUnavailable ? (
-            <p className="text-foreground-muted italic">
-              Not available on BrickLink
-            </p>
+            <div className="flex flex-1 items-center justify-center bg-card px-3 py-4 text-sm text-foreground-muted italic">
+              Not on BrickLink
+            </div>
           ) : (
             <a
               href={bricklinkUrl}
               target="_blank"
               rel="noreferrer noopener"
-              className={buttonVariants({ variant: 'link' })}
+              className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
             >
               BrickLink
+              <ExternalLink className="size-3.5" />
             </a>
           )}
           <a
@@ -299,27 +348,21 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
             }
             target="_blank"
             rel="noreferrer noopener"
-            className={buttonVariants({ variant: 'link' })}
+            className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
           >
             Rebrickable
+            <ExternalLink className="size-3.5" />
           </a>
+          {isMinifig && effectiveMinifigId && (
+            <Link
+              href={`/minifigs/${encodeURIComponent(effectiveMinifigId)}`}
+              className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-theme-text transition-colors hover:bg-card-muted"
+              onClick={e => e.stopPropagation()}
+            >
+              Minifig details →
+            </Link>
+          )}
         </div>
-        <Link
-          href={identifyHref}
-          className={buttonVariants({ variant: 'link' })}
-          onClick={event => event.stopPropagation()}
-        >
-          View more sets with this piece
-        </Link>
-        {isMinifig && effectiveMinifigId && (
-          <Link
-            href={`/minifigs/${encodeURIComponent(effectiveMinifigId)}`}
-            className={buttonVariants({ variant: 'secondary', size: 'xs' })}
-            onClick={event => event.stopPropagation()}
-          >
-            Open minifig details
-          </Link>
-        )}
       </div>
     </Modal>
   );

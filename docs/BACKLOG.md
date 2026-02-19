@@ -223,8 +223,13 @@ Deferred features requiring research or significant scope.
     - Deep-link to BrickOwl with exported wanted list
     - Apply for BrickOwl Affiliate API for in-app store matching
   - **Not feasible:** Replicating Rebrickable's full store-matching optimization without a BrickLink partnership
+- **Custom MOC Uploads** — **Plan:** [`docs/dev/CUSTOM_MOC_PLAN.md`](dev/CUSTOM_MOC_PLAN.md)
+  - Upload CSV/XML inventory, view alongside sets, track owned, merge on re-upload
+  - Third "MOCs" segment on collection page, full list integration
+  - Phase 1 (~3-4d): RB CSV + collection UI + tab + owned tracking
+  - Phase 2 (~3-4d): BL XML import, smart merge, sync
+  - Phase 3: Supabase Storage for images, Stud.io format, merge review UI
 - **Pro tier features** (deferred until features warrant a third tier):
-  - Custom MoC uploads (requires storage bucket setup)
   - Instructions uploads/linking
   - BYO BrickLink API key (pending BrickLink response on whether this is ToS-compliant as a paid feature)
   - Multi-set analysis (combined missing list across collection, "next best set" recommendations)
@@ -258,6 +263,7 @@ Major completed initiatives - see `docs/dev/archive/` for detailed plans:
 
 ## Related Documentation
 
+- `docs/dev/CUSTOM_MOC_PLAN.md` - Custom MOC upload difficulty analysis and phased plan
 - `docs/dev/DERIVED_PRICING_PLAN.md` - Derived pricing system (BL ToS compliance + API budget)
 - `docs/dev/CURRENT_IMPROVEMENT_PLAN.md` - Service role audit details
 - `docs/billing/stripe-subscriptions.md` - Full Stripe implementation spec

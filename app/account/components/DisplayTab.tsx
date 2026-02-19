@@ -462,20 +462,6 @@ export function DisplayTab({
               </Select>
             </div>
 
-            <div>
-              <label className="text-label font-semibold text-foreground">
-                Pricing display
-              </label>
-              <p className="text-body-sm mt-0.5 text-foreground-muted">
-                Control how BrickLink prices are derived and shown.
-              </p>
-              <Select size="sm" className="mt-2">
-                <option>Price range (min–max of current listings)</option>
-                <option>Average price (current listings)</option>
-                <option>Average price (last 6 months sold)</option>
-              </Select>
-            </div>
-
             <div className="flex items-center justify-between gap-4 rounded-lg border-2 border-subtle bg-card-muted p-4">
               <p className="text-body-sm text-foreground-muted">
                 Applies to future BrickLink price lookups.
