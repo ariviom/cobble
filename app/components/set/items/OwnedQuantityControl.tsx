@@ -95,7 +95,7 @@ export function OwnedQuantityControl({
   return (
     <div
       className={cn(
-        'flex h-[52px] w-full min-w-min shrink items-center justify-between rounded-lg border-2 border-subtle list:sm:max-w-min grid:w-full',
+        'flex h-[52px] w-full min-w-min shrink items-center justify-between rounded-md border border-subtle list:sm:max-w-min grid:w-full',
         className
       )}
     >

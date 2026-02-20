@@ -151,7 +151,7 @@ export function GroupSessionPageClient({
 
   return (
     <div className="flex min-h-[calc(100dvh-var(--spacing-nav-height))] items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-md border-2 border-subtle bg-card p-5 text-sm">
+      <div className="w-full max-w-sm rounded-lg border border-subtle bg-card p-5 text-sm">
         {/* Set context */}
         <div className="mb-4 flex items-center gap-3">
           {imageUrl && (

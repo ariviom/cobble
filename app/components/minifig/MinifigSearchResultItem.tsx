@@ -33,7 +33,7 @@ export function MinifigSearchResultItem({
   });
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-lg border-2 border-subtle bg-card">
+    <div className="group relative flex flex-col overflow-hidden rounded-lg border border-subtle bg-card">
       <Link
         href={`/minifigs/${encodeURIComponent(routeId || figNum)}`}
         className="block w-full"
@@ -64,7 +64,7 @@ export function MinifigSearchResultItem({
                   <span className="ml-1">• {numParts} parts</span>
                 )}
                 {(themeName || themePath) && (
-                  <div className="text-2xs mt-1 truncate">
+                  <div className="mt-1 truncate text-2xs">
                     {themePath ?? themeName}
                   </div>
                 )}

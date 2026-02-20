@@ -156,7 +156,7 @@ export function SetsTab({
           )}
 
           <div className="mt-6">
-            <div className="rounded-lg border-2 border-subtle bg-card-muted p-4">
+            <div className="rounded-lg border border-subtle bg-card-muted p-4">
               <p className="text-label font-semibold tracking-wide text-foreground-muted uppercase">
                 Owned Sets
               </p>

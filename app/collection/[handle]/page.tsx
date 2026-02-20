@@ -216,7 +216,7 @@ export default async function CollectionHandlePage({
               {displayName} has chosen to keep their collection private.
             </p>
           </div>
-          <div className="mt-2 rounded-md border border-subtle bg-card px-3 py-2">
+          <div className="mt-2 rounded-lg border border-subtle bg-card px-3 py-2">
             <p className="font-mono text-xs text-foreground-muted">
               /collection/{canonicalHandle}
             </p>
@@ -224,7 +224,7 @@ export default async function CollectionHandlePage({
           <div className="mt-4">
             <Link
               href="/"
-              className="inline-flex items-center rounded-md border border-subtle bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-card-muted"
+              className="inline-flex items-center rounded-lg border border-subtle bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-card-muted"
             >
               Back to home
             </Link>

@@ -180,7 +180,7 @@ export function FeedbackTab({ user }: FeedbackTabProps) {
                   maxLength={2000}
                   rows={6}
                   disabled={isSubmitting}
-                  className="mt-2 w-full rounded-md border-2 border-subtle bg-card px-4 py-3 text-base font-medium text-foreground transition-all duration-150 placeholder:text-foreground-muted/50 focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:bg-background-muted disabled:opacity-50"
+                  className="mt-2 w-full rounded-lg border border-subtle bg-card px-4 py-3 text-base font-medium text-foreground transition-all duration-150 placeholder:text-foreground-muted/50 focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 focus:outline-none disabled:cursor-not-allowed disabled:bg-background-muted disabled:opacity-50"
                 />
                 <p className="text-body-sm mt-1 text-foreground-muted">
                   {message.length} / 2000 characters

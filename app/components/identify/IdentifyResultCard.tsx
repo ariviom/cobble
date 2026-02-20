@@ -168,7 +168,7 @@ export function IdentifyResultCard({
                 key={c.partNum}
                 onClick={() => onSelectCandidate(c)}
                 className={cn(
-                  'rounded-md border-2 px-2 py-1 text-xs transition-colors',
+                  'rounded-lg border px-2 py-1 text-xs transition-colors',
                   c.partNum === partSafe.partNum
                     ? 'border-theme-primary bg-theme-primary/10 text-foreground'
                     : 'border-subtle bg-card text-foreground-muted hover:border-strong hover:bg-card-muted'

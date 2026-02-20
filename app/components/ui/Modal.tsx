@@ -2,7 +2,6 @@
 
 import { ReactNode, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
-import { Button } from './Button';
 
 type Props = {
   open: boolean;
@@ -42,7 +41,7 @@ export function Modal({ open, title, onClose, children }: Props) {
         aria-hidden="true"
       />
       <div
-        className="relative flex w-full max-w-md flex-col overflow-hidden rounded-lg border-t-[8px] border-theme-primary bg-card shadow-[0_8px_0_0_var(--color-shadow-depth)]"
+        className="relative flex w-full max-w-md flex-col overflow-hidden rounded-lg border border-subtle bg-card shadow-xl"
         style={{ maxHeight: 'calc(100dvh - var(--spacing-nav-height) - 2rem)' }}
         onClick={e => e.stopPropagation()}
       >
@@ -50,14 +49,14 @@ export function Modal({ open, title, onClose, children }: Props) {
           <h2 id={titleId} className="text-xl font-bold text-foreground">
             {title}
           </h2>
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
+            type="button"
             onClick={onClose}
             aria-label="Close"
+            className="flex h-8 w-8 items-center justify-center rounded-sm text-foreground-muted transition-colors hover:bg-background-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:outline-none"
           >
             ✕
-          </Button>
+          </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
       </div>

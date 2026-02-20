@@ -223,7 +223,7 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
       <div className="-mx-5 -my-5">
         {/* Hero: image + identity */}
         <div className="flex gap-4 px-5 py-4">
-          <div className="size-20 shrink-0 overflow-hidden rounded-lg border-2 border-subtle bg-card-muted">
+          <div className="size-20 shrink-0 overflow-hidden rounded-lg border border-subtle bg-card-muted">
             {row.imageUrl ? (
               <OptimizedImage
                 src={row.imageUrl}

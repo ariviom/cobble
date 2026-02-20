@@ -31,7 +31,7 @@ export const Switch = forwardRef<HTMLInputElement, Props>(function Switch(
         />
         <span
           className={cn(
-            'block h-6 w-11 rounded-full border-2 transition-colors duration-150',
+            'block h-6 w-11 rounded-full border transition-colors duration-150',
             checked
               ? 'border-theme-primary bg-theme-primary'
               : 'border-subtle bg-background-muted'

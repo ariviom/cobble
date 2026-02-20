@@ -70,8 +70,7 @@ export function TabsList({ className, children, ...rest }: TabsListProps) {
     <div
       role="tablist"
       className={cn(
-        // Chunky container with border, like a LEGO baseplate
-        'inline-flex items-center gap-4 rounded-lg border-2 border-subtle bg-background-muted p-1.5',
+        'inline-flex items-center gap-4 rounded-xl border border-subtle bg-background-muted p-1.5',
         className
       )}
       {...rest}
@@ -108,13 +107,12 @@ export function TabsTrigger({
       disabled={disabled}
       onClick={() => onValueChange(value)}
       className={cn(
-        // Bold tabs with chunky styling
-        'inline-flex items-center justify-center rounded-md px-5 py-2.5 text-sm font-semibold whitespace-nowrap transition-all duration-150',
+        'inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-semibold whitespace-nowrap transition-all duration-150',
         'focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:outline-none',
         'disabled:pointer-events-none disabled:opacity-50',
         isSelected
-          ? // Selected: Theme color background with 3D depth
-            'bg-theme-primary text-theme-primary-contrast shadow-[0_2px_0_0_var(--color-theme-shadow)]'
+          ? // Selected: Theme color background with subtle shadow
+            'bg-theme-primary text-theme-primary-contrast shadow-sm'
           : 'text-foreground-muted hover:bg-card hover:text-foreground',
         className
       )}

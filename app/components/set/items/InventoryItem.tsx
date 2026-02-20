@@ -94,13 +94,13 @@ function InventoryItemComponent({
   };
 
   return (
-    <div className="grid-collision-container relative flex h-full w-full justify-start gap-6 rounded-lg border-2 border-subtle bg-card p-3 grid:flex-col grid:justify-between">
+    <div className="grid-collision-container relative flex h-full w-full justify-start gap-6 rounded-lg border border-subtle bg-card p-3 grid:flex-col grid:justify-between">
       <MoreDropdown
         ariaLabel="More actions"
         className="absolute top-3 right-3 rounded-full grid:top-4 grid:right-4 grid:z-10 grid:border grid:border-subtle grid:bg-white grid:shadow"
       >
         {() => (
-          <div className="min-w-min rounded-md border-2 border-subtle bg-card p-2 text-xs shadow-lg">
+          <div className="min-w-min rounded-lg border border-subtle bg-card p-2 text-xs shadow-lg">
             {onTogglePinned && (
               <MoreDropdownButton
                 icon={<Pin className="size-4" />}

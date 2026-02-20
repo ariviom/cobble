@@ -42,7 +42,7 @@ export function RecentlyViewedSets() {
             </h2>
           </div>
         ) : (
-          <div className="rounded-xl border-2 border-dashed border-subtle bg-card/50 p-8 text-center">
+          <div className="rounded-xl border border-dashed border-subtle bg-card/50 p-8 text-center">
             <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-theme-primary">
               <span className="text-3xl">🎯</span>
             </div>

@@ -57,7 +57,7 @@ export function IdentifyHistory({ onSelectPart, source }: Props) {
               <button
                 key={entry.partNum}
                 type="button"
-                className="group flex w-28 shrink-0 flex-col items-center gap-1.5 rounded-md p-1 focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:outline-none"
+                className="group flex w-28 shrink-0 flex-col items-center gap-1.5 rounded-lg p-1 focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:outline-none"
                 onClick={() => onSelectPart(entry.partNum)}
                 title={entry.name}
               >

@@ -1138,7 +1138,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="relative block w-full overflow-hidden rounded-lg border-2 border-dashed border-white/40 bg-white/10 backdrop-blur-sm hover:border-white/60 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                        className="relative block w-full overflow-hidden rounded-lg border border-dashed border-white/40 bg-white/10 backdrop-blur-sm hover:border-white/60 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                         aria-label="Upload or take a photo"
                         disabled={isQuotaExhausted}
                       >
@@ -1187,7 +1187,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                         type="button"
                         onClick={() => galleryInputRef.current?.click()}
                         disabled={isQuotaExhausted}
-                        className="text-2xs text-white/40 underline underline-offset-2 hover:text-white/70 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="text-2xs text-white/60 underline underline-offset-2 hover:text-white/80 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Upload an image
                       </button>
@@ -1198,13 +1198,13 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                             : `${quota.remaining}/${quota.limit} left today`}
                         </span>
                       ) : (
-                        <span className="text-2xs text-white/40">
+                        <span className="text-2xs text-white/60">
                           Powered by{' '}
                           <a
                             href="https://brickognize.com/"
                             target="_blank"
                             rel="noreferrer"
-                            className="underline underline-offset-2 hover:text-white/70"
+                            className="underline underline-offset-2 hover:text-white/80"
                           >
                             Brickognize
                           </a>

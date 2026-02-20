@@ -27,17 +27,17 @@ export type StatusToggleButtonProps =
   };
 
 const baseStyles =
-  'inline-flex h-12 items-center gap-2.5 rounded-md px-2.5 text-xs font-bold text-foreground-muted bg-card transition-all duration-150';
+  'inline-flex h-12 items-center gap-2.5 rounded-lg px-2.5 text-xs font-bold text-foreground-muted bg-card transition-all duration-150';
 
 const defaultStyles =
-  'flex-1 rounded-md border-2 border-subtle hover:bg-background-muted';
+  'flex-1 rounded-lg border border-subtle hover:bg-background-muted';
 
 const compactStyles = 'w-fit flex-none';
 
 const inlineStyles =
-  'w-auto border-2 border-subtle flex-row hover:bg-background-muted hover:-translate-y-0.5 hover:shadow-sm';
+  'w-auto border border-subtle flex-row hover:bg-background-muted hover:-translate-y-0.5 hover:shadow-sm';
 
-const dropdownStyles = 'w-full min-w-max flex-row rounded-md py-2.5';
+const dropdownStyles = 'w-full min-w-max flex-row rounded-lg py-2.5';
 
 // Dropdown hover styles per color
 const dropdownHoverGreen = 'hover:bg-brand-green/10 hover:text-brand-green';
@@ -45,11 +45,11 @@ const dropdownHoverOrange = 'hover:bg-brand-orange/10 hover:text-brand-orange';
 const dropdownHoverBlue = 'hover:bg-brand-blue/10 hover:text-brand-blue';
 
 const activeStylesGreen =
-  'bg-brand-green/15 text-brand-green border-brand-green/40 shadow-[0_2px_0_0] shadow-brand-green/25';
+  'bg-brand-green/15 text-brand-green border-brand-green/40';
 const activeStylesOrange =
-  'bg-brand-orange/15 text-brand-orange border-brand-orange/40 shadow-[0_2px_0_0] shadow-brand-orange/25';
+  'bg-brand-orange/15 text-brand-orange border-brand-orange/40';
 const activeStylesBlue =
-  'bg-brand-blue/15 text-brand-blue border-brand-blue/40 shadow-[0_2px_0_0] shadow-brand-blue/25';
+  'bg-brand-blue/15 text-brand-blue border-brand-blue/40';
 
 const disabledStyles =
   'opacity-50 cursor-not-allowed hover:bg-card hover:translate-y-0';

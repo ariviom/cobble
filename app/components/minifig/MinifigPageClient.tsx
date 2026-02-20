@@ -220,7 +220,7 @@ export function MinifigPageClient({
                 priority
               />
             ) : (
-              <div className="flex size-full items-center justify-center rounded-lg border-2 border-dashed border-subtle text-sm text-foreground-muted">
+              <div className="flex size-full items-center justify-center rounded-lg border border-dashed border-subtle text-sm text-foreground-muted">
                 No image
               </div>
             )}
@@ -228,7 +228,7 @@ export function MinifigPageClient({
         </div>
 
         {/* Identity section */}
-        <div className="border-t-2 border-subtle px-5 py-4 sm:px-6">
+        <div className="border-t border-subtle px-5 py-4 sm:px-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <h1 className="text-section-title text-foreground">
@@ -269,7 +269,7 @@ export function MinifigPageClient({
 
         {/* Stats grid */}
         {(themeName || year || setsCount > 0) && (
-          <div className="grid grid-cols-2 gap-px border-t-2 border-subtle bg-subtle sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-px border-t border-subtle bg-subtle sm:grid-cols-3">
             {themeName && (
               <div className="flex items-center gap-2.5 bg-card px-4 py-3">
                 <Tag className="size-4 shrink-0 text-foreground-muted" />
@@ -317,21 +317,21 @@ export function MinifigPageClient({
 
         {/* Pricing section */}
         {isPricingLoading && (
-          <div className="border-t-2 border-subtle px-5 py-3 sm:px-6">
+          <div className="border-t border-subtle px-5 py-3 sm:px-6">
             <p className="text-sm text-foreground-muted">Fetching price…</p>
           </div>
         )}
         {!isPricingLoading &&
           priceGuide?.source === 'quota_exhausted' &&
           priceGuide?.used?.unitPrice == null && (
-            <div className="border-t-2 border-subtle px-5 py-3 sm:px-6">
+            <div className="border-t border-subtle px-5 py-3 sm:px-6">
               <p className="text-sm text-foreground-muted italic">
                 Pricing data currently unavailable
               </p>
             </div>
           )}
         {!isPricingLoading && priceGuide?.used?.unitPrice != null && (
-          <div className="grid grid-cols-2 gap-px border-t-2 border-subtle bg-subtle">
+          <div className="grid grid-cols-2 gap-px border-t border-subtle bg-subtle">
             <PriceCell
               label="Used"
               unitPrice={priceGuide.used.unitPrice}
@@ -360,7 +360,7 @@ export function MinifigPageClient({
         )}
 
         {/* Ownership section */}
-        <div className="border-t-2 border-subtle bg-card-muted/30 px-5 py-4 sm:px-6">
+        <div className="border-t border-subtle bg-card-muted/30 px-5 py-4 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <MinifigOwnershipAndCollectionsRow
               ownership={ownership}
@@ -447,7 +447,7 @@ export function MinifigPageClient({
           )}
         >
           <div className="overflow-hidden">
-            <div className="border-t-2 border-subtle px-5 py-4 sm:px-6">
+            <div className="border-t border-subtle px-5 py-4 sm:px-6">
               {isLoadingSubparts && (
                 <p className="text-sm text-foreground-muted">
                   Loading component parts…
@@ -467,7 +467,7 @@ export function MinifigPageClient({
                     return (
                       <div
                         key={`${item.partId}-${item.colorId}`}
-                        className="flex items-center gap-3 rounded-md border-2 border-subtle bg-card-muted/40 p-2.5"
+                        className="flex items-center gap-3 rounded-lg border border-subtle bg-card-muted/40 p-2.5"
                       >
                         <div className="size-12 shrink-0 overflow-hidden rounded-md border border-subtle bg-card">
                           {item.imageUrl ? (

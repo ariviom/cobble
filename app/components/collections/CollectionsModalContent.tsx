@@ -187,7 +187,7 @@ export function CollectionsModalContent({
                     // Rename mode
                     <div
                       className={cn(
-                        'flex flex-1 items-center gap-2 rounded-md border-2 px-3 py-2.5',
+                        'flex flex-1 items-center gap-2 rounded-lg border px-3 py-2.5',
                         'border-theme-primary bg-theme-primary/10'
                       )}
                     >
@@ -226,7 +226,7 @@ export function CollectionsModalContent({
                       <button
                         type="button"
                         className={cn(
-                          'flex flex-1 items-center justify-between rounded-md border-2 px-4 py-3 text-left text-sm font-bold transition-all duration-150',
+                          'flex flex-1 items-center justify-between rounded-lg border px-4 py-3 text-left text-sm font-bold transition-all duration-150',
                           selected
                             ? 'border-theme-primary bg-theme-primary/10 text-theme-text'
                             : 'border-subtle bg-card text-foreground hover:-translate-y-0.5 hover:bg-background-muted hover:shadow-sm'
@@ -248,7 +248,7 @@ export function CollectionsModalContent({
                       {!collection.isSystem && (
                         <button
                           type="button"
-                          className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-foreground-muted transition-colors hover:bg-foreground/5 hover:text-foreground"
+                          className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-foreground-muted transition-colors hover:bg-foreground/5 hover:text-foreground"
                           onClick={e => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -283,7 +283,7 @@ export function CollectionsModalContent({
               return (
                 <div
                   ref={menuRef}
-                  className="absolute right-0 z-50 min-w-[140px] rounded-md border-2 border-subtle bg-card py-1 shadow-lg"
+                  className="absolute right-0 z-50 min-w-[140px] rounded-lg border border-subtle bg-card py-1 shadow-lg"
                   style={{ top: menuOpen.top }}
                 >
                   <button
@@ -320,7 +320,7 @@ export function CollectionsModalContent({
           No collections yet. Create one below!
         </div>
       )}
-      <div className="flex items-end gap-2 border-t-2 border-subtle pt-4">
+      <div className="flex items-end gap-2 border-t border-subtle pt-4">
         <div className="flex-1">
           <label className="mb-1.5 block text-xs font-bold tracking-wide text-foreground-muted uppercase">
             New Collection
@@ -351,7 +351,7 @@ export function CollectionsModalContent({
         </Button>
       </div>
       {error && (
-        <div className="rounded-md border-2 border-danger/30 bg-danger-muted px-3 py-2 text-sm font-medium text-danger">
+        <div className="rounded-lg border border-danger/30 bg-danger-muted px-3 py-2 text-sm font-medium text-danger">
           {error}
         </div>
       )}

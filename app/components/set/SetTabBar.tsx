@@ -43,7 +43,7 @@ export function SetTabBar({
       )}
     >
       <nav
-        className="relative flex h-full w-full items-end overflow-x-auto px-1 no-scrollbar lg:px-0"
+        className="relative flex h-full w-full items-end overflow-x-auto px-1 no-scrollbar lg:pr-0 lg:pl-2"
         aria-label="Open sets"
       >
         <div className="absolute inset-x-0 bottom-0 h-px bg-subtle" />

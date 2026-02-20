@@ -47,7 +47,7 @@ export function QuantityDropdown({
   return (
     <select
       className={cn(
-        'inline-flex rounded-md border-2 border-subtle bg-card transition-colors hover:border-strong',
+        'inline-flex rounded-lg border border-subtle bg-card transition-colors hover:border-strong',
         sizeStyles[size],
         disabled && 'cursor-not-allowed opacity-50',
         className

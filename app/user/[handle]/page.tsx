@@ -121,7 +121,7 @@ export default async function PublicProfilePage({
               {displayName} has chosen to keep their collection private.
             </p>
           </div>
-          <div className="mt-2 rounded-md border border-subtle bg-card px-3 py-2">
+          <div className="mt-2 rounded-lg border border-subtle bg-card px-3 py-2">
             <p className="font-mono text-xs text-foreground-muted">
               /user/{handleToShow}
             </p>
@@ -129,7 +129,7 @@ export default async function PublicProfilePage({
           <div className="mt-4">
             <Link
               href="/"
-              className="inline-flex items-center rounded-md border border-subtle bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-card-muted"
+              className="inline-flex items-center rounded-lg border border-subtle bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-card-muted"
             >
               Back to home
             </Link>
@@ -360,10 +360,10 @@ export default async function PublicProfilePage({
             <div className="flex flex-col gap-1">
               <h2 className="text-lg font-semibold">{title}</h2>
               <div className="flex flex-wrap items-center gap-3 text-xs text-foreground-muted">
-                <span className="text-2xs rounded-full bg-card-muted px-2 py-0.5 font-mono text-foreground-muted">
+                <span className="rounded-full bg-card-muted px-2 py-0.5 font-mono text-2xs text-foreground-muted">
                   /collection/{handleToShow}
                 </span>
-                <span className="text-2xs inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-800">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-2xs font-medium text-emerald-800">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   Lists public
                 </span>

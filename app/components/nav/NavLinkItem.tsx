@@ -26,8 +26,7 @@ export function NavLinkItem({
   className,
 }: NavLinkItemProps) {
   const classes = cn(
-    // Base styles - chunky nav items on theme background
-    'relative flex flex-1 flex-col items-center gap-0.5 rounded-md px-1.5 py-1.5 transition-all duration-150 select-none lg:flex-initial lg:flex-row lg:gap-2 lg:px-4 lg:py-2.5',
+    'relative flex flex-1 flex-col items-center gap-0.5 rounded-lg px-1.5 py-1.5 transition-all duration-150 select-none lg:flex-initial lg:flex-row lg:gap-2 lg:px-4 lg:py-2.5',
     active
       ? // Active: White pill with warm shadow - use fixed dark text color (doesn't invert in dark mode)
         'bg-white font-bold text-on-white shadow-[inset_0_-2px_0_0_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.1)]'

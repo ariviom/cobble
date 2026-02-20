@@ -277,7 +277,7 @@ export function DisplayTab({
                       aria-pressed={isActive}
                       disabled={isThemeLoading}
                       onClick={() => updateTheme(option.value)}
-                      className={`rounded-md border-2 px-4 py-2 text-sm font-semibold transition-all duration-150 focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:outline-none ${
+                      className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-all duration-150 focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:outline-none ${
                         isActive
                           ? 'border-theme-primary bg-theme-primary/10 text-theme-text'
                           : 'border-subtle text-foreground-muted hover:border-strong hover:text-foreground'
@@ -308,7 +308,7 @@ export function DisplayTab({
                       aria-pressed={isActive}
                       disabled={isThemeLoading}
                       onClick={() => updateThemeColor(option.value)}
-                      className={`inline-flex items-center gap-2 rounded-md border-2 px-3 py-2 text-sm font-medium transition-all duration-150 focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:outline-none ${
+                      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all duration-150 focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:outline-none ${
                         isActive
                           ? 'border-theme-primary bg-theme-primary/10 text-theme-text'
                           : 'border-subtle text-foreground-muted hover:border-strong hover:text-foreground'
@@ -347,9 +347,9 @@ export function DisplayTab({
                 <button
                   type="button"
                   onClick={() => setDefaultInventoryView('list')}
-                  className={`inline-flex items-center justify-center rounded-md border-2 px-4 py-2 text-sm font-semibold transition-all duration-150 ${
+                  className={`inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-semibold transition-all duration-150 ${
                     defaultInventoryView === 'list'
-                      ? 'border-theme-primary bg-theme-primary text-white shadow-[0_3px_0_0] shadow-theme-shadow'
+                      ? 'border-theme-primary bg-theme-primary text-white shadow-sm'
                       : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
                   }`}
                 >
@@ -358,9 +358,9 @@ export function DisplayTab({
                 <button
                   type="button"
                   onClick={() => setDefaultInventoryView('grid')}
-                  className={`inline-flex items-center justify-center rounded-md border-2 px-4 py-2 text-sm font-semibold transition-all duration-150 ${
+                  className={`inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-semibold transition-all duration-150 ${
                     defaultInventoryView === 'grid'
-                      ? 'border-theme-primary bg-theme-primary text-white shadow-[0_3px_0_0] shadow-theme-shadow'
+                      ? 'border-theme-primary bg-theme-primary text-white shadow-sm'
                       : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
                   }`}
                 >
@@ -462,7 +462,7 @@ export function DisplayTab({
               </Select>
             </div>
 
-            <div className="flex items-center justify-between gap-4 rounded-lg border-2 border-subtle bg-card-muted p-4">
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-subtle bg-card-muted p-4">
               <p className="text-body-sm text-foreground-muted">
                 Applies to future BrickLink price lookups.
               </p>

@@ -11,7 +11,7 @@ export function ErrorBanner({ message, className }: ErrorBannerProps) {
   return (
     <div
       className={cn(
-        'rounded-md border-2 border-danger bg-danger-muted p-3 text-sm text-danger',
+        'rounded-lg border border-danger bg-danger-muted p-3 text-sm text-danger',
         className
       )}
       role="alert"

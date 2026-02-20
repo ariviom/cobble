@@ -42,7 +42,7 @@ export function SegmentedControl({
     <div
       ref={containerRef}
       className={cx(
-        'relative inline-flex items-center overflow-hidden rounded-md border-2 border-subtle bg-card-muted',
+        'relative inline-flex items-center overflow-hidden rounded-xl border border-subtle bg-card-muted',
         size === 'sm' ? 'h-9 text-sm' : 'h-11 text-base',
         className
       )}

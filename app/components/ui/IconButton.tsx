@@ -16,12 +16,12 @@ const iconButtonVariants = cva(
         default: 'bg-card-muted text-foreground-muted hover:text-foreground',
         // Outline - with border
         outline:
-          'border-2 border-subtle text-foreground-muted hover:border-foreground/30 hover:text-foreground',
+          'border border-subtle text-foreground-muted hover:border-foreground/30 hover:text-foreground',
       },
       size: {
-        sm: 'h-7 w-7 rounded-sm',
-        md: 'h-9 w-9 rounded-md',
-        lg: 'h-11 w-11 rounded-md',
+        sm: 'h-7 w-7 rounded-md',
+        md: 'h-9 w-9 rounded-lg',
+        lg: 'h-11 w-11 rounded-lg',
       },
     },
     defaultVariants: {

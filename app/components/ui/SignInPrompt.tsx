@@ -21,7 +21,7 @@ export function SignInPrompt({
 }: SignInPromptProps) {
   if (variant === 'inline') {
     return (
-      <div className="flex h-12 w-full min-w-min items-center justify-center rounded-lg border-2 border-subtle px-3 text-xs text-foreground-muted">
+      <div className="flex h-12 w-full min-w-min items-center justify-center rounded-lg border border-subtle px-3 text-xs text-foreground-muted">
         <Button href="/login" variant="link" size="xs">
           Sign in
         </Button>
