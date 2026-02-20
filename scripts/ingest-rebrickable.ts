@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { parse } from 'csv-parse';
 import dotenv from 'dotenv';
+import crypto from 'node:crypto';
 import { Readable } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import zlib from 'node:zlib';
@@ -103,6 +104,140 @@ function getEnv(name: string): string {
   }
   return value;
 }
+
+// =============================================================================
+// BrickLink API helpers (inline — no app/lib/bricklink.ts import to avoid
+// server-only / LRU cache / price-layer dependencies)
+// =============================================================================
+
+const BL_STORE_BASE = 'https://api.bricklink.com/api/store/v1';
+
+type RateState = { lastCallAt: number; callsThisRun: number };
+
+function blRfc3986Encode(str: string): string {
+  return encodeURIComponent(str).replace(
+    /[!'()*]/g,
+    c => '%' + c.charCodeAt(0).toString(16).toUpperCase()
+  );
+}
+
+function buildBlOAuthHeader(method: string, url: string): string {
+  const consumerKey = getEnv('BRICKLINK_CONSUMER_KEY');
+  const consumerSecret = getEnv('BRICKLINK_CONSUMER_SECRET');
+  const token = getEnv('BRICKLINK_TOKEN_VALUE');
+  const tokenSecret =
+    process.env.BRICKLINK_TOKEN_SECRET ??
+    process.env.BRICLINK_TOKEN_SECRET ??
+    '';
+  if (!tokenSecret) {
+    throw new Error(
+      'Missing BRICKLINK_TOKEN_SECRET (or BRICLINK_TOKEN_SECRET fallback)'
+    );
+  }
+
+  const oauthParams: Record<string, string> = {
+    oauth_consumer_key: consumerKey,
+    oauth_nonce: crypto.randomBytes(16).toString('hex'),
+    oauth_signature_method: 'HMAC-SHA1',
+    oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
+    oauth_token: token,
+    oauth_version: '1.0',
+  };
+
+  const sigParams: Record<string, string> = { ...oauthParams };
+  const norm = Object.keys(sigParams)
+    .sort()
+    .map(k => `${blRfc3986Encode(k)}=${blRfc3986Encode(sigParams[k]!)}`)
+    .join('&');
+  const baseString = [
+    method.toUpperCase(),
+    blRfc3986Encode(url),
+    blRfc3986Encode(norm),
+  ].join('&');
+  const signingKey = `${blRfc3986Encode(consumerSecret)}&${blRfc3986Encode(tokenSecret)}`;
+  const signature = crypto
+    .createHmac('sha1', signingKey)
+    .update(baseString)
+    .digest('base64');
+
+  const headerParams: Record<string, string> = {
+    ...oauthParams,
+    oauth_signature: signature,
+  };
+  return (
+    'OAuth ' +
+    Object.keys(headerParams)
+      .sort()
+      .map(k => `${blRfc3986Encode(k)}="${blRfc3986Encode(headerParams[k]!)}"`)
+      .join(', ')
+  );
+}
+
+async function blIngestFetch<T>(
+  endpoint: string,
+  rateState: RateState
+): Promise<T> {
+  const now = Date.now();
+  const delay = Math.max(0, 500 - (now - rateState.lastCallAt));
+  if (delay > 0) await new Promise(r => setTimeout(r, delay));
+
+  const url = `${BL_STORE_BASE}${endpoint}`;
+  const res = await fetch(url, {
+    headers: { Authorization: buildBlOAuthHeader('GET', url) },
+  });
+  rateState.lastCallAt = Date.now();
+  rateState.callsThisRun++;
+
+  if (!res.ok) {
+    throw new Error(`BL API ${endpoint}: ${res.status} ${res.statusText}`);
+  }
+  const body = (await res.json()) as { meta: { code: number }; data: T };
+  if (body.meta.code !== 200) {
+    throw new Error(`BL API ${endpoint}: meta.code=${body.meta.code}`);
+  }
+  return body.data;
+}
+
+function parseBLBudgetArg(argv: string[]): number {
+  const arg = argv.find(a => a.startsWith('--bl-budget='));
+  if (!arg) return 500;
+  const val = parseInt(arg.split('=')[1] ?? '', 10);
+  return Number.isNaN(val) ? 500 : val;
+}
+
+// Normalized entry from a BL subsets response
+type BlSubsetEntry = {
+  item: { no: string; type: string; name?: string };
+  color_id?: number;
+  quantity: number;
+};
+
+/** Flatten BL subsets response (array of `{ entries: [...] }` groups) */
+function normalizeBlSubsetEntries(data: unknown[]): BlSubsetEntry[] {
+  const result: BlSubsetEntry[] = [];
+  for (const group of data) {
+    if (
+      group &&
+      typeof group === 'object' &&
+      'entries' in group &&
+      Array.isArray((group as { entries?: unknown[] }).entries)
+    ) {
+      for (const entry of (group as { entries: unknown[] }).entries) {
+        if (
+          entry &&
+          typeof entry === 'object' &&
+          'item' in entry &&
+          (entry as BlSubsetEntry).item?.no
+        ) {
+          result.push(entry as BlSubsetEntry);
+        }
+      }
+    }
+  }
+  return result;
+}
+
+// =============================================================================
 
 /** Extract BrickLink part ID from external_ids JSON.
  *  Handles both array format (`{ "BrickLink": ["3024"] }`)
@@ -1448,10 +1583,222 @@ async function buildRbToBlColorMap(
 }
 
 /**
+ * Crawl BL for sets that have RB minifigs but are missing from bl_set_minifigs.
+ * Uses up to `budget` BL API calls (shared via rateState with other crawl functions).
+ */
+async function refreshBlSetMinifigs(
+  supabase: SupabaseClient,
+  rateState: RateState,
+  budget: number
+): Promise<number> {
+  // Step 1: Get all set_nums already in bl_set_minifigs (deduplicated)
+  const existingBlRows = await fetchAllRows<{ set_num: string }>(
+    supabase.from('bl_set_minifigs').select('set_num')
+  );
+  const existingBlSetNums = new Set(existingBlRows.map(r => r.set_num));
+
+  // Step 2: Get all non-fig RB inventories
+  const rbInventories = await fetchAllRows<{ id: number; set_num: string }>(
+    supabase
+      .from('rb_inventories')
+      .select('id, set_num')
+      .not('set_num', 'like', 'fig-%')
+  );
+
+  // Step 3: Find inventories whose set_num is not yet in bl_set_minifigs
+  const candidateInvs = rbInventories.filter(
+    inv => inv.set_num && !existingBlSetNums.has(inv.set_num)
+  );
+  if (candidateInvs.length === 0) {
+    log('  BL crawl: no new sets need bl_set_minifigs data');
+    return 0;
+  }
+
+  // Step 4: Check which candidate inventories actually have RB minifigs
+  const invIdToSetNum = new Map<number, string>();
+  for (const inv of candidateInvs) {
+    invIdToSetNum.set(inv.id, inv.set_num);
+  }
+  const setNumsWithMinifigs = new Set<string>();
+  const candidateIds = Array.from(invIdToSetNum.keys());
+
+  for (let i = 0; i < candidateIds.length; i += 200) {
+    const batch = candidateIds.slice(i, i + 200);
+    const { data } = await supabase
+      .from('rb_inventory_minifigs')
+      .select('inventory_id')
+      .in('inventory_id', batch);
+    if (data) {
+      for (const row of data) {
+        const setNum = invIdToSetNum.get(row.inventory_id);
+        if (setNum) setNumsWithMinifigs.add(setNum);
+      }
+    }
+  }
+
+  const missingSetNums = Array.from(setNumsWithMinifigs);
+  if (missingSetNums.length === 0) {
+    log('  BL crawl: no new sets with minifigs found');
+    return 0;
+  }
+  log(`  BL crawl: ${missingSetNums.length} sets need bl_set_minifigs data`);
+
+  let crawled = 0;
+  for (const setNum of missingSetNums) {
+    if (budget !== 0 && rateState.callsThisRun >= budget) break;
+
+    try {
+      const data = await blIngestFetch<unknown[]>(
+        `/items/SET/${encodeURIComponent(setNum)}/subsets`,
+        rateState
+      );
+      const entries = normalizeBlSubsetEntries(data).filter(
+        e => e.item?.type === 'MINIFIG'
+      );
+
+      // Always upsert something so this set is not retried on the next run.
+      // If BL returned no minifigs, insert a sentinel row (minifig_no='__none__')
+      // that the matching logic skips.
+      const upsertRows =
+        entries.length > 0
+          ? entries.map(e => ({
+              set_num: setNum,
+              minifig_no: e.item.no,
+              bl_name: e.item.name ?? null,
+              quantity: e.quantity ?? 1,
+            }))
+          : [
+              {
+                set_num: setNum,
+                minifig_no: '__none__',
+                bl_name: null,
+                quantity: 0,
+              },
+            ];
+
+      const { error } = await supabase
+        .from('bl_set_minifigs')
+        .upsert(upsertRows, { onConflict: 'set_num,minifig_no' });
+      if (error) {
+        log(
+          `  BL crawl: error upserting bl_set_minifigs for ${setNum}: ${error.message}`
+        );
+      }
+      crawled++;
+    } catch (err) {
+      log(
+        `  BL crawl: error fetching subsets for ${setNum}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  log(`  BL crawl: refreshed ${crawled} new sets in bl_set_minifigs`);
+  return crawled;
+}
+
+/**
+ * Crawl BL for minifig part compositions missing from bl_minifig_parts.
+ * Finds all BL minifig IDs in bl_set_minifigs that have no rows in bl_minifig_parts.
+ */
+async function crawlMissingBlMinifigParts(
+  supabase: SupabaseClient,
+  rateState: RateState,
+  budget: number
+): Promise<number> {
+  // Get all distinct minifig_nos from bl_set_minifigs
+  const allSetMinifigRows = await fetchAllRows<{ minifig_no: string }>(
+    supabase.from('bl_set_minifigs').select('minifig_no')
+  );
+  // Exclude sentinel rows inserted when a set had no BL minifigs
+  const allBlMinifigNos = new Set(
+    allSetMinifigRows.map(r => r.minifig_no).filter(id => id !== '__none__')
+  );
+
+  // Get all distinct bl_minifig_nos already in bl_minifig_parts
+  const crawledRows = await fetchAllRows<{ bl_minifig_no: string }>(
+    supabase.from('bl_minifig_parts').select('bl_minifig_no')
+  );
+  const crawledMinifigNos = new Set(crawledRows.map(r => r.bl_minifig_no));
+
+  // Missing = in bl_set_minifigs but not in bl_minifig_parts
+  const missing = Array.from(allBlMinifigNos).filter(
+    id => !crawledMinifigNos.has(id)
+  );
+
+  if (missing.length === 0) {
+    log('  BL crawl: no minifigs need bl_minifig_parts data');
+    return 0;
+  }
+  log(`  BL crawl: ${missing.length} minifigs need bl_minifig_parts data`);
+
+  const now = new Date().toISOString();
+  let crawled = 0;
+
+  for (const blId of missing) {
+    if (budget !== 0 && rateState.callsThisRun >= budget) break;
+
+    try {
+      const data = await blIngestFetch<unknown[]>(
+        `/items/MINIFIG/${encodeURIComponent(blId)}/subsets`,
+        rateState
+      );
+      const entries = normalizeBlSubsetEntries(data).filter(
+        e => e.item?.type === 'PART'
+      );
+
+      // Always upsert something so this minifig is not retried on the next run.
+      // If BL returned no parts, insert a sentinel row (bl_part_id='__none__')
+      // that fingerprint matching skips.
+      const upsertRows =
+        entries.length > 0
+          ? entries.map(e => ({
+              bl_minifig_no: blId,
+              bl_part_id: e.item.no,
+              bl_color_id: e.color_id ?? 0,
+              quantity: e.quantity ?? 1,
+              last_refreshed_at: now,
+            }))
+          : [
+              {
+                bl_minifig_no: blId,
+                bl_part_id: '__none__',
+                bl_color_id: 0,
+                quantity: 0,
+                last_refreshed_at: now,
+              },
+            ];
+
+      const { error } = await supabase
+        .from('bl_minifig_parts')
+        .upsert(upsertRows, {
+          onConflict: 'bl_minifig_no,bl_part_id,bl_color_id',
+        });
+      if (error) {
+        log(
+          `  BL crawl: error upserting bl_minifig_parts for ${blId}: ${error.message}`
+        );
+      }
+      crawled++;
+    } catch (err) {
+      log(
+        `  BL crawl: error fetching parts for ${blId}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
+
+  log(`  BL crawl: fetched parts for ${crawled} minifigs`);
+  return crawled;
+}
+
+/**
  * Match unmapped minifigs using set-based (tier-1) and fingerprint (tier-2) methods.
  * Runs after inventory_minifigs ingest to pick up newly-added minifigs.
+ * blBudget: max BL API calls for crawl phase (0 = unlimited, default 500)
  */
-async function matchUnmappedMinifigs(supabase: SupabaseClient): Promise<void> {
+async function matchUnmappedMinifigs(
+  supabase: SupabaseClient,
+  blBudget: number
+): Promise<void> {
   log('Matching unmapped minifigs...');
 
   // 1. Get unmapped minifigs
@@ -1470,18 +1817,31 @@ async function matchUnmappedMinifigs(supabase: SupabaseClient): Promise<void> {
   }
   log(`  Found ${unmapped.length} unmapped minifigs`);
 
-  // 2. Tier-1: Set-based matching with process of elimination
+  // 2. BL data refresh: crawl any missing set-minifig and minifig-parts data
+  const rateState: RateState = { lastCallAt: 0, callsThisRun: 0 };
+  await refreshBlSetMinifigs(supabase, rateState, blBudget);
+  await crawlMissingBlMinifigParts(supabase, rateState, blBudget);
+  log(`  BL crawl: ${rateState.callsThisRun} total API calls used`);
+
+  // 3. Tier-1: Set-based matching with process of elimination
   const tier1Matches = await matchTier1(supabase);
   log(`  Tier-1: matched ${tier1Matches} minifigs via set-based matching`);
 
-  // 3. Tier-2: Fingerprint comparison
+  // 4. Tier-2: Set-scoped fingerprint comparison
   const colorMap = await buildRbToBlColorMap(supabase);
   const tier2Matches = await matchTier2(supabase, colorMap);
-  log(`  Tier-2: matched ${tier2Matches} minifigs via fingerprinting`);
-
   log(
-    `  Total: matched ${tier1Matches + tier2Matches} previously-unmapped minifigs`
+    `  Tier-2: matched ${tier2Matches} minifigs via set-scoped fingerprinting`
   );
+
+  // 5. Tier-2 Global: Fingerprint comparison against all unmatched BL minifigs
+  const tier2GlobalMatches = await matchTier2Global(supabase, colorMap);
+  log(
+    `  Tier-2 Global: matched ${tier2GlobalMatches} minifigs via global fingerprinting`
+  );
+
+  const total = tier1Matches + tier2Matches + tier2GlobalMatches;
+  log(`  Total: matched ${total} previously-unmapped minifigs`);
 }
 
 /**
@@ -1490,11 +1850,15 @@ async function matchUnmappedMinifigs(supabase: SupabaseClient): Promise<void> {
  * Iterates until no new matches found (process of elimination).
  */
 async function matchTier1(supabase: SupabaseClient): Promise<number> {
-  // Get all sets that have BL minifig data
-  const { data: blSets } = await supabase
-    .from('bl_set_minifigs')
-    .select('set_num, minifig_no');
-  if (!blSets || blSets.length === 0) return 0;
+  // Get all sets that have BL minifig data (paginated — table can exceed 1000 rows)
+  // Exclude sentinel rows inserted when BL returned no minifigs for a set.
+  const blSets = await fetchAllRows<{ set_num: string; minifig_no: string }>(
+    supabase
+      .from('bl_set_minifigs')
+      .select('set_num, minifig_no')
+      .neq('minifig_no', '__none__')
+  );
+  if (blSets.length === 0) return 0;
 
   // Group BL minifigs by set
   const blMinifigsBySet = new Map<string, string[]>();
@@ -1585,6 +1949,7 @@ async function matchTier1(supabase: SupabaseClient): Promise<number> {
             bl_mapping_confidence: 1.0,
             bl_mapping_source:
               totalMatched === 0 ? 'tier1_single_set' : 'tier1_elimination',
+            matched_at: new Date().toISOString(),
           })
           .eq('fig_num', rbFig);
 
@@ -1601,8 +1966,131 @@ async function matchTier1(supabase: SupabaseClient): Promise<number> {
   return totalMatched;
 }
 
+// ── Shared helpers for tier-2 matching ──
+
+/** Build RB part_num → BL part_id map (paginated). */
+async function buildBlPartMap(
+  supabase: SupabaseClient
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const rows = await fetchAllRows<{ part_num: string; bl_part_id: string }>(
+    supabase
+      .from('rb_parts')
+      .select('part_num, bl_part_id')
+      .not('bl_part_id', 'is', null)
+  );
+  for (const row of rows) {
+    if (row.bl_part_id) map.set(row.part_num, row.bl_part_id);
+  }
+  return map;
+}
+
+/** Build set of already-matched BL minifig IDs (paginated). */
+async function buildMatchedBlSet(
+  supabase: SupabaseClient
+): Promise<Set<string>> {
+  const set = new Set<string>();
+  const rows = await fetchAllRows<{ bl_minifig_id: string | null }>(
+    supabase
+      .from('rb_minifigs')
+      .select('bl_minifig_id')
+      .not('bl_minifig_id', 'is', null)
+  );
+  for (const row of rows) {
+    if (row.bl_minifig_id) set.add(row.bl_minifig_id);
+  }
+  return set;
+}
+
+/** Build BL-translated fingerprint for an RB minifig. */
+async function buildRbFingerprint(
+  supabase: SupabaseClient,
+  figNum: string,
+  blPartMap: Map<string, string>,
+  rbToBlColor: Map<number, number>
+): Promise<FingerprintPart[]> {
+  const { data: inventories } = await supabase
+    .from('rb_inventories')
+    .select('id')
+    .eq('set_num', figNum)
+    .limit(1);
+  if (!inventories || inventories.length === 0) return [];
+
+  const invId = inventories[0]!.id;
+  const { data: rbParts } = await supabase
+    .from('rb_inventory_parts')
+    .select('part_num, color_id, quantity')
+    .eq('inventory_id', invId)
+    .eq('is_spare', false);
+  if (!rbParts || rbParts.length === 0) return [];
+
+  const fingerprint: FingerprintPart[] = [];
+  for (const p of rbParts) {
+    const blPartId = blPartMap.get(p.part_num) ?? p.part_num;
+    const blColorId = rbToBlColor.get(p.color_id);
+    if (blColorId == null) continue;
+    fingerprint.push({ blPartId, blColorId, quantity: p.quantity ?? 1 });
+  }
+  return fingerprint;
+}
+
+/** Fetch BL fingerprint for a BL minifig ID. */
+async function fetchBlFingerprint(
+  supabase: SupabaseClient,
+  blId: string
+): Promise<FingerprintPart[]> {
+  const { data: blParts } = await supabase
+    .from('bl_minifig_parts')
+    .select('bl_part_id, bl_color_id, quantity')
+    .eq('bl_minifig_no', blId)
+    .neq('bl_part_id', '__none__');
+  if (!blParts || blParts.length === 0) return [];
+  return blParts.map(p => ({
+    blPartId: p.bl_part_id,
+    blColorId: p.bl_color_id,
+    quantity: p.quantity ?? 1,
+  }));
+}
+
+/** Score a best-match candidate and return confidence + method if above threshold. */
+function classifyMatch(
+  bestScore: number,
+  rbFingerprint: FingerprintPart[],
+  blFingerprint: FingerprintPart[],
+  methodPrefix: string
+): { confidence: number; method: string } | null {
+  if (bestScore >= 0.95) {
+    return {
+      confidence: methodPrefix === 'tier2_global' ? 0.9 : 0.95,
+      method: `${methodPrefix}_exact`,
+    };
+  }
+  if (bestScore >= 0.7) {
+    const partsOnly = compareFingerprintsPartsOnly(
+      rbFingerprint,
+      blFingerprint
+    );
+    if (bestScore >= 0.8) {
+      return {
+        confidence:
+          methodPrefix === 'tier2_global'
+            ? 0.75 + (bestScore - 0.8) * 0.5
+            : 0.8 + (bestScore - 0.8) * 0.75,
+        method: `${methodPrefix}_overlap`,
+      };
+    }
+    if (partsOnly.score >= 0.75) {
+      return {
+        confidence: 0.65 + (bestScore - 0.7) * 0.5,
+        method: `${methodPrefix}_fuzzy`,
+      };
+    }
+  }
+  return null;
+}
+
 /**
- * Tier-2: Fingerprint-based matching.
+ * Tier-2: Fingerprint-based matching (set-scoped).
  * Builds part composition fingerprints for unmatched RB minifigs, then compares
  * against BL minifig parts data for candidates from the same sets.
  */
@@ -1617,69 +2105,17 @@ async function matchTier2(
     .is('bl_minifig_id', null);
   if (!unmapped || unmapped.length === 0) return 0;
 
-  // Build BL part ID map from rb_parts
-  const blPartMap = new Map<string, string>();
-  let partOffset = 0;
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const { data } = await supabase
-      .from('rb_parts')
-      .select('part_num, bl_part_id')
-      .not('bl_part_id', 'is', null)
-      .range(partOffset, partOffset + 999);
-    if (!data || data.length === 0) break;
-    for (const row of data) {
-      if (row.bl_part_id) blPartMap.set(row.part_num, row.bl_part_id);
-    }
-    if (data.length < 1000) break;
-    partOffset += 1000;
-  }
-
+  const blPartMap = await buildBlPartMap(supabase);
+  const matchedBl = await buildMatchedBlSet(supabase);
   let matched = 0;
-  const matchedBl = new Set<string>();
-
-  // Pre-fetch matched BL IDs to avoid re-matching
-  let mOffset = 0;
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const { data } = await supabase
-      .from('rb_minifigs')
-      .select('bl_minifig_id')
-      .not('bl_minifig_id', 'is', null)
-      .range(mOffset, mOffset + 999);
-    if (!data || data.length === 0) break;
-    for (const row of data) {
-      if (row.bl_minifig_id) matchedBl.add(row.bl_minifig_id);
-    }
-    if (data.length < 1000) break;
-    mOffset += 1000;
-  }
 
   for (const { fig_num } of unmapped) {
-    // Get RB minifig's inventory parts
-    const { data: inventories } = await supabase
-      .from('rb_inventories')
-      .select('id')
-      .eq('set_num', fig_num)
-      .limit(1);
-    if (!inventories || inventories.length === 0) continue;
-
-    const invId = inventories[0]!.id;
-    const { data: rbParts } = await supabase
-      .from('rb_inventory_parts')
-      .select('part_num, color_id, quantity')
-      .eq('inventory_id', invId)
-      .eq('is_spare', false);
-    if (!rbParts || rbParts.length === 0) continue;
-
-    // Translate RB parts → BL fingerprint
-    const rbFingerprint: FingerprintPart[] = [];
-    for (const p of rbParts) {
-      const blPartId = blPartMap.get(p.part_num) ?? p.part_num; // same-by-default
-      const blColorId = rbToBlColor.get(p.color_id);
-      if (blColorId == null) continue; // skip parts without color mapping
-      rbFingerprint.push({ blPartId, blColorId, quantity: p.quantity ?? 1 });
-    }
+    const rbFingerprint = await buildRbFingerprint(
+      supabase,
+      fig_num,
+      blPartMap,
+      rbToBlColor
+    );
     if (rbFingerprint.length === 0) continue;
 
     // Find sets this minifig appears in via rb_inventory_minifigs
@@ -1710,7 +2146,8 @@ async function matchTier2(
         .in('set_num', batch);
       if (blSetMinifigs) {
         for (const row of blSetMinifigs) {
-          if (!matchedBl.has(row.minifig_no)) candidates.add(row.minifig_no);
+          if (row.minifig_no !== '__none__' && !matchedBl.has(row.minifig_no))
+            candidates.add(row.minifig_no);
         }
       }
 
@@ -1740,66 +2177,134 @@ async function matchTier2(
     if (candidates.size === 0) continue;
 
     // Compare against each candidate's BL fingerprint
-    let bestMatch = { blId: '', score: 0, matchedParts: 0, totalParts: 0 };
+    let bestMatch = { blId: '', score: 0, fp: [] as FingerprintPart[] };
     for (const blId of candidates) {
-      const { data: blParts } = await supabase
-        .from('bl_minifig_parts')
-        .select('bl_part_id, bl_color_id, quantity')
-        .eq('bl_minifig_no', blId);
-      if (!blParts || blParts.length === 0) continue;
+      const blFp = await fetchBlFingerprint(supabase, blId);
+      if (blFp.length === 0) continue;
 
-      const blFingerprint: FingerprintPart[] = blParts.map(p => ({
-        blPartId: p.bl_part_id,
-        blColorId: p.bl_color_id,
-        quantity: p.quantity ?? 1,
-      }));
-
-      const result = compareFingerprints(rbFingerprint, blFingerprint);
+      const result = compareFingerprints(rbFingerprint, blFp);
       if (result.score > bestMatch.score) {
-        bestMatch = { blId, ...result };
+        bestMatch = { blId, score: result.score, fp: blFp };
       }
     }
 
-    // Apply match based on confidence thresholds
-    let confidence: number | null = null;
-    let method: string | null = null;
-
-    if (bestMatch.score >= 0.95 && bestMatch.blId) {
-      confidence = 0.95;
-      method = 'tier2_exact';
-    } else if (bestMatch.score >= 0.7 && bestMatch.blId) {
-      const { data: blParts } = await supabase
-        .from('bl_minifig_parts')
-        .select('bl_part_id, bl_color_id, quantity')
-        .eq('bl_minifig_no', bestMatch.blId);
-      const blFp: FingerprintPart[] = (blParts ?? []).map(p => ({
-        blPartId: p.bl_part_id,
-        blColorId: p.bl_color_id,
-        quantity: p.quantity ?? 1,
-      }));
-      const partsOnly = compareFingerprintsPartsOnly(rbFingerprint, blFp);
-
-      if (bestMatch.score >= 0.8) {
-        confidence = 0.8 + (bestMatch.score - 0.8) * 0.75;
-        method = 'tier2_overlap';
-      } else if (partsOnly.score >= 0.75) {
-        confidence = 0.7 + (bestMatch.score - 0.7) * 0.5;
-        method = 'tier2_fuzzy';
-      }
-    }
-
-    if (confidence != null && method && bestMatch.blId) {
+    if (!bestMatch.blId) continue;
+    const cls = classifyMatch(
+      bestMatch.score,
+      rbFingerprint,
+      bestMatch.fp,
+      'tier2'
+    );
+    if (cls) {
       const { error } = await supabase
         .from('rb_minifigs')
         .update({
           bl_minifig_id: bestMatch.blId,
-          bl_mapping_confidence: confidence,
-          bl_mapping_source: method,
+          bl_mapping_confidence: cls.confidence,
+          bl_mapping_source: cls.method,
+          matched_at: new Date().toISOString(),
         })
         .eq('fig_num', fig_num);
 
       if (!error) {
         matchedBl.add(bestMatch.blId);
+        matched++;
+      }
+    }
+  }
+
+  return matched;
+}
+
+/**
+ * Tier-2 Global: Fingerprint-based matching against ALL unmatched BL minifigs.
+ * Unlike set-scoped tier-2, this loads all BL fingerprints into memory and
+ * compares each unmapped RB minifig against the full candidate pool.
+ * Lower confidence thresholds since no set-based narrowing.
+ */
+async function matchTier2Global(
+  supabase: SupabaseClient,
+  rbToBlColor: Map<number, number>
+): Promise<number> {
+  // Get still-unmapped minifigs
+  const { data: unmapped } = await supabase
+    .from('rb_minifigs')
+    .select('fig_num')
+    .is('bl_minifig_id', null);
+  if (!unmapped || unmapped.length === 0) return 0;
+
+  const blPartMap = await buildBlPartMap(supabase);
+  const matchedBl = await buildMatchedBlSet(supabase);
+
+  // Pre-load ALL BL fingerprints into memory
+  log('    Loading all BL fingerprints for global matching...');
+  const allBlParts = await fetchAllRows<{
+    bl_minifig_no: string;
+    bl_part_id: string;
+    bl_color_id: number;
+    quantity: number;
+  }>(
+    supabase
+      .from('bl_minifig_parts')
+      .select('bl_minifig_no, bl_part_id, bl_color_id, quantity')
+  );
+
+  // Group by BL minifig ID, excluding already-matched and sentinel rows
+  const blFingerprints = new Map<string, FingerprintPart[]>();
+  for (const row of allBlParts) {
+    if (matchedBl.has(row.bl_minifig_no)) continue;
+    if (row.bl_part_id === '__none__') continue; // sentinel: crawled but no parts
+    const fp = blFingerprints.get(row.bl_minifig_no) ?? [];
+    fp.push({
+      blPartId: row.bl_part_id,
+      blColorId: row.bl_color_id,
+      quantity: row.quantity ?? 1,
+    });
+    blFingerprints.set(row.bl_minifig_no, fp);
+  }
+  log(`    Loaded ${blFingerprints.size} unmatched BL fingerprints`);
+
+  let matched = 0;
+
+  for (const { fig_num } of unmapped) {
+    const rbFingerprint = await buildRbFingerprint(
+      supabase,
+      fig_num,
+      blPartMap,
+      rbToBlColor
+    );
+    if (rbFingerprint.length === 0) continue;
+
+    // Compare against every unmatched BL fingerprint
+    let bestMatch = { blId: '', score: 0, fp: [] as FingerprintPart[] };
+    for (const [blId, blFp] of blFingerprints) {
+      const result = compareFingerprints(rbFingerprint, blFp);
+      if (result.score > bestMatch.score) {
+        bestMatch = { blId, score: result.score, fp: blFp };
+      }
+    }
+
+    if (!bestMatch.blId) continue;
+    const cls = classifyMatch(
+      bestMatch.score,
+      rbFingerprint,
+      bestMatch.fp,
+      'tier2_global'
+    );
+    if (cls) {
+      const { error } = await supabase
+        .from('rb_minifigs')
+        .update({
+          bl_minifig_id: bestMatch.blId,
+          bl_mapping_confidence: cls.confidence,
+          bl_mapping_source: cls.method,
+          matched_at: new Date().toISOString(),
+        })
+        .eq('fig_num', fig_num);
+
+      if (!error) {
+        matchedBl.add(bestMatch.blId);
+        blFingerprints.delete(bestMatch.blId); // remove from candidates
         matched++;
       }
     }
@@ -1814,6 +2319,7 @@ async function main() {
 
   const supabase = createClient<Database>(supabaseUrl, supabaseServiceRoleKey);
   const forceConfig = parseForceArg(process.argv);
+  const blBudget = parseBLBudgetArg(process.argv);
 
   const downloads = await getDownloadUrls();
 
@@ -1864,7 +2370,7 @@ async function main() {
       await ingestInventoryParts(supabase, stream);
     } else if (info.source === 'inventory_minifigs') {
       await ingestInventoryMinifigs(supabase, stream);
-      await matchUnmappedMinifigs(supabase);
+      await matchUnmappedMinifigs(supabase, blBudget);
       await materializeMinifigParts(supabase);
       await materializePartRarity(supabase);
     }
@@ -1875,7 +2381,7 @@ async function main() {
 
   // Standalone minifig matching (can be triggered independently with --match-minifigs)
   if (process.argv.includes('--match-minifigs')) {
-    await matchUnmappedMinifigs(supabase);
+    await matchUnmappedMinifigs(supabase, blBudget);
   }
 
   // Standalone rarity materialization (can be triggered independently with --rarity-only)

@@ -779,6 +779,7 @@ export type Database = {
           bl_mapping_source: string | null;
           bl_minifig_id: string | null;
           fig_num: string;
+          matched_at: string | null;
           name: string;
           num_parts: number | null;
         };
@@ -787,6 +788,7 @@ export type Database = {
           bl_mapping_source?: string | null;
           bl_minifig_id?: string | null;
           fig_num: string;
+          matched_at?: string | null;
           name: string;
           num_parts?: number | null;
         };
@@ -795,6 +797,7 @@ export type Database = {
           bl_mapping_source?: string | null;
           bl_minifig_id?: string | null;
           fig_num?: string;
+          matched_at?: string | null;
           name?: string;
           num_parts?: number | null;
         };
