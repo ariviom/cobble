@@ -4,6 +4,7 @@ import { useCollectionSets } from '@/app/hooks/useCollectionSets';
 import { useCompletionStats } from '@/app/hooks/useCompletionStats';
 import { useRecentSets } from '@/app/hooks/useRecentSets';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import { useThemeNames } from '@/app/hooks/useThemeNames';
 import { useUserLists } from '@/app/hooks/useUserLists';
 import {
   getStoredGroupSessions,
@@ -20,6 +21,8 @@ export type UnifiedSet = {
   imageUrl: string | null;
   numParts: number;
   themeId: number | null;
+  /** Root theme name for display on cards */
+  themeName: string | null;
   /** Present in recently viewed list */
   isRecentlyViewed: boolean;
   lastViewedAt: number;
@@ -64,6 +67,7 @@ export function useUnifiedSets(isActive = true) {
     isEmpty: collectionEmpty,
   } = useCollectionSets();
   const { wishlist } = useUserLists();
+  const themeNames = useThemeNames();
 
   const [activeFilter, setActiveFilter] = useState<UnifiedFilter>('recent');
   const [searchQuery, setSearchQuery] = useState('');
@@ -111,13 +115,15 @@ export function useUnifiedSets(isActive = true) {
     // 1. Seed from recent sets (synchronous, instant)
     for (const r of recentSets) {
       const key = normalizeKey(r.setNumber);
+      const themeId = r.themeId ?? null;
       map.set(key, {
         setNumber: r.setNumber,
         name: r.name,
         year: r.year,
         imageUrl: r.imageUrl,
         numParts: r.numParts,
-        themeId: r.themeId ?? null,
+        themeId,
+        themeName: themeNames.get(themeId!) ?? null,
         isRecentlyViewed: true,
         lastViewedAt: r.lastViewedAt,
         ownedCount: 0,
@@ -135,13 +141,15 @@ export function useUnifiedSets(isActive = true) {
         existing.ownedCount = c.ownedCount;
         existing.totalParts = c.totalParts;
       } else {
+        const themeId = c.themeId ?? null;
         map.set(key, {
           setNumber: c.setNumber,
           name: c.name,
           year: c.year,
           imageUrl: c.imageUrl,
           numParts: c.numParts,
-          themeId: c.themeId ?? null,
+          themeId,
+          themeName: themeNames.get(themeId!) ?? null,
           isRecentlyViewed: false,
           lastViewedAt: 0,
           ownedCount: c.ownedCount,
@@ -163,6 +171,7 @@ export function useUnifiedSets(isActive = true) {
         existing.imageUrl = s.imageUrl;
         existing.numParts = s.numParts;
         existing.themeId = s.themeId;
+        existing.themeName = themeNames.get(s.themeId!) ?? null;
         existing.isOwned = s.isOwned;
         existing.listIds = s.listIds;
       } else {
@@ -173,6 +182,7 @@ export function useUnifiedSets(isActive = true) {
           imageUrl: s.imageUrl,
           numParts: s.numParts,
           themeId: s.themeId,
+          themeName: themeNames.get(s.themeId!) ?? null,
           isRecentlyViewed: false,
           lastViewedAt: 0,
           ownedCount: 0,
@@ -184,7 +194,7 @@ export function useUnifiedSets(isActive = true) {
     }
 
     return Array.from(map.values());
-  }, [recentSets, completionSets, collectionSets]);
+  }, [recentSets, completionSets, collectionSets, themeNames]);
 
   // Build filter options
   const filterOptions = useMemo<UnifiedFilterOption[]>(() => {
@@ -266,6 +276,7 @@ export function useUnifiedSets(isActive = true) {
             imageUrl: s.imageUrl,
             numParts: s.numParts,
             themeId: s.themeId,
+            themeName: themeNames.get(s.themeId!) ?? null,
             isRecentlyViewed: false,
             lastViewedAt: s.joinedAt,
             ownedCount: 0,
@@ -316,7 +327,14 @@ export function useUnifiedSets(isActive = true) {
     }
 
     return result;
-  }, [unified, activeFilter, searchQuery, wishlist, storedSessions]);
+  }, [
+    unified,
+    activeFilter,
+    searchQuery,
+    wishlist,
+    storedSessions,
+    themeNames,
+  ]);
 
   return {
     sets: filteredSets,
