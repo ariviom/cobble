@@ -150,11 +150,7 @@ Theme variables defined in `@theme` blocks in `globals.css` can be referenced di
 /* In globals.css */
 @theme {
   --color-theme-primary: #016cb8;
-  --color-theme-shadow: color-mix(
-    in oklch,
-    var(--color-theme-primary) 70%,
-    black
-  );
+  --color-shadow-depth: var(--color-neutral-300);
   --radius-lg: 1rem;
 }
 ```

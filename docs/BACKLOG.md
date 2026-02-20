@@ -73,10 +73,13 @@ See `docs/billing/stripe-subscriptions.md` for full spec.
 
 ### Group F: UI Polish & Testing (finishing touches)
 
+- [ ] `/` route: marketing landing page for unauthenticated users (auth users redirect to `/sets` as today)
+- [ ] Onboarding flow for new users (first set, feature discovery, tier awareness)
 - [ ] Sets tab bar: Chrome-like styling, fix overscroll, spacing
 - [ ] UI review: remove outdated design patterns, evaluate LEGO app alignment
 - [ ] Loader animation: standardize placement across loading states
 - [ ] Minifig/set detail modal UI review (from set inventory)
+- [ ] Confetti animation (LEGO bricks) when a set is marked fully complete
 - [ ] Thorough testing: entitlements, gating, Stripe webhooks, usage counters, pricing
 - [ ] Address launch audit hardening items from [`docs/LAUNCH_AUDIT_REPORT_2026-02-17.md`](LAUNCH_AUDIT_REPORT_2026-02-17.md)
 
