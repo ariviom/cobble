@@ -60,4 +60,5 @@ node_modules
 .memory/
 
 # References
+.playwright-mcp/
 ui_ref/
