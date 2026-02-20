@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/app/components/ui/Button';
+import { ColorSlotPicker } from '@/app/components/ui/ColorSlotPicker';
 import { Input } from '@/app/components/ui/Input';
 import { Toast } from '@/app/components/ui/Toast';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
@@ -44,6 +45,7 @@ export function GroupSessionPageClient({
   });
   const [isJoining, setIsJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<number | null>(1);
 
   const clientId = useGroupClientId();
   const router = useRouter();
@@ -65,6 +67,7 @@ export function GroupSessionPageClient({
           body: JSON.stringify({
             displayName: name,
             clientToken: clientId,
+            ...(selectedColor != null ? { colorSlot: selectedColor } : {}),
           }),
         }
       );
@@ -192,6 +195,12 @@ export function GroupSessionPageClient({
           className="mt-1"
           placeholder="e.g., Alice, Living room, iPad"
         />
+        <div className="mt-4">
+          <ColorSlotPicker
+            selected={selectedColor}
+            onSelect={setSelectedColor}
+          />
+        </div>
         <Button
           variant="primary"
           size="md"

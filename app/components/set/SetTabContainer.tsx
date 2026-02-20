@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { cn } from '@/app/components/ui/utils';
 import { SetTopBar } from '@/app/components/nav/SetTopBar';
 import { Inventory } from '@/app/components/set/Inventory';
 import { InventoryControls } from '@/app/components/set/InventoryControls';
@@ -10,9 +9,11 @@ import {
   useInventoryData,
   useInventoryControls,
 } from '@/app/components/set/InventoryProvider';
+import { ProgressStrip } from '@/app/components/set/ProgressStrip';
 import { SearchPartyProvider } from '@/app/components/set/SearchPartyProvider';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { Button } from '@/app/components/ui/Button';
+import { getSlotColor } from '@/app/components/ui/ColorSlotPicker';
 import { Modal } from '@/app/components/ui/Modal';
 import { Toast } from '@/app/components/ui/Toast';
 import type { GroupParticipant } from '@/app/hooks/useGroupParticipants';
@@ -62,6 +63,7 @@ export function SetTabContainer({
     groupSessionId: sp.groupSession?.id ?? null,
     groupParticipantId: sp.currentParticipant?.id ?? null,
     groupParticipantDisplayName: sp.currentParticipant?.displayName ?? null,
+    groupParticipantColorSlot: sp.currentParticipant?.colorSlot ?? null,
     groupClientId: sp.groupClientId,
     setNumber: tab.setNumber,
     enableCloudSync: !sp.isJoiner,
@@ -148,16 +150,17 @@ export function SetTabContainer({
           </p>
           {sp.participants.length > 0 && (
             <ul className="space-y-2">
-              {sp.participants.map(p => {
+              {sp.participants.map((p, i) => {
                 const connected =
                   Date.now() - new Date(p.lastSeenAt).getTime() < 2 * 60_000;
                 return (
                   <li key={p.id} className="flex items-center gap-2 text-sm">
                     <span
-                      className={cn(
-                        'size-2 flex-shrink-0 rounded-full',
-                        connected ? 'bg-success' : 'bg-foreground/20'
-                      )}
+                      className="size-2 flex-shrink-0 rounded-full"
+                      style={{
+                        backgroundColor: getSlotColor(p.colorSlot, i),
+                        opacity: connected ? 1 : 0.4,
+                      }}
                     />
                     <span className="text-foreground">{p.displayName}</span>
                   </li>
@@ -200,9 +203,9 @@ type SetTabContainerContentProps = {
     totalPiecesFound: number;
     currentParticipantId: string | null;
     slug: string | null;
-    onStart: () => Promise<void> | void;
+    onStart: (colorSlot?: number) => Promise<void> | void;
     onEnd: () => Promise<void> | void;
-    onContinue: (slug: string) => Promise<void> | void;
+    onContinue: (slug: string, colorSlot?: number) => Promise<void> | void;
     onRemoveParticipant: (participantId: string) => void;
   };
   searchPartyModalOpen: boolean;
@@ -221,6 +224,38 @@ function SetTabContainerContent({
   const { scrollerKey, isLoading, error } = useInventoryData();
   const { getControlsState } = useInventoryControls();
   const hasRestoredScroll = useRef(false);
+  const stickyRef = useRef<HTMLDivElement>(null);
+
+  // Measure the sticky header and set a CSS variable so fixed-position panels
+  // (bottom sheets, pinned panels) know where the header ends.
+  useEffect(() => {
+    const el = stickyRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      const top = parseFloat(getComputedStyle(el).top) || 0;
+      document.documentElement.style.setProperty(
+        '--sticky-header-bottom',
+        `${top + el.offsetHeight}px`
+      );
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty('--sticky-header-bottom');
+    };
+  }, []);
+
+  const [hiddenParticipantIds, setHiddenParticipantIds] = useState<Set<string>>(
+    new Set()
+  );
+  const toggleParticipantVisibility = useCallback((id: string) => {
+    setHiddenParticipantIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const getControlsStateRef = useRef(getControlsState);
   getControlsStateRef.current = getControlsState;
@@ -275,7 +310,10 @@ function SetTabContainerContent({
   return (
     <>
       {/* Top bar with set info - always visible, sticky on mobile */}
-      <div className="sticky top-10 z-50 shrink-0 bg-card lg:static">
+      <div
+        ref={stickyRef}
+        className="sticky top-10 z-50 shrink-0 bg-card lg:static"
+      >
         <SetTopBar
           setNumber={tab.setNumber}
           setName={tab.name}
@@ -286,6 +324,15 @@ function SetTabContainerContent({
           searchParty={searchParty}
           searchPartyModalOpen={searchPartyModalOpen}
           setSearchPartyModalOpen={setSearchPartyModalOpen}
+          hiddenParticipantIds={hiddenParticipantIds}
+          onToggleParticipantVisibility={toggleParticipantVisibility}
+        />
+        <ProgressStrip
+          numParts={tab.numParts ?? 0}
+          searchPartyActive={searchParty.active}
+          participants={searchParty.participants}
+          currentParticipantId={searchParty.currentParticipantId}
+          hiddenParticipantIds={hiddenParticipantIds}
         />
         <InventoryControls isLoading={isLoading} />
       </div>

@@ -35,9 +35,9 @@ export type SearchPartyProp = {
   totalPiecesFound: number;
   currentParticipantId: string | null;
   slug: string | null;
-  onStart: () => Promise<void> | void;
+  onStart: (colorSlot?: number) => Promise<void> | void;
   onEnd: () => Promise<void> | void;
-  onContinue: (slug: string) => Promise<void> | void;
+  onContinue: (slug: string, colorSlot?: number) => Promise<void> | void;
   onRemoveParticipant: (participantId: string) => void;
 };
 

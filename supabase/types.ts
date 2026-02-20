@@ -429,6 +429,7 @@ export type Database = {
       group_session_participants: {
         Row: {
           client_token: string;
+          color_slot: number | null;
           display_name: string;
           id: string;
           joined_at: string;
@@ -440,6 +441,7 @@ export type Database = {
         };
         Insert: {
           client_token: string;
+          color_slot?: number | null;
           display_name: string;
           id?: string;
           joined_at?: string;
@@ -451,6 +453,7 @@ export type Database = {
         };
         Update: {
           client_token?: string;
+          color_slot?: number | null;
           display_name?: string;
           id?: string;
           joined_at?: string;

@@ -71,135 +71,143 @@ export function useSearchPartyLifecycle({
     if (slug) clearStoredGroupSession(slug);
 
     if (isSpTab) {
-      // SP tabs are joiner-only — replace with landing to prevent
-      // the tab from persisting as a free set tab after the session ends.
-      replaceTabWithLanding(tab.id);
+      // SP tabs are joiner-only. Show the modal first so the participant
+      // knows why their session disappeared; replaceTabWithLanding is
+      // deferred to handleSessionEndedDismiss.
+      setSessionEndedModalOpen(true);
     } else {
       clearGroupSession(tab.id);
       setSessionEndedModalOpen(true);
     }
-  }, [
-    clearGroupSession,
-    replaceTabWithLanding,
-    tab.id,
-    tab.groupSessionSlug,
-    isSpTab,
-  ]);
+  }, [clearGroupSession, tab.id, tab.groupSessionSlug, isSpTab]);
 
   const handleSessionEndedDismiss = useCallback(() => {
     setSessionEndedModalOpen(false);
-  }, []);
-
-  const handleStartSearchTogether = useCallback(async () => {
-    if (!user) {
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      }
-      return;
+    if (isSpTab) {
+      // Navigate away after the participant acknowledges the modal.
+      replaceTabWithLanding(tab.id);
     }
-    if (!clientId || isSearchTogetherLoading) return;
+  }, [isSpTab, replaceTabWithLanding, tab.id]);
 
-    try {
-      setIsSearchTogetherLoading(true);
-
-      const res = await fetch('/api/group-sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ setNumber: tab.setNumber }),
-      });
-
-      const data = (await res.json()) as {
-        session?: {
-          id: string;
-          slug: string;
-          setNumber: string;
-          isActive: boolean;
-        };
-        error?: string;
-        message?: string;
-        limit?: number;
-      };
-
-      if (!res.ok || !data.session) {
-        if (res.status === 429 && data.error === 'quota_exceeded') {
-          setSearchPartyError(
-            data.message ||
-              `You've reached your limit of ${data.limit || 2} Search Party sessions this month.`
-          );
-        } else {
-          setSearchPartyError(
-            'Failed to start Search Party. Please try again.'
-          );
+  const handleStartSearchTogether = useCallback(
+    async (colorSlot?: number) => {
+      if (!user) {
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
         }
         return;
       }
+      if (!clientId || isSearchTogetherLoading) return;
 
-      const displayName =
-        (user.user_metadata &&
-          ((user.user_metadata.full_name as string | undefined) ||
-            (user.user_metadata.name as string | undefined))) ||
-        user.email ||
-        'You';
+      try {
+        setIsSearchTogetherLoading(true);
 
-      const joinRes = await fetch(
-        `/api/group-sessions/${encodeURIComponent(data.session.slug)}/join`,
-        {
+        const res = await fetch('/api/group-sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ displayName, clientToken: clientId }),
+          credentials: 'same-origin',
+          body: JSON.stringify({ setNumber: tab.setNumber }),
+        });
+
+        const data = (await res.json()) as {
+          session?: {
+            id: string;
+            slug: string;
+            setNumber: string;
+            isActive: boolean;
+          };
+          error?: string;
+          message?: string;
+          limit?: number;
+        };
+
+        if (!res.ok || !data.session) {
+          if (res.status === 429 && data.error === 'quota_exceeded') {
+            setSearchPartyError(
+              data.message ||
+                `You've reached your limit of ${data.limit || 2} Search Party sessions this month.`
+            );
+          } else {
+            setSearchPartyError(
+              'Failed to start Search Party. Please try again.'
+            );
+          }
+          return;
         }
-      );
 
-      const joinData = (await joinRes.json()) as {
-        participant?: {
-          id: string;
-          displayName: string;
-          piecesFound: number;
+        const displayName =
+          (user.user_metadata &&
+            ((user.user_metadata.full_name as string | undefined) ||
+              (user.user_metadata.name as string | undefined))) ||
+          user.email ||
+          'You';
+
+        const joinRes = await fetch(
+          `/api/group-sessions/${encodeURIComponent(data.session.slug)}/join`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              displayName,
+              clientToken: clientId,
+              ...(colorSlot != null ? { colorSlot } : {}),
+            }),
+          }
+        );
+
+        const joinData = (await joinRes.json()) as {
+          participant?: {
+            id: string;
+            displayName: string;
+            piecesFound: number;
+            colorSlot?: number | null;
+          };
         };
-      };
 
-      if (joinRes.ok && joinData.participant) {
-        const hostParticipant: GroupParticipant = {
-          id: joinData.participant.id,
-          displayName: joinData.participant.displayName,
-          piecesFound: joinData.participant.piecesFound ?? 0,
-          lastSeenAt: new Date().toISOString(),
-        };
+        if (joinRes.ok && joinData.participant) {
+          const hostParticipant: GroupParticipant = {
+            id: joinData.participant.id,
+            displayName: joinData.participant.displayName,
+            piecesFound: joinData.participant.piecesFound ?? 0,
+            lastSeenAt: new Date().toISOString(),
+            colorSlot: joinData.participant.colorSlot ?? null,
+          };
 
-        setParticipants([hostParticipant]);
+          setParticipants([hostParticipant]);
 
-        openTab({
-          ...tab,
-          groupSessionId: data.session.id,
-          groupSessionSlug: data.session.slug,
-          groupParticipantId: joinData.participant.id,
-          groupRole: 'host',
+          openTab({
+            ...tab,
+            groupSessionId: data.session.id,
+            groupSessionSlug: data.session.slug,
+            groupParticipantId: joinData.participant.id,
+            groupRole: 'host',
+          });
+
+          storeGroupSession({
+            sessionId: data.session.id,
+            slug: data.session.slug,
+            setNumber: tab.setNumber,
+            setName: tab.name,
+            imageUrl: tab.imageUrl,
+            numParts: tab.numParts,
+            year: tab.year,
+            themeId: tab.themeId ?? null,
+            participantId: joinData.participant.id,
+            role: 'host',
+            joinedAt: Date.now(),
+          });
+        }
+      } catch (err) {
+        logger.warn('[SearchParty] Failed to start session', {
+          error: err instanceof Error ? err.message : String(err),
         });
-
-        storeGroupSession({
-          sessionId: data.session.id,
-          slug: data.session.slug,
-          setNumber: tab.setNumber,
-          setName: tab.name,
-          imageUrl: tab.imageUrl,
-          numParts: tab.numParts,
-          year: tab.year,
-          themeId: tab.themeId ?? null,
-          participantId: joinData.participant.id,
-          role: 'host',
-          joinedAt: Date.now(),
-        });
+        setSearchPartyError('Failed to start Search Party. Please try again.');
+      } finally {
+        setIsSearchTogetherLoading(false);
       }
-    } catch (err) {
-      logger.warn('[SearchParty] Failed to start session', {
-        error: err instanceof Error ? err.message : String(err),
-      });
-      setSearchPartyError('Failed to start Search Party. Please try again.');
-    } finally {
-      setIsSearchTogetherLoading(false);
-    }
-  }, [user, clientId, isSearchTogetherLoading, tab, setParticipants, openTab]);
+    },
+    [user, clientId, isSearchTogetherLoading, tab, setParticipants, openTab]
+  );
 
   const handleEndSearchTogether = useCallback(async () => {
     if (!tab.groupSessionSlug || !user) return;
@@ -233,7 +241,7 @@ export function useSearchPartyLifecycle({
   ]);
 
   const handleContinueSession = useCallback(
-    async (slug: string) => {
+    async (slug: string, colorSlot?: number) => {
       if (!user) {
         if (typeof window !== 'undefined') {
           window.location.href = '/login';
@@ -277,7 +285,11 @@ export function useSearchPartyLifecycle({
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ displayName, clientToken: clientId }),
+            body: JSON.stringify({
+              displayName,
+              clientToken: clientId,
+              ...(colorSlot != null ? { colorSlot } : {}),
+            }),
           }
         );
 
@@ -286,6 +298,7 @@ export function useSearchPartyLifecycle({
             id: string;
             displayName: string;
             piecesFound: number;
+            colorSlot?: number | null;
           };
         };
 
@@ -295,6 +308,7 @@ export function useSearchPartyLifecycle({
             displayName: joinData.participant.displayName,
             piecesFound: joinData.participant.piecesFound ?? 0,
             lastSeenAt: new Date().toISOString(),
+            colorSlot: joinData.participant.colorSlot ?? null,
           };
 
           setParticipants([hostParticipant]);

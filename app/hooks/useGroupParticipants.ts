@@ -8,6 +8,7 @@ export type GroupParticipant = {
   displayName: string;
   piecesFound: number;
   lastSeenAt: string;
+  colorSlot: number | null;
 };
 
 type UseGroupParticipantsArgs = {
@@ -31,6 +32,7 @@ type UseGroupParticipantsResult = {
   handleParticipantJoined: (participant: {
     id: string;
     displayName: string;
+    colorSlot?: number | null;
   }) => void;
   /** Optimistically remove a participant by ID (e.g. from a broadcast). */
   handleParticipantLeft: (participantId: string) => void;
@@ -110,6 +112,7 @@ export function useGroupParticipants({
         display_name: string;
         pieces_found: number | null;
         last_seen_at: string | null;
+        color_slot: number | null;
       }>
     ) => {
       if (cancelled) return;
@@ -134,6 +137,7 @@ export function useGroupParticipants({
             ? Math.max(existing.piecesFound, row.pieces_found ?? 0)
             : (row.pieces_found ?? 0),
           lastSeenAt,
+          colorSlot: row.color_slot ?? existing?.colorSlot ?? null,
         };
       });
 
@@ -154,7 +158,7 @@ export function useGroupParticipants({
       const [participantsResult, sessionResult] = await Promise.all([
         supabase
           .from('group_session_participants')
-          .select('id, display_name, pieces_found, last_seen_at')
+          .select('id, display_name, pieces_found, last_seen_at, color_slot')
           .eq('session_id', sessionId)
           .is('left_at', null),
         supabase
@@ -237,7 +241,11 @@ export function useGroupParticipants({
   }, [sessionId]);
 
   const handleParticipantJoined = useCallback(
-    (participant: { id: string; displayName: string }) => {
+    (participant: {
+      id: string;
+      displayName: string;
+      colorSlot?: number | null;
+    }) => {
       setParticipants(prev => {
         // Dedup: if already in roster, don't add again (mergeRoster will converge)
         if (prev.some(p => p.id === participant.id)) return prev;
@@ -248,6 +256,7 @@ export function useGroupParticipants({
             displayName: participant.displayName,
             piecesFound: 0,
             lastSeenAt: new Date().toISOString(),
+            colorSlot: participant.colorSlot ?? null,
           },
         ];
       });

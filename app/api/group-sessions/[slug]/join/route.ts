@@ -11,6 +11,51 @@ import type { Tables } from '@/supabase/types';
 
 type GroupSessionParticipantRow = Tables<'group_session_participants'>;
 
+/**
+ * Resolve a color slot for a participant. Prefers the client-requested slot
+ * if available, otherwise auto-assigns the lowest free slot (1-8).
+ */
+async function resolveColorSlot(
+  supabase: Awaited<ReturnType<typeof getSupabaseAuthServerClient>>,
+  sessionId: string,
+  excludeParticipantId: string | null,
+  preferredSlot?: number | null
+): Promise<number | null> {
+  try {
+    const { data: rows, error } = await supabase
+      .from('group_session_participants')
+      .select('id, color_slot')
+      .eq('session_id', sessionId)
+      .is('left_at', null);
+
+    if (error || !rows) return null;
+
+    const taken = new Set(
+      (rows ?? [])
+        .filter(r => r.id !== excludeParticipantId && r.color_slot != null)
+        .map(r => r.color_slot as number)
+    );
+
+    // Use preferred slot if it's valid and available
+    if (
+      preferredSlot != null &&
+      preferredSlot >= 1 &&
+      preferredSlot <= 8 &&
+      !taken.has(preferredSlot)
+    ) {
+      return preferredSlot;
+    }
+
+    // Fall back to lowest available
+    for (let slot = 1; slot <= 8; slot++) {
+      if (!taken.has(slot)) return slot;
+    }
+    return null; // All 8 slots taken
+  } catch {
+    return null; // Non-critical — fall back to index-based color in UI
+  }
+}
+
 const joinBodySchema = z.object({
   displayName: z
     .string()
@@ -22,6 +67,7 @@ const joinBodySchema = z.object({
     .trim()
     .min(1, 'client_token_required')
     .max(VALIDATION.CLIENT_TOKEN_MAX),
+  colorSlot: z.number().int().min(1).max(8).optional(),
 });
 
 function extractSlug(req: NextRequest): string | null {
@@ -84,7 +130,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     });
   }
 
-  const { displayName, clientToken } = parsed.data;
+  const { displayName, clientToken, colorSlot: preferredColor } = parsed.data;
 
   try {
     const supabase = await getSupabaseAuthServerClient();
@@ -136,6 +182,17 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     }
 
     if (existing) {
+      // Re-assign color_slot if missing (e.g. pre-migration participant)
+      let colorSlot = existing.color_slot;
+      if (colorSlot == null) {
+        colorSlot = await resolveColorSlot(
+          supabase,
+          session.id,
+          existing.id,
+          preferredColor
+        );
+      }
+
       const { data: updated, error: updateError } = await supabase
         .from('group_session_participants')
         .update({
@@ -143,6 +200,9 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
           user_id: userId ?? existing.user_id,
           last_seen_at: new Date().toISOString(),
           left_at: null,
+          ...(existing.color_slot == null && colorSlot != null
+            ? { color_slot: colorSlot }
+            : {}),
         })
         .eq('id', existing.id as GroupSessionParticipantRow['id'])
         .select('*')
@@ -167,6 +227,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
           id: updated.id,
           displayName: updated.display_name,
           piecesFound: updated.pieces_found,
+          colorSlot: updated.color_slot,
         },
       });
     }
@@ -176,6 +237,13 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       session_uuid: session.id,
     });
 
+    const colorSlot = await resolveColorSlot(
+      supabase,
+      session.id,
+      null,
+      preferredColor
+    );
+
     const { data: inserted, error: insertError } = await supabase
       .from('group_session_participants')
       .insert({
@@ -183,6 +251,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
         user_id: userId as GroupSessionParticipantRow['user_id'],
         client_token: clientToken as GroupSessionParticipantRow['client_token'],
         display_name: displayName,
+        ...(colorSlot != null ? { color_slot: colorSlot } : {}),
       })
       .select('*')
       .maybeSingle();
@@ -214,6 +283,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
         id: inserted.id,
         displayName: inserted.display_name,
         piecesFound: inserted.pieces_found,
+        colorSlot: inserted.color_slot,
       },
     });
   } catch (err) {

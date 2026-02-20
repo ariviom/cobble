@@ -87,6 +87,7 @@ export function useSearchPartyAutoRejoin({
             id: string;
             displayName: string;
             piecesFound: number;
+            colorSlot?: number | null;
           };
           error?: string;
         };
@@ -103,6 +104,7 @@ export function useSearchPartyAutoRejoin({
             displayName: data.participant.displayName,
             piecesFound: data.participant.piecesFound ?? 0,
             lastSeenAt: new Date().toISOString(),
+            colorSlot: data.participant.colorSlot ?? null,
           },
         ]);
 

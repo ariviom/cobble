@@ -60,6 +60,7 @@ type UseGroupSessionChannelArgs = {
   onParticipantJoined?: (participant: {
     id: string;
     displayName: string;
+    colorSlot?: number | null;
   }) => void;
   /**
    * Called when a remote participant broadcasts that they left (tab close).
@@ -80,6 +81,7 @@ type UseGroupSessionChannelResult = {
   broadcastParticipantJoined: (participant: {
     id: string;
     displayName: string;
+    colorSlot?: number | null;
   }) => void;
   broadcastParticipantLeft: () => void;
   connectionState: 'disconnected' | 'connecting' | 'connected';
@@ -221,6 +223,7 @@ export function useGroupSessionChannel({
       const data = payload as {
         id?: string;
         displayName?: string;
+        colorSlot?: number | null;
         clientId?: string;
       } | null;
       if (!data?.id || !data?.displayName) return;
@@ -229,6 +232,7 @@ export function useGroupSessionChannel({
       onParticipantJoinedRef.current?.({
         id: data.id,
         displayName: data.displayName,
+        colorSlot: data.colorSlot ?? null,
       });
     });
 
@@ -569,7 +573,11 @@ export function useGroupSessionChannel({
   );
 
   const broadcastParticipantJoined = useCallback(
-    (participant: { id: string; displayName: string }) => {
+    (participant: {
+      id: string;
+      displayName: string;
+      colorSlot?: number | null;
+    }) => {
       if (!enabled || !sessionId) return;
       const channel = channelRef.current;
       if (!channel) return;
@@ -581,6 +589,7 @@ export function useGroupSessionChannel({
           payload: {
             id: participant.id,
             displayName: participant.displayName,
+            colorSlot: participant.colorSlot ?? null,
             clientId,
           },
         })

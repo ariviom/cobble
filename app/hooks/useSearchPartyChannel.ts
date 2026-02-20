@@ -14,6 +14,7 @@ type UseSearchPartyChannelArgs = {
   groupSessionId: string | null;
   groupParticipantId: string | null;
   groupParticipantDisplayName: string | null;
+  groupParticipantColorSlot: number | null;
   groupClientId: string | null;
   setNumber: string;
   // Flags
@@ -28,6 +29,7 @@ type UseSearchPartyChannelArgs = {
   onParticipantJoined: (participant: {
     id: string;
     displayName: string;
+    colorSlot?: number | null;
   }) => void;
   onParticipantLeft: (participantId: string) => void;
   onSessionEnded: () => void;
@@ -59,6 +61,7 @@ export function useSearchPartyChannel(
     groupSessionId,
     groupParticipantId,
     groupParticipantDisplayName,
+    groupParticipantColorSlot,
     groupClientId,
     setNumber,
     enableCloudSync,
@@ -118,7 +121,11 @@ export function useSearchPartyChannel(
   >(() => {});
   const requestSnapshotRef = useRef<() => void>(() => {});
   const broadcastParticipantJoinedRef = useRef<
-    (participant: { id: string; displayName: string }) => void
+    (participant: {
+      id: string;
+      displayName: string;
+      colorSlot?: number | null;
+    }) => void
   >(() => {});
 
   const snapshotReceivedRef = useRef(false);
@@ -129,12 +136,17 @@ export function useSearchPartyChannel(
     broadcastOwnedSnapshotRef.current(ownedByKeyRef.current);
   }, [enableCloudSync, isInGroupSession]);
 
+  // Use a ref for colorSlot so handleReconnected stays stable
+  const groupParticipantColorSlotRef = useRef(groupParticipantColorSlot);
+  groupParticipantColorSlotRef.current = groupParticipantColorSlot;
+
   const handleReconnected = useCallback(() => {
     // Broadcast our presence on (re)connect — deduplication happens in the roster
     if (groupParticipantId && groupParticipantDisplayName) {
       broadcastParticipantJoinedRef.current({
         id: groupParticipantId,
         displayName: groupParticipantDisplayName,
+        colorSlot: groupParticipantColorSlotRef.current,
       });
     }
 
