@@ -267,7 +267,7 @@ export function SetTopBar({
         )}
       >
         <div className="group set relative flex w-full items-center gap-3 bg-card px-3 py-2 lg:pr-3">
-          <div className="size-20 flex-shrink-0 overflow-hidden rounded-lg border border-subtle bg-gradient-to-br from-neutral-100 to-neutral-200 lg:size-24 dark:from-neutral-800 dark:to-neutral-900">
+          <div className="size-20 flex-shrink-0 overflow-hidden rounded-md border-2 border-subtle bg-gradient-to-br from-neutral-100 to-neutral-200 lg:size-24 dark:from-neutral-800 dark:to-neutral-900">
             {resolvedImageUrl ? (
               <Image
                 src={resolvedImageUrl}
@@ -292,7 +292,7 @@ export function SetTopBar({
                   className="absolute top-3 right-3 ml-auto flex-shrink-0"
                 >
                   {() => (
-                    <div className="min-w-[160px] rounded-lg border border-subtle bg-card p-2 shadow-lg">
+                    <div className="min-w-[160px] rounded-lg border-2 border-subtle bg-card p-2 shadow-lg">
                       <SetOwnershipAndCollectionsRow
                         ownership={ownership}
                         variant="dropdown"
@@ -319,9 +319,9 @@ export function SetTopBar({
                   type="button"
                   aria-label="Search Party"
                   className={cn(
-                    'relative inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 lg:px-4 lg:py-2',
+                    'relative inline-flex items-center gap-1.5 rounded-md border-2 px-3 py-1.5 text-[13px] font-bold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 lg:px-4 lg:py-2',
                     searchParty.active
-                      ? 'border-theme-primary bg-theme-primary text-theme-primary-contrast shadow-sm'
+                      ? 'border-theme-primary bg-theme-primary text-theme-primary-contrast shadow-[0_2px_0_0] shadow-theme-shadow/40'
                       : 'border-subtle bg-card text-foreground-muted hover:border-foreground/30 hover:bg-card-muted hover:text-foreground'
                   )}
                   disabled={!searchParty || searchParty.buttonDisabled}
@@ -333,7 +333,7 @@ export function SetTopBar({
                   <Users className="size-3.5" />
                   Search Party
                   {searchParty.active && (
-                    <div className="absolute -top-2.5 right-[-14px] flex size-6 items-center justify-center rounded-full border border-white bg-brand-yellow text-2xs font-extrabold text-neutral-900 shadow-sm">
+                    <div className="absolute -top-2.5 right-[-14px] flex size-6 items-center justify-center rounded-full border-2 border-white bg-brand-yellow text-2xs font-extrabold text-neutral-900 shadow-sm">
                       {participantCount.toLocaleString()}
                     </div>
                   )}
@@ -370,7 +370,7 @@ export function SetTopBar({
                   {!quotaInfo.loading &&
                     !quotaInfo.unlimited &&
                     searchParty.canHost && (
-                      <div className="rounded-lg border border-subtle bg-card-muted px-4 py-3 text-center text-sm">
+                      <div className="rounded-md border-2 border-subtle bg-card-muted px-4 py-3 text-center text-sm">
                         {quotaInfo.canHost ? (
                           <>
                             <span className="font-bold text-foreground">
@@ -469,7 +469,7 @@ export function SetTopBar({
                   <CardContent className="space-y-4 pt-4">
                     {searchParty?.joinUrl ? (
                       <div className="flex justify-center">
-                        <div className="rounded-lg border border-subtle bg-white p-4 shadow-md">
+                        <div className="rounded-lg border-2 border-subtle bg-white p-4 shadow-[0_4px_0_0] shadow-subtle/50">
                           <QRCode
                             value={searchParty.joinUrl}
                             size={140}
@@ -505,7 +505,7 @@ export function SetTopBar({
                           {searchParty.joinUrl ?? '/group'}
                         </span>
                       </span>
-                      <div className="w-full rounded-lg border border-subtle bg-card-muted px-4 py-3 text-center font-mono text-xl font-bold tracking-[0.4em] text-foreground">
+                      <div className="w-full rounded-md border-2 border-subtle bg-card-muted px-4 py-3 text-center font-mono text-xl font-bold tracking-[0.4em] text-foreground">
                         {sessionCode ?? '———'}
                       </div>
                     </div>
@@ -557,7 +557,7 @@ export function SetTopBar({
                             >
                               <div
                                 className={cn(
-                                  'flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg border px-3 py-2',
+                                  'flex min-w-0 flex-1 items-center justify-between gap-3 rounded-md border-2 px-3 py-2',
                                   isFirst
                                     ? 'border-brand-yellow/40 bg-brand-yellow/10'
                                     : 'border-subtle bg-card-muted'

@@ -68,14 +68,26 @@
   --radius-xl: 1.5rem;
   --radius-full: 9999px;
 
-  /* Shadow scale - soft and diffused */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md:
-    0 4px 8px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg:
-    0 8px 16px -2px rgba(0, 0, 0, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  --shadow-xl:
-    0 16px 32px -4px rgba(0, 0, 0, 0.12), 0 8px 16px -4px rgba(0, 0, 0, 0.06);
+  /* Shadow scale - bold 3D */
+  --shadow-sm: 0 2px 0 rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 3px 0 rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 0 rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 6px 0 rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.12);
+
+  /* Brick depth - the "3D pressed" effect */
+  --brick-depth: 0 4px 0;
+  --brick-depth-sm: 0 3px 0;
+  --brick-depth-pressed: 0 1px 0;
+
+  /* Theme shadow - darker version of theme color for 3D depth effect */
+  --color-theme-shadow: color-mix(
+    in oklch,
+    var(--color-theme-primary) 70%,
+    black
+  );
+
+  /* Shadow depth - the "3D pressed" effect under buttons */
+  --color-shadow-depth: var(--color-neutral-300);
 
   /* Accessible text colors for brand backgrounds */
   --color-on-white: #1a1a1a;
@@ -254,6 +266,9 @@
 
   --color-subtle: var(--color-neutral-200);
   --color-strong: var(--color-neutral-300);
+
+  /* Dark mode shadow depth - use dark gray instead of light */
+  --color-shadow-depth: oklch(15% 0 0);
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -421,46 +436,44 @@ body {
   color: var(--color-foreground-muted);
 }
 
-/* Button depth - soft press effect for interactive buttons */
+/* Brick button depth - 3D pressed effect for buttons
+   Usage: brick-button-depth [--brick-shadow-color:var(--color-theme-shadow)]
+   The shadow color can be customized per-button via CSS variable */
 .brick-button-depth {
-  box-shadow:
-    0 2px 5px -1px rgba(0, 0, 0, 0.15),
-    0 1px 3px -1px rgba(0, 0, 0, 0.1);
+  --_brick-shadow: var(--brick-shadow-color, var(--color-shadow-depth));
+  box-shadow: 0 4px 0 0 var(--_brick-shadow);
   transition:
-    box-shadow 150ms ease,
-    transform 150ms ease;
+    box-shadow 100ms,
+    transform 100ms;
 }
 
 .brick-button-depth:hover:not(:disabled) {
-  box-shadow:
-    0 1px 3px -1px rgba(0, 0, 0, 0.15),
-    0 1px 2px -1px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 3px 0 0 var(--_brick-shadow);
   transform: translateY(1px);
 }
 
 .brick-button-depth:active:not(:disabled) {
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.1);
-  transform: translateY(2px);
+  box-shadow: 0 1px 0 0 var(--_brick-shadow);
+  transform: translateY(3px);
 }
 
-/* Button depth - secondary variant (subtler shadow) */
+/* Brick button depth - secondary variant (smaller shadow) */
 .brick-button-depth-sm {
-  box-shadow:
-    0 1px 3px -1px rgba(0, 0, 0, 0.12),
-    0 1px 2px -1px rgba(0, 0, 0, 0.08);
+  --_brick-shadow: var(--brick-shadow-color, var(--color-shadow-depth));
+  box-shadow: 0 3px 0 0 var(--_brick-shadow);
   transition:
-    box-shadow 150ms ease,
-    transform 150ms ease;
+    box-shadow 100ms,
+    transform 100ms;
 }
 
 .brick-button-depth-sm:hover:not(:disabled) {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 0 0 var(--_brick-shadow);
   transform: translateY(1px);
 }
 
 .brick-button-depth-sm:active:not(:disabled) {
-  box-shadow: 0 0 1px rgba(0, 0, 0, 0.08);
-  transform: translateY(2px);
+  box-shadow: 0 0 0 0 var(--_brick-shadow);
+  transform: translateY(3px);
 }
 
 /* 3px left-edge border for Card color variants */

@@ -7,7 +7,7 @@ import { cn } from './utils';
 
 const selectVariants = cva(
   // min-w-0 allows shrinking in flex containers on mobile
-  'w-full min-w-0 border border-subtle rounded-md bg-card px-4 pr-10 text-foreground font-medium transition-all duration-150 cursor-pointer appearance-none focus:outline-none focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-background-muted',
+  'w-full min-w-0 border-2 border-subtle rounded-md bg-card px-4 pr-10 text-foreground font-medium transition-all duration-150 cursor-pointer appearance-none focus:outline-none focus:border-theme-primary focus:ring-2 focus:ring-theme-primary/20 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-background-muted',
   {
     variants: {
       size: {
