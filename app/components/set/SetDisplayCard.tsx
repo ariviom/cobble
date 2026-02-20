@@ -1,12 +1,12 @@
 'use client';
 
+import { useSetImageRefresh } from '@/app/hooks/useSetImageRefresh';
 import { cardVariants } from '@/app/components/ui/Card';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { cn } from '@/app/components/ui/utils';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { useState } from 'react';
 import { X } from 'lucide-react';
 
 export type SetDisplayCardProps = {
@@ -67,60 +67,15 @@ export function SetDisplayCard({
     ? Math.round((ownedCount! / totalParts!) * 100)
     : 0;
 
-  const [resolvedImageUrl, setResolvedImageUrl] = useState<string | null>(
-    imageUrl ?? null
-  );
-  const [hasTriedRefresh, setHasTriedRefresh] = useState(false);
-
-  const handleImageError = async () => {
-    if (hasTriedRefresh) {
-      setResolvedImageUrl(null);
-      return;
-    }
-    setHasTriedRefresh(true);
-    try {
-      const res = await fetch(
-        `/api/sets/${encodeURIComponent(setNumber)}/refresh-image`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          cache: 'no-store',
-        }
-      );
-      if (!res.ok) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('SetDisplayCard: refresh-image request failed', {
-            status: res.status,
-          });
-        }
-        setResolvedImageUrl(null);
-        return;
-      }
-      const data = (await res.json()) as { imageUrl?: string | null };
-      if (
-        typeof data.imageUrl === 'string' &&
-        data.imageUrl.trim().length > 0
-      ) {
-        setResolvedImageUrl(data.imageUrl.trim());
-      } else {
-        setResolvedImageUrl(null);
-      }
-    } catch (err) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.error('SetDisplayCard: refresh-image request errored', err);
-      }
-      setResolvedImageUrl(null);
-    }
-  };
+  const { resolvedUrl: resolvedImageUrl, onError: handleImageError } =
+    useSetImageRefresh(setNumber, imageUrl);
 
   return (
     <div
       className={cn(
-        'group relative',
+        'group relative flex flex-col',
         cardVariants({
-          variant: 'theme',
+          variant: 'default',
           elevated: true,
           interactive: true,
           padding: 'none',
@@ -130,11 +85,11 @@ export function SetDisplayCard({
     >
       <Link
         href={`/sets/${encodeURIComponent(setNumber)}`}
-        className="block w-full"
+        className="block w-full flex-1"
       >
         <div className="p-2">
           {resolvedImageUrl ? (
-            <div className="relative aspect-square w-full overflow-hidden rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+            <div className="relative aspect-4/3 w-full overflow-hidden rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
               <Image
                 src={resolvedImageUrl}
                 alt=""
@@ -154,10 +109,10 @@ export function SetDisplayCard({
                 {themeLabel}
               </div>
             )}
-            <div className="line-clamp-2 w-full truncate overflow-hidden text-sm leading-tight font-bold text-foreground">
+            <div className="line-clamp-2 w-full text-sm leading-tight font-bold text-foreground">
               {displayName}
             </div>
-            <div className="mt-1 w-full text-xs font-semibold text-foreground-muted">
+            <div className="mt-1 w-full text-2xs font-semibold text-foreground-muted">
               {metadataParts.join(' • ')}
             </div>
           </div>
@@ -165,6 +120,11 @@ export function SetDisplayCard({
         {hasTrackingProps && (
           <div className="px-2 pb-2 sm:px-3 sm:pb-3">
             <div
+              role="progressbar"
+              aria-valuenow={progressPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`${progressPct}% of pieces owned`}
               className={cn(
                 'h-2 w-full overflow-hidden rounded-full bg-background-muted',
                 !showProgress && 'opacity-40'
