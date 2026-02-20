@@ -301,6 +301,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      bl_set_minifigs: {
+        Row: {
+          bl_name: string | null;
+          minifig_no: string;
+          quantity: number;
+          set_num: string;
+        };
+        Insert: {
+          bl_name?: string | null;
+          minifig_no: string;
+          quantity?: number;
+          set_num: string;
+        };
+        Update: {
+          bl_name?: string | null;
+          minifig_no?: string;
+          quantity?: number;
+          set_num?: string;
+        };
+        Relationships: [];
+      };
       bp_derived_prices: {
         Row: {
           color_id: number;
@@ -738,14 +759,17 @@ export type Database = {
         Row: {
           fig_num: string;
           min_subpart_set_count: number;
+          set_count: number;
         };
         Insert: {
           fig_num: string;
           min_subpart_set_count?: number;
+          set_count?: number;
         };
         Update: {
           fig_num?: string;
           min_subpart_set_count?: number;
+          set_count?: number;
         };
         Relationships: [];
       };
