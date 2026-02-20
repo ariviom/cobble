@@ -263,14 +263,19 @@ export async function getSetInventoryRowsWithMeta(
       const subparts = subpartsByFig.get(figNum) ?? [];
 
       if (subparts.length > 0) {
-        parent.componentRelations = subparts.map(sp => {
+        const relationMap = new Map<string, number>();
+        for (const sp of subparts) {
           const spIdentity = resolveRbMinifigSubpartIdentity(
             sp.rbPartId,
             sp.rbColorId,
             ctx
           );
-          return { key: spIdentity.canonicalKey, quantity: sp.quantity };
-        });
+          const key = spIdentity.canonicalKey;
+          relationMap.set(key, (relationMap.get(key) ?? 0) + sp.quantity);
+        }
+        parent.componentRelations = Array.from(relationMap.entries()).map(
+          ([key, quantity]) => ({ key, quantity })
+        );
       }
     }
 
