@@ -24,8 +24,11 @@ function applyFilter(
     return results;
   }
   return results.filter(result => {
-    const type = result.matchType ?? 'set';
-    return type === filterType;
+    const types = result.matchTypes;
+    if (types && types.length > 0) {
+      return types.includes(filterType);
+    }
+    return (result.matchType ?? 'set') === filterType;
   });
 }
 

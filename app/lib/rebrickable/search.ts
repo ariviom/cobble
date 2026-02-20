@@ -166,18 +166,20 @@ export async function getAggregatedSearchResults(
   let first = true;
   let nextUrl: string | null = null;
   const collected: RebrickableSetSearchResult[] = [];
-  const matchTypeBySet = new Map<string, MatchType>();
+  const matchTypesBySet = new Map<string, Set<MatchType>>();
   const MATCH_PRIORITY: Record<MatchType, number> = {
     set: 3,
     subtheme: 2,
     theme: 1,
   };
 
-  function setMatchType(key: string, matchType: MatchType) {
-    const existing = matchTypeBySet.get(key);
-    if (!existing || MATCH_PRIORITY[matchType] > MATCH_PRIORITY[existing]) {
-      matchTypeBySet.set(key, matchType);
+  function addMatchType(key: string, matchType: MatchType) {
+    let types = matchTypesBySet.get(key);
+    if (!types) {
+      types = new Set();
+      matchTypesBySet.set(key, types);
     }
+    types.add(matchType);
   }
 
   try {
@@ -200,7 +202,7 @@ export async function getAggregatedSearchResults(
       collected.push(...page.results);
       for (const result of page.results) {
         const key = result.set_num.toLowerCase();
-        setMatchType(key, 'set');
+        addMatchType(key, 'set');
       }
       nextUrl = page.next;
       first = false;
@@ -236,6 +238,7 @@ export async function getAggregatedSearchResults(
                 imageUrl: result.imageUrl,
                 themeId,
                 matchType: 'set',
+                matchTypes: ['set'],
               });
             }
           }
@@ -289,7 +292,7 @@ export async function getAggregatedSearchResults(
     themeId: number | null | undefined
   ): MatchType {
     if (themeId == null || !Number.isFinite(themeId)) {
-      return 'theme';
+      return 'set';
     }
     const theme = themeById.get(themeId as number);
     if (theme && theme.parent_id != null) {
@@ -349,7 +352,7 @@ export async function getAggregatedSearchResults(
                 collected.push(r);
                 seenSetNums.add(key);
               }
-              setMatchType(key, getMatchTypeForThemeId(themeId));
+              addMatchType(key, getMatchTypeForThemeId(themeId));
               if (collected.length >= SEARCH_AGG_CAP) break;
             }
             if (collected.length >= SEARCH_AGG_CAP || !page.next) break;
@@ -395,6 +398,11 @@ export async function getAggregatedSearchResults(
           : null;
       const { themeName, themePath } = getThemeMeta(themeId);
       const key = r.set_num.toLowerCase();
+      const types = matchTypesBySet.get(key);
+      const typesArr = types ? Array.from(types) : ['set' as MatchType];
+      const bestType = typesArr.reduce((a, b) =>
+        MATCH_PRIORITY[a] >= MATCH_PRIORITY[b] ? a : b
+      );
       return {
         setNumber: r.set_num,
         name: r.name,
@@ -404,7 +412,8 @@ export async function getAggregatedSearchResults(
         themeId,
         themeName,
         themePath,
-        matchType: matchTypeBySet.get(key) ?? 'set',
+        matchType: bestType,
+        matchTypes: typesArr,
       };
     });
 

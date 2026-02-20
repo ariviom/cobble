@@ -93,9 +93,15 @@ export type SimpleSet = {
    */
   themePath?: string | null;
   /**
-   * Whether the result matched directly on set metadata or via a theme match.
+   * Primary/best match type for this result (used for relevance sorting).
    */
   matchType?: import('@/app/types/search').MatchType;
+  /**
+   * All match types that apply to this result. A set matching by name AND
+   * belonging to a matched theme will have both 'set' and 'theme'/'subtheme'.
+   * Used by applyFilter — matchType stores only the best/primary match.
+   */
+  matchTypes?: import('@/app/types/search').MatchType[];
 };
 
 /** Domain model for a row in a set inventory */

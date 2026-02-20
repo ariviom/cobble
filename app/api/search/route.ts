@@ -28,11 +28,10 @@ const querySchema = z.object({
   filter: z
     .string()
     .optional()
-    .transform(v =>
-      allowedFilters.includes((v as FilterType) ?? 'all')
-        ? (v as FilterType)
-        : 'all'
-    ),
+    .transform(v => {
+      const resolved = (v as FilterType) ?? 'all';
+      return allowedFilters.includes(resolved) ? resolved : 'all';
+    }),
   exact: z
     .string()
     .optional()

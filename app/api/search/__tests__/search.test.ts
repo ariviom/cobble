@@ -49,7 +49,7 @@ describe('GET /api/search', () => {
         sort: 'relevance',
         page: 1,
         pageSize: 20,
-        filterType: undefined, // 'all' only when explicitly provided
+        filterType: 'all',
         exactMatch: false,
       });
     });
