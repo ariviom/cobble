@@ -22,6 +22,26 @@ import {
   type InventoryItemModalData,
 } from './items/InventoryItemModal';
 
+const RARITY_LABELS: Record<string, string> = {
+  exclusive: 'Exclusive (1 set)',
+  very_rare: 'Very Rare (2–3 sets)',
+  rare: 'Rare (4–10 sets)',
+  common: 'Common (10+ sets)',
+};
+
+function formatGroupLabel(groupKey: string): string {
+  // Rarity tiers
+  if (groupKey in RARITY_LABELS) return RARITY_LABELS[groupKey]!;
+  // Size (stud area) — raw number string from parseStudAreaFromName
+  const asNum = Number(groupKey);
+  if (!Number.isNaN(asNum) && groupKey.length <= 5) {
+    if (asNum < 0) return 'Unknown Size';
+    return `${asNum} stud${asNum === 1 ? '' : 's'}`;
+  }
+  // Color / category — already human-readable
+  return groupKey;
+}
+
 export function Inventory() {
   const {
     setNumber,
@@ -41,8 +61,14 @@ export function Inventory() {
   } = useInventoryData();
   const sp = useOptionalSearchParty();
   const isInGroupSession = sp?.isInGroupSession ?? false;
-  const { view, itemSize, sortedIndices, rarityByIndex, gridSizes } =
-    useInventoryControls();
+  const {
+    view,
+    itemSize,
+    sortedIndices,
+    groupKeyByIndex,
+    rarityByIndex,
+    gridSizes,
+  } = useInventoryControls();
   const { pricesByKey, pendingPriceKeys, requestPricesForKeys } =
     useInventoryPricing();
   const { isPinned, togglePinned } = useInventoryPinned();
@@ -166,16 +192,40 @@ export function Inventory() {
     ]
   );
 
-  // Render items - no wrapper divs needed, spacing handled by container
+  // Render items with group headers when grouping is active
   const renderedItems = useMemo(() => {
-    return sortedIndices.map(rowIndex => {
+    const elements: React.ReactNode[] = [];
+    let lastGroupKey: string | null = null;
+
+    for (const rowIndex of sortedIndices) {
+      // Insert a group header when the group key changes
+      if (groupKeyByIndex) {
+        const groupKey = groupKeyByIndex[rowIndex] ?? '';
+        if (groupKey !== lastGroupKey) {
+          lastGroupKey = groupKey;
+          elements.push(
+            <div
+              key={`group-${groupKey}`}
+              className="col-span-full flex items-center gap-3 pt-4 first:pt-0"
+            >
+              <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+                {formatGroupLabel(groupKey)}
+              </span>
+              <div className="bg-border h-px flex-1" />
+            </div>
+          );
+        }
+      }
+
       const key = keys[rowIndex]!;
-      return renderInventoryItem(rowIndex, key);
-    });
-  }, [sortedIndices, keys, renderInventoryItem]);
+      elements.push(renderInventoryItem(rowIndex, key));
+    }
+
+    return elements;
+  }, [sortedIndices, keys, groupKeyByIndex, renderInventoryItem]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Connection Status for Search Party */}
       {isInGroupSession &&
         !sp?.sessionEnded &&

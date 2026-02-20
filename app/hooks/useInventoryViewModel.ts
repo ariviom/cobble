@@ -252,7 +252,47 @@ export function useInventoryViewModel(
   const sortedIndices = useMemo(() => {
     const idxs = [...visibleIndices];
 
+    // Rarity tiers ordered from least to most rare (ascending = common first)
+    const RARITY_ORDER: Record<string, number> = {
+      common: 0,
+      rare: 1,
+      very_rare: 2,
+      exclusive: 3,
+    };
+
+    // Returns a numeric rank for group comparison so group order respects sortDir
+    function getGroupRank(i: number): number | string {
+      if (groupBy === 'none') return '';
+      const r = rows[i]!;
+      switch (groupBy) {
+        case 'color':
+          return r.colorName;
+        case 'size':
+          return sizeByIndex[i] ?? -1;
+        case 'category':
+          return categoryByIndex[i] ?? 'Uncategorized';
+        case 'rarity':
+          return RARITY_ORDER[getRarityTier(r.setCount) ?? 'common'] ?? 0;
+        default:
+          return '';
+      }
+    }
+
     function cmp(a: number, b: number): number {
+      // When grouping, sort by group rank first so items cluster together.
+      // Group order respects sortDir so desc flips the group sequence too.
+      if (groupBy !== 'none') {
+        const gA = getGroupRank(a);
+        const gB = getGroupRank(b);
+        let groupCmp: number;
+        if (typeof gA === 'number' && typeof gB === 'number') {
+          groupCmp = gA - gB;
+        } else {
+          groupCmp = String(gA).localeCompare(String(gB));
+        }
+        if (groupCmp !== 0) return sortDir === 'asc' ? groupCmp : -groupCmp;
+      }
+
       const ra = rows[a]!;
       const rb = rows[b]!;
 
@@ -300,7 +340,15 @@ export function useInventoryViewModel(
     idxs.sort(cmp);
 
     return idxs;
-  }, [rows, sortKey, sortDir, sizeByIndex, categoryByIndex, visibleIndices]);
+  }, [
+    rows,
+    sortKey,
+    sortDir,
+    sizeByIndex,
+    categoryByIndex,
+    visibleIndices,
+    groupBy,
+  ]);
 
   const groupKeyByIndex = useMemo(() => {
     if (groupBy === 'none') return null;

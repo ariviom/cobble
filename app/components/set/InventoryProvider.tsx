@@ -107,6 +107,7 @@ export type InventoryControlsContextValue = {
   setGroupBy: (group: GroupBy) => void;
   getControlsState: () => InventoryControlsState;
   sortedIndices: number[];
+  groupKeyByIndex: string[] | null;
   rarityByIndex: Array<RarityTier | null>;
   colorOptions: string[];
   availableColors: Set<string>;
@@ -296,6 +297,7 @@ export function InventoryProvider({
     setGroupBy,
     getControlsState,
     sortedIndices,
+    groupKeyByIndex,
     rarityByIndex,
     subcategoriesByParent,
     colorOptions,
@@ -553,6 +555,7 @@ export function InventoryProvider({
       setGroupBy,
       getControlsState,
       sortedIndices,
+      groupKeyByIndex,
       rarityByIndex,
       colorOptions,
       availableColors,
@@ -576,6 +579,7 @@ export function InventoryProvider({
       setGroupBy,
       getControlsState,
       sortedIndices,
+      groupKeyByIndex,
       rarityByIndex,
       colorOptions,
       availableColors,
