@@ -4,6 +4,11 @@ import { getSetInventoryRowsWithMeta } from '@/app/lib/services/inventory';
 import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import {
+  VERSION_CACHE_TTL_MS,
+  getVersionCache,
+  setVersionCache,
+} from './versionCache';
 
 // Ensure Next.js treats this route as dynamic (no server-side caching)
 export const dynamic = 'force-dynamic';
@@ -17,19 +22,11 @@ const querySchema = z.object({
   includeMeta: z.enum(['true', 'false']).optional(),
 });
 
-// In-process cache for inventory version (changes only on catalog re-ingestion)
-const VERSION_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-let versionCache: { at: number; version: string | null } | null = null;
-
-/** Reset cache (for testing). */
-export function _resetVersionCache(): void {
-  versionCache = null;
-}
-
 async function getInventoryVersion(): Promise<string | null> {
   const now = Date.now();
-  if (versionCache && now - versionCache.at < VERSION_CACHE_TTL_MS) {
-    return versionCache.version;
+  const cached = getVersionCache();
+  if (cached && now - cached.at < VERSION_CACHE_TTL_MS) {
+    return cached.version;
   }
 
   try {
@@ -44,7 +41,7 @@ async function getInventoryVersion(): Promise<string | null> {
       return null;
     }
     const version = (data?.version as string | null | undefined) ?? null;
-    versionCache = { at: now, version };
+    setVersionCache({ at: now, version });
     return version;
   } catch (err) {
     logger.warn('inventory.version.error', {

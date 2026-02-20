@@ -34,7 +34,8 @@ vi.mock('@/lib/metrics', () => ({
 }));
 
 import { getSetInventoryRowsWithMeta } from '@/app/lib/services/inventory';
-import { GET, _resetVersionCache } from '../route';
+import { GET } from '../route';
+import { _resetVersionCache } from '../versionCache';
 
 const mockGetSetInventory = vi.mocked(getSetInventoryRowsWithMeta);
 
