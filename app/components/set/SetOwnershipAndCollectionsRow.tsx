@@ -1,6 +1,7 @@
 'use client';
 
 import { CollectionsModalContent } from '@/app/components/collections/CollectionsModalContent';
+import { Button } from '@/app/components/ui/Button';
 import { Modal } from '@/app/components/ui/Modal';
 import { MoreDropdownButton } from '@/app/components/ui/MoreDropdown';
 import { StatusToggleButton } from '@/app/components/ui/StatusToggleButton';
@@ -40,12 +41,11 @@ export function SetOwnershipAndCollectionsRow({
   } = ownership;
 
   const [showCollections, setShowCollections] = useState(false);
+  const [showSignIn, setShowSignIn] = useState(false);
   const [mobileToast, setMobileToast] = useState<{
     message: string;
     variant: 'success' | 'error';
   } | null>(null);
-  const controlsDisabled = !isAuthenticated || isAuthenticating;
-  const showAuthHint = !isAuthenticating && !isAuthenticated;
 
   // Auto-hide mobile toast after 2 seconds
   useEffect(() => {
@@ -55,7 +55,10 @@ export function SetOwnershipAndCollectionsRow({
   }, [mobileToast]);
 
   const handleToggleOwned = () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setShowSignIn(true);
+      return;
+    }
     const willBeOwned = !status.owned;
     toggleOwned();
 
@@ -71,7 +74,10 @@ export function SetOwnershipAndCollectionsRow({
   };
 
   const handleOpenCollections = () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setShowSignIn(true);
+      return;
+    }
     setShowCollections(true);
   };
 
@@ -91,12 +97,11 @@ export function SetOwnershipAndCollectionsRow({
         className={cn(
           'status-row group flex transition-opacity',
           variant === 'default'
-            ? 'mt-0 gap-1 border-t-2 border-subtle bg-background-muted/50 p-1.5'
+            ? 'mt-0 gap-1 border-t border-subtle bg-background-muted/50 p-1.5'
             : variant === 'inline'
               ? 'mt-0 gap-2'
               : 'mt-0 flex-col gap-1',
           isAuthenticating && 'opacity-70',
-          !isAuthenticated && !isAuthenticating && 'opacity-80',
           className
         )}
       >
@@ -104,9 +109,7 @@ export function SetOwnershipAndCollectionsRow({
           icon={<Check className="size-3.5" />}
           label="Owned"
           active={isAuthenticated && status.owned}
-          disabled={controlsDisabled}
           aria-busy={isAuthenticating}
-          title={controlsDisabled ? 'Sign in to mark sets as owned' : undefined}
           onClick={handleToggleOwned}
           variant={variant === 'dropdown' ? 'dropdown' : variant}
           color="green"
@@ -119,13 +122,7 @@ export function SetOwnershipAndCollectionsRow({
           label="Collections"
           hideIconOnMobile
           sublabel={selectedCollectionNames}
-          disabled={controlsDisabled}
           aria-busy={isAuthenticating}
-          title={
-            controlsDisabled
-              ? 'Sign in to organize sets in collections'
-              : undefined
-          }
           onClick={handleOpenCollections}
           variant={variant === 'dropdown' ? 'dropdown' : variant}
           color="blue"
@@ -140,11 +137,20 @@ export function SetOwnershipAndCollectionsRow({
           />
         )}
       </div>
-      {showAuthHint && (
-        <div className="bg-background-muted/50 px-3 py-1.5 text-xs font-medium text-foreground-muted">
-          Sign in to track ownership and collections.
+      <Modal
+        open={showSignIn}
+        title="Sign in"
+        onClose={() => setShowSignIn(false)}
+      >
+        <div className="flex flex-col items-center gap-4 px-2 py-4 text-center">
+          <p className="text-sm text-foreground-muted">
+            Sign in to track ownership and organize sets into collections.
+          </p>
+          <Button href="/login" variant="primary" size="md">
+            Sign in
+          </Button>
         </div>
-      )}
+      </Modal>
       <Modal
         open={showCollections}
         title="Collections"

@@ -1,6 +1,7 @@
 'use client';
 
 import { MinifigSearchResultItem } from '@/app/components/minifig/MinifigSearchResultItem';
+import { useAuth } from '@/app/components/providers/auth-provider';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
@@ -104,6 +105,7 @@ export function SearchResults() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const { user, isLoading: authLoading } = useAuth();
   const q = params.get('q') ?? '';
   const hasQuery = q.trim().length > 0;
   const searchType = parseTypeParam(params.get('type'));
@@ -220,7 +222,7 @@ export function SearchResults() {
     const results = pages.flatMap((p: MinifigSearchPage) => p.results) ?? [];
     return (
       <div className="w-full">
-        <div className="relative -mx-4 mb-3">
+        <div className="-mx-4 mb-3">
           <div className="flex items-center gap-3 overflow-x-auto px-4 no-scrollbar">
             <div className="flex shrink-0 items-center gap-1.5">
               <span className="text-xs font-medium text-foreground-muted">
@@ -244,7 +246,6 @@ export function SearchResults() {
               </Select>
             </div>
           </div>
-          <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background sm:hidden" />
         </div>
         {isMinifigLoading && (
           <div className="flex justify-center py-12 text-center">
@@ -278,7 +279,7 @@ export function SearchResults() {
                 <button
                   onClick={() => fetchNextMinifigPage()}
                   disabled={isFetchingNextMinifigPage}
-                  className="rounded-md border-2 border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
+                  className="rounded-lg border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
                 >
                   {isFetchingNextMinifigPage ? 'Loading…' : 'Load More'}
                 </button>
@@ -373,7 +374,6 @@ export function SearchResults() {
             </Select>
           </div>
         </div>
-        <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-r from-transparent to-background sm:hidden" />
       </div>
       {isSetLoading && (
         <div className="flex justify-center py-12 text-center">
@@ -388,6 +388,17 @@ export function SearchResults() {
       )}
       {!isSetLoading && !setError && results.length > 0 && (
         <div className="mt-2">
+          {!authLoading && !user && (
+            <p className="mb-3 text-xs font-medium text-foreground-muted">
+              <a
+                href="/login"
+                className="text-link underline underline-offset-2 hover:text-link-hover"
+              >
+                Sign in
+              </a>{' '}
+              to track ownership and organize sets into collections.
+            </p>
+          )}
           <div
             data-item-size="md"
             className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
@@ -404,7 +415,7 @@ export function SearchResults() {
               <button
                 onClick={() => fetchNextSetPage()}
                 disabled={isFetchingNextSetPage}
-                className="rounded-md border-2 border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
+                className="rounded-lg border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
               >
                 {isFetchingNextSetPage ? 'Loading…' : 'Load More'}
               </button>

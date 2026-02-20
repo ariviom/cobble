@@ -90,17 +90,17 @@ export function SetsLandingContent({
       {/* Sticky CTA buttons */}
       <div className="sticky top-11 z-50 bg-card px-4 py-4 lg:top-0">
         <div className="flex flex-wrap justify-center gap-4">
-          <Button href="/search" variant="primary" size="lg" className="gap-2">
-            <Search className="h-5 w-5" />
+          <Button href="/search" variant="primary" size="md" className="gap-2">
+            <Search className="h-4 w-4" />
             Search All Sets
           </Button>
           <Button
             href="/identify"
             variant="secondary"
-            size="lg"
+            size="md"
             className="gap-2"
           >
-            <Camera className="h-5 w-5" />
+            <Camera className="h-4 w-4" />
             Identify Parts
           </Button>
         </div>
@@ -116,7 +116,7 @@ export function SetsLandingContent({
                 key={opt.key}
                 onClick={() => setActiveFilter(opt.key as UnifiedFilter)}
                 className={cn(
-                  'shrink-0 rounded-full border-2 px-3 py-1 text-sm font-semibold transition-colors',
+                  'shrink-0 rounded-full border px-3 py-1 text-sm font-semibold transition-colors',
                   activeFilter === opt.key
                     ? 'border-theme-primary bg-theme-primary/10 text-theme-text'
                     : 'border-subtle bg-card text-foreground-muted hover:border-theme-primary/50 hover:text-foreground'
@@ -191,88 +191,103 @@ export function SetsLandingContent({
               </div>
             )
           ) : (
-            <div className="grid grid-cols-2 gap-x-2 gap-y-4 md:grid-cols-3 lg:grid-cols-4">
-              {sets.map(set => {
-                const isSpFilter = activeFilter === 'search-parties';
-                const stored = isSpFilter
-                  ? storedSessions.find(
-                      s =>
-                        s.setNumber.toLowerCase() ===
-                        set.setNumber.toLowerCase()
-                    )
-                  : undefined;
+            <div>
+              {!user && (
+                <p className="mb-3 text-xs font-medium text-foreground-muted">
+                  <Link
+                    href="/login"
+                    className="text-link underline underline-offset-2 hover:text-link-hover"
+                  >
+                    Sign in
+                  </Link>{' '}
+                  to track ownership and organize sets into collections.
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-x-2 gap-y-4 md:grid-cols-3 lg:grid-cols-4">
+                {sets.map(set => {
+                  const isSpFilter = activeFilter === 'search-parties';
+                  const stored = isSpFilter
+                    ? storedSessions.find(
+                        s =>
+                          s.setNumber.toLowerCase() ===
+                          set.setNumber.toLowerCase()
+                      )
+                    : undefined;
 
-                let onRemove: (() => void) | undefined;
-                if (activeFilter === 'recent') {
-                  onRemove = () => removeRecent(set.setNumber);
-                } else if (stored) {
-                  onRemove = () => removeSearchParty(stored.slug);
-                }
+                  let onRemove: (() => void) | undefined;
+                  if (activeFilter === 'recent') {
+                    onRemove = () => removeRecent(set.setNumber);
+                  } else if (stored) {
+                    onRemove = () => removeSearchParty(stored.slug);
+                  }
 
-                if (isSpFilter && stored) {
-                  const hasStats =
-                    stored.piecesFound != null ||
-                    stored.participantCount != null;
+                  if (isSpFilter && stored) {
+                    const hasStats =
+                      stored.piecesFound != null ||
+                      stored.participantCount != null;
+                    return (
+                      <div
+                        key={set.setNumber}
+                        onClick={e => handleSelectSet(set, e)}
+                      >
+                        <SetDisplayCard
+                          setNumber={set.setNumber}
+                          name={set.name}
+                          year={set.year}
+                          imageUrl={set.imageUrl}
+                          numParts={set.numParts}
+                          themeId={set.themeId}
+                          themeLabel={set.themeName}
+                          onRemove={onRemove}
+                        >
+                          {hasStats && (
+                            <div className="grid grid-cols-3 border-t border-subtle px-2 py-2.5 text-[0.8125rem] font-semibold text-foreground-muted sm:px-3">
+                              {stored.participantCount != null && (
+                                <span className="flex items-center justify-center gap-1">
+                                  <Users className="h-3.5 w-3.5 shrink-0" />
+                                  {stored.participantCount}
+                                </span>
+                              )}
+                              {stored.piecesFound != null && (
+                                <span className="flex items-center justify-center gap-1">
+                                  <Puzzle className="h-3.5 w-3.5 shrink-0" />
+                                  {stored.piecesFound}
+                                </span>
+                              )}
+                              {stored.leaderboardPosition != null && (
+                                <span className="flex items-center justify-center gap-1">
+                                  <Trophy className="h-3.5 w-3.5 shrink-0" />#
+                                  {stored.leaderboardPosition}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </SetDisplayCard>
+                      </div>
+                    );
+                  }
+
                   return (
                     <div
                       key={set.setNumber}
                       onClick={e => handleSelectSet(set, e)}
                     >
-                      <SetDisplayCard
+                      <SetDisplayCardWithControls
                         setNumber={set.setNumber}
                         name={set.name}
                         year={set.year}
                         imageUrl={set.imageUrl}
                         numParts={set.numParts}
                         themeId={set.themeId}
+                        themeLabel={set.themeName}
+                        ownedCount={set.ownedCount}
+                        totalParts={set.totalParts}
                         onRemove={onRemove}
-                      >
-                        {hasStats && (
-                          <div className="grid grid-cols-3 border-t border-subtle px-2 py-2.5 text-[0.8125rem] font-semibold text-foreground-muted sm:px-3">
-                            {stored.participantCount != null && (
-                              <span className="flex items-center justify-center gap-1">
-                                <Users className="h-3.5 w-3.5 shrink-0" />
-                                {stored.participantCount}
-                              </span>
-                            )}
-                            {stored.piecesFound != null && (
-                              <span className="flex items-center justify-center gap-1">
-                                <Puzzle className="h-3.5 w-3.5 shrink-0" />
-                                {stored.piecesFound}
-                              </span>
-                            )}
-                            {stored.leaderboardPosition != null && (
-                              <span className="flex items-center justify-center gap-1">
-                                <Trophy className="h-3.5 w-3.5 shrink-0" />#
-                                {stored.leaderboardPosition}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </SetDisplayCard>
+                      />
                     </div>
                   );
-                }
-
-                return (
-                  <div
-                    key={set.setNumber}
-                    onClick={e => handleSelectSet(set, e)}
-                  >
-                    <SetDisplayCardWithControls
-                      setNumber={set.setNumber}
-                      name={set.name}
-                      year={set.year}
-                      imageUrl={set.imageUrl}
-                      numParts={set.numParts}
-                      themeId={set.themeId}
-                      ownedCount={set.ownedCount}
-                      totalParts={set.totalParts}
-                      onRemove={onRemove}
-                    />
-                  </div>
-                );
-              })}
+                })}
+              </div>
             </div>
           )}
         </div>
