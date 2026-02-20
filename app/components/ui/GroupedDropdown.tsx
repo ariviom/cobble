@@ -102,7 +102,7 @@ export const DropdownTrigger = forwardRef<
 
 // Generic dropdown frame that accepts arbitrary children
 const panelVariants = cva(
-  'min-w-64 overflow-hidden rounded-t-lg border border-subtle bg-card shadow-none fixed top-[calc(var(--spacing-topnav-height)+var(--spacing-controls-height)+var(--grid-row-tabs,0px))] bottom-[var(--spacing-nav-height)] z-50 overflow-y-auto lg:rounded-lg lg:shadow-lg lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40 lg:max-h-[var(--spacing-dropdown-max-h)]',
+  'min-w-64 overflow-hidden rounded-t-lg border border-subtle bg-card shadow-none fixed top-[var(--sticky-header-bottom,calc(var(--spacing-topnav-height)+var(--spacing-controls-height)+var(--grid-row-tabs,0px)))] bottom-[var(--spacing-nav-height)] z-50 overflow-y-auto lg:rounded-lg lg:shadow-lg lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40 lg:max-h-[var(--spacing-dropdown-max-h)]',
   {
     variants: {
       variant: {

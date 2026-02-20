@@ -126,15 +126,31 @@
   --spacing-topnav-height: 6rem;
   --spacing-tab-bar-height: 2.5rem;
   --spacing-controls-height: 3.5rem;
-  /* Pinned panel height - viewport minus header elements */
+  /* Pinned panel height - viewport minus header elements.
+     --sticky-header-bottom is set by ResizeObserver in SetTabContainer;
+     falls back to the static sum for non-set pages / SSR. */
   --spacing-pinned-panel-height: calc(
-    100dvh - var(--spacing-topnav-height) - var(--spacing-controls-height) -
-      var(--spacing-nav-height) - var(--grid-row-tabs, 0px)
+    100dvh -
+      var(
+        --sticky-header-bottom,
+        calc(
+          var(--spacing-topnav-height) + var(--spacing-controls-height) +
+            var(--grid-row-tabs, 0px)
+        )
+      ) -
+      var(--spacing-nav-height)
   );
-  /* Dropdown max-height on desktop — viewport minus header, tabs, set top bar (~8rem auto), controls */
+  /* Dropdown max-height on desktop — viewport minus header + extra padding */
   --spacing-dropdown-max-h: calc(
-    100dvh - var(--spacing-topnav-height) - var(--grid-row-tabs, 0px) -
-      var(--spacing-controls-height) - 8rem
+    100dvh -
+      var(
+        --sticky-header-bottom,
+        calc(
+          var(--spacing-topnav-height) + var(--spacing-controls-height) +
+            var(--grid-row-tabs, 0px)
+        )
+      ) -
+      8rem
   );
   --breakpoint-xs: 23.5rem;
   --breakpoint-3xl: 120rem;
