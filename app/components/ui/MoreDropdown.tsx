@@ -97,6 +97,9 @@ export function MoreDropdown({
       if (!root) return;
       const target = event.target;
       if (target instanceof Node && root.contains(target)) return;
+      // Don't close when clicking inside a portal dialog (e.g. collections modal)
+      if (target instanceof Element && target.closest('[role="dialog"]'))
+        return;
       setIsOpen(false);
     };
 

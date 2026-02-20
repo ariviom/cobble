@@ -17,6 +17,7 @@ type SetOwnershipAndCollectionsRowProps = {
   variant?: 'default' | 'inline' | 'dropdown';
   className?: string;
   bricklinkUrl?: string | null;
+  rebrickableUrl?: string | null;
 };
 
 export function SetOwnershipAndCollectionsRow({
@@ -24,6 +25,7 @@ export function SetOwnershipAndCollectionsRow({
   ownership,
   variant = 'default',
   bricklinkUrl,
+  rebrickableUrl,
 }: SetOwnershipAndCollectionsRowProps) {
   const {
     status,
@@ -113,14 +115,17 @@ export function SetOwnershipAndCollectionsRow({
           onClick={handleToggleOwned}
           variant={variant === 'dropdown' ? 'dropdown' : variant}
           color="green"
-          compact
-          hideLabelOnMobile
-          className="size-12 justify-center sm:h-12 sm:w-auto sm:justify-start sm:gap-2.5 sm:px-2.5 sm:pr-4"
+          {...(variant !== 'dropdown' && {
+            compact: true,
+            hideLabelOnMobile: true,
+            className:
+              'size-12 justify-center sm:h-12 sm:w-auto sm:justify-start sm:gap-2.5 sm:px-2.5 sm:pr-4',
+          })}
         />
         <StatusToggleButton
           icon={<List className="size-3.5" />}
           label="Collections"
-          hideIconOnMobile
+          hideIconOnMobile={variant !== 'dropdown'}
           sublabel={selectedCollectionNames}
           aria-busy={isAuthenticating}
           onClick={handleOpenCollections}
@@ -132,6 +137,15 @@ export function SetOwnershipAndCollectionsRow({
             icon={<ExternalLink className="size-4" />}
             label="View on BrickLink"
             href={bricklinkUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+          />
+        )}
+        {variant === 'dropdown' && rebrickableUrl && (
+          <MoreDropdownButton
+            icon={<ExternalLink className="size-4" />}
+            label="View on Rebrickable"
+            href={rebrickableUrl}
             target="_blank"
             rel="noreferrer noopener"
           />

@@ -14,6 +14,7 @@ import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { IconButton } from '@/app/components/ui/IconButton';
 import { Modal } from '@/app/components/ui/Modal';
 import { MoreDropdown } from '@/app/components/ui/MoreDropdown';
+import { ColorSlotPicker } from '@/app/components/ui/ColorSlotPicker';
 import { cn } from '@/app/components/ui/utils';
 import { useOptionalInventoryData } from '@/app/components/set/InventoryProvider';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
@@ -47,9 +48,9 @@ type SetTopBarProps = {
     currentParticipantId?: string | null;
     buttonDisabled?: boolean;
     slug: string | null;
-    onStart: () => Promise<void> | void;
+    onStart: (colorSlot?: number) => Promise<void> | void;
     onEnd: () => Promise<void> | void;
-    onContinue: (slug: string) => Promise<void> | void;
+    onContinue: (slug: string, colorSlot?: number) => Promise<void> | void;
     onRemoveParticipant: (participantId: string) => void;
   };
   searchPartyModalOpen?: boolean;
@@ -97,6 +98,7 @@ export function SetTopBar({
   const inventoryData = useOptionalInventoryData();
   const isLoading = inventoryData?.isLoading ?? false;
   const ownedTotal = inventoryData?.ownedTotal ?? 0;
+  const totalRequired = inventoryData?.totalRequired ?? numParts ?? 0;
   const ownership = useSetOwnershipState({
     setNumber,
     name: setName,
@@ -111,6 +113,7 @@ export function SetTopBar({
   const bricklinkSetUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?S=${encodeURIComponent(
     setNumber
   )}`;
+  const rebrickableSetUrl = `https://rebrickable.com/sets/${encodeURIComponent(setNumber)}/`;
   const sessionCode = useMemo(() => {
     const joinUrl = searchParty?.joinUrl;
     if (!joinUrl) return null;
@@ -143,13 +146,16 @@ export function SetTopBar({
   const handleStartSearchTogether = async () => {
     if (!searchParty) return;
     if (searchParty.loading || searchParty.active) return;
-    await searchParty.onStart?.();
+    await searchParty.onStart?.(selectedColor ?? undefined);
   };
 
   const handleContinuePreviousSession = async () => {
     if (!searchParty || !previousSession) return;
     if (searchParty.loading || searchParty.active) return;
-    await searchParty.onContinue?.(previousSession.slug);
+    await searchParty.onContinue?.(
+      previousSession.slug,
+      selectedColor ?? undefined
+    );
   };
 
   const handleEndSearchTogether = async () => {
@@ -262,7 +268,7 @@ export function SetTopBar({
     <>
       <div
         className={cn(
-          'flex w-full items-center justify-between border-b border-subtle',
+          'flex w-full items-center justify-between',
           'lg:col-start-2'
         )}
       >
@@ -297,6 +303,7 @@ export function SetTopBar({
                         ownership={ownership}
                         variant="dropdown"
                         bricklinkUrl={bricklinkSetUrl}
+                        rebrickableUrl={rebrickableSetUrl}
                       />
                     </div>
                   )}
@@ -311,7 +318,7 @@ export function SetTopBar({
                 ? `${numParts} parts`
                 : isLoading
                   ? 'Computing…'
-                  : `${ownedTotal} / ${numParts} parts`}
+                  : `${ownedTotal} / ${totalRequired} parts`}
             </div>
             {searchParty && (
               <div className="mt-1.5">
@@ -395,6 +402,14 @@ export function SetTopBar({
                       </div>
                     )}
                 </CardContent>
+                {searchParty.canHost && (quotaInfo.canHost || previousSession) && (
+                  <CardContent>
+                    <ColorSlotPicker
+                      selected={selectedColor}
+                      onSelect={setSelectedColor}
+                    />
+                  </CardContent>
+                )}
                 <CardFooter className="mt-4">
                   {searchParty.canHost ? (
                     quotaInfo.loading ? (
