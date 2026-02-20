@@ -20,16 +20,16 @@ const badgeVariants = cva(
         warning: 'bg-brand-orange text-white',
         error: 'bg-brand-red text-white',
         info: 'bg-brand-blue text-white',
-        // Outline with chunky border
-        outline: 'bg-transparent border-2 border-subtle text-foreground',
+        // Outline with border
+        outline: 'bg-transparent border border-subtle text-foreground',
         muted:
           'bg-background-muted text-foreground-muted dark:bg-neutral-800 dark:text-neutral-300',
       },
       size: {
-        xs: 'text-2xs px-2 py-0.5 rounded-sm leading-none',
-        sm: 'text-xs px-2 py-0.75 rounded-sm',
-        md: 'text-xs px-2.5 py-1 rounded-sm',
-        lg: 'text-sm px-3 py-1.5 rounded-md',
+        xs: 'text-2xs px-2 py-0.5 rounded-full leading-none',
+        sm: 'text-2xs px-2 py-0.75 rounded-full',
+        md: 'text-xs px-2.5 py-1 rounded-full',
+        lg: 'text-sm px-3 py-1.5 rounded-full',
       },
     },
     defaultVariants: {

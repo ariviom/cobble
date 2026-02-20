@@ -55,15 +55,15 @@ export function getStatusIconColor(variant: StatusVariant): string {
 export function getStatusContainerClasses(variant: StatusVariant): string {
   switch (variant) {
     case 'success':
-      return 'border-t-brand-green bg-success-muted text-foreground';
+      return 'border-l-brand-green bg-success-muted text-foreground';
     case 'warning':
-      return 'border-t-brand-orange bg-warning-muted text-foreground';
+      return 'border-l-brand-orange bg-warning-muted text-foreground';
     case 'error':
-      return 'border-t-brand-red bg-danger-muted text-foreground';
+      return 'border-l-brand-red bg-danger-muted text-foreground';
     case 'neutral':
-      return 'border-t-neutral-400 bg-card-muted text-foreground';
+      return 'border-l-neutral-400 bg-card-muted text-foreground';
     case 'info':
     default:
-      return 'border-t-brand-blue bg-info-muted text-foreground';
+      return 'border-l-brand-blue bg-info-muted text-foreground';
   }
 }

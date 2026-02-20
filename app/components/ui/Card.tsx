@@ -5,28 +5,26 @@ import { cn } from '@/app/components/ui/utils';
 import type { HTMLAttributes, PropsWithChildren, ReactNode } from 'react';
 
 const cardVariants = cva(
-  'rounded-lg border-2 bg-card transition-all duration-150 overflow-hidden',
+  'rounded-lg border bg-card transition-all duration-150 overflow-hidden',
   {
     variants: {
       variant: {
         default: 'border-subtle',
-        // Theme-colored top strip - matches user's selected theme color
-        theme: 'border-subtle border-t-4 border-t-theme-primary',
-        // Colored top strip variants - like stacked LEGO bricks
-        yellow: 'border-subtle border-t-4 border-t-brand-yellow',
-        red: 'border-subtle border-t-4 border-t-brand-red',
-        blue: 'border-subtle border-t-4 border-t-brand-blue',
-        green: 'border-subtle border-t-4 border-t-brand-green',
+        theme: 'border-subtle border-l-3 border-l-theme-primary',
+        yellow: 'border-subtle border-l-3 border-l-brand-yellow',
+        red: 'border-subtle border-l-3 border-l-brand-red',
+        blue: 'border-subtle border-l-3 border-l-brand-blue',
+        green: 'border-subtle border-l-3 border-l-brand-green',
         // Full colored border
         'outline-yellow': 'border-brand-yellow bg-brand-yellow/5',
         'outline-blue': 'border-brand-blue bg-brand-blue/5',
       },
       elevated: {
-        true: 'shadow-[0_4px_0_0_var(--color-shadow-depth)]',
+        true: 'shadow-md',
         false: '',
       },
       interactive: {
-        true: 'cursor-pointer hover:-translate-y-1 hover:shadow-[0_6px_0_0_var(--color-shadow-depth)] active:translate-y-0 active:shadow-[0_2px_0_0_var(--color-shadow-depth)]',
+        true: 'cursor-pointer hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:shadow-sm',
         false: '',
       },
       padding: {

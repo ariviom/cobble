@@ -203,7 +203,7 @@ function LoginForm() {
         </CardContent>
       </Card>
 
-      <Card elevated>
+      <Card>
         <CardHeader>
           <div>
             <CardTitle>Sign in with email &amp; password</CardTitle>

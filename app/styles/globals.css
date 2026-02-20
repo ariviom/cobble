@@ -61,23 +61,21 @@
   --color-info: var(--color-brand-blue);
   --color-info-muted: color-mix(in oklch, var(--color-brand-blue) 10%, white);
 
-  /* Radius scale - CHUNKY like LEGO bricks */
+  /* Radius scale */
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
   --radius-full: 9999px;
 
-  /* Shadow scale - BOLD and tactile */
-  --shadow-sm: 0 2px 0 rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 3px 0 rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 4px 0 rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0 6px 0 rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.12);
-
-  /* Brick depth - the "3D pressed" effect */
-  --brick-depth: 0 4px 0;
-  --brick-depth-sm: 0 3px 0;
-  --brick-depth-pressed: 0 1px 0;
+  /* Shadow scale - soft and diffused */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md:
+    0 4px 8px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg:
+    0 8px 16px -2px rgba(0, 0, 0, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  --shadow-xl:
+    0 16px 32px -4px rgba(0, 0, 0, 0.12), 0 8px 16px -4px rgba(0, 0, 0, 0.06);
 
   /* Accessible text colors for brand backgrounds */
   --color-on-white: #1a1a1a;
@@ -93,16 +91,6 @@
   /* Link color - always blue for consistent contrast on any background */
   --color-link: var(--color-brand-blue);
   --color-link-hover: color-mix(in oklch, var(--color-brand-blue) 80%, black);
-
-  /* Theme shadow - darker version of theme color for 3D depth effect */
-  --color-theme-shadow: color-mix(
-    in oklch,
-    var(--color-theme-primary) 70%,
-    black
-  );
-
-  /* Shadow depth - the "3D pressed" effect under buttons */
-  --color-shadow-depth: var(--color-neutral-300);
 
   /* Container widths */
   --container-narrow: 32rem;
@@ -130,6 +118,11 @@
   --spacing-pinned-panel-height: calc(
     100dvh - var(--spacing-topnav-height) - var(--spacing-controls-height) -
       var(--spacing-nav-height) - var(--grid-row-tabs, 0px)
+  );
+  /* Dropdown max-height on desktop — viewport minus header, tabs, set top bar (~8rem auto), controls */
+  --spacing-dropdown-max-h: calc(
+    100dvh - var(--spacing-topnav-height) - var(--grid-row-tabs, 0px) -
+      var(--spacing-controls-height) - 8rem
   );
   --breakpoint-xs: 23.5rem;
   --breakpoint-3xl: 120rem;
@@ -261,9 +254,6 @@
 
   --color-subtle: var(--color-neutral-200);
   --color-strong: var(--color-neutral-300);
-
-  /* Dark mode shadow depth - use dark gray instead of light */
-  --color-shadow-depth: oklch(15% 0 0);
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -431,84 +421,51 @@ body {
   color: var(--color-foreground-muted);
 }
 
-/* LEGO brick-like effects */
-@utility brick-shadow {
-  box-shadow: var(--brick-depth) var(--color-neutral-900);
-}
-
-@utility brick-shadow-yellow {
-  box-shadow: var(--brick-depth)
-    color-mix(in oklch, var(--color-brand-yellow) 70%, black);
-}
-
-@utility brick-shadow-red {
-  box-shadow: var(--brick-depth)
-    color-mix(in oklch, var(--color-brand-red) 70%, black);
-}
-
-@utility brick-shadow-blue {
-  box-shadow: var(--brick-depth)
-    color-mix(in oklch, var(--color-brand-blue) 70%, black);
-}
-
-@utility brick-shadow-green {
-  box-shadow: var(--brick-depth)
-    color-mix(in oklch, var(--color-brand-green) 70%, black);
-}
-
-/* Brick button depth - 3D pressed effect for buttons
-   Usage: brick-button-depth [--brick-shadow-color:var(--color-theme-shadow)]
-   The shadow color can be customized per-button via CSS variable */
+/* Button depth - soft press effect for interactive buttons */
 .brick-button-depth {
-  --_brick-shadow: var(--brick-shadow-color, var(--color-shadow-depth));
-  box-shadow: 0 4px 0 0 var(--_brick-shadow);
+  box-shadow:
+    0 2px 5px -1px rgba(0, 0, 0, 0.15),
+    0 1px 3px -1px rgba(0, 0, 0, 0.1);
   transition:
-    box-shadow 100ms,
-    transform 100ms;
+    box-shadow 150ms ease,
+    transform 150ms ease;
 }
 
 .brick-button-depth:hover:not(:disabled) {
-  box-shadow: 0 3px 0 0 var(--_brick-shadow);
+  box-shadow:
+    0 1px 3px -1px rgba(0, 0, 0, 0.15),
+    0 1px 2px -1px rgba(0, 0, 0, 0.08);
   transform: translateY(1px);
 }
 
 .brick-button-depth:active:not(:disabled) {
-  box-shadow: 0 1px 0 0 var(--_brick-shadow);
-  transform: translateY(3px);
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.1);
+  transform: translateY(2px);
 }
 
-/* Brick button depth - secondary variant (smaller shadow) */
+/* Button depth - secondary variant (subtler shadow) */
 .brick-button-depth-sm {
-  --_brick-shadow: var(--brick-shadow-color, var(--color-shadow-depth));
-  box-shadow: 0 3px 0 0 var(--_brick-shadow);
+  box-shadow:
+    0 1px 3px -1px rgba(0, 0, 0, 0.12),
+    0 1px 2px -1px rgba(0, 0, 0, 0.08);
   transition:
-    box-shadow 100ms,
-    transform 100ms;
+    box-shadow 150ms ease,
+    transform 150ms ease;
 }
 
 .brick-button-depth-sm:hover:not(:disabled) {
-  box-shadow: 0 2px 0 0 var(--_brick-shadow);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   transform: translateY(1px);
 }
 
 .brick-button-depth-sm:active:not(:disabled) {
-  box-shadow: 0 0 0 0 var(--_brick-shadow);
-  transform: translateY(3px);
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.08);
+  transform: translateY(2px);
 }
 
-/* Color strip decorations */
-@utility color-strip-top {
-  position: relative;
-}
-.color-strip-top::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: var(--strip-color, var(--color-brand-yellow));
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+/* 3px left-edge border for Card color variants */
+@utility border-l-3 {
+  border-left-width: 3px;
 }
 
 /* Container utilities */
