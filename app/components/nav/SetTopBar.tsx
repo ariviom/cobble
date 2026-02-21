@@ -442,7 +442,7 @@ export function SetTopBar({
                         {quotaInfo.canHost && (
                           <Button
                             type="button"
-                            variant={previousSession ? 'outline' : 'primary'}
+                            variant={previousSession ? 'secondary' : 'primary'}
                             size="lg"
                             className="w-full"
                             onClick={() => void handleStartSearchTogether()}

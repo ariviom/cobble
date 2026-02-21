@@ -36,7 +36,7 @@ export function SetTabBar({
     <div
       data-testid="set-tab-bar"
       className={cn(
-        'flex w-full max-w-full items-center pr-11 pl-32 lg:pr-0 lg:pl-0',
+        'flex w-full max-w-full items-center pr-11 pl-36 lg:pr-0 lg:pl-0',
         'min-h-11 lg:min-h-9', // 44px mobile, 36px desktop
         'bg-background',
         'lg:col-span-full'

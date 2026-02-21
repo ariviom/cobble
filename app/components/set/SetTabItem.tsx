@@ -159,7 +159,7 @@ export function SetTabItem({
           aria-label={`${displaySetNumber}: ${tab.name}`}
           onClick={handleClick}
           className={cn(
-            'group relative flex h-full w-32 flex-shrink-0 items-center gap-2 px-3 pr-10 transition-colors lg:w-auto lg:pr-8',
+            'group relative flex h-full w-36 flex-shrink-0 items-center gap-2 px-3 pr-10 transition-colors lg:w-auto lg:pr-8',
             isActive
               ? 'rounded-t-sm bg-card text-foreground'
               : 'rounded text-foreground-muted hover:rounded-md hover:border-transparent hover:bg-theme-primary/10 hover:text-foreground'
@@ -187,7 +187,7 @@ export function SetTabItem({
           </div>
 
           {/* Set number and name */}
-          <div className="flex min-w-16 items-center gap-1.5 text-xs font-medium">
+          <div className="flex min-w-12 items-center gap-1.5 text-xs font-medium">
             <span className="font-bold">{displaySetNumber}</span>
             <span className="hidden text-foreground-muted lg:inline">
               {displayName}
@@ -197,10 +197,13 @@ export function SetTabItem({
           {/* Search Party indicator */}
           {hasSearchParty && (
             <span
-              className="flex size-4 items-center justify-center rounded-full bg-theme-primary ring-1 ring-theme-primary"
+              className="flex size-4 flex-shrink-0 items-center justify-center rounded-full bg-theme-primary ring-1 ring-theme-primary"
               title="Search Party active"
             >
-              <Users size={10} className="text-theme-primary-contrast" />
+              <Users
+                size={10}
+                className="size-2.5 text-theme-primary-contrast"
+              />
             </span>
           )}
 

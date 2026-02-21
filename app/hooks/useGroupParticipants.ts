@@ -104,6 +104,7 @@ export function useGroupParticipants({
       return;
     }
     let cancelled = false;
+    let hasLoadedOnce = false;
     const supabase = getSupabaseBrowserClient();
 
     const mergeRoster = (
@@ -177,13 +178,19 @@ export function useGroupParticipants({
       // Session ended: either explicitly marked inactive, or invisible to
       // this user (RLS hides ended sessions from non-host participants).
       // Only act when the query succeeded — transient errors skip the check
-      // and the next poll will retry.
+      // and the next poll will retry. Skip the first load to avoid false
+      // positives on page refresh where the Supabase client may not be fully
+      // initialized (the catch-up load after SUBSCRIBED will handle it).
       if (
         !sessionResult.error &&
         (!sessionResult.data || sessionResult.data.is_active === false)
       ) {
-        onSessionEndedRef.current?.();
+        if (hasLoadedOnce) {
+          onSessionEndedRef.current?.();
+        }
       }
+
+      hasLoadedOnce = true;
     };
 
     void loadRoster();
