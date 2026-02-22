@@ -120,10 +120,11 @@ Replace real-time-only BL API pricing with a three-layer system (BL cache → ob
 
 **UX Improvements:**
 
-| Task                                | Effort | Notes                                  |
-| ----------------------------------- | ------ | -------------------------------------- |
-| Search history with part thumbnails | Medium | Store part images, not uploaded photos |
-| Back button returns to results      | Medium | State preservation or URL-based        |
+| Task                                  | Effort | Notes                                                          |
+| ------------------------------------- | ------ | -------------------------------------------------------------- |
+| Filter identified parts by owned sets | Medium | Filter "found in sets" results to only show sets the user owns |
+| Search history with part thumbnails   | Medium | Store part images, not uploaded photos                         |
+| Back button returns to results        | Medium | State preservation or URL-based                                |
 
 **Backend Improvements:**
 
@@ -154,6 +155,10 @@ Replace real-time-only BL API pricing with a three-layer system (BL cache → ob
 ## Backlog
 
 Technical debt and improvements to pull from when ready.
+
+### View Preferences
+
+- [ ] Persist last-used inventory view mode (grid, small, etc.) and restore it as the default when opening a new set
 
 ### Error Handling & UX
 
