@@ -1,5 +1,6 @@
 'use client';
 
+import { SetDetailModal } from '@/app/components/set/SetDetailModal';
 import { SetOwnershipAndCollectionsRow } from '@/app/components/set/SetOwnershipAndCollectionsRow';
 import { Button } from '@/app/components/ui/Button';
 import {
@@ -33,6 +34,7 @@ type SetTopBarProps = {
   year?: number;
   numParts?: number;
   themeId?: number | null;
+  themeName?: string | null | undefined;
   hideMoreMenu?: boolean;
   searchParty?: {
     active: boolean;
@@ -69,6 +71,7 @@ export function SetTopBar({
   year,
   numParts,
   themeId,
+  themeName,
   hideMoreMenu,
   searchParty,
   searchPartyModalOpen: searchPartyModalOpenProp,
@@ -79,6 +82,7 @@ export function SetTopBar({
   // Modal state: use hoisted props when provided (survives conditional remounts),
   // fall back to local state for standalone usage (e.g. group join page).
   const [localModalOpen, setLocalModalOpen] = useState(false);
+  const [setDetailModalOpen, setSetDetailModalOpen] = useState(false);
   const searchPartyModalOpen = searchPartyModalOpenProp ?? localModalOpen;
   const setSearchTogetherModalOpen =
     setSearchPartyModalOpenProp ?? setLocalModalOpen;
@@ -277,7 +281,12 @@ export function SetTopBar({
         )}
       >
         <div className="group set relative flex w-full items-center gap-3 bg-card px-3 py-2 lg:pr-3">
-          <div className="size-20 flex-shrink-0 overflow-hidden rounded-md border-2 border-subtle bg-gradient-to-br from-neutral-100 to-neutral-200 lg:size-24 dark:from-neutral-800 dark:to-neutral-900">
+          <button
+            type="button"
+            aria-label="View set details"
+            className="size-20 flex-shrink-0 cursor-pointer overflow-hidden rounded-md border-2 border-subtle bg-gradient-to-br from-neutral-100 to-neutral-200 transition-shadow hover:ring-2 hover:ring-theme-primary/40 lg:size-24 dark:from-neutral-800 dark:to-neutral-900"
+            onClick={() => setSetDetailModalOpen(true)}
+          >
             {resolvedImageUrl ? (
               <Image
                 src={resolvedImageUrl}
@@ -290,7 +299,7 @@ export function SetTopBar({
             ) : (
               <ImagePlaceholder variant="thumbnail" />
             )}
-          </div>
+          </button>
           <div className="flex min-w-0 flex-1 flex-col items-start text-left">
             <div className="flex w-full items-center gap-2">
               <div className="flex min-w-0 items-center truncate font-bold lg:text-xl">
@@ -699,6 +708,17 @@ export function SetTopBar({
           </div>
         )}
       </Modal>
+      <SetDetailModal
+        open={setDetailModalOpen}
+        onClose={() => setSetDetailModalOpen(false)}
+        setNumber={setNumber}
+        setName={setName}
+        imageUrl={resolvedImageUrl}
+        year={year}
+        numParts={numParts}
+        themeId={themeId}
+        themeName={themeName}
+      />
     </>
   );
 }

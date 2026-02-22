@@ -321,6 +321,7 @@ function SetTabContainerContent({
           year={tab.year}
           numParts={tab.numParts}
           themeId={tab.themeId ?? null}
+          themeName={tab.themeName}
           searchParty={searchParty}
           searchPartyModalOpen={searchPartyModalOpen}
           setSearchPartyModalOpen={setSearchPartyModalOpen}
