@@ -113,6 +113,48 @@ export function TopBarControls({
 
   return (
     <>
+      <div className="lg:relative">
+        <DropdownTrigger
+          id="display-trigger"
+          panelId="display-panel"
+          label={
+            displayKey === 'owned'
+              ? 'Owned'
+              : displayKey === 'missing'
+                ? 'Missing'
+                : 'All'
+          }
+          labelIcon={<Filter size={16} />}
+          isOpen={openDropdownId === 'display'}
+          onToggle={() => onToggleDropdown('display')}
+        />
+        {openDropdownId === 'display' && (
+          <DropdownPanelFrame
+            id="display-panel"
+            labelledBy="display-trigger"
+            isOpen={true}
+            className={
+              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
+            }
+            variant={isDesktop ? 'default' : 'sidebar'}
+          >
+            <DropdownSection label="Filter By">
+              <SingleSelectList
+                options={[
+                  { key: 'all', text: 'All' },
+                  { key: 'missing', text: 'Missing' },
+                  { key: 'owned', text: 'Owned' },
+                ]}
+                selectedKey={displayKey}
+                onChange={k =>
+                  onChangeDisplay(k as 'all' | 'missing' | 'owned')
+                }
+              />
+            </DropdownSection>
+          </DropdownPanelFrame>
+        )}
+      </div>
+
       {/* Sidebar Group Triggers — Pieces & Colors (absolute-positioned sidebar on desktop) */}
       <div className="sidebar relative min-w-0 shrink-0 border-subtle lg:fixed lg:top-[calc(var(--spacing-nav-offset)+var(--grid-row-tabs,0px))] lg:left-0 lg:h-[calc(100dvh-var(--spacing-nav-offset)-var(--grid-row-tabs,0px))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-card">
         <div className="flex flex-nowrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-0">
@@ -212,48 +254,6 @@ export function TopBarControls({
             </div>
           )}
         </div>
-      </div>
-
-      <div className="lg:relative">
-        <DropdownTrigger
-          id="display-trigger"
-          panelId="display-panel"
-          label={
-            displayKey === 'owned'
-              ? 'Owned'
-              : displayKey === 'missing'
-                ? 'Missing'
-                : 'All'
-          }
-          labelIcon={<Filter size={16} />}
-          isOpen={openDropdownId === 'display'}
-          onToggle={() => onToggleDropdown('display')}
-        />
-        {openDropdownId === 'display' && (
-          <DropdownPanelFrame
-            id="display-panel"
-            labelledBy="display-trigger"
-            isOpen={true}
-            className={
-              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
-            }
-            variant={isDesktop ? 'default' : 'sidebar'}
-          >
-            <DropdownSection label="Filter By">
-              <SingleSelectList
-                options={[
-                  { key: 'all', text: 'All' },
-                  { key: 'missing', text: 'Missing' },
-                  { key: 'owned', text: 'Owned' },
-                ]}
-                selectedKey={displayKey}
-                onChange={k =>
-                  onChangeDisplay(k as 'all' | 'missing' | 'owned')
-                }
-              />
-            </DropdownSection>
-          </DropdownPanelFrame>
-        )}
       </div>
 
       <div className="lg:relative">
