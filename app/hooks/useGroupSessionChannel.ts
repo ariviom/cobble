@@ -264,12 +264,15 @@ export function useGroupSessionChannel({
             setHasConnectedOnce(true);
           }
 
-          // Start heartbeat to keep last_seen_at + pieces_found fresh
+          // Start heartbeat to keep last_seen_at + pieces_found fresh.
+          // Fire immediately on (re)connect so the host's last_seen_at is
+          // updated right away (important after a page refresh — without this
+          // the stale value could persist for up to 60 s).
           if (heartbeatIntervalRef.current) {
             clearInterval(heartbeatIntervalRef.current);
           }
           if (participantId) {
-            heartbeatIntervalRef.current = setInterval(() => {
+            const sendHeartbeat = () => {
               const sb = getSupabaseBrowserClient();
               void sb
                 .from('group_session_participants')
@@ -278,7 +281,9 @@ export function useGroupSessionChannel({
                   pieces_found: piecesFoundRefRef.current?.current ?? 0,
                 })
                 .eq('id', participantId);
-            }, 60_000);
+            };
+            sendHeartbeat();
+            heartbeatIntervalRef.current = setInterval(sendHeartbeat, 60_000);
           }
 
           // Notify caller of (re)connection so they can request/send snapshots

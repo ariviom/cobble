@@ -8,7 +8,6 @@ import { cn } from '@/app/components/ui/utils';
 import { useDynamicTitle } from '@/app/hooks/useDynamicTitle';
 import { useIsDesktop } from '@/app/hooks/useIsDesktop';
 import { readStorage } from '@/app/lib/persistence/storage';
-import { clearStoredGroupSession } from '@/app/store/group-sessions';
 import {
   useOpenTabsStore,
   isSetTab,
@@ -138,40 +137,6 @@ export default function SetsPage() {
       // best-effort
     }
   }, []);
-
-  // Fire an end-session request for a host SP tab (fire-and-forget, survives tab close)
-  const fireEndSession = useCallback((slug: string) => {
-    try {
-      void fetch(`/api/group-sessions/${encodeURIComponent(slug)}/end`, {
-        method: 'POST',
-        keepalive: true,
-        credentials: 'same-origin',
-      });
-      clearStoredGroupSession(slug);
-    } catch {
-      // best-effort
-    }
-  }, []);
-
-  // End host Search Party sessions when the browser tab closes
-  const tabsRef = useRef(tabs);
-  tabsRef.current = tabs;
-  useEffect(() => {
-    const endHostSessions = () => {
-      for (const tab of tabsRef.current) {
-        if (isSetTab(tab) && tab.groupRole === 'host' && tab.groupSessionSlug) {
-          fireEndSession(tab.groupSessionSlug);
-        }
-      }
-    };
-
-    window.addEventListener('beforeunload', endHostSessions);
-    window.addEventListener('pagehide', endHostSessions);
-    return () => {
-      window.removeEventListener('beforeunload', endHostSessions);
-      window.removeEventListener('pagehide', endHostSessions);
-    };
-  }, [fireEndSession]);
 
   // Host close confirmation state
   const [closeRequestedTabId, setCloseRequestedTabId] = useState<string | null>(

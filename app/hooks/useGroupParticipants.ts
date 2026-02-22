@@ -42,6 +42,13 @@ type UseGroupParticipantsResult = {
 const ROSTER_POLL_INTERVAL = 60_000;
 
 /**
+ * How long the host can be absent (no heartbeat) before joiners treat the
+ * session as ended. Must be longer than the heartbeat interval (60 s) plus
+ * a reasonable page-refresh window.
+ */
+const HOST_STALE_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes
+
+/**
  * Shared hook for participant roster tracking used by both host (SetTabContainer)
  * and joiner (GroupSessionPageClient).
  *
@@ -172,12 +179,14 @@ export function useGroupParticipants({
       const [participantsResult, sessionResult] = await Promise.all([
         supabase
           .from('group_session_participants')
-          .select('id, display_name, pieces_found, last_seen_at, color_slot')
+          .select(
+            'id, display_name, pieces_found, last_seen_at, color_slot, user_id'
+          )
           .eq('session_id', sessionId)
           .is('left_at', null),
         supabase
           .from('group_sessions')
-          .select('is_active')
+          .select('is_active, host_user_id')
           .eq('id', sessionId)
           .maybeSingle(),
       ]);
@@ -200,6 +209,31 @@ export function useGroupParticipants({
       ) {
         if (hasLoadedOnce) {
           onSessionEndedRef.current?.();
+        }
+      }
+
+      // Host staleness: if the session is active but the host participant
+      // hasn't heartbeated in a while, they likely closed their tab. Treat
+      // the session as ended for joiners so they aren't stuck indefinitely.
+      // Skip for the current participant's own user (hosts don't self-evict).
+      if (
+        hasLoadedOnce &&
+        sessionResult.data?.is_active &&
+        sessionResult.data.host_user_id &&
+        participantsResult.data
+      ) {
+        const currentPid = currentParticipantIdRef.current;
+        const hostParticipant = participantsResult.data.find(
+          p =>
+            p.user_id === sessionResult.data!.host_user_id &&
+            p.id !== currentPid
+        );
+        if (hostParticipant?.last_seen_at) {
+          const elapsed =
+            Date.now() - new Date(hostParticipant.last_seen_at).getTime();
+          if (elapsed > HOST_STALE_THRESHOLD_MS) {
+            onSessionEndedRef.current?.();
+          }
         }
       }
 
