@@ -229,7 +229,11 @@ export function useInventoryViewModel(
 
       if (colorSet) {
         const colorName = rows[i]!.colorName;
-        if (!colorSet.has(colorName)) return false;
+        if (!colorSet.has(colorName)) {
+          // When "Minifigures" color is selected, also show minifig subparts
+          if (!(colorSet.has('—') && rows[i]!.parentCategory === 'Minifigure'))
+            return false;
+        }
       }
 
       if (filter.rarityTiers && filter.rarityTiers.length > 0) {
@@ -392,7 +396,13 @@ export function useInventoryViewModel(
       }
 
       if (filter.colors && filter.colors.length > 0) {
-        if (!filter.colors.includes(r.colorName)) continue;
+        if (!filter.colors.includes(r.colorName)) {
+          // When "Minifigures" color is selected, also show minifig subparts
+          if (
+            !(filter.colors.includes('—') && r.parentCategory === 'Minifigure')
+          )
+            continue;
+        }
       }
 
       const parent = parentByIndex[i] ?? 'Misc';
