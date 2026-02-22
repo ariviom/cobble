@@ -10,14 +10,6 @@ const cardVariants = cva(
     variants: {
       variant: {
         default: 'border-subtle',
-        theme: 'border-subtle border-l-3 border-l-theme-primary',
-        yellow: 'border-subtle border-l-3 border-l-brand-yellow',
-        red: 'border-subtle border-l-3 border-l-brand-red',
-        blue: 'border-subtle border-l-3 border-l-brand-blue',
-        green: 'border-subtle border-l-3 border-l-brand-green',
-        // Full colored border
-        'outline-yellow': 'border-brand-yellow bg-brand-yellow/5',
-        'outline-blue': 'border-brand-blue bg-brand-blue/5',
       },
       elevated: {
         true: 'shadow-md',

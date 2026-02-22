@@ -31,11 +31,7 @@ export function SignInPrompt({
   }
 
   return (
-    <Card
-      variant="default"
-      padding="lg"
-      className="mx-auto max-w-3xl text-center shadow-md"
-    >
+    <Card elevated padding="lg" className="mx-auto max-w-3xl text-center">
       <h2 className="mb-3 text-2xl font-bold">{title}</h2>
       <p className="text-body text-foreground-muted">{description}</p>
       <div className="mt-6 flex flex-wrap justify-center gap-3">

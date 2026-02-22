@@ -321,18 +321,18 @@ export default function SignupPage() {
       </Card>
 
       <div className="flex flex-col items-center gap-4">
-        <p className="px-8 text-center text-xs text-foreground-muted">
+        <p className="px-4 text-center text-xs text-foreground-muted sm:px-0">
           By clicking continue or signing up, you agree to our{' '}
           <Link
             href="/terms"
-            className="underline underline-offset-4 hover:text-foreground"
+            className="whitespace-nowrap underline underline-offset-4 hover:text-foreground"
           >
             Terms of Service
           </Link>{' '}
           and{' '}
           <Link
             href="/privacy"
-            className="underline underline-offset-4 hover:text-foreground"
+            className="whitespace-nowrap underline underline-offset-4 hover:text-foreground"
           >
             Privacy Policy
           </Link>
@@ -348,15 +348,6 @@ export default function SignupPage() {
             Sign in
           </Link>
         </span>
-      </div>
-
-      <div className="flex justify-center">
-        <Link
-          href="/"
-          className="text-xs font-medium text-link underline underline-offset-2 hover:text-link-hover"
-        >
-          Home
-        </Link>
       </div>
     </div>
   );

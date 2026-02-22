@@ -42,6 +42,51 @@ function formatGroupLabel(groupKey: string): string {
   return groupKey;
 }
 
+function MigrationModalContent({
+  migration,
+  isMigrating,
+  totalPieces,
+  onPushLocal,
+  onKeepCloud,
+}: {
+  migration: { localTotal: number; supabaseTotal: number } | null;
+  isMigrating: boolean;
+  totalPieces: number;
+  onPushLocal: () => void;
+  onKeepCloud: () => void;
+}) {
+  const local = migration?.localTotal ?? 0;
+  const cloud = migration?.supabaseTotal ?? 0;
+  const localWins = local > cloud;
+  const cloudWins = cloud > local;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-muted-foreground text-sm">
+        Choose whether to keep your cloud data or push your local data.
+      </p>
+      <div className="flex flex-col gap-2">
+        <Button disabled={isMigrating} onClick={onPushLocal}>
+          Push local to cloud{' '}
+          <span className={localWins ? 'font-bold' : 'opacity-70'}>
+            ({local}/{totalPieces})
+          </span>
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={isMigrating}
+          onClick={onKeepCloud}
+        >
+          Keep cloud data{' '}
+          <span className={cloudWins ? 'font-bold' : 'opacity-70'}>
+            ({cloud}/{totalPieces})
+          </span>
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function Inventory() {
   const {
     setNumber,
@@ -295,25 +340,13 @@ export function Inventory() {
         }}
         title="Sync your owned pieces"
       >
-        <div className="space-y-4">
-          <p className="text-muted-foreground text-sm">
-            Choose whether to keep your cloud data or push your local data.
-          </p>
-          <p>Local total: {migration?.localTotal ?? 0}</p>
-          <p>Cloud total: {migration?.supabaseTotal ?? 0}</p>
-          <div className="flex gap-3">
-            <Button disabled={isMigrating} onClick={confirmMigration}>
-              Push local to cloud
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={isMigrating}
-              onClick={keepCloudData}
-            >
-              Keep cloud data
-            </Button>
-          </div>
-        </div>
+        <MigrationModalContent
+          migration={migration}
+          isMigrating={isMigrating}
+          totalPieces={rows.reduce((sum, r) => sum + r.quantityRequired, 0)}
+          onPushLocal={confirmMigration}
+          onKeepCloud={keepCloudData}
+        />
       </Modal>
 
       {/* Item Details Modal - single instance for all items */}

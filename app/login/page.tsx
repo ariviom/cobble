@@ -178,7 +178,7 @@ function LoginForm() {
         </p>
       </header>
 
-      <Card elevated variant="theme">
+      <Card elevated>
         <CardHeader>
           <div>
             <CardTitle>Sign in with Google</CardTitle>
@@ -203,7 +203,7 @@ function LoginForm() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card elevated>
         <CardHeader>
           <div>
             <CardTitle>Sign in with email &amp; password</CardTitle>
@@ -276,30 +276,23 @@ function LoginForm() {
       </Card>
 
       <div className="flex flex-col items-center gap-4">
-        <p className="px-8 text-center text-xs text-foreground-muted">
+        <p className="px-4 text-center text-xs text-foreground-muted sm:px-0">
           By signing in, you agree to our{' '}
           <Link
             href="/terms"
-            className="underline underline-offset-4 hover:text-foreground"
+            className="whitespace-nowrap underline underline-offset-4 hover:text-foreground"
           >
             Terms of Service
           </Link>{' '}
           and{' '}
           <Link
             href="/privacy"
-            className="underline underline-offset-4 hover:text-foreground"
+            className="whitespace-nowrap underline underline-offset-4 hover:text-foreground"
           >
             Privacy Policy
           </Link>
           .
         </p>
-
-        <Link
-          href="/"
-          className="text-xs font-medium text-link underline underline-offset-2 hover:text-link-hover"
-        >
-          Home
-        </Link>
       </div>
     </div>
   );

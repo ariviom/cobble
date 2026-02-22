@@ -22,16 +22,16 @@ import type {
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { Button } from '@/app/components/ui/Button';
 import { Card } from '@/app/components/ui/Card';
-import { SignInPrompt } from '@/app/components/ui/SignInPrompt';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
+import { SignInPrompt } from '@/app/components/ui/SignInPrompt';
 import { ThemedPageHeader } from '@/app/components/ui/ThemedPageHeader';
-import { X } from 'lucide-react';
 import {
   addRecentIdentify,
   type IdentifySource,
 } from '@/app/store/recent-identifies';
+import { X } from 'lucide-react';
 
 type IdentifyCacheEntry = IdentifyResponse & { cachedAt: number };
 
@@ -1153,7 +1153,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                               />
                             </div>
                           ) : (
-                            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white/80">
+                            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-white">
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 viewBox="0 0 24 24"
@@ -1187,24 +1187,24 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                         type="button"
                         onClick={() => galleryInputRef.current?.click()}
                         disabled={isQuotaExhausted}
-                        className="text-2xs text-white/60 underline underline-offset-2 hover:text-white/80 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="text-2xs text-white/80 underline underline-offset-2 hover:text-white/90 disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         Upload an image
                       </button>
                       {quota.status === 'metered' ? (
-                        <span className="text-xs text-white/60">
+                        <span className="text-xs text-white/80">
                           {isQuotaExhausted
                             ? 'No IDs left today'
                             : `${quota.remaining}/${quota.limit} left today`}
                         </span>
                       ) : (
-                        <span className="text-2xs text-white/60">
+                        <span className="text-2xs text-white/80">
                           Powered by{' '}
                           <a
                             href="https://brickognize.com/"
                             target="_blank"
                             rel="noreferrer"
-                            className="underline underline-offset-2 hover:text-white/80"
+                            className="underline underline-offset-2 hover:text-white/90"
                           >
                             Brickognize
                           </a>
@@ -1288,7 +1288,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
       {/* Authenticated: empty state */}
       {isAuthenticated && !showResults && (
         <section className="container-wide py-6 lg:py-8">
-          <Card variant="default" padding="lg">
+          <Card padding="lg">
             <IdentifyHistory
               source={mode === 'camera' ? 'camera' : 'text'}
               onSelectPart={partNum => {

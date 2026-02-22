@@ -206,7 +206,7 @@ export function MinifigPageClient({
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-6 lg:py-10">
       {/* Hero Section - Collectible showcase */}
-      <Card variant="theme" elevated padding="none" className="overflow-hidden">
+      <Card elevated padding="none" className="overflow-hidden">
         {/* Image hero with subtle gradient backdrop */}
         <div className="relative flex items-center justify-center bg-gradient-to-b from-card-muted to-card px-6 py-8 sm:py-12">
           <div className="relative size-48 sm:size-64">

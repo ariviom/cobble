@@ -492,11 +492,6 @@ body {
   transform: translateY(3px);
 }
 
-/* 3px left-edge border for Card color variants */
-@utility border-l-3 {
-  border-left-width: 3px;
-}
-
 /* Container utilities */
 @utility container-narrow {
   max-width: var(--container-narrow);

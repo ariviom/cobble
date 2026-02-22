@@ -69,7 +69,7 @@ export function IdentifyResultCard({
       : null;
 
   return (
-    <Card variant="green" padding="sm">
+    <Card padding="sm">
       <div className="flex items-start gap-4">
         <div className="relative h-32 w-32 shrink-0 rounded bg-card-muted p-2">
           {displayImageUrl ? (
