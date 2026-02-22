@@ -1,10 +1,6 @@
 'use client';
 
 import {
-  OWNED_WRITE_DEBOUNCE_HIDDEN_MS,
-  OWNED_WRITE_DEBOUNCE_MS,
-} from '@/app/config/timing';
-import {
   getOwnedForSet,
   isIndexedDBAvailable,
   setOwnedForSet,
@@ -37,9 +33,11 @@ export type OwnedState = {
 const cache: Map<string, Record<string, number>> = new Map();
 const CACHE_MAX_ENTRIES = 400;
 
-// Debounced write scheduling per setNumber
+// Microtask-batched write scheduling per setNumber
 const pendingWrites: Map<string, Record<string, number>> = new Map();
-const writeTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+const scheduledMicrotasks: Set<string> = new Set();
+let consecutiveWriteFailures = 0;
+const MAX_CONSECUTIVE_FAILURES = 3;
 
 // Track ongoing hydration to prevent duplicate calls
 const hydrationPromises: Map<string, Promise<void>> = new Map();
@@ -69,9 +67,15 @@ async function flushWriteToIndexedDB(setNumber: string): Promise<void> {
   try {
     await setOwnedForSet(setNumber, data);
     pendingWrites.delete(setNumber);
+    consecutiveWriteFailures = 0;
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
       console.warn('[owned] Failed to flush data to IndexedDB:', error);
+    }
+    consecutiveWriteFailures++;
+    if (consecutiveWriteFailures >= MAX_CONSECUTIVE_FAILURES) {
+      storageAvailable = false;
+      useOwnedStore.setState({ _storageAvailable: false });
     }
     // Keep in pending writes for retry on next flush
   }
@@ -94,11 +98,8 @@ function flushWriteNow(setNumber: string) {
  * to prevent data loss from debounced writes that haven't been persisted yet.
  */
 function flushAllPendingWrites() {
-  // Clear all timers first to prevent double-writes
-  for (const timer of writeTimers.values()) {
-    clearTimeout(timer);
-  }
-  writeTimers.clear();
+  // Clear scheduled microtasks to prevent double-writes
+  scheduledMicrotasks.clear();
 
   // Flush all pending writes (fire-and-forget since we're unloading)
   for (const setNumber of pendingWrites.keys()) {
@@ -113,10 +114,7 @@ function flushAllPendingWrites() {
  * Use this before reading from IndexedDB to ensure consistency.
  */
 export async function flushPendingWritesAsync(): Promise<void> {
-  for (const timer of writeTimers.values()) {
-    clearTimeout(timer);
-  }
-  writeTimers.clear();
+  scheduledMicrotasks.clear();
 
   const promises: Promise<void>[] = [];
   for (const setNumber of pendingWrites.keys()) {
@@ -133,51 +131,30 @@ export async function resetOwnedCache(): Promise<void> {
   // 1. Flush any pending writes for the outgoing user
   await flushPendingWritesAsync();
 
-  // 2. Clear all module-level Maps
+  // 2. Clear all module-level state
   cache.clear();
   pendingWrites.clear();
-  for (const timer of writeTimers.values()) {
-    clearTimeout(timer);
-  }
-  writeTimers.clear();
+  scheduledMicrotasks.clear();
+  consecutiveWriteFailures = 0;
+  storageAvailable = null;
   hydrationPromises.clear();
 
   // 3. Reset Zustand state so sets re-hydrate on next access
-  useOwnedStore.setState({ _version: 0, _hydratedSets: new Set<string>() });
+  useOwnedStore.setState({
+    _version: 0,
+    _hydratedSets: new Set<string>(),
+    _storageAvailable: true,
+  });
 }
 
 function scheduleWrite(setNumber: string) {
-  const existing = writeTimers.get(setNumber);
-  if (existing) clearTimeout(existing);
-  const debounceMs =
-    typeof document !== 'undefined' && document.visibilityState === 'hidden'
-      ? OWNED_WRITE_DEBOUNCE_HIDDEN_MS
-      : OWNED_WRITE_DEBOUNCE_MS;
-  const timer = setTimeout(() => {
-    // Prefer idle time when available
-    const idle =
-      typeof window !== 'undefined' && 'requestIdleCallback' in window
-        ? (
-            window as Window & {
-              requestIdleCallback?: (
-                cb: () => void,
-                opts?: { timeout?: number }
-              ) => number;
-            }
-          ).requestIdleCallback
-        : undefined;
-    if (typeof idle === 'function') {
-      try {
-        idle(() => flushWriteNow(setNumber), { timeout: 1000 });
-      } catch {
-        flushWriteNow(setNumber);
-      }
-    } else {
-      flushWriteNow(setNumber);
-    }
-    writeTimers.delete(setNumber);
-  }, debounceMs);
-  writeTimers.set(setNumber, timer);
+  if (storageAvailable === false) return;
+  if (scheduledMicrotasks.has(setNumber)) return;
+  scheduledMicrotasks.add(setNumber);
+  queueMicrotask(() => {
+    scheduledMicrotasks.delete(setNumber);
+    flushWriteNow(setNumber);
+  });
 }
 
 /**
