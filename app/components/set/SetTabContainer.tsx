@@ -59,6 +59,20 @@ export function SetTabContainer({
   const sp = useSearchPartySession(tab, isActive);
   const [searchPartyModalOpen, setSearchPartyModalOpen] = useState(false);
 
+  // Host beforeunload guard — prompt "Leave page?" if host tries to close tab
+  const isHostWithActiveSession =
+    tab.groupRole === 'host' && !!tab.groupSessionId;
+  useEffect(() => {
+    if (!isHostWithActiveSession) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Legacy browsers require returnValue to be set
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isHostWithActiveSession]);
+
   const spChannel = useSearchPartyChannel({
     groupSessionId: sp.groupSession?.id ?? null,
     groupParticipantId: sp.currentParticipant?.id ?? null,

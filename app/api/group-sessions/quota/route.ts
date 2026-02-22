@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { getEntitlements, hasFeature } from '@/app/lib/services/entitlements';
+import { logger } from '@/lib/metrics';
 import { getUsageStatus } from '@/app/lib/services/usageCounters';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 
@@ -58,7 +59,7 @@ export async function GET() {
       }),
     });
   } catch (err) {
-    console.error('Failed to check Search Party quota:', err);
+    logger.error('Failed to check Search Party quota', { error: err });
     return NextResponse.json(
       { error: 'Failed to check quota' },
       { status: 500 }

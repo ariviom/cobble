@@ -1,6 +1,10 @@
 'use client';
 
-import { readStorage, writeStorage } from '@/app/lib/persistence/storage';
+import {
+  readStorage,
+  writeStorage,
+  removeStorage,
+} from '@/app/lib/persistence/storage';
 
 export type StoredGroupSession = {
   sessionId: string;
@@ -103,4 +107,36 @@ export function updateStoredGroupSessionStats(
 
 export function clearAllStoredGroupSessions(): void {
   save([]);
+}
+
+// ---------------------------------------------------------------------------
+// Joiner owned state persistence (localStorage bridge for refresh resilience)
+// ---------------------------------------------------------------------------
+
+const JOINER_OWNED_PREFIX = 'brick_party_sp_owned_';
+
+export function storeJoinerOwnedState(
+  sessionId: string,
+  owned: Record<string, number>
+): void {
+  writeStorage(`${JOINER_OWNED_PREFIX}${sessionId}`, JSON.stringify(owned));
+}
+
+export function getJoinerOwnedState(
+  sessionId: string
+): Record<string, number> | null {
+  const raw = readStorage(`${JOINER_OWNED_PREFIX}${sessionId}`);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+      return null;
+    return parsed as Record<string, number>;
+  } catch {
+    return null;
+  }
+}
+
+export function clearJoinerOwnedState(sessionId: string): void {
+  removeStorage(`${JOINER_OWNED_PREFIX}${sessionId}`);
 }

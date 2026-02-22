@@ -4,6 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useGroupSessionChannel } from '@/app/hooks/useGroupSessionChannel';
 import type { OwnedOverride } from '@/app/components/set/InventoryProvider';
 import type { SearchPartyContextValue } from '@/app/components/set/SearchPartyProvider';
+import {
+  storeJoinerOwnedState,
+  getJoinerOwnedState,
+  clearJoinerOwnedState,
+} from '@/app/store/group-sessions';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,9 +86,12 @@ export function useSearchPartyChannel(
     Boolean(groupClientId);
 
   // -------------------------------------------------------------------------
-  // Joiner ephemeral owned state
+  // Joiner owned state (seeded from localStorage for refresh resilience)
   // -------------------------------------------------------------------------
-  const [joinerOwned, setJoinerOwned] = useState<Record<string, number>>({});
+  const [joinerOwned, setJoinerOwned] = useState<Record<string, number>>(() => {
+    if (!isJoiner || !groupSessionId) return {};
+    return getJoinerOwnedState(groupSessionId) ?? {};
+  });
 
   const setOwnedOne = useCallback(
     (key: string, value: number) =>
@@ -169,6 +177,27 @@ export function useSearchPartyChannel(
     }
   }, [enableCloudSync, groupParticipantId, groupParticipantDisplayName]);
 
+  // Persist joiner owned state to localStorage on tab hide (not every keystroke)
+  const joinerOwnedRef = useRef(joinerOwned);
+  joinerOwnedRef.current = joinerOwned;
+
+  useEffect(() => {
+    if (!isJoiner || !groupSessionId) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        storeJoinerOwnedState(groupSessionId, joinerOwnedRef.current);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      // Persist on cleanup (tab switch / unmount) as well
+      storeJoinerOwnedState(groupSessionId, joinerOwnedRef.current);
+    };
+  }, [isJoiner, groupSessionId]);
+
   // Keep a ref to the ownedOverride for use in channel callbacks
   const ownedOverrideRef = useRef(ownedOverride);
   ownedOverrideRef.current = ownedOverride;
@@ -213,6 +242,10 @@ export function useSearchPartyChannel(
           }
         }
         override.setBatch(updates);
+        // Persist authoritative host snapshot to localStorage
+        if (groupSessionId) {
+          storeJoinerOwnedState(groupSessionId, updates);
+        }
       } else {
         for (const [key, value] of Object.entries(snapshot)) {
           if (typeof value !== 'number' || !Number.isFinite(value)) continue;
@@ -236,13 +269,19 @@ export function useSearchPartyChannel(
   broadcastSessionEndedRef.current = broadcastSessionEnded;
   broadcastParticipantRemovedRef.current = broadcastParticipantRemoved;
 
-  // Clean up snapshot retry timer when session ends or on unmount
+  // Clean up snapshot retry timer and joiner localStorage when session ends
+  const prevSessionIdRef = useRef(groupSessionId);
   useEffect(() => {
     if (!isInGroupSession && snapshotRetryRef.current) {
       clearTimeout(snapshotRetryRef.current);
       snapshotRetryRef.current = null;
     }
-  }, [isInGroupSession]);
+    // Clear joiner localStorage cache when session ends
+    if (!isInGroupSession && prevSessionIdRef.current) {
+      clearJoinerOwnedState(prevSessionIdRef.current);
+    }
+    prevSessionIdRef.current = groupSessionId;
+  }, [isInGroupSession, groupSessionId]);
 
   useEffect(
     () => () => {

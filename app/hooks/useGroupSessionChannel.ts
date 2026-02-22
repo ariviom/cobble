@@ -124,6 +124,8 @@ export function useGroupSessionChannel({
   >(new Map());
   const deltaTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const sendHeartbeatRef = useRef<() => void>(() => {});
+  const accessTokenRef = useRef<string | null>(null);
 
   // Stable refs for callbacks — prevents channel teardown/resubscribe on every render
   const onRemoteDeltaRef = useRef(onRemoteDelta);
@@ -274,6 +276,12 @@ export function useGroupSessionChannel({
           if (participantId) {
             const sendHeartbeat = () => {
               const sb = getSupabaseBrowserClient();
+              // Cache access token for beforeunload (fetch+keepalive needs raw token)
+              sb.auth.getSession().then(({ data: { session } }) => {
+                if (session?.access_token) {
+                  accessTokenRef.current = session.access_token;
+                }
+              });
               void sb
                 .from('group_session_participants')
                 .update({
@@ -282,6 +290,7 @@ export function useGroupSessionChannel({
                 })
                 .eq('id', participantId);
             };
+            sendHeartbeatRef.current = sendHeartbeat;
             sendHeartbeat();
             heartbeatIntervalRef.current = setInterval(sendHeartbeat, 60_000);
           }
@@ -360,15 +369,45 @@ export function useGroupSessionChannel({
       pendingDeltasRef.current.clear();
     };
 
-    // Flush pending deltas when tab becomes hidden so remote clients stay in sync
+    // Flush pending deltas and heartbeat when tab becomes hidden
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         flushPendingDeltas();
+        sendHeartbeatRef.current();
       }
       // On visible: Supabase Realtime auto-reconnects, which triggers
       // SUBSCRIBED → onReconnected → snapshot handshake
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Persist pieces_found on page unload via fetch+keepalive (survives tab close
+    // unlike Supabase client calls which get cancelled)
+    const handleBeforeUnload = () => {
+      flushPendingDeltas();
+      const token = accessTokenRef.current;
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!token || !supabaseUrl || !anonKey || !participantId) return;
+
+      const url = `${supabaseUrl}/rest/v1/group_session_participants?id=eq.${encodeURIComponent(participantId)}`;
+      fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: anonKey,
+          Authorization: `Bearer ${token}`,
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify({
+          last_seen_at: new Date().toISOString(),
+          pieces_found: piecesFoundRefRef.current?.current ?? 0,
+        }),
+        keepalive: true,
+      }).catch(() => {
+        // Best-effort — page is closing
+      });
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     // Capture refs for cleanup
     const deltaTimers = deltaTimersRef.current;
@@ -376,6 +415,8 @@ export function useGroupSessionChannel({
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      sendHeartbeatRef.current = () => {};
       if (heartbeatIntervalRef.current) {
         clearInterval(heartbeatIntervalRef.current);
         heartbeatIntervalRef.current = null;
