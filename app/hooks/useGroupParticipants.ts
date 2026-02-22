@@ -153,6 +153,19 @@ export function useGroupParticipants({
       }
 
       setParticipants(merged);
+
+      // Sync piecesFoundRef from the merged data for the current participant.
+      // On page refresh, the ref starts at 0; without this sync the heartbeat
+      // would overwrite the correct DB value with 0 after 60 seconds.
+      if (currentPid) {
+        const self = merged.find(p => p.id === currentPid);
+        if (self) {
+          piecesFoundRef.current = Math.max(
+            piecesFoundRef.current,
+            self.piecesFound
+          );
+        }
+      }
     };
 
     const loadRoster = async () => {
