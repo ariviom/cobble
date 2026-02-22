@@ -26,11 +26,11 @@ const IMAGE_SIZES: Record<ImageVariant, ImageSizeConfig> = {
     quality: 70,
   },
   inventoryModal: {
-    width: 320,
-    height: 320,
+    width: 400,
+    height: 400,
     sizes:
-      '(min-width:1280px) 320px, (min-width:1024px) 280px, (min-width:640px) 240px, 200px',
-    quality: 70,
+      '(min-width:1280px) 400px, (min-width:1024px) 360px, (min-width:640px) 320px, 280px',
+    quality: 75,
   },
   identifyResult: {
     width: 128,

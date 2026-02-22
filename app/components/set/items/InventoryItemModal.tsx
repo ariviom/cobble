@@ -221,41 +221,28 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
   return (
     <Modal open={open} onClose={onClose} title={row.partName}>
       <div className="-mx-5 -my-5">
-        {/* Hero: image + identity */}
-        <div className="flex gap-4 px-5 py-4">
-          <div className="size-20 shrink-0 overflow-hidden rounded-lg border border-subtle bg-card-muted">
-            {row.imageUrl ? (
-              <OptimizedImage
-                src={row.imageUrl}
-                alt={row.partName}
-                variant="inventoryModal"
-                className="size-full object-contain"
-              />
-            ) : (
-              <ImagePlaceholder
-                variant="simple"
-                text="No image"
-                className="size-full"
-              />
-            )}
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
-            {isMinifig ? (
-              <p className="text-xs text-foreground-muted">
-                Minifigure #{effectiveMinifigId ?? displayId}
-              </p>
-            ) : (
-              <p className="text-xs text-foreground-muted">
-                Part {displayId}
-                {row.colorName ? ` in ${row.colorName}` : ''}
-              </p>
-            )}
-            {rarityTier && (
-              <div>
-                <RarityBadge tier={rarityTier} />
-              </div>
-            )}
-          </div>
+        {/* Hero: full-width part image */}
+        <div className="aspect-square w-full bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+          {row.imageUrl ? (
+            <OptimizedImage
+              src={row.imageUrl}
+              alt={row.partName}
+              variant="inventoryModal"
+              className="size-full object-contain p-6 drop-shadow-sm"
+            />
+          ) : (
+            <ImagePlaceholder variant="thumbnail" className="size-full" />
+          )}
+        </div>
+
+        {/* Part identity bar */}
+        <div className="flex items-center gap-2 border-t-2 border-subtle px-4 py-2.5">
+          <p className="min-w-0 flex-1 text-xs text-foreground-muted">
+            {isMinifig
+              ? `Minifigure #${effectiveMinifigId ?? displayId}`
+              : `Part ${displayId}${row.colorName ? ` in ${row.colorName}` : ''}`}
+          </p>
+          {rarityTier && <RarityBadge tier={rarityTier} />}
         </div>
 
         {/* Stats grid — mirrors MinifigPageClient pattern */}
