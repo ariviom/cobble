@@ -199,6 +199,17 @@ export function useInventoryViewModel(
     };
   }, [rows]);
 
+  // For minifig parent rows, derive owned from subpart completion status
+  // (minifig parents don't have direct owned quantities in ownedByKey)
+  const effectiveOwned = useCallback(
+    (key: string, row: InventoryRow, owned: Record<string, number>) => {
+      const status = minifigStatusByKey.get(key);
+      if (status) return status.state === 'complete' ? row.quantityRequired : 0;
+      return owned[key] ?? 0;
+    },
+    [minifigStatusByKey]
+  );
+
   const visibleIndices = useMemo(() => {
     const idxs = rows.map((_, i) => i);
     const selectedParents =
@@ -209,7 +220,7 @@ export function useInventoryViewModel(
       filter.colors && filter.colors.length > 0 ? new Set(filter.colors) : null;
 
     return idxs.filter(i => {
-      const ownedValue = ownedByKey[keys[i]!] ?? 0;
+      const ownedValue = effectiveOwned(keys[i]!, rows[i]!, ownedByKey);
       if (filter.display === 'missing') {
         if (computeMissing(rows[i]!.quantityRequired, ownedValue) === 0)
           return false;
@@ -251,6 +262,7 @@ export function useInventoryViewModel(
     rarityByIndex,
     filter,
     ownedByKey,
+    effectiveOwned,
   ]);
 
   const sortedIndices = useMemo(() => {
@@ -387,7 +399,7 @@ export function useInventoryViewModel(
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
       const key = keys[i]!;
-      const ownedValue = deferredOwnedByKey[key] ?? 0;
+      const ownedValue = effectiveOwned(key, r, deferredOwnedByKey);
 
       if (filter.display === 'missing') {
         if (computeMissing(r.quantityRequired, ownedValue) === 0) continue;
@@ -409,7 +421,7 @@ export function useInventoryViewModel(
       counts[parent] = (counts[parent] ?? 0) + 1;
     }
     return counts;
-  }, [rows, keys, filter, parentByIndex, deferredOwnedByKey]);
+  }, [rows, keys, filter, parentByIndex, deferredOwnedByKey, effectiveOwned]);
 
   // Colors that have at least one matching piece after display and category filters
   // (but before color filter is applied) - used to disable color options with no matches
@@ -424,7 +436,7 @@ export function useInventoryViewModel(
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
       const key = keys[i]!;
-      const ownedValue = deferredOwnedByKey[key] ?? 0;
+      const ownedValue = effectiveOwned(key, r, deferredOwnedByKey);
 
       // Apply display filter
       if (filter.display === 'missing') {
@@ -449,7 +461,15 @@ export function useInventoryViewModel(
     }
 
     return available;
-  }, [rows, keys, filter, parentByIndex, categoryByIndex, deferredOwnedByKey]);
+  }, [
+    rows,
+    keys,
+    filter,
+    parentByIndex,
+    categoryByIndex,
+    deferredOwnedByKey,
+    effectiveOwned,
+  ]);
 
   const parentOptions = useMemo(
     () => Array.from(new Set(parentByIndex)).filter(Boolean).sort(),
