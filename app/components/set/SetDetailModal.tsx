@@ -5,7 +5,8 @@ import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { Modal } from '@/app/components/ui/Modal';
 import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
-import { DollarSign, ExternalLink, Info } from 'lucide-react';
+import { Button } from '@/app/components/ui/Button';
+import { DollarSign, ExternalLink, Info, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 
@@ -232,6 +233,19 @@ export function SetDetailModal({
 
         {/* Ownership row — matches SetDisplayCard bottom pattern */}
         <SetOwnershipAndCollectionsRow ownership={ownership} />
+
+        {/* Open Set CTA */}
+        <div className="border-t-2 border-subtle p-3">
+          <Button
+            href={`/sets/${encodeURIComponent(setNumber)}`}
+            variant="primary"
+            size="md"
+            className="w-full"
+          >
+            Open Set
+            <ArrowRight className="size-4" />
+          </Button>
+        </div>
       </div>
     </Modal>
   );

@@ -29,6 +29,11 @@ export type SetDisplayCardProps = {
   totalParts?: number;
   className?: string;
   /**
+   * When provided, the card fires this callback instead of navigating to the
+   * set page. Used to open a preview modal from search/identify routes.
+   */
+  onClick?: () => void;
+  /**
    * Optional footer content rendered below the card body (for example,
    * ownership and list controls). This lets callers decide in which contexts
    * controls are shown (search vs. collection views).
@@ -48,6 +53,7 @@ export function SetDisplayCard({
   ownedCount,
   totalParts,
   className,
+  onClick,
   children,
 }: SetDisplayCardProps) {
   const displayName = name && name.trim() ? name : setNumber;
@@ -70,6 +76,73 @@ export function SetDisplayCard({
   const { resolvedUrl: resolvedImageUrl, onError: handleImageError } =
     useSetImageRefresh(setNumber, imageUrl);
 
+  const cardBody = (
+    <>
+      <div className="p-2">
+        {resolvedImageUrl ? (
+          <div className="relative aspect-4/3 w-full overflow-hidden rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+            <Image
+              src={resolvedImageUrl}
+              alt=""
+              fill
+              className="rounded-sm object-contain p-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
+              onError={handleImageError}
+            />
+          </div>
+        ) : (
+          <ImagePlaceholder variant="card" />
+        )}
+      </div>
+      <div className="flex items-start gap-2 px-2 py-3 sm:px-3">
+        <div className="min-w-0 flex-1">
+          {themeLabel && (
+            <div className="mb-1 w-full text-xs font-bold tracking-wide text-theme-text uppercase">
+              {themeLabel}
+            </div>
+          )}
+          <div className="line-clamp-2 w-full text-sm leading-tight font-bold text-foreground">
+            {displayName}
+          </div>
+          <div className="mt-1 w-full text-2xs font-semibold text-foreground-muted">
+            {metadataParts.join(' • ')}
+          </div>
+        </div>
+      </div>
+      {hasTrackingProps && (
+        <div className="px-2 pb-2 sm:px-3 sm:pb-3">
+          <div
+            role="progressbar"
+            aria-valuenow={progressPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`${progressPct}% of pieces owned`}
+            className={cn(
+              'h-2 w-full overflow-hidden rounded-full bg-background-muted',
+              !showProgress && 'opacity-40'
+            )}
+          >
+            <div
+              className="h-full rounded-full bg-theme-primary transition-[width] duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <p
+            className={cn(
+              'mt-1 text-xs font-semibold',
+              showProgress
+                ? 'text-foreground-muted'
+                : 'text-foreground-muted/50'
+            )}
+          >
+            {showProgress
+              ? `${ownedCount} / ${totalParts} pieces`
+              : 'No tracked pieces'}
+          </p>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div
       className={cn(
@@ -83,73 +156,22 @@ export function SetDisplayCard({
         className
       )}
     >
-      <Link
-        href={`/sets/${encodeURIComponent(setNumber)}`}
-        className="block w-full flex-1"
-      >
-        <div className="p-2">
-          {resolvedImageUrl ? (
-            <div className="relative aspect-4/3 w-full overflow-hidden rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
-              <Image
-                src={resolvedImageUrl}
-                alt=""
-                fill
-                className="rounded-sm object-contain p-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
-                onError={handleImageError}
-              />
-            </div>
-          ) : (
-            <ImagePlaceholder variant="card" />
-          )}
-        </div>
-        <div className="flex items-start gap-2 px-2 py-3 sm:px-3">
-          <div className="min-w-0 flex-1">
-            {themeLabel && (
-              <div className="mb-1 w-full text-xs font-bold tracking-wide text-theme-text uppercase">
-                {themeLabel}
-              </div>
-            )}
-            <div className="line-clamp-2 w-full text-sm leading-tight font-bold text-foreground">
-              {displayName}
-            </div>
-            <div className="mt-1 w-full text-2xs font-semibold text-foreground-muted">
-              {metadataParts.join(' • ')}
-            </div>
-          </div>
-        </div>
-        {hasTrackingProps && (
-          <div className="px-2 pb-2 sm:px-3 sm:pb-3">
-            <div
-              role="progressbar"
-              aria-valuenow={progressPct}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={`${progressPct}% of pieces owned`}
-              className={cn(
-                'h-2 w-full overflow-hidden rounded-full bg-background-muted',
-                !showProgress && 'opacity-40'
-              )}
-            >
-              <div
-                className="h-full rounded-full bg-theme-primary transition-[width] duration-300"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
-            <p
-              className={cn(
-                'mt-1 text-xs font-semibold',
-                showProgress
-                  ? 'text-foreground-muted'
-                  : 'text-foreground-muted/50'
-              )}
-            >
-              {showProgress
-                ? `${ownedCount} / ${totalParts} pieces`
-                : 'No tracked pieces'}
-            </p>
-          </div>
-        )}
-      </Link>
+      {onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className="block w-full flex-1 cursor-pointer text-left"
+        >
+          {cardBody}
+        </button>
+      ) : (
+        <Link
+          href={`/sets/${encodeURIComponent(setNumber)}`}
+          className="block w-full flex-1"
+        >
+          {cardBody}
+        </Link>
+      )}
       {onRemove && (
         <button
           type="button"
