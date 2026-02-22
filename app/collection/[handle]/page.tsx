@@ -130,12 +130,8 @@ export default async function CollectionHandlePage({
     notFound();
   }
 
-  const resolved = await resolvePublicUser(requestedHandle);
-
-  if (resolved.type === 'not_found') {
-    notFound();
-  }
-
+  // Check auth first — a logged-in user viewing their own collection should
+  // always work, even if they have no user_profiles row yet (new users).
   const supabaseAuth = await getSupabaseAuthServerClient();
   let currentUserId: string | null = null;
   let currentUsername: string | null = null;
@@ -183,6 +179,30 @@ export default async function CollectionHandlePage({
       })
     : null;
 
+  // Owner check: if the current user's handle matches the requested handle,
+  // render their collection directly without needing a public profile row.
+  const isOwner = currentUserHandle === requestedHandle;
+
+  if (isOwner) {
+    const themes = await fetchThemes().catch(() => []);
+    return (
+      <PageLayout>
+        <UserCollectionOverview
+          initialThemes={themes}
+          initialView={initialView}
+          initialType={initialType}
+        />
+      </PageLayout>
+    );
+  }
+
+  // For non-owner views, resolve the profile to check public/private status.
+  const resolved = await resolvePublicUser(requestedHandle);
+
+  if (resolved.type === 'not_found') {
+    notFound();
+  }
+
   const profileIdentity =
     resolved.type === 'public' ? resolved.profile : resolved.info;
   const canonicalHandle = buildUserHandle({
@@ -198,9 +218,11 @@ export default async function CollectionHandlePage({
     redirect(target);
   }
 
-  const isOwner = currentUserHandle === canonicalHandle;
+  // Also check if the current user owns this profile (e.g. they navigated
+  // via username but are logged in with the same account).
+  const isOwnerByProfile = currentUserHandle === canonicalHandle;
 
-  if (resolved.type === 'private' && !isOwner) {
+  if (resolved.type === 'private' && !isOwnerByProfile) {
     const displayName = profileIdentity.display_name || 'This builder';
     return (
       <PageLayout>
@@ -234,7 +256,7 @@ export default async function CollectionHandlePage({
     );
   }
 
-  if (isOwner) {
+  if (isOwnerByProfile) {
     const themes = await fetchThemes().catch(() => []);
     return (
       <PageLayout>
