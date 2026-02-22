@@ -2,53 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Memory Bank
+## Context Files
 
-Context resets between sessions. The Memory Bank in `./memory/` is the link to previous work — read it at the start of every task.
+- `memory/active-context.md` — Current focus, recent changes, active decisions. Read when starting significant work.
+- `memory/progress.md` — Project status summary and known risks.
+- `docs/BACKLOG.md` — Master task list (High/Medium/Low priority).
+- `docs/dev/` — Feature plans (`*_PLAN.md`), completion docs (`*_COMPLETE.md`), archive.
+- `docs/billing/stripe-subscriptions.md` — Stripe integration spec.
 
-### Core Files
+### When to Update
 
-| File                 | Purpose                                                       |
-| -------------------- | ------------------------------------------------------------- |
-| `project-brief.md`   | Foundation: core requirements, goals, scope (source of truth) |
-| `product-context.md` | Why this exists, problems solved, UX goals                    |
-| `tech-context.md`    | Stack, setup, constraints, dependencies                       |
-| `system-patterns.md` | Architecture, technical decisions, design patterns            |
-| `active-context.md`  | Current focus, recent changes, next steps, active decisions   |
-| `progress.md`        | What works, what's left, current status, known issues         |
-
-### When to Update Memory Bank
-
-- After implementing significant changes
-- When discovering new project patterns
-- When context needs clarification
-- When user requests **"update memory bank"** → review ALL files, focus on `active-context.md` and `progress.md`
-
-## Documentation Structure
-
-Beyond the memory bank, project documentation lives in `docs/`:
-
-```
-docs/
-├── BACKLOG.md                 # Master task list (High/Medium/Low priority)
-├── billing/
-│   └── stripe-subscriptions.md   # Stripe integration spec
-└── dev/
-    ├── CURRENT_IMPROVEMENT_PLAN.md    # Active improvement work
-    ├── PREVIOUS_IMPROVEMENT_PLANS.md  # Historical archive
-    ├── *_COMPLETE.md                  # Completion docs (architecture reference)
-    └── archive/                       # Completed plans (historical reference)
-```
-
-### Documentation Workflow
-
-| Document                               | When to Use                                                |
-| -------------------------------------- | ---------------------------------------------------------- |
-| `docs/BACKLOG.md`                      | Add new tasks, check outstanding work, mark items complete |
-| `docs/dev/CURRENT_IMPROVEMENT_PLAN.md` | Track active improvement initiatives                       |
-| `docs/billing/stripe-subscriptions.md` | Stripe implementation details and status                   |
-| `memory/active-context.md`             | Current focus and recent completions                       |
-| `memory/progress.md`                   | High-level status, references BACKLOG.md                   |
+- After significant changes: update `memory/active-context.md`
+- When user requests **"update memory bank"**: review `active-context.md` and `progress.md`
 
 ### When Planning New Work
 
