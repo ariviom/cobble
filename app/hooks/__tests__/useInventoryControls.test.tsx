@@ -7,8 +7,8 @@ describe('useInventoryControls', () => {
 
     expect(result.current.sortKey).toBe('color');
     expect(result.current.sortDir).toBe('asc');
-    expect(result.current.view).toBe('list');
-    expect(result.current.itemSize).toBe('md');
+    expect(result.current.view).toBe('grid');
+    expect(result.current.itemSize).toBe('sm');
     expect(result.current.groupBy).toBe('none');
     expect(result.current.filter.display).toBe('all');
   });

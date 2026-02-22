@@ -48,9 +48,9 @@ export function useInventoryControls(options?: UseInventoryControlsOptions) {
   const [filter, setFilterState] = useState<InventoryFilter>(
     initialState?.filter ?? createDefaultFilter()
   );
-  const [view, setViewState] = useState<ViewType>(initialState?.view ?? 'list');
+  const [view, setViewState] = useState<ViewType>(initialState?.view ?? 'grid');
   const [itemSize, setItemSizeState] = useState<ItemSize>(
-    initialState?.itemSize ?? 'md'
+    initialState?.itemSize ?? 'sm'
   );
   const [groupBy, setGroupByState] = useState<GroupBy>(
     initialState?.groupBy ?? 'none'
