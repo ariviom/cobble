@@ -8,6 +8,7 @@ import {
   resolveMinifigParentIdentity,
   resolveRbMinifigSubpartIdentity,
 } from '@/app/lib/services/identityResolution';
+import { backfillBLImages } from '@/app/lib/services/imageBackfill';
 import { logger } from '@/lib/metrics';
 
 export type InventoryResult = {
@@ -309,6 +310,16 @@ export async function getSetInventoryRowsWithMeta(
     }
   } catch (err) {
     logger.warn('inventory.rarity.subpart_enrich_failed', {
+      setNumber,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // ── BrickLink image backfill for parts with no RB image ──
+  try {
+    await backfillBLImages(result.rows);
+  } catch (err) {
+    logger.warn('inventory.image_backfill_failed', {
       setNumber,
       error: err instanceof Error ? err.message : String(err),
     });

@@ -6,6 +6,7 @@ import {
   blGetPartColors,
   blGetPartSubsets,
   blGetPartSupersets,
+  normalizeBLImageUrl,
   type BLSupersetItem,
 } from '@/app/lib/bricklink';
 import { EXTERNAL } from '@/app/lib/constants';
@@ -33,12 +34,6 @@ type FetchOptions = {
 };
 
 const BL_FALLBACK_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours (BL ToS: item data ≤6hrs old)
-
-function normalizeBLImageUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  if (url.startsWith('//')) return `https:${url}`;
-  return url;
-}
 
 function toBLSet(entries: BLSupersetItem[]): BLSet[] {
   return entries.map(s => ({

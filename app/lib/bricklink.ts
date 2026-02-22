@@ -356,7 +356,9 @@ function makeKey(no: string, colorId?: number): string {
   }`;
 }
 
-function normalizeBLImageUrl(url: string | null | undefined): string | null {
+export function normalizeBLImageUrl(
+  url: string | null | undefined
+): string | null {
   if (!url) return null;
   if (url.startsWith('//')) return `https:${url}`;
   return url;
