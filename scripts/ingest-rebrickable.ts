@@ -420,10 +420,12 @@ async function ingestColors(
       id,
       name: record.name ?? '',
       rgb: record.rgb && record.rgb.length === 6 ? record.rgb : null,
-      is_trans:
-        record.is_trans === 't' ||
-        record.is_trans === 'true' ||
-        record.is_trans === '1',
+      is_trans: (() => {
+        const v = String(record.is_trans ?? '')
+          .trim()
+          .toLowerCase();
+        return v === 't' || v === 'true' || v === '1';
+      })(),
     });
 
     if (batch.length >= batchSize) {
@@ -972,10 +974,11 @@ async function ingestInventoryParts(
       continue;
     }
 
+    const isSpareRaw = String(record.is_spare ?? '')
+      .trim()
+      .toLowerCase();
     const is_spare =
-      record.is_spare === 't' ||
-      record.is_spare === 'true' ||
-      record.is_spare === '1';
+      isSpareRaw === 't' || isSpareRaw === 'true' || isSpareRaw === '1';
     const element_id = (record.element_id as string | undefined) ?? '';
     const img_url_raw = (record.img_url as string | undefined) ?? '';
     const img_url =
