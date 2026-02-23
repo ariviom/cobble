@@ -720,15 +720,7 @@ export function UserCollectionOverview({
 
   // Avoid SSR/CSR hydration mismatches
   if (!mounted) {
-    return (
-      <section className="mb-8">
-        <div className="mx-auto w-full max-w-7xl px-4">
-          <div className="my-4">
-            <h2 className="text-lg font-semibold">Your collection</h2>
-          </div>
-        </div>
-      </section>
-    );
+    return <section className="mb-8" />;
   }
 
   return (
