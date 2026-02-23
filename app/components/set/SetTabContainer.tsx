@@ -14,11 +14,13 @@ import { SearchPartyProvider } from '@/app/components/set/SearchPartyProvider';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { Button } from '@/app/components/ui/Button';
 import { getSlotColor } from '@/app/components/ui/ColorSlotPicker';
+import { Confetti } from '@/app/components/ui/Confetti';
 import { Modal } from '@/app/components/ui/Modal';
 import { Toast } from '@/app/components/ui/Toast';
 import type { GroupParticipant } from '@/app/hooks/useGroupParticipants';
 import { useSearchPartyChannel } from '@/app/hooks/useSearchPartyChannel';
 import { useSearchPartySession } from '@/app/hooks/useSearchPartySession';
+import { useSetComplete } from '@/app/hooks/useSetComplete';
 import type { SetTab, TabViewState } from '@/app/store/open-tabs';
 
 type SetTabContainerProps = {
@@ -235,10 +237,27 @@ function SetTabContainerContent({
   searchPartyModalOpen,
   setSearchPartyModalOpen,
 }: SetTabContainerContentProps) {
-  const { scrollerKey, isLoading, error } = useInventoryData();
+  const {
+    scrollerKey,
+    isLoading,
+    error,
+    totalMissing,
+    totalRequired,
+    isOwnedHydrated,
+  } = useInventoryData();
   const { getControlsState } = useInventoryControls();
   const hasRestoredScroll = useRef(false);
   const stickyRef = useRef<HTMLDivElement>(null);
+
+  const [showConfetti, setShowConfetti] = useState(false);
+  useSetComplete(
+    totalMissing,
+    totalRequired,
+    isOwnedHydrated,
+    useCallback(() => {
+      setShowConfetti(true);
+    }, [])
+  );
 
   // Measure the sticky header and set a CSS variable so fixed-position panels
   // (bottom sheets, pinned panels) know where the header ends.
@@ -323,6 +342,12 @@ function SetTabContainerContent({
   // Render content - SetTopBar always visible, inventory shows loading/error/content
   return (
     <>
+      {showConfetti && (
+        <Confetti
+          onDone={() => setShowConfetti(false)}
+          sourceY={stickyRef.current?.getBoundingClientRect().top ?? 0}
+        />
+      )}
       {/* Top bar with set info - always visible, sticky on mobile */}
       <div
         ref={stickyRef}
