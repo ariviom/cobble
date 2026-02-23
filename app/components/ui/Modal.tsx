@@ -53,7 +53,7 @@ export function Modal({ open, title, onClose, children }: Props) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="flex h-8 w-8 items-center justify-center rounded-sm text-foreground-muted transition-colors hover:bg-background-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:outline-none"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-foreground-muted transition-colors hover:bg-background-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:outline-none"
           >
             ✕
           </button>
