@@ -31,7 +31,7 @@ export type DropdownTriggerProps = {
 };
 
 const triggerVariants = cva(
-  'rounded-md border-2 border-subtle bg-card px-4 py-2 text-sm font-semibold cursor-pointer transition-all duration-150 hover:bg-theme-primary/10 hover:border-theme-primary/30 data-[open]:bg-theme-primary/10 data-[open]:border-theme-primary',
+  'rounded-md border-2 border-subtle bg-card px-4 py-2 text-sm font-semibold cursor-pointer transition-all duration-150 hover:bg-theme-primary/10 hover:border-theme-primary/30 data-[open]:bg-theme-primary/10 data-[open]:border-theme-primary min-w-max',
   {
     variants: {
       variant: {

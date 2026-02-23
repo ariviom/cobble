@@ -59,7 +59,7 @@ export function PublicSetCard({
     >
       <Link
         href={`/sets/${encodeURIComponent(setNumber)}`}
-        className="block w-full flex-1"
+        className="flex w-full flex-1 flex-col"
       >
         <div className="p-2">
           {resolvedImageUrl ? (

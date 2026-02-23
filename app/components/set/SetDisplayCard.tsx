@@ -109,7 +109,7 @@ export function SetDisplayCard({
         </div>
       </div>
       {hasTrackingProps && (
-        <div className="px-2 pb-2 sm:px-3 sm:pb-3">
+        <div className="mt-auto px-2 pb-2 sm:px-3 sm:pb-3">
           <div
             role="progressbar"
             aria-valuenow={progressPct}
@@ -160,14 +160,14 @@ export function SetDisplayCard({
         <button
           type="button"
           onClick={onClick}
-          className="block w-full flex-1 cursor-pointer text-left"
+          className="flex w-full flex-1 cursor-pointer flex-col text-left"
         >
           {cardBody}
         </button>
       ) : (
         <Link
           href={`/sets/${encodeURIComponent(setNumber)}`}
-          className="block w-full flex-1"
+          className="flex w-full flex-1 flex-col"
         >
           {cardBody}
         </Link>

@@ -53,11 +53,13 @@ export function ControlBar({
         className
       )}
     >
-      <div
-        ref={containerRef}
-        className="relative container-wide flex h-controls-height w-full flex-nowrap items-center gap-2 overflow-x-auto border-b border-subtle bg-card-muted no-scrollbar lg:overflow-visible"
-      >
-        {children}
+      <div className="h-controls-height border-b border-subtle bg-card-muted">
+        <div
+          ref={containerRef}
+          className="relative container-wide flex h-full w-full flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar lg:overflow-visible"
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

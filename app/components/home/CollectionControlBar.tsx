@@ -207,6 +207,91 @@ export function CollectionControlBar({
         </DropdownPanelFrame>
       </div>
 
+      {/* Collection / List filter */}
+      {hasAnyItems && (
+        <div className="relative shrink-0">
+          <DropdownTrigger
+            id="coll-list-trigger"
+            panelId="coll-list-panel"
+            label={`${listFilterLabel(listFilter, lists)}${listsLoading && lists.length === 0 ? ' …' : ''}`}
+            labelIcon={<Filter size={16} />}
+            isOpen={openDropdownId === 'list'}
+            onToggle={() => toggleDropdown('list')}
+          />
+          <DropdownPanelFrame
+            id="coll-list-panel"
+            labelledBy="coll-list-trigger"
+            isOpen={openDropdownId === 'list'}
+          >
+            <SingleSelectList
+              options={listOptions}
+              selectedKey={listFilter}
+              onChange={key => {
+                onListFilterChange(key as ListFilter);
+                closeDropdown();
+              }}
+            />
+          </DropdownPanelFrame>
+        </div>
+      )}
+
+      {/* Theme / Category filter */}
+      {collectionType === 'sets' && hasAnySets && (
+        <div className="relative shrink-0">
+          <DropdownTrigger
+            id="coll-theme-trigger"
+            panelId="coll-theme-panel"
+            label={themeFilterLabel(themeFilter, themeOptions)}
+            labelIcon={<Tag size={16} />}
+            isOpen={openDropdownId === 'theme'}
+            onToggle={() => toggleDropdown('theme')}
+          />
+          <DropdownPanelFrame
+            id="coll-theme-panel"
+            labelledBy="coll-theme-trigger"
+            isOpen={openDropdownId === 'theme'}
+          >
+            <SingleSelectList
+              options={buildThemeOptions(themeOptions)}
+              selectedKey={themeFilter === 'all' ? 'all' : String(themeFilter)}
+              onChange={key => {
+                onThemeFilterChange(key === 'all' ? 'all' : Number(key));
+                closeDropdown();
+              }}
+            />
+          </DropdownPanelFrame>
+        </div>
+      )}
+
+      {collectionType === 'minifigs' && hasAnyMinifigs && (
+        <div className="relative shrink-0">
+          <DropdownTrigger
+            id="coll-cat-trigger"
+            panelId="coll-cat-panel"
+            label={categoryFilterLabel(categoryFilter, categoryOptions)}
+            labelIcon={<Tag size={16} />}
+            isOpen={openDropdownId === 'category'}
+            onToggle={() => toggleDropdown('category')}
+          />
+          <DropdownPanelFrame
+            id="coll-cat-panel"
+            labelledBy="coll-cat-trigger"
+            isOpen={openDropdownId === 'category'}
+          >
+            <SingleSelectList
+              options={buildCategoryOptions(categoryOptions)}
+              selectedKey={
+                categoryFilter === 'all' ? 'all' : String(categoryFilter)
+              }
+              onChange={key => {
+                onCategoryFilterChange(key === 'all' ? 'all' : Number(key));
+                closeDropdown();
+              }}
+            />
+          </DropdownPanelFrame>
+        </div>
+      )}
+
       {/* Sort field — sets */}
       {collectionType === 'sets' && hasAnySets && (
         <div className="relative shrink-0">
@@ -312,91 +397,6 @@ export function CollectionControlBar({
               selectedKey={minifigSortDir}
               onChange={key => {
                 onMinifigSortDirChange(key as SortDir);
-                closeDropdown();
-              }}
-            />
-          </DropdownPanelFrame>
-        </div>
-      )}
-
-      {/* Theme / Category filter */}
-      {collectionType === 'sets' && hasAnySets && (
-        <div className="relative shrink-0">
-          <DropdownTrigger
-            id="coll-theme-trigger"
-            panelId="coll-theme-panel"
-            label={themeFilterLabel(themeFilter, themeOptions)}
-            labelIcon={<Tag size={16} />}
-            isOpen={openDropdownId === 'theme'}
-            onToggle={() => toggleDropdown('theme')}
-          />
-          <DropdownPanelFrame
-            id="coll-theme-panel"
-            labelledBy="coll-theme-trigger"
-            isOpen={openDropdownId === 'theme'}
-          >
-            <SingleSelectList
-              options={buildThemeOptions(themeOptions)}
-              selectedKey={themeFilter === 'all' ? 'all' : String(themeFilter)}
-              onChange={key => {
-                onThemeFilterChange(key === 'all' ? 'all' : Number(key));
-                closeDropdown();
-              }}
-            />
-          </DropdownPanelFrame>
-        </div>
-      )}
-
-      {collectionType === 'minifigs' && hasAnyMinifigs && (
-        <div className="relative shrink-0">
-          <DropdownTrigger
-            id="coll-cat-trigger"
-            panelId="coll-cat-panel"
-            label={categoryFilterLabel(categoryFilter, categoryOptions)}
-            labelIcon={<Tag size={16} />}
-            isOpen={openDropdownId === 'category'}
-            onToggle={() => toggleDropdown('category')}
-          />
-          <DropdownPanelFrame
-            id="coll-cat-panel"
-            labelledBy="coll-cat-trigger"
-            isOpen={openDropdownId === 'category'}
-          >
-            <SingleSelectList
-              options={buildCategoryOptions(categoryOptions)}
-              selectedKey={
-                categoryFilter === 'all' ? 'all' : String(categoryFilter)
-              }
-              onChange={key => {
-                onCategoryFilterChange(key === 'all' ? 'all' : Number(key));
-                closeDropdown();
-              }}
-            />
-          </DropdownPanelFrame>
-        </div>
-      )}
-
-      {/* Collection / List filter */}
-      {hasAnyItems && (
-        <div className="relative shrink-0">
-          <DropdownTrigger
-            id="coll-list-trigger"
-            panelId="coll-list-panel"
-            label={`${listFilterLabel(listFilter, lists)}${listsLoading && lists.length === 0 ? ' …' : ''}`}
-            labelIcon={<Filter size={16} />}
-            isOpen={openDropdownId === 'list'}
-            onToggle={() => toggleDropdown('list')}
-          />
-          <DropdownPanelFrame
-            id="coll-list-panel"
-            labelledBy="coll-list-trigger"
-            isOpen={openDropdownId === 'list'}
-          >
-            <SingleSelectList
-              options={listOptions}
-              selectedKey={listFilter}
-              onChange={key => {
-                onListFilterChange(key as ListFilter);
                 closeDropdown();
               }}
             />
