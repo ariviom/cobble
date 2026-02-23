@@ -71,6 +71,9 @@ export async function searchSets(
         return [...results].sort((a, b) => a.year - b.year);
       case 'year-desc':
         return [...results].sort((a, b) => b.year - a.year);
+      case 'theme-asc':
+      case 'theme-desc':
+        return results; // Theme name not available on raw Rebrickable results
       default: // 'relevance'
         return results; // Keep API order
     }
@@ -109,6 +112,16 @@ export function sortAggregatedResults(
   }
   if (sort === 'year-desc') {
     return [...items].sort((a, b) => b.year - a.year);
+  }
+  if (sort === 'theme-asc') {
+    return [...items].sort((a, b) =>
+      (a.themeName ?? '').localeCompare(b.themeName ?? '')
+    );
+  }
+  if (sort === 'theme-desc') {
+    return [...items].sort((a, b) =>
+      (b.themeName ?? '').localeCompare(a.themeName ?? '')
+    );
   }
   // 'relevance' (stable): boost setNumber prefix, then name/setNumber contains, else keep API order
   const qn = normalizeText(query);

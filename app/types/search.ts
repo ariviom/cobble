@@ -36,7 +36,9 @@ export type SortOption =
   | 'pieces-asc'
   | 'pieces-desc'
   | 'year-asc'
-  | 'year-desc';
+  | 'year-desc'
+  | 'theme-asc'
+  | 'theme-desc';
 
 export type SearchPage = {
   results: SearchResult[];

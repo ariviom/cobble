@@ -1,6 +1,6 @@
 'use client';
 
-import { useIsDesktop } from '@/app/hooks/useMediaQuery';
+import { useControlBarDropdown } from '@/app/hooks/useControlBarDropdown';
 import { useEffect, useRef, useState } from 'react';
 import { TopBarControls } from './controls/TopBarControls';
 import {
@@ -40,55 +40,16 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
   const { openExportModal } = useInventoryUI();
   const { getPinnedCount } = useInventoryPinned();
 
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isDesktop = useIsDesktop();
+  const {
+    openDropdownId,
+    toggleDropdown,
+    closeDropdown,
+    containerRef,
+    isDesktop,
+  } = useControlBarDropdown({ keepOpenIds: ['parent', 'color'] });
+
   const [isParentOpen, setIsParentOpen] = useState(false);
   const [isColorOpen, setIsColorOpen] = useState(false);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target as Node)) {
-        // Keep sidebar panels open on desktop
-        if (
-          isDesktop &&
-          (openDropdownId === 'parent' || openDropdownId === 'color')
-        ) {
-          return;
-        }
-        setOpenDropdownId(null);
-      }
-    }
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [isDesktop, openDropdownId]);
-
-  // Close dropdown on escape key
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        setOpenDropdownId(null);
-      }
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  // When a bottom sheet is open on mobile, prevent document scrolling
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    if (isDesktop) return;
-    const root = document.documentElement;
-    const prevOverflow = root.style.overflow;
-    if (openDropdownId !== null) {
-      root.style.overflow = 'hidden';
-    }
-    return () => {
-      root.style.overflow = prevOverflow;
-    };
-  }, [openDropdownId, isDesktop]);
 
   // Scroll to top when display filter, sort, or grouping changes
   // Skip initial render by tracking if values have changed
@@ -122,7 +83,7 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
       else setIsColorOpen(prev => !prev);
       return;
     }
-    setOpenDropdownId(openDropdownId === id ? null : id);
+    toggleDropdown(id);
   };
 
   const handleDropdownChange = (
@@ -132,7 +93,7 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
   ) => {
     // Close dropdown after selection, except for desktop sidebar panels
     if (!(isDesktop && (dropdownId === 'parent' || dropdownId === 'color'))) {
-      setOpenDropdownId(null);
+      closeDropdown();
     }
 
     if (dropdownId === 'display') {
@@ -194,9 +155,9 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
         }
         openDropdownId={openDropdownId}
         onToggleDropdown={handleDropdownToggle}
-        onCloseDropdown={id =>
-          setOpenDropdownId(prev => (prev === id ? null : prev))
-        }
+        onCloseDropdown={id => {
+          if (openDropdownId === id) closeDropdown();
+        }}
         pinnedCount={getPinnedCount()}
         onMarkAllMissing={markAllMissing}
         onMarkAllComplete={markAllComplete}

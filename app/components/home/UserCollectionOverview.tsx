@@ -1,11 +1,12 @@
 'use client';
 
 import { MinifigCard } from '@/app/components/minifig/MinifigCard';
+import {
+  getPiecesBucket,
+  piecesBucketOrder,
+} from '@/app/components/search/SearchControlBar';
 import { SetDisplayCardWithControls } from '@/app/components/set/SetDisplayCardWithControls';
 import { CollectionGroupHeading } from '@/app/components/ui/CollectionGroupHeading';
-import { FilterBar } from '@/app/components/ui/FilterBar';
-import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
-import { Select } from '@/app/components/ui/Select';
 import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useUserLists } from '@/app/hooks/useUserLists';
@@ -15,6 +16,14 @@ import { useUserSetsStore } from '@/app/store/user-sets';
 import type { Tables } from '@/supabase/types';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  CollectionControlBar,
+  type CollectionSortField,
+  type CollectionType,
+  type ListFilter,
+  type MinifigSortField,
+  type SortDir,
+} from './CollectionControlBar';
 
 type ThemeInfo = {
   id: number;
@@ -23,12 +32,8 @@ type ThemeInfo = {
 };
 
 type CustomListFilter = `list:${string}`;
-type ListFilter = 'all' | 'owned' | 'wishlist' | CustomListFilter;
-type GroupBy = 'status' | 'theme';
-type MinifigGroupBy = 'status' | 'category';
 
 type UserSetsView = 'all' | 'owned' | 'wishlist';
-type CollectionType = 'sets' | 'minifigs';
 
 type ListMembership = {
   sets: string[];
@@ -204,15 +209,19 @@ export function UserCollectionOverview({
   });
   const [collectionType, setCollectionType] =
     useState<CollectionType>(initialType);
-  const [groupBy, setGroupBy] = useState<GroupBy>('status');
-  const [minifigGroupBy, setMinifigGroupBy] =
-    useState<MinifigGroupBy>('status');
+
+  // Sort-driven grouping — the sort field determines the group headings
+  const [sortField, setSortField] = useState<CollectionSortField>('collection');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [minifigSortField, setMinifigSortField] =
+    useState<MinifigSortField>('collection');
+  const [minifigSortDir, setMinifigSortDir] = useState<SortDir>('asc');
+
   const [themeFilter, setThemeFilter] = useState<number | 'all'>('all');
   const [categoryFilter, setCategoryFilter] = useState<number | 'all'>('all');
   const [listMembership, setListMembership] = useState<
     Record<string, ListMembership>
   >({});
-  // Set metadata for list items not in the user's store (e.g., wishlist-only sets)
   const [listSetsInfo, setListSetsInfo] = useState<
     Record<string, ListSetInfo[]>
   >({});
@@ -225,8 +234,6 @@ export function UserCollectionOverview({
   const [listMembershipError, setListMembershipError] = useState<string | null>(
     null
   );
-  // For custom lists, extract the ID from the filter value.
-  // For wishlist, use the wishlist system list ID if available.
   const selectedListId = useMemo(() => {
     if (listFilter === 'wishlist') {
       return wishlist?.id ?? null;
@@ -238,15 +245,11 @@ export function UserCollectionOverview({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Sync the selected list from the ?list=<name> query param when present.
-  // Use a ref to track the previous searchParams to only react to actual URL changes,
-  // not re-runs caused by other dependency changes.
   const prevSearchParamsRef = useRef<URLSearchParams | null>(null);
   useEffect(() => {
     const currentParams = searchParams?.toString() ?? '';
     const prevParams = prevSearchParamsRef.current?.toString() ?? '';
 
-    // Only sync from URL when searchParams actually changed (not when lists changed)
     if (currentParams === prevParams) return;
     prevSearchParamsRef.current = searchParams;
 
@@ -345,7 +348,7 @@ export function UserCollectionOverview({
     };
   }, [user, selectedListId, listMembership, listMembershipErrorId]);
 
-  // Fetch set metadata for list items not in the store (separate effect)
+  // Fetch set metadata for list items not in the store
   useEffect(() => {
     if (!selectedListId) return;
     const membership = listMembership[selectedListId];
@@ -356,7 +359,6 @@ export function UserCollectionOverview({
       setNum => !setsRecord[setNum.toLowerCase()]
     );
     if (setsNotInStore.length === 0) {
-      // No sets to fetch, mark as done with empty array
       setListSetsInfo(prev => ({ ...prev, [selectedListId]: [] }));
       return;
     }
@@ -440,7 +442,6 @@ export function UserCollectionOverview({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [sets, themeMap]);
 
-  // Build category options from minifigs (for category filter dropdown)
   const categoryOptions = useMemo(() => {
     const names = new Map<number, string>();
     for (const fig of minifigs) {
@@ -462,11 +463,9 @@ export function UserCollectionOverview({
       ? listMembership[selectedListId]?.sets
       : null;
 
-    // Start with sets from the store
     const storeSets = sets.filter(set => {
       const { status } = set;
       if (listFilter === 'owned' && !status.owned) return false;
-      // If wishlist is selected but no wishlist exists, show no sets.
       if (listFilter === 'wishlist' && !selectedListId) return false;
       if (selectedListId) {
         if (!membership || !membership.includes(set.setNumber)) {
@@ -483,7 +482,6 @@ export function UserCollectionOverview({
       return true;
     });
 
-    // When filtering by a list, also include sets not in the store
     if (selectedListId && listSetsInfo[selectedListId]) {
       const storeSetNums = new Set(
         storeSets.map(s => s.setNumber.toLowerCase())
@@ -491,7 +489,6 @@ export function UserCollectionOverview({
       const additionalSets = listSetsInfo[selectedListId]
         .filter(s => !storeSetNums.has(s.setNumber.toLowerCase()))
         .filter(s => {
-          // Apply theme filter
           if (themeFilter !== 'all') {
             if (typeof s.themeId !== 'number' || !Number.isFinite(s.themeId)) {
               return false;
@@ -537,19 +534,23 @@ export function UserCollectionOverview({
     return null;
   }, [listFilter, lists]);
 
+  // Sort-driven grouping for sets
   const grouped = useMemo(() => {
     const groups = new Map<string, typeof filteredSets>();
     for (const set of filteredSets) {
       let key: string;
-      if (groupBy === 'status') {
-        // When viewing a specific list, use the list name as the group label
-        // instead of splitting by owned/uncategorized
+      if (sortField === 'collection') {
         if (activeListName) {
           key = activeListName;
         } else {
           key = getPrimaryStatusLabel(set.status);
         }
+      } else if (sortField === 'year') {
+        key = set.year && set.year > 0 ? String(set.year) : 'Unknown Year';
+      } else if (sortField === 'pieces') {
+        key = getPiecesBucket(set.numParts);
       } else {
+        // theme
         const themeName =
           typeof set.themeId === 'number' && Number.isFinite(set.themeId)
             ? getRootThemeName(set.themeId, themeMap)
@@ -561,10 +562,41 @@ export function UserCollectionOverview({
       }
       groups.get(key)!.push(set);
     }
-    return Array.from(groups.entries())
-      .map(([label, items]) => ({ label, items }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [filteredSets, groupBy, themeMap, activeListName]);
+    const entries = Array.from(groups.entries()).map(([label, items]) => ({
+      label,
+      items,
+    }));
+
+    if (sortField === 'year') {
+      return entries.sort((a, b) => {
+        const aIsUnknown = a.label === 'Unknown Year';
+        const bIsUnknown = b.label === 'Unknown Year';
+        if (aIsUnknown && bIsUnknown) return 0;
+        if (aIsUnknown) return 1;
+        if (bIsUnknown) return -1;
+        const diff = Number(a.label) - Number(b.label);
+        return sortDir === 'desc' ? -diff : diff;
+      });
+    }
+
+    if (sortField === 'pieces') {
+      for (const group of entries) {
+        group.items.sort((a, b) =>
+          sortDir === 'desc' ? b.numParts - a.numParts : a.numParts - b.numParts
+        );
+      }
+      return entries.sort((a, b) => {
+        const diff = piecesBucketOrder(a.label) - piecesBucketOrder(b.label);
+        return sortDir === 'desc' ? -diff : diff;
+      });
+    }
+
+    // collection / theme — alphabetical
+    return entries.sort((a, b) => {
+      const cmp = a.label.localeCompare(b.label);
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+  }, [filteredSets, sortField, sortDir, themeMap, activeListName]);
 
   const filteredMinifigs = useMemo(() => {
     const customListId = selectedListId;
@@ -579,7 +611,6 @@ export function UserCollectionOverview({
           return false;
         }
       }
-      // Category filter
       if (categoryFilter !== 'all') {
         if (
           typeof fig.categoryId !== 'number' ||
@@ -593,14 +624,14 @@ export function UserCollectionOverview({
     });
   }, [minifigs, listFilter, selectedListId, listMembership, categoryFilter]);
 
+  // Sort-driven grouping for minifigs
   const groupedMinifigs = useMemo(() => {
     const groups = new Map<string, typeof filteredMinifigs>();
     for (const fig of filteredMinifigs) {
       let key: string;
-      if (minifigGroupBy === 'status') {
+      if (minifigSortField === 'collection') {
         key = getMinifigStatusLabel(fig.status);
       } else {
-        // Group by category
         key = fig.categoryName ?? 'Unknown category';
       }
       if (!groups.has(key)) {
@@ -608,10 +639,16 @@ export function UserCollectionOverview({
       }
       groups.get(key)!.push(fig);
     }
-    return Array.from(groups.entries())
-      .map(([label, items]) => ({ label, items }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [filteredMinifigs, minifigGroupBy]);
+    const entries = Array.from(groups.entries()).map(([label, items]) => ({
+      label,
+      items,
+    }));
+
+    return entries.sort((a, b) => {
+      const cmp = a.label.localeCompare(b.label);
+      return minifigSortDir === 'desc' ? -cmp : cmp;
+    });
+  }, [filteredMinifigs, minifigSortField, minifigSortDir]);
 
   const hasAnySets = sets.length > 0;
   const hasAnyMinifigs = minifigs.length > 0;
@@ -619,9 +656,6 @@ export function UserCollectionOverview({
     !!selectedListId &&
     listMembershipLoading === selectedListId &&
     !listMembership[selectedListId];
-  const hasAnyItems = collectionType === 'sets' ? hasAnySets : hasAnyMinifigs;
-  const heading = collectionType === 'sets' ? 'Your sets' : 'Your minifigures';
-
   const handleCollectionTypeChange = (next: CollectionType) => {
     if (collectionType === next) {
       return;
@@ -647,11 +681,48 @@ export function UserCollectionOverview({
     router.replace(href, { scroll: false });
   };
 
-  // Avoid SSR/CSR hydration mismatches: render a static shell until mounted.
+  const handleListFilterChange = (next: ListFilter) => {
+    setListFilter(next);
+
+    if (!pathname) {
+      return;
+    }
+
+    const params = new URLSearchParams(
+      searchParams ? searchParams.toString() : undefined
+    );
+
+    if (next === 'all') {
+      params.delete('view');
+      params.delete('list');
+    } else if (next === 'owned' || next === 'wishlist') {
+      params.set('view', next);
+      params.delete('list');
+    } else {
+      const listId = extractListId(next);
+      if (listId) {
+        const match = lists.find(list => list.id === listId);
+        if (match) {
+          params.set('list', match.name);
+        } else {
+          params.delete('list');
+        }
+      } else {
+        params.delete('list');
+      }
+      params.delete('view');
+    }
+
+    const query = params.toString();
+    const href = query ? `${pathname}?${query}` : pathname;
+    router.replace(href, { scroll: false });
+  };
+
+  // Avoid SSR/CSR hydration mismatches
   if (!mounted) {
     return (
-      <section className="mb-8 px-4">
-        <div className="mx-auto w-full max-w-7xl">
+      <section className="mb-8">
+        <div className="mx-auto w-full max-w-7xl px-4">
           <div className="my-4">
             <h2 className="text-lg font-semibold">Your collection</h2>
           </div>
@@ -661,218 +732,48 @@ export function UserCollectionOverview({
   }
 
   return (
-    <section className="mb-8 px-4">
-      <div className="mx-auto w-full max-w-7xl">
-        <div className="my-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <h2 className="text-lg font-semibold">{heading}</h2>
-          <FilterBar>
-            {hasAnyItems && (
-              <>
-                <div className="flex shrink-0 flex-col gap-1">
-                  <span className="text-xs font-medium text-foreground-muted">
-                    List
-                    {listsLoading && lists.length === 0 && (
-                      <span className="text-2xs ml-1.5">Syncing…</span>
-                    )}
-                  </span>
-                  <Select
-                    id="list-filter"
-                    size="sm"
-                    className="min-w-[100px]"
-                    value={listFilter}
-                    onChange={event => {
-                      const next = event.target.value as ListFilter;
-                      setListFilter(next);
+    <section className="mb-8">
+      <CollectionControlBar
+        collectionType={collectionType}
+        onCollectionTypeChange={handleCollectionTypeChange}
+        listFilter={listFilter}
+        onListFilterChange={handleListFilterChange}
+        lists={lists}
+        listsLoading={listsLoading}
+        hasAnySets={hasAnySets}
+        themeFilter={themeFilter}
+        onThemeFilterChange={setThemeFilter}
+        themeOptions={themeOptions}
+        sortField={sortField}
+        onSortFieldChange={setSortField}
+        sortDir={sortDir}
+        onSortDirChange={setSortDir}
+        hasAnyMinifigs={hasAnyMinifigs}
+        categoryFilter={categoryFilter}
+        onCategoryFilterChange={setCategoryFilter}
+        categoryOptions={categoryOptions}
+        minifigSortField={minifigSortField}
+        onMinifigSortFieldChange={setMinifigSortField}
+        minifigSortDir={minifigSortDir}
+        onMinifigSortDirChange={setMinifigSortDir}
+      />
 
-                      if (!pathname) {
-                        return;
-                      }
-
-                      const params = new URLSearchParams(
-                        searchParams ? searchParams.toString() : undefined
-                      );
-
-                      if (next === 'all') {
-                        // "All" is the default view – drop explicit params.
-                        params.delete('view');
-                        params.delete('list');
-                      } else if (next === 'owned' || next === 'wishlist') {
-                        params.set('view', next);
-                        params.delete('list');
-                      } else {
-                        // A specific list selected.
-                        const listId = extractListId(next);
-                        if (listId) {
-                          const match = lists.find(list => list.id === listId);
-                          if (match) {
-                            params.set('list', match.name);
-                          } else {
-                            params.delete('list');
-                          }
-                        } else {
-                          params.delete('list');
-                        }
-                        params.delete('view');
-                      }
-
-                      const query = params.toString();
-                      const href = query ? `${pathname}?${query}` : pathname;
-                      router.replace(href, { scroll: false });
-                    }}
-                  >
-                    <option value="all">All</option>
-                    <option value="owned">Owned</option>
-                    <option value="wishlist">Wishlist</option>
-                    {lists.map(list => (
-                      <option
-                        key={list.id}
-                        value={makeCustomListFilter(list.id)}
-                      >
-                        {list.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                {collectionType === 'sets' && hasAnySets && (
-                  <>
-                    <div className="flex shrink-0 flex-col gap-1">
-                      <span className="text-xs font-medium text-foreground-muted">
-                        Theme
-                      </span>
-                      <Select
-                        id="theme-filter"
-                        size="sm"
-                        className="min-w-[120px]"
-                        value={
-                          themeFilter === 'all' ? 'all' : String(themeFilter)
-                        }
-                        onChange={event => {
-                          const v = event.target.value;
-                          if (v === 'all') {
-                            setThemeFilter('all');
-                          } else {
-                            const parsed = Number(v);
-                            setThemeFilter(
-                              Number.isFinite(parsed) ? parsed : 'all'
-                            );
-                          }
-                        }}
-                      >
-                        <option value="all">All themes</option>
-                        {themeOptions.map(opt => (
-                          <option key={opt.id} value={opt.id}>
-                            {opt.name}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                    <div className="flex shrink-0 flex-col gap-1">
-                      <span className="text-xs font-medium text-foreground-muted">
-                        Group
-                      </span>
-                      <SegmentedControl
-                        size="sm"
-                        segments={[
-                          { key: 'status', label: 'Collection' },
-                          { key: 'theme', label: 'Theme' },
-                        ]}
-                        value={groupBy}
-                        onChange={key => setGroupBy(key as GroupBy)}
-                      />
-                    </div>
-                  </>
-                )}
-                {collectionType === 'minifigs' && hasAnyMinifigs && (
-                  <>
-                    <div className="flex shrink-0 flex-col gap-1">
-                      <span className="text-xs font-medium text-foreground-muted">
-                        Theme
-                      </span>
-                      <Select
-                        id="category-filter"
-                        size="sm"
-                        className="min-w-[120px]"
-                        value={
-                          categoryFilter === 'all'
-                            ? 'all'
-                            : String(categoryFilter)
-                        }
-                        onChange={event => {
-                          const v = event.target.value;
-                          if (v === 'all') {
-                            setCategoryFilter('all');
-                          } else {
-                            const parsed = Number(v);
-                            setCategoryFilter(
-                              Number.isFinite(parsed) ? parsed : 'all'
-                            );
-                          }
-                        }}
-                      >
-                        <option value="all">All themes</option>
-                        {categoryOptions.map(opt => (
-                          <option key={opt.id} value={opt.id}>
-                            {opt.name}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                    <div className="flex shrink-0 flex-col gap-1">
-                      <span className="text-xs font-medium text-foreground-muted">
-                        Group
-                      </span>
-                      <SegmentedControl
-                        size="sm"
-                        segments={[
-                          { key: 'status', label: 'Collection' },
-                          { key: 'category', label: 'Theme' },
-                        ]}
-                        value={minifigGroupBy}
-                        onChange={key =>
-                          setMinifigGroupBy(key as MinifigGroupBy)
-                        }
-                      />
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-            <div className="flex shrink-0 flex-col gap-1">
-              <span className="text-xs font-medium text-foreground-muted">
-                Type
-              </span>
-              <SegmentedControl
-                size="sm"
-                segments={[
-                  { key: 'sets', label: 'Sets' },
-                  { key: 'minifigs', label: 'Minifigs' },
-                ]}
-                value={collectionType}
-                onChange={key =>
-                  handleCollectionTypeChange(key as CollectionType)
-                }
-              />
-            </div>
-          </FilterBar>
-        </div>
-
-        {!hasAnyItems && (
+      <div className="mx-auto w-full max-w-7xl px-4">
+        {!hasAnySets && collectionType === 'sets' && (
           <div className="mt-2 text-sm text-foreground-muted">
-            {collectionType === 'sets' ? (
-              <>
-                You have no tracked sets yet. Use the status menu on search
-                results or set pages to mark sets as{' '}
-                <span className="font-medium">Owned</span> or add them to your{' '}
-                <span className="font-medium">Wishlist</span>.
-              </>
-            ) : (
-              <>
-                You have no tracked minifigures yet. Once you mark minifigs as{' '}
-                <span className="font-medium">Owned</span> or add them to your{' '}
-                <span className="font-medium">Wishlist</span>, they will appear
-                here.
-              </>
-            )}
+            You have no tracked sets yet. Use the status menu on search results
+            or set pages to mark sets as{' '}
+            <span className="font-medium">Owned</span> or add them to your{' '}
+            <span className="font-medium">Wishlist</span>.
+          </div>
+        )}
+
+        {!hasAnyMinifigs && collectionType === 'minifigs' && (
+          <div className="mt-2 text-sm text-foreground-muted">
+            You have no tracked minifigures yet. Once you mark minifigs as{' '}
+            <span className="font-medium">Owned</span> or add them to your{' '}
+            <span className="font-medium">Wishlist</span>, they will appear
+            here.
           </div>
         )}
 

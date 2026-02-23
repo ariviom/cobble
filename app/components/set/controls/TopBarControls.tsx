@@ -158,101 +158,92 @@ export function TopBarControls({
       {/* Sidebar Group Triggers — Pieces & Colors (absolute-positioned sidebar on desktop) */}
       <div className="sidebar relative min-w-0 shrink-0 border-subtle lg:fixed lg:top-[calc(var(--spacing-nav-offset)+var(--grid-row-tabs,0px))] lg:left-0 lg:h-[calc(100dvh-var(--spacing-nav-offset)-var(--grid-row-tabs,0px))] lg:w-80 lg:overflow-y-auto lg:border-r lg:bg-card">
         <div className="flex flex-nowrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-0">
-          {/* Pieces: always show on desktop (disabled when loading), conditional on mobile */}
-          {(isDesktop || parentOptions.length > 0) && (
-            <div className="lg:relative">
-              <DropdownTrigger
-                id="parent-trigger"
-                panelId="parent-panel"
-                label={
-                  isDesktop
-                    ? 'Pieces'
-                    : filter.parents?.length
-                      ? `Pieces (${filter.parents.length})`
-                      : 'Pieces'
-                }
-                subLabel={
-                  isDesktop
-                    ? formatSelectionSubLabel(
-                        filter.parents || [],
-                        parentOptions
-                      )
-                    : undefined
-                }
-                labelIcon={<FolderTree size={16} />}
-                isOpen={isDesktop ? isParentOpen : openDropdownId === 'parent'}
-                onToggle={() => onToggleDropdown('parent')}
-                variant="sidebar"
-                disabled={isLoading || parentOptions.length === 0}
-              />
-              {!isLoading &&
-                parentOptions.length > 0 &&
-                (isDesktop ? isParentOpen : openDropdownId === 'parent') && (
-                  <DropdownPanelFrame
-                    id="parent-panel"
-                    labelledBy="parent-trigger"
-                    isOpen={true}
-                    variant="sidebar"
-                  >
-                    <SidebarCategoryPanel
-                      filter={filter}
-                      onChangeFilter={onChangeFilter}
-                      parentOptions={parentOptions}
-                      subcategoriesByParent={subcategoriesByParent}
-                      {...(parentCounts ? { parentCounts } : {})}
-                    />
-                  </DropdownPanelFrame>
-                )}
-            </div>
-          )}
+          {/* Pieces */}
+          <div className="lg:relative">
+            <DropdownTrigger
+              id="parent-trigger"
+              panelId="parent-panel"
+              label={
+                isDesktop
+                  ? 'Pieces'
+                  : filter.parents?.length
+                    ? `Pieces (${filter.parents.length})`
+                    : 'Pieces'
+              }
+              subLabel={
+                isDesktop
+                  ? formatSelectionSubLabel(filter.parents || [], parentOptions)
+                  : undefined
+              }
+              labelIcon={<FolderTree size={16} />}
+              isOpen={isDesktop ? isParentOpen : openDropdownId === 'parent'}
+              onToggle={() => onToggleDropdown('parent')}
+              variant="sidebar"
+              disabled={isLoading || parentOptions.length === 0}
+            />
+            {!isLoading &&
+              parentOptions.length > 0 &&
+              (isDesktop ? isParentOpen : openDropdownId === 'parent') && (
+                <DropdownPanelFrame
+                  id="parent-panel"
+                  labelledBy="parent-trigger"
+                  isOpen={true}
+                  variant="sidebar"
+                >
+                  <SidebarCategoryPanel
+                    filter={filter}
+                    onChangeFilter={onChangeFilter}
+                    parentOptions={parentOptions}
+                    subcategoriesByParent={subcategoriesByParent}
+                    {...(parentCounts ? { parentCounts } : {})}
+                  />
+                </DropdownPanelFrame>
+              )}
+          </div>
 
-          {/* Colors: always show on desktop (disabled when loading), conditional on mobile */}
-          {(isDesktop || (colorOptions && colorOptions.length > 0)) && (
-            <div className="lg:relative">
-              <DropdownTrigger
-                id="color-trigger"
-                panelId="color-panel"
-                label={
-                  isDesktop
-                    ? 'Colors'
-                    : filter.colors?.length
-                      ? `Colors (${filter.colors.length})`
-                      : 'Colors'
-                }
-                subLabel={
-                  isDesktop
-                    ? formatSelectionSubLabel(filter.colors || [], colorOptions)
-                    : undefined
-                }
-                labelIcon={<Palette size={16} />}
-                isOpen={isDesktop ? isColorOpen : openDropdownId === 'color'}
-                onToggle={() => onToggleDropdown('color')}
-                variant="sidebar"
-                disabled={
-                  isLoading || !colorOptions || colorOptions.length === 0
-                }
-              />
-              {!isLoading &&
-                colorOptions &&
-                colorOptions.length > 0 &&
-                (isDesktop ? isColorOpen : openDropdownId === 'color') && (
-                  <DropdownPanelFrame
-                    id="color-panel"
-                    labelledBy="color-trigger"
-                    isOpen={true}
-                    variant="sidebar"
-                  >
-                    <SidebarColorPanel
-                      colorOptions={colorOptions}
-                      availableColors={availableColors}
-                      selectedColors={filter.colors || []}
-                      onToggleColor={onToggleColor}
-                      onClear={() => onChangeFilter({ ...filter, colors: [] })}
-                    />
-                  </DropdownPanelFrame>
-                )}
-            </div>
-          )}
+          {/* Colors */}
+          <div className="lg:relative">
+            <DropdownTrigger
+              id="color-trigger"
+              panelId="color-panel"
+              label={
+                isDesktop
+                  ? 'Colors'
+                  : filter.colors?.length
+                    ? `Colors (${filter.colors.length})`
+                    : 'Colors'
+              }
+              subLabel={
+                isDesktop
+                  ? formatSelectionSubLabel(filter.colors || [], colorOptions)
+                  : undefined
+              }
+              labelIcon={<Palette size={16} />}
+              isOpen={isDesktop ? isColorOpen : openDropdownId === 'color'}
+              onToggle={() => onToggleDropdown('color')}
+              variant="sidebar"
+              disabled={isLoading || !colorOptions || colorOptions.length === 0}
+            />
+            {!isLoading &&
+              colorOptions &&
+              colorOptions.length > 0 &&
+              (isDesktop ? isColorOpen : openDropdownId === 'color') && (
+                <DropdownPanelFrame
+                  id="color-panel"
+                  labelledBy="color-trigger"
+                  isOpen={true}
+                  variant="sidebar"
+                >
+                  <SidebarColorPanel
+                    colorOptions={colorOptions}
+                    availableColors={availableColors}
+                    selectedColors={filter.colors || []}
+                    onToggleColor={onToggleColor}
+                    onClear={() => onChangeFilter({ ...filter, colors: [] })}
+                  />
+                </DropdownPanelFrame>
+              )}
+          </div>
         </div>
       </div>
 

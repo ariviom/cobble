@@ -3,9 +3,9 @@
 import { MinifigSearchResultItem } from '@/app/components/minifig/MinifigSearchResultItem';
 import { useAuth } from '@/app/components/providers/auth-provider';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
+import { CollectionGroupHeading } from '@/app/components/ui/CollectionGroupHeading';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
-import { Select } from '@/app/components/ui/Select';
 import { AppError, throwAppErrorFromResponse } from '@/app/lib/domain/errors';
 import type {
   FilterType,
@@ -19,7 +19,14 @@ import type {
 } from '@/app/types/search';
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo } from 'react';
+import {
+  MinifigSearchControlBar,
+  SetSearchControlBar,
+  fromSortOption,
+  getPiecesBucket,
+  piecesBucketOrder,
+} from './SearchControlBar';
 import { SearchResultListItem } from './SearchResultListItem';
 
 async function fetchSearchPage(
@@ -80,6 +87,29 @@ function parseExactParam(value: string | null): boolean {
   return normalized === '1' || normalized === 'true' || normalized === 'yes';
 }
 
+const allowedSorts: SortOption[] = [
+  'relevance',
+  'pieces-asc',
+  'pieces-desc',
+  'year-asc',
+  'year-desc',
+  'theme-asc',
+  'theme-desc',
+];
+function parseSortParam(value: string | null): SortOption {
+  if (value && allowedSorts.includes(value as SortOption)) {
+    return value as SortOption;
+  }
+  return 'relevance';
+}
+
+const allowedPageSizes = [20, 50, 100];
+function parsePageSizeParam(value: string | null): number {
+  if (!value) return 20;
+  const num = Number(value);
+  return allowedPageSizes.includes(num) ? num : 20;
+}
+
 const allowedMinifigSorts: MinifigSortOption[] = [
   'relevance',
   'theme-asc',
@@ -101,6 +131,94 @@ function parseTypeParam(value: string | null): SearchType {
   return 'set';
 }
 
+/** Replace a URL search param, removing it when it matches the default. */
+function setParam(
+  sp: URLSearchParams,
+  key: string,
+  value: string,
+  defaultValue: string
+) {
+  if (value === defaultValue) {
+    sp.delete(key);
+  } else {
+    sp.set(key, value);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Grouping helpers
+// ---------------------------------------------------------------------------
+
+type GroupedResults<T> = { label: string; items: T[] }[];
+
+function groupSearchResults(
+  results: SearchResult[],
+  sort: SortOption
+): GroupedResults<SearchResult> {
+  const { field, dir } = fromSortOption(sort);
+
+  // Relevance — no grouping
+  if (field === 'relevance') {
+    return [{ label: 'Results', items: results }];
+  }
+
+  const groups = new Map<string, SearchResult[]>();
+  for (const r of results) {
+    let key: string;
+    if (field === 'year') {
+      key = r.year > 0 ? String(r.year) : 'Unknown Year';
+    } else if (field === 'pieces') {
+      key = getPiecesBucket(r.numParts);
+    } else {
+      // theme
+      key = r.themeName ?? r.themePath ?? 'Unknown Theme';
+    }
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(r);
+  }
+
+  const entries = Array.from(groups.entries()).map(([label, items]) => ({
+    label,
+    items,
+  }));
+
+  if (field === 'year') {
+    return entries.sort((a, b) => {
+      const aUnk = a.label === 'Unknown Year';
+      const bUnk = b.label === 'Unknown Year';
+      if (aUnk && bUnk) return 0;
+      if (aUnk) return 1;
+      if (bUnk) return -1;
+      return dir === 'desc'
+        ? Number(b.label) - Number(a.label)
+        : Number(a.label) - Number(b.label);
+    });
+  }
+
+  if (field === 'pieces') {
+    for (const group of entries) {
+      group.items.sort((a, b) =>
+        dir === 'desc' ? b.numParts - a.numParts : a.numParts - b.numParts
+      );
+    }
+    return entries.sort((a, b) => {
+      const diff = piecesBucketOrder(a.label) - piecesBucketOrder(b.label);
+      return dir === 'desc' ? -diff : diff;
+    });
+  }
+
+  // theme — alphabetical
+  return entries.sort((a, b) =>
+    dir === 'desc'
+      ? b.label.localeCompare(a.label)
+      : a.label.localeCompare(b.label)
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export function SearchResults() {
   const params = useSearchParams();
   const router = useRouter();
@@ -109,49 +227,42 @@ export function SearchResults() {
   const q = params.get('q') ?? '';
   const hasQuery = q.trim().length > 0;
   const searchType = parseTypeParam(params.get('type'));
-  const [sort, setSort] = useState<SortOption>('relevance');
-  const [pageSize, setPageSize] = useState<number>(20);
 
-  // Derive values directly from URL params - no useEffect sync needed
+  // Derive all controls from URL params
+  const sort = parseSortParam(params.get('sort'));
+  const pageSize = parsePageSizeParam(params.get('pageSize'));
   const filter = parseFilterParam(params.get('filter'));
   const exact = parseExactParam(params.get('exact'));
   const minifigSort = parseMinifigSort(params.get('mfSort'));
 
-  const handleFilterChange = (nextFilter: FilterType) => {
-    if (nextFilter === filter) {
-      return;
-    }
+  // Helper to update a URL param and replace
+  const updateParam = (key: string, value: string, defaultValue: string) => {
     const sp = new URLSearchParams(Array.from(params.entries()));
-    sp.set('filter', nextFilter);
+    setParam(sp, key, value, defaultValue);
     const nextSearch = sp.toString();
     router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname);
   };
 
-  const handleMinifigSortChange = (nextSort: MinifigSortOption) => {
-    if (nextSort === minifigSort) return;
-    const sp = new URLSearchParams(Array.from(params.entries()));
-    if (nextSort === 'relevance') {
-      sp.delete('mfSort');
-    } else {
-      sp.set('mfSort', nextSort);
-    }
-    const nextSearch = sp.toString();
-    router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname);
+  const handleSortChange = (next: SortOption) => {
+    updateParam('sort', next, 'relevance');
+  };
+
+  const handlePageSizeChange = (next: number) => {
+    updateParam('pageSize', String(next), '20');
+  };
+
+  const handleFilterChange = (nextFilter: FilterType) => {
+    updateParam('filter', nextFilter, 'all');
   };
 
   const handleExactChange = (nextExact: boolean) => {
-    if (nextExact === exact) {
-      return;
-    }
-    const sp = new URLSearchParams(Array.from(params.entries()));
-    if (nextExact) {
-      sp.set('exact', '1');
-    } else {
-      sp.delete('exact');
-    }
-    const nextSearch = sp.toString();
-    router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname);
+    updateParam('exact', nextExact ? '1' : '', '');
   };
+
+  const handleMinifigSortChange = (nextSort: MinifigSortOption) => {
+    updateParam('mfSort', nextSort, 'relevance');
+  };
+
   const setQuery = useInfiniteQuery<
     SearchPage,
     AppError,
@@ -214,221 +325,160 @@ export function SearchResults() {
     isFetchingNextPage: isFetchingNextMinifigPage,
   } = minifigQuery;
 
+  // Group set results based on the active sort field
+  const { flatResults, grouped } = useMemo(() => {
+    const pages = (setData?.pages as SearchPage[] | undefined) ?? [];
+    const flat = pages.flatMap((p: SearchPage) => p.results);
+    return { flatResults: flat, grouped: groupSearchResults(flat, sort) };
+  }, [setData, sort]);
+
   if (!hasQuery) {
     return null;
   }
+
   if (searchType === 'minifig') {
-    const pages = (minifigData?.pages as MinifigSearchPage[] | undefined) ?? [];
-    const results = pages.flatMap((p: MinifigSearchPage) => p.results) ?? [];
+    const mfPages =
+      (minifigData?.pages as MinifigSearchPage[] | undefined) ?? [];
+    const results = mfPages.flatMap((p: MinifigSearchPage) => p.results) ?? [];
     return (
-      <div className="w-full">
-        <div className="-mx-4 mb-3">
-          <div className="flex items-center gap-3 overflow-x-auto px-4 no-scrollbar">
-            <div className="flex shrink-0 items-center gap-1.5">
-              <span className="text-xs font-medium text-foreground-muted">
-                Sort
-              </span>
-              <Select
-                size="sm"
-                className="min-w-[120px]"
-                value={minifigSort}
-                onChange={e =>
-                  handleMinifigSortChange(e.target.value as MinifigSortOption)
-                }
-              >
-                <option value="relevance">Relevance</option>
-                <option value="theme-asc">Theme A–Z</option>
-                <option value="theme-desc">Theme Z–A</option>
-                <option value="name-asc">Name A–Z</option>
-                <option value="name-desc">Name Z–A</option>
-                <option value="parts-desc">Parts ↓</option>
-                <option value="parts-asc">Parts ↑</option>
-              </Select>
+      <>
+        <MinifigSearchControlBar
+          sort={minifigSort}
+          onSortChange={handleMinifigSortChange}
+        />
+        <div className="container-wide py-6 lg:py-8">
+          {isMinifigLoading && (
+            <div className="flex justify-center py-12 text-center">
+              <BrickLoader />
             </div>
-          </div>
+          )}
+          {minifigError && (
+            <ErrorBanner
+              className="mt-2"
+              message="Failed to load minifigure results. Please try again."
+            />
+          )}
+          {!isMinifigLoading && !minifigError && results.length > 0 && (
+            <div>
+              <div className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {results.map((r: MinifigSearchResult) => (
+                  <MinifigSearchResultItem
+                    key={`${r.figNum}-${r.name}`}
+                    figNum={r.figNum}
+                    blId={r.blId ?? null}
+                    name={r.name}
+                    imageUrl={r.imageUrl}
+                    numParts={r.numParts}
+                    themeName={r.themeName ?? null}
+                    themePath={r.themePath ?? null}
+                  />
+                ))}
+              </div>
+              {hasNextMinifigPage && (
+                <div className="mb-8 flex justify-center py-4">
+                  <button
+                    onClick={() => fetchNextMinifigPage()}
+                    disabled={isFetchingNextMinifigPage}
+                    className="rounded-lg border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
+                  >
+                    {isFetchingNextMinifigPage ? 'Loading…' : 'Load More'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          {!isMinifigLoading && !minifigError && results.length === 0 && (
+            <EmptyState
+              className="mt-4"
+              message="No minifigures found. Try a different ID or name."
+            />
+          )}
         </div>
-        {isMinifigLoading && (
+      </>
+    );
+  }
+
+  const showGroups = grouped.length > 1 || grouped[0]?.label !== 'Results';
+
+  return (
+    <>
+      <SetSearchControlBar
+        sort={sort}
+        onSortChange={handleSortChange}
+        pageSize={pageSize}
+        onPageSizeChange={handlePageSizeChange}
+        filter={filter}
+        onFilterChange={handleFilterChange}
+        exact={exact}
+        onExactChange={handleExactChange}
+      />
+      <div className="container-wide py-6 lg:py-8">
+        {isSetLoading && (
           <div className="flex justify-center py-12 text-center">
             <BrickLoader />
           </div>
         )}
-        {minifigError && (
+        {setError && (
           <ErrorBanner
             className="mt-2"
-            message="Failed to load minifigure results. Please try again."
+            message="Failed to load search results. Please try again."
           />
         )}
-        {!isMinifigLoading && !minifigError && results.length > 0 && (
-          <div className="mt-2">
-            <div className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {results.map((r: MinifigSearchResult) => (
-                <MinifigSearchResultItem
-                  key={`${r.figNum}-${r.name}`}
-                  figNum={r.figNum}
-                  blId={r.blId ?? null}
-                  name={r.name}
-                  imageUrl={r.imageUrl}
-                  numParts={r.numParts}
-                  themeName={r.themeName ?? null}
-                  themePath={r.themePath ?? null}
-                />
+        {!isSetLoading && !setError && flatResults.length > 0 && (
+          <div>
+            {!authLoading && !user && (
+              <p className="mb-3 text-xs font-medium text-foreground-muted">
+                <a
+                  href="/login"
+                  className="text-link underline underline-offset-2 hover:text-link-hover"
+                >
+                  Sign in
+                </a>{' '}
+                to track ownership and organize sets into collections.
+              </p>
+            )}
+            <div className="flex flex-col gap-6">
+              {grouped.map(group => (
+                <div key={group.label} className="flex flex-col gap-2">
+                  {showGroups && (
+                    <CollectionGroupHeading>
+                      {group.label}
+                    </CollectionGroupHeading>
+                  )}
+                  <div
+                    data-item-size="md"
+                    className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+                  >
+                    {group.items.map((r: SearchResult) => (
+                      <SearchResultListItem
+                        key={`${r.setNumber}-${r.name}`}
+                        result={r}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
-            {hasNextMinifigPage && (
+            {hasNextSetPage && (
               <div className="mb-8 flex justify-center py-4">
                 <button
-                  onClick={() => fetchNextMinifigPage()}
-                  disabled={isFetchingNextMinifigPage}
+                  onClick={() => fetchNextSetPage()}
+                  disabled={isFetchingNextSetPage}
                   className="rounded-lg border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
                 >
-                  {isFetchingNextMinifigPage ? 'Loading…' : 'Load More'}
+                  {isFetchingNextSetPage ? 'Loading…' : 'Load More'}
                 </button>
               </div>
             )}
           </div>
         )}
-        {!isMinifigLoading && !minifigError && results.length === 0 && (
+        {!isSetLoading && !setError && flatResults.length === 0 && (
           <EmptyState
             className="mt-4"
-            message="No minifigures found. Try a different ID or name."
+            message="No results found. Try different keywords or check spelling."
           />
         )}
       </div>
-    );
-  }
-
-  const pages = (setData?.pages as SearchPage[] | undefined) ?? [];
-  const results = pages.flatMap((p: SearchPage) => p.results) ?? [];
-
-  return (
-    <div className="w-full">
-      <div className="relative -mx-4 mb-3">
-        <div className="flex items-center gap-3 overflow-x-auto px-4 no-scrollbar">
-          {/* Sort */}
-          <div className="flex shrink-0 items-center gap-1.5">
-            <span className="text-xs font-medium text-foreground-muted">
-              Sort
-            </span>
-            <Select
-              size="sm"
-              className="min-w-[120px]"
-              value={sort}
-              onChange={e => setSort(e.target.value as SortOption)}
-            >
-              <option value="relevance">Relevance</option>
-              <option value="pieces-asc">Pieces ↑</option>
-              <option value="pieces-desc">Pieces ↓</option>
-              <option value="year-asc">Year ↑</option>
-              <option value="year-desc">Year ↓</option>
-            </Select>
-          </div>
-
-          {/* Per page */}
-          <div className="flex shrink-0 items-center gap-1.5">
-            <span className="text-xs font-medium text-foreground-muted">
-              Show
-            </span>
-            <Select
-              size="sm"
-              className="min-w-[70px]"
-              value={String(pageSize)}
-              onChange={e => setPageSize(Number(e.target.value))}
-            >
-              <option value="20">20</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </Select>
-          </div>
-
-          {/* Filter */}
-          <div className="flex shrink-0 items-center gap-1.5">
-            <span className="text-xs font-medium text-foreground-muted">
-              Filter
-            </span>
-            <Select
-              size="sm"
-              className="min-w-[100px]"
-              value={filter}
-              onChange={e => handleFilterChange(e.target.value as FilterType)}
-            >
-              <option value="all">All</option>
-              <option value="set">Set</option>
-              <option value="theme">Theme</option>
-              <option value="subtheme">Subtheme</option>
-            </Select>
-          </div>
-
-          {/* Exact match */}
-          <div className="flex shrink-0 items-center gap-1.5">
-            <span className="text-xs font-medium text-foreground-muted">
-              Exact
-            </span>
-            <Select
-              size="sm"
-              className="min-w-[70px]"
-              value={exact ? 'on' : 'off'}
-              onChange={e => handleExactChange(e.target.value === 'on')}
-            >
-              <option value="off">Off</option>
-              <option value="on">On</option>
-            </Select>
-          </div>
-        </div>
-      </div>
-      {isSetLoading && (
-        <div className="flex justify-center py-12 text-center">
-          <BrickLoader />
-        </div>
-      )}
-      {setError && (
-        <ErrorBanner
-          className="mt-2"
-          message="Failed to load search results. Please try again."
-        />
-      )}
-      {!isSetLoading && !setError && results.length > 0 && (
-        <div className="mt-2">
-          {!authLoading && !user && (
-            <p className="mb-3 text-xs font-medium text-foreground-muted">
-              <a
-                href="/login"
-                className="text-link underline underline-offset-2 hover:text-link-hover"
-              >
-                Sign in
-              </a>{' '}
-              to track ownership and organize sets into collections.
-            </p>
-          )}
-          <div
-            data-item-size="md"
-            className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-          >
-            {results.map((r: SearchResult) => (
-              <SearchResultListItem
-                key={`${r.setNumber}-${r.name}`}
-                result={r}
-              />
-            ))}
-          </div>
-          {hasNextSetPage && (
-            <div className="mb-8 flex justify-center py-4">
-              <button
-                onClick={() => fetchNextSetPage()}
-                disabled={isFetchingNextSetPage}
-                className="rounded-lg border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
-              >
-                {isFetchingNextSetPage ? 'Loading…' : 'Load More'}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-      {!isSetLoading && !setError && results.length === 0 && (
-        <EmptyState
-          className="mt-4"
-          message="No results found. Try different keywords or check spelling."
-        />
-      )}
-    </div>
+    </>
   );
 }

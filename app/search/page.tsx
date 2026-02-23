@@ -68,12 +68,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <div className="h-1.5 bg-brand-yellow" />
       </section>
 
-      {/* Results */}
-      <section className="container-wide py-6 lg:py-8">
-        <Suspense fallback={null}>
-          <SearchResults />
-        </Suspense>
-      </section>
+      {/* Results — control bar is full-width, content uses container-wide internally */}
+      <Suspense fallback={null}>
+        <SearchResults />
+      </Suspense>
     </>
   );
 }
