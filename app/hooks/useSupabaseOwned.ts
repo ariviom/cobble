@@ -416,7 +416,46 @@ export function useSupabaseOwned({
         return;
       }
 
-      // No prior decision and data differs: show prompt with simple totals.
+      // Auto-resolve when one side is empty: keep the side with data.
+      if (localTotal === 0 && supabaseTotal > 0) {
+        // Cloud has data, local is empty — pull cloud data down.
+        for (const [key, qty] of supabaseByKey) {
+          setOwned(setNumber, key, qty);
+        }
+        try {
+          window.localStorage.setItem(
+            migrationDecisionKey as string,
+            'supabase_kept'
+          );
+        } catch {
+          // ignore
+        }
+        setHydrated(true);
+        return;
+      }
+
+      if (supabaseTotal === 0 && localTotal > 0) {
+        // Local has data, cloud is empty — push local data up.
+        for (const key of keys) {
+          const owned = getOwned(setNumber, key);
+          const qty = Math.max(0, Math.floor(owned || 0));
+          if (qty > 0) {
+            enqueueChange(key, qty);
+          }
+        }
+        try {
+          window.localStorage.setItem(
+            migrationDecisionKey as string,
+            'local_to_supabase'
+          );
+        } catch {
+          // ignore
+        }
+        setHydrated(true);
+        return;
+      }
+
+      // Both sides have data and differ: show prompt with simple totals.
       setMigration({
         open: true,
         localTotal,
@@ -445,6 +484,7 @@ export function useSupabaseOwned({
     setNumber,
     hydrated,
     isOwnedHydrated,
+    enqueueChange,
   ]);
 
   const confirmMigration = useCallback(async () => {
