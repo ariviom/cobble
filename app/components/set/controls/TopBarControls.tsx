@@ -1,5 +1,6 @@
 'use client';
 
+import { ClearAllButton } from '@/app/components/ui/ClearAllButton';
 import {
   DropdownPanelFrame,
   DropdownSection,
@@ -8,7 +9,6 @@ import {
   SingleSelectList,
   formatSelectionSubLabel,
 } from '@/app/components/ui/GroupedDropdown';
-import { ClearAllButton } from '@/app/components/ui/ClearAllButton';
 import { RowButton } from '@/app/components/ui/RowButton';
 import { RowCheckbox } from '@/app/components/ui/RowCheckbox';
 import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
@@ -127,6 +127,7 @@ export function TopBarControls({
           labelIcon={<Filter size={16} />}
           isOpen={openDropdownId === 'display'}
           onToggle={() => onToggleDropdown('display')}
+          disabled={isLoading}
         />
         {openDropdownId === 'display' && (
           <DropdownPanelFrame
@@ -259,6 +260,7 @@ export function TopBarControls({
           labelIcon={<Diamond size={16} />}
           isOpen={openDropdownId === 'rarity'}
           onToggle={() => onToggleDropdown('rarity')}
+          disabled={isLoading}
         />
         {openDropdownId === 'rarity' && (
           <DropdownPanelFrame
@@ -320,62 +322,13 @@ export function TopBarControls({
 
       <div className="lg:relative">
         <DropdownTrigger
-          id="view-trigger"
-          panelId="view-panel"
-          label={view === 'grid' ? 'Grid' : 'List'}
-          labelIcon={view === 'grid' ? <Grid size={16} /> : <List size={16} />}
-          isOpen={openDropdownId === 'view'}
-          onToggle={() => onToggleDropdown('view')}
-        />
-        {openDropdownId === 'view' && (
-          <DropdownPanelFrame
-            id="view-panel"
-            labelledBy="view-trigger"
-            isOpen={true}
-            className={
-              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
-            }
-            variant={isDesktop ? 'default' : 'sidebar'}
-          >
-            <DropdownSection label="View">
-              <SingleSelectList
-                options={[
-                  { key: 'list', text: 'List', icon: <List size={16} /> },
-                  { key: 'grid', text: 'Grid', icon: <Grid size={16} /> },
-                ]}
-                selectedKey={view}
-                onChange={k => {
-                  onChangeView(k as ViewType);
-                  onCloseDropdown('view');
-                }}
-              />
-            </DropdownSection>
-            <DropdownSection label="Size">
-              <SingleSelectList
-                options={[
-                  { key: 'lg', text: 'Large' },
-                  { key: 'md', text: 'Medium' },
-                  { key: 'sm', text: 'Small' },
-                ]}
-                selectedKey={itemSize}
-                onChange={k => {
-                  onChangeItemSize(k as ItemSize);
-                  onCloseDropdown('view');
-                }}
-              />
-            </DropdownSection>
-          </DropdownPanelFrame>
-        )}
-      </div>
-
-      <div className="lg:relative">
-        <DropdownTrigger
           id="sort-trigger"
           panelId="sort-panel"
           label="Sort"
           labelIcon={<SortAsc size={16} />}
           isOpen={openDropdownId === 'sort'}
           onToggle={() => onToggleDropdown('sort')}
+          disabled={isLoading}
         />
         {openDropdownId === 'sort' && (
           <DropdownPanelFrame
@@ -397,6 +350,7 @@ export function TopBarControls({
                     { key: 'color', text: 'Color' },
                     { key: 'size', text: 'Size' },
                     { key: 'category', text: 'Category' },
+                    { key: 'quantity', text: 'Quantity' },
                     { key: 'rarity', text: 'Rarity' },
                     ...(pricingEnabled
                       ? [{ key: 'price', text: 'Price' }]
@@ -445,12 +399,64 @@ export function TopBarControls({
 
       <div className="lg:relative">
         <DropdownTrigger
+          id="view-trigger"
+          panelId="view-panel"
+          label={view === 'grid' ? 'Grid' : 'List'}
+          labelIcon={view === 'grid' ? <Grid size={16} /> : <List size={16} />}
+          isOpen={openDropdownId === 'view'}
+          onToggle={() => onToggleDropdown('view')}
+          disabled={isLoading}
+        />
+        {openDropdownId === 'view' && (
+          <DropdownPanelFrame
+            id="view-panel"
+            labelledBy="view-trigger"
+            isOpen={true}
+            className={
+              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
+            }
+            variant={isDesktop ? 'default' : 'sidebar'}
+          >
+            <DropdownSection label="View">
+              <SingleSelectList
+                options={[
+                  { key: 'list', text: 'List', icon: <List size={16} /> },
+                  { key: 'grid', text: 'Grid', icon: <Grid size={16} /> },
+                ]}
+                selectedKey={view}
+                onChange={k => {
+                  onChangeView(k as ViewType);
+                  onCloseDropdown('view');
+                }}
+              />
+            </DropdownSection>
+            <DropdownSection label="Size">
+              <SingleSelectList
+                options={[
+                  { key: 'lg', text: 'Large' },
+                  { key: 'md', text: 'Medium' },
+                  { key: 'sm', text: 'Small' },
+                ]}
+                selectedKey={itemSize}
+                onChange={k => {
+                  onChangeItemSize(k as ItemSize);
+                  onCloseDropdown('view');
+                }}
+              />
+            </DropdownSection>
+          </DropdownPanelFrame>
+        )}
+      </div>
+
+      <div className="lg:relative">
+        <DropdownTrigger
           id="markall-trigger"
           panelId="markall-panel"
           label="Mark All"
           labelIcon={<CheckSquare size={16} />}
           isOpen={openDropdownId === 'markAll'}
           onToggle={() => onToggleDropdown('markAll')}
+          disabled={isLoading}
         />
         {openDropdownId === 'markAll' && (
           <DropdownPanelFrame
@@ -503,6 +509,7 @@ export function TopBarControls({
           labelIcon={<Pin size={16} />}
           isOpen={openDropdownId === 'pinned'}
           onToggle={() => onToggleDropdown('pinned')}
+          disabled={isLoading}
         />
         {openDropdownId === 'pinned' && (
           <DropdownPanelFrame
@@ -530,6 +537,7 @@ export function TopBarControls({
           labelIcon={<Download size={16} />}
           isOpen={false}
           onToggle={onOpenExportModal}
+          disabled={isLoading}
         />
       </div>
     </>

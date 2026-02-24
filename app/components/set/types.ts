@@ -94,7 +94,8 @@ export type SortKey =
   | 'size'
   | 'category'
   | 'price'
-  | 'rarity';
+  | 'rarity'
+  | 'quantity';
 
 export type ViewType = 'list' | 'grid';
 

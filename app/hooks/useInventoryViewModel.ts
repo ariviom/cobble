@@ -344,6 +344,9 @@ export function useInventoryViewModel(
           base = scA - scB;
           break;
         }
+        case 'quantity':
+          base = ra.quantityRequired - rb.quantityRequired;
+          break;
       }
 
       if (base === 0) {
