@@ -152,6 +152,7 @@ export class SyncWorker {
     keepalive?: boolean;
     force?: boolean;
   }): Promise<void> {
+    if (this.isSyncing) return;
     if (this.isDestroyed) return;
     if (!this.isAvailable || !this.isReady) return;
 

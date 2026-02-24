@@ -1,12 +1,13 @@
 'use client';
 
 import { ExportModal } from '@/app/components/export/ExportModal';
+import { useAuth } from '@/app/components/providers/auth-provider';
 import { Button } from '@/app/components/ui/Button';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Modal } from '@/app/components/ui/Modal';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
 import {
   useInventoryData,
@@ -106,6 +107,8 @@ export function Inventory() {
   } = useInventoryData();
   const sp = useOptionalSearchParty();
   const isInGroupSession = sp?.isInGroupSession ?? false;
+  const { user, isLoading: authLoading } = useAuth();
+  const isAuthenticated = !!user && !authLoading;
   const {
     view,
     itemSize,
@@ -181,64 +184,9 @@ export function Inventory() {
     requestPricesForKeys,
   ]);
 
-  // Render a single inventory item
-  const renderInventoryItem = useCallback(
-    (rowIndex: number, key: string) => {
-      const row = rows[rowIndex]!;
-      const priceInfo = pricesByKey ? pricesByKey[key] : null;
-
-      // Compute displayOwned: use derived status for parent minifigs
-      const isMinifigParent =
-        row.parentCategory === 'Minifigure' &&
-        typeof row.partId === 'string' &&
-        row.partId.startsWith('fig:');
-      const derivedStatus = isMinifigParent
-        ? minifigStatusByKey.get(key)
-        : null;
-      const displayOwned =
-        derivedStatus?.state === 'complete'
-          ? row.quantityRequired
-          : (ownedByKey[key] ?? 0);
-
-      const missingQty = computeMissing(
-        row.quantityRequired ?? 0,
-        displayOwned
-      );
-
-      return (
-        <InventoryItem
-          key={key}
-          setNumber={setNumber}
-          row={row}
-          owned={displayOwned}
-          missing={missingQty}
-          bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
-          rarityTier={rarityByIndex[rowIndex]}
-          onOwnedChange={nextOwned => {
-            const clamped = clampOwned(nextOwned, row.quantityRequired ?? 0);
-            handleOwnedChange(key, clamped);
-          }}
-          isPinned={isPinned(key)}
-          onTogglePinned={() => togglePinned(key)}
-          onShowMoreInfo={() => setSelectedItemKey(key)}
-        />
-      );
-    },
-    [
-      rows,
-      pricesByKey,
-      ownedByKey,
-      minifigStatusByKey,
-      rarityByIndex,
-      setNumber,
-      handleOwnedChange,
-      isPinned,
-      togglePinned,
-    ]
-  );
-
-  // Render items with group headers when grouping is active
-  const renderedItems = useMemo(() => {
+  // Inline rendering helper — renders items directly in JSX.
+  // InventoryItem's memo comparator prevents DOM updates for unchanged items.
+  const renderItems = () => {
     const elements: React.ReactNode[] = [];
     let lastGroupKey: string | null = null;
 
@@ -263,11 +211,51 @@ export function Inventory() {
       }
 
       const key = keys[rowIndex]!;
-      elements.push(renderInventoryItem(rowIndex, key));
+      const row = rows[rowIndex]!;
+      const priceInfo = pricesByKey ? pricesByKey[key] : null;
+
+      // Compute displayOwned: use derived status for parent minifigs
+      const isMinifigParent =
+        row.parentCategory === 'Minifigure' &&
+        typeof row.partId === 'string' &&
+        row.partId.startsWith('fig:');
+      const derivedStatus = isMinifigParent
+        ? minifigStatusByKey.get(key)
+        : null;
+      const displayOwned =
+        derivedStatus?.state === 'complete'
+          ? row.quantityRequired
+          : (ownedByKey[key] ?? 0);
+
+      const missingQty = computeMissing(
+        row.quantityRequired ?? 0,
+        displayOwned
+      );
+
+      elements.push(
+        <InventoryItem
+          key={key}
+          setNumber={setNumber}
+          row={row}
+          owned={displayOwned}
+          missing={missingQty}
+          bricklinkColorId={priceInfo?.bricklinkColorId ?? null}
+          rarityTier={rarityByIndex[rowIndex]}
+          onOwnedChange={nextOwned => {
+            const clamped = clampOwned(nextOwned, row.quantityRequired ?? 0);
+            handleOwnedChange(key, clamped);
+          }}
+          isPinned={isPinned(key)}
+          onTogglePinned={() => togglePinned(key)}
+          onShowMoreInfo={() => setSelectedItemKey(key)}
+          isAuthenticated={isAuthenticated}
+          isInGroupSession={isInGroupSession}
+        />
+      );
     }
 
     return elements;
-  }, [sortedIndices, keys, groupKeyByIndex, renderInventoryItem]);
+  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -316,7 +304,7 @@ export function Inventory() {
               data-view={view}
               data-item-size={itemSize}
             >
-              {renderedItems}
+              {renderItems()}
             </div>
           )}
         </div>

@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     });
   }
   const clientIp = (await getClientIp(req)) ?? 'unknown';
-  const ipLimit = await consumeRateLimit(`ip:${clientIp}`, {
+  const ipLimit = await consumeRateLimit(`bl-supersets:ip:${clientIp}`, {
     windowMs: RATE_WINDOW_MS,
     maxHits: RATE_LIMIT_PER_MINUTE,
   });

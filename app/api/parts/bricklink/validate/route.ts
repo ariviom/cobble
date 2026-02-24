@@ -1,6 +1,7 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { blValidatePart } from '@/app/lib/bricklink';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { incrementCounter, logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
@@ -51,6 +52,15 @@ async function selfHealBlPartId(
  *   { validBlPartId: string | null, corrected: boolean }
  */
 export async function GET(req: NextRequest) {
+  const supabase = await getSupabaseAuthServerClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return errorResponse('unauthorized');
+  }
+
   const { searchParams } = new URL(req.url);
   const blPartId = searchParams.get('blPartId')?.trim();
   const rbPartId = searchParams.get('rbPartId')?.trim();
@@ -62,7 +72,7 @@ export async function GET(req: NextRequest) {
   }
 
   const clientIp = (await getClientIp(req)) ?? 'unknown';
-  const ipLimit = await consumeRateLimit(`ip:bl-validate:${clientIp}`, {
+  const ipLimit = await consumeRateLimit(`bl-validate:ip:${clientIp}`, {
     windowMs: RATE_WINDOW_MS,
     maxHits: RATE_LIMIT_PER_MINUTE,
   });

@@ -1326,42 +1326,44 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
 
               {hasSearched && (
                 <>
-                  <div className="mt-5 mb-2 flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold tracking-wide text-foreground-muted uppercase">
-                      {sets.length > 0
-                        ? `Found in ${sets.length} set${sets.length !== 1 ? 's' : ''}`
-                        : 'Sets'}
-                    </span>
-                    {loadingPhase && (
-                      <BrickLoader
-                        size="sm"
-                        label={LOADING_PHASE_LABELS[loadingPhase]}
-                      />
-                    )}
-                  </div>
-                  <Suspense fallback={<BrickLoader />}>
-                    <IdentifySetList
-                      items={sets}
-                      source={blPartId ? 'bl_supersets' : 'rb'}
-                    />
-                  </Suspense>
-
-                  {part?.isMinifig && rarestSubpartSets.length > 0 && (
+                  {loadingPhase ? (
+                    <div className="flex items-center justify-center py-12">
+                      <BrickLoader label={LOADING_PHASE_LABELS[loadingPhase]} />
+                    </div>
+                  ) : (
                     <>
-                      <div className="mt-6 mb-2">
+                      <div className="mt-5 mb-2">
                         <span className="text-xs font-semibold tracking-wide text-foreground-muted uppercase">
-                          May also appear in
+                          {sets.length > 0
+                            ? `Found in ${sets.length} set${sets.length !== 1 ? 's' : ''}`
+                            : 'Sets'}
                         </span>
-                        <p className="mt-0.5 text-xs text-foreground-muted">
-                          Rarest minifig part appears in these sets.
-                        </p>
                       </div>
                       <Suspense fallback={<BrickLoader />}>
                         <IdentifySetList
-                          items={rarestSubpartSets}
-                          source="rb"
+                          items={sets}
+                          source={blPartId ? 'bl_supersets' : 'rb'}
                         />
                       </Suspense>
+
+                      {part?.isMinifig && rarestSubpartSets.length > 0 && (
+                        <>
+                          <div className="mt-6 mb-2">
+                            <span className="text-xs font-semibold tracking-wide text-foreground-muted uppercase">
+                              May also appear in
+                            </span>
+                            <p className="mt-0.5 text-xs text-foreground-muted">
+                              Rarest minifig part appears in these sets.
+                            </p>
+                          </div>
+                          <Suspense fallback={<BrickLoader />}>
+                            <IdentifySetList
+                              items={rarestSubpartSets}
+                              source="rb"
+                            />
+                          </Suspense>
+                        </>
+                      )}
                     </>
                   )}
                 </>

@@ -94,6 +94,13 @@ function consumeRateLimitInMemory(
 export async function getClientIp(req: {
   headers: Headers;
 }): Promise<string | null> {
+  // Platform-verified headers (not client-spoofable) — check first
+  const nfIp = req.headers.get('x-nf-client-connection-ip'); // Netlify
+  if (nfIp && nfIp.trim().length > 0) return nfIp.trim();
+  const realIp = req.headers.get('x-real-ip'); // Vercel
+  if (realIp && realIp.trim().length > 0) return realIp.trim();
+
+  // Fallback: X-Forwarded-For is client-controlled and spoofable
   const xff = req.headers.get('x-forwarded-for');
   if (xff && xff.trim().length > 0) {
     const parts = xff
@@ -102,8 +109,6 @@ export async function getClientIp(req: {
       .filter(Boolean);
     if (parts.length > 0) return parts[0]!;
   }
-  const realIp = req.headers.get('x-real-ip');
-  if (realIp && realIp.trim().length > 0) return realIp.trim();
   return null;
 }
 

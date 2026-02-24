@@ -270,7 +270,6 @@ export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
       }
 
       if (status === 429 || status === 503) {
-        recordFailure();
         let delayMs = 0;
         const retryAfter = res.headers.get('Retry-After');
         if (retryAfter) {
@@ -310,7 +309,6 @@ export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
           continue;
         }
       } else if (status >= 500 && status <= 599 && attempt < RB_MAX_ATTEMPTS) {
-        recordFailure();
         const delayMs = Math.min(300 * attempt, 2000);
         if (process.env.NODE_ENV !== 'production') {
           logger.debug('rebrickable.upstream_error_absolute', {

@@ -1,6 +1,5 @@
 'use client';
 
-import { useAuth } from '@/app/components/providers/auth-provider';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import {
   MoreDropdown,
@@ -12,7 +11,6 @@ import { cn } from '@/app/components/ui/utils';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import { Check, ExternalLink, Info, Pin, Search } from 'lucide-react';
 import { memo } from 'react';
-import { useOptionalSearchParty } from '../SearchPartyProvider';
 import type { InventoryRow, RarityTier } from '../types';
 import { OwnedQuantityControl } from './OwnedQuantityControl';
 import { RarityBadge } from './RarityBadge';
@@ -28,6 +26,8 @@ type Props = {
   isPinned?: boolean;
   onTogglePinned?: () => void;
   onShowMoreInfo?: () => void;
+  isAuthenticated?: boolean;
+  isInGroupSession?: boolean;
 };
 
 function InventoryItemComponent({
@@ -39,10 +39,9 @@ function InventoryItemComponent({
   isPinned,
   onTogglePinned,
   onShowMoreInfo,
+  isAuthenticated = false,
+  isInGroupSession = false,
 }: Props) {
-  const { user, isLoading } = useAuth();
-  const isAuthenticated = !!user && !isLoading;
-  const isInGroupSession = useOptionalSearchParty()?.isInGroupSession ?? false;
   const isFigId =
     typeof row.partId === 'string' && row.partId.startsWith('fig:');
   const isMinifig = row.parentCategory === 'Minifigure' && isFigId;
@@ -249,7 +248,9 @@ function areEqual(prev: Props, next: Props) {
     prev.missing === next.missing &&
     prev.bricklinkColorId === next.bricklinkColorId &&
     prev.rarityTier === next.rarityTier &&
-    prev.isPinned === next.isPinned
+    prev.isPinned === next.isPinned &&
+    prev.isAuthenticated === next.isAuthenticated &&
+    prev.isInGroupSession === next.isInGroupSession
   );
 }
 

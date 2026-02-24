@@ -75,7 +75,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     });
   }
 
-  const ipLimit = await consumeRateLimit(`ip:${clientIp}`, {
+  const ipLimit = await consumeRateLimit(`bl-prices:ip:${clientIp}`, {
     windowMs: RATE_WINDOW_MS,
     maxHits: RATE_LIMIT_PER_MINUTE,
   });
@@ -95,7 +95,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
   }
 
   if (userId) {
-    const userLimit = await consumeRateLimit(`user:${userId}`, {
+    const userLimit = await consumeRateLimit(`bl-prices:user:${userId}`, {
       windowMs: RATE_WINDOW_MS,
       maxHits: RATE_LIMIT_PER_MINUTE_USER,
     });

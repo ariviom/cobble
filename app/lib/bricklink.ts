@@ -237,27 +237,27 @@ async function blGet<T>(
   const timeout = setTimeout(() => {
     controller.abort();
   }, BL_REQUEST_TIMEOUT_MS);
-  let res: Response;
   try {
-    res = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Authorization: authHeader,
-        Accept: 'application/json',
-      },
-      signal: controller.signal,
-      next: { revalidate: 60 * 60 },
-    });
-  } finally {
-    clearTimeout(timeout);
-  }
-  if (process.env.NODE_ENV !== 'production') {
-    logger.debug('bricklink.store_get', {
-      path: url.pathname,
-      query: url.search,
-    });
-  }
-  try {
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: authHeader,
+          Accept: 'application/json',
+        },
+        signal: controller.signal,
+        next: { revalidate: 60 * 60 },
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (process.env.NODE_ENV !== 'production') {
+      logger.debug('bricklink.store_get', {
+        path: url.pathname,
+        query: url.search,
+      });
+    }
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       // 404s with safe404 don't count as circuit breaker failures

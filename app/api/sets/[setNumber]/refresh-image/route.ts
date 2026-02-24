@@ -2,11 +2,21 @@ import { errorResponse } from '@/app/lib/api/responses';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSetSummary } from '@/app/lib/rebrickable';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { incrementCounter, logger } from '@/lib/metrics';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
 export const POST = withCsrfProtection(async (req: NextRequest) => {
+  const supabase = await getSupabaseAuthServerClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return errorResponse('unauthorized');
+  }
+
   const url = new URL(req.url);
   const segments = url.pathname.split('/').filter(Boolean);
   // Expecting path: /api/sets/[setNumber]/refresh-image

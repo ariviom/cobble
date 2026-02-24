@@ -722,20 +722,21 @@ async function getSetsForPartLocalImpl(
   const supabase = getCatalogReadClient();
 
   // ── Step 1: Parallel fetch — direct inventory parts + minifig subparts ──
-  const directQuery = supabase
+  let directQuery = supabase
     .from('rb_inventory_parts')
     .select('inventory_id, quantity')
     .eq('part_num', partNum)
     .eq('is_spare', false)
     .limit(2000);
-  if (typeof colorId === 'number') directQuery.eq('color_id', colorId);
+  if (typeof colorId === 'number')
+    directQuery = directQuery.eq('color_id', colorId);
 
-  const figQuery = supabase
+  let figQuery = supabase
     .from('rb_minifig_parts')
     .select('fig_num, quantity')
     .eq('part_num', partNum)
     .limit(500);
-  if (typeof colorId === 'number') figQuery.eq('color_id', colorId);
+  if (typeof colorId === 'number') figQuery = figQuery.eq('color_id', colorId);
 
   const [directRes, figRes] = await Promise.all([directQuery, figQuery]);
   if (directRes.error) {

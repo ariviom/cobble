@@ -83,6 +83,8 @@ export type InventoryViewModel = {
   computeMissingRows: () => MissingRow[];
 };
 
+const EMPTY_OWNED: Record<string, number> = {};
+
 export type InventoryViewModelOptions = {
   initialRows?: InventoryRow[] | null;
   /** Initial controls state for tab restoration */
@@ -210,6 +212,14 @@ export function useInventoryViewModel(
     [minifigStatusByKey]
   );
 
+  // Only depend on ownedByKey for visibility when the display filter needs it.
+  // For display='all' (the default), owned values are irrelevant to filtering,
+  // so we use a stable empty object to avoid re-filtering on every owned change.
+  const ownedForVisibility =
+    filter.display === 'missing' || filter.display === 'owned'
+      ? ownedByKey
+      : EMPTY_OWNED;
+
   const visibleIndices = useMemo(() => {
     const idxs = rows.map((_, i) => i);
     const selectedParents =
@@ -220,12 +230,18 @@ export function useInventoryViewModel(
       filter.colors && filter.colors.length > 0 ? new Set(filter.colors) : null;
 
     return idxs.filter(i => {
-      const ownedValue = effectiveOwned(keys[i]!, rows[i]!, ownedByKey);
-      if (filter.display === 'missing') {
-        if (computeMissing(rows[i]!.quantityRequired, ownedValue) === 0)
-          return false;
-      } else if (filter.display === 'owned') {
-        if (ownedValue === 0) return false;
+      if (filter.display === 'missing' || filter.display === 'owned') {
+        const ownedValue = effectiveOwned(
+          keys[i]!,
+          rows[i]!,
+          ownedForVisibility
+        );
+        if (filter.display === 'missing') {
+          if (computeMissing(rows[i]!.quantityRequired, ownedValue) === 0)
+            return false;
+        } else if (filter.display === 'owned') {
+          if (ownedValue === 0) return false;
+        }
       }
 
       if (selectedParents) {
@@ -261,7 +277,7 @@ export function useInventoryViewModel(
     parentByIndex,
     rarityByIndex,
     filter,
-    ownedByKey,
+    ownedForVisibility,
     effectiveOwned,
   ]);
 
