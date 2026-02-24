@@ -1,13 +1,13 @@
 'use client';
 
-import { useSetImageRefresh } from '@/app/hooks/useSetImageRefresh';
 import { cardVariants } from '@/app/components/ui/Card';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { cn } from '@/app/components/ui/utils';
+import { useSetImageRefresh } from '@/app/hooks/useSetImageRefresh';
+import { X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { X } from 'lucide-react';
 
 export type SetDisplayCardProps = {
   setNumber: string;
@@ -100,7 +100,7 @@ export function SetDisplayCard({
               {themeLabel}
             </div>
           )}
-          <div className="line-clamp-2 w-full text-sm leading-tight font-bold text-foreground">
+          <div className="line-clamp-2 w-full leading-tight font-bold text-foreground">
             {displayName}
           </div>
           <div className="mt-1 w-full text-2xs font-semibold text-foreground-muted">
