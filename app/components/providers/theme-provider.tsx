@@ -235,12 +235,8 @@ function AppThemeInner({
   );
 
   const contextValue = useMemo<ThemeContextValue>(() => {
-    const safeTheme =
-      (theme as ThemePreference | undefined) === 'dark'
-        ? 'dark'
-        : (theme as ThemePreference | undefined) === 'light'
-          ? 'light'
-          : 'light';
+    const safeTheme: ThemePreference =
+      theme === 'dark' ? 'dark' : theme === 'system' ? 'system' : 'light';
     const safeResolved: 'light' | 'dark' =
       resolvedTheme === 'dark' ? 'dark' : 'light';
 
@@ -278,7 +274,7 @@ export function ThemeProvider({
     <NextThemesProvider
       attribute="class"
       defaultTheme={initialTheme ?? 'light'}
-      enableSystem={false}
+      enableSystem
       storageKey={USER_THEME_KEY}
       enableColorScheme
     >

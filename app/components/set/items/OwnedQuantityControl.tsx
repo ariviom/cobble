@@ -113,7 +113,7 @@ export function OwnedQuantityControl({
         pattern="[0-9]*"
         className={cn(
           'hide-arrows relative flex h-full w-full items-center text-center text-xs font-medium xs:text-sm',
-          owned === required && 'border-x border-white font-bold'
+          owned === required && 'border-x border-subtle font-bold'
         )}
         value={inputValue}
         onFocus={event => {

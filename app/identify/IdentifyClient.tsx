@@ -1101,7 +1101,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             </div>
 
             {/* Controls panel */}
-            <div className="mx-auto w-full max-w-md">
+            <div className="mx-auto w-full max-w-md hero-input-light">
               <SegmentedControl
                 segments={[
                   { key: 'camera', label: 'Camera' },

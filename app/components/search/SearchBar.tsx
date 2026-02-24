@@ -79,7 +79,7 @@ export function SearchBar({
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
+    <div className="mx-auto w-full max-w-3xl hero-input-light">
       <form
         onSubmit={onSubmit}
         className="flex flex-col gap-3 sm:flex-row sm:items-stretch"
@@ -101,7 +101,7 @@ export function SearchBar({
           {q && (
             <button
               type="button"
-              className="absolute top-1/2 right-3 flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-neutral-200 text-foreground-muted hover:bg-neutral-300"
+              className="absolute top-1/2 right-3 flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-foreground/15 text-foreground-muted hover:bg-foreground/25"
               onClick={onClear}
               aria-label="Clear search"
             >

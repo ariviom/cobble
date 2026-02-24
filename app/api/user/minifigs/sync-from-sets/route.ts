@@ -88,10 +88,10 @@ export const POST = withCsrfProtection(async function POST(
     const catalogClient = getCatalogWriteClient();
     const setNums = sets.filter(s => s.owned && s.set_num).map(s => s.set_num);
 
-    // Get inventories for these sets
+    // Get inventories for these sets (latest version per set only)
     const { data: inventories, error: invError } = await catalogClient
       .from('rb_inventories')
-      .select('id, set_num')
+      .select('id, set_num, version')
       .in('set_num', setNums)
       .not('set_num', 'like', 'fig-%');
 
@@ -107,7 +107,20 @@ export const POST = withCsrfProtection(async function POST(
       return NextResponse.json({ ok: true, updated: 0 });
     }
 
-    const invIds = inventories.map(inv => inv.id);
+    // Keep only the latest inventory version per set_num to avoid
+    // double-counting minifigs across multiple versions.
+    const latestBySet = new Map<string, { id: number; version: number }>();
+    for (const inv of inventories) {
+      if (!inv.set_num) continue;
+      const prev = latestBySet.get(inv.set_num);
+      if (!prev || (inv.version ?? -1) > (prev.version ?? -1)) {
+        latestBySet.set(inv.set_num, {
+          id: inv.id,
+          version: inv.version ?? -1,
+        });
+      }
+    }
+    const invIds = [...latestBySet.values()].map(v => v.id);
 
     // Get all minifigs for these inventories
     const { data: invMinifigs, error: imError } = await catalogClient
@@ -183,7 +196,13 @@ export const POST = withCsrfProtection(async function POST(
       });
     }
 
-    const upserts: Tables<'user_minifigs'>[] = [];
+    // Build upsert rows. Omit created_at entirely — the DB default (now())
+    // handles new rows, and ON CONFLICT UPDATE won't touch it for existing rows.
+    // Including created_at in only some rows causes PostgREST to send null for
+    // the missing ones, which violates the NOT NULL constraint.
+    const upserts: Array<
+      Omit<Tables<'user_minifigs'>, 'created_at'> & { updated_at: string }
+    > = [];
 
     for (const [blMinifigNo, counts] of contributions.entries()) {
       const existing = existingMap.get(blMinifigNo);
@@ -221,12 +240,9 @@ export const POST = withCsrfProtection(async function POST(
         user_id: user.id,
         fig_num: blMinifigNo,
         status: nextStatus,
-        created_at: existing
-          ? (undefined as unknown as string)
-          : new Date().toISOString(),
         updated_at: new Date().toISOString(),
         quantity: quantity ?? 0,
-      } as Tables<'user_minifigs'>);
+      });
     }
 
     if (upserts.length === 0) {

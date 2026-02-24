@@ -50,7 +50,7 @@ export function ProgressStrip({
           aria-valuenow={ownedTotal}
           aria-valuemax={totalRequired}
           aria-label="Set build progress"
-          className="h-1.5 flex-1 overflow-hidden rounded-full bg-background-muted"
+          className="h-1.5 flex-1 overflow-hidden rounded-full bg-foreground/10"
         >
           <div
             className="h-full rounded-full bg-theme-primary transition-[width] duration-300"
@@ -88,7 +88,7 @@ export function ProgressStrip({
                     {isYou ? 'You' : p.displayName}
                   </span>
                 </div>
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-background-muted">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-foreground/10">
                   <div
                     className="h-full rounded-full transition-[width] duration-300"
                     style={{

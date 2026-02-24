@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from '@/app/components/ui/Card';
 import { Input } from '@/app/components/ui/Input';
+import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
 import { Select } from '@/app/components/ui/Select';
 import { Switch } from '@/app/components/ui/Switch';
 import { useOrigin } from '@/app/hooks/useOrigin';
@@ -267,27 +268,18 @@ export function DisplayTab({
               <p className="text-body-sm mt-0.5 text-foreground-muted">
                 Choose between light, dark, or system preference.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {themeOptions.map(option => {
-                  const isActive = selectedTheme === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      aria-pressed={isActive}
-                      disabled={isThemeLoading}
-                      onClick={() => updateTheme(option.value)}
-                      className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-all duration-150 focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:outline-none ${
-                        isActive
-                          ? 'border-theme-primary bg-theme-primary/10 text-theme-text'
-                          : 'border-subtle text-foreground-muted hover:border-strong hover:text-foreground'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <SegmentedControl
+                className="mt-3"
+                size="sm"
+                segments={themeOptions.map(o => ({
+                  key: o.value,
+                  label: o.label,
+                }))}
+                value={selectedTheme}
+                onChange={val =>
+                  updateTheme(val as 'system' | 'light' | 'dark')
+                }
+              />
             </div>
 
             {/* Accent color */}
@@ -343,30 +335,21 @@ export function DisplayTab({
               <label className="text-label font-semibold text-foreground">
                 Default inventory view
               </label>
-              <div className="mt-2 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDefaultInventoryView('list')}
-                  className={`inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-semibold transition-all duration-150 ${
-                    defaultInventoryView === 'list'
-                      ? 'border-theme-primary bg-theme-primary text-white shadow-sm'
-                      : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
-                  }`}
-                >
-                  List
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDefaultInventoryView('grid')}
-                  className={`inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-semibold transition-all duration-150 ${
-                    defaultInventoryView === 'grid'
-                      ? 'border-theme-primary bg-theme-primary text-white shadow-sm'
-                      : 'border-subtle bg-card text-foreground-muted hover:bg-background-muted'
-                  }`}
-                >
-                  Grid
-                </button>
-              </div>
+              <p className="text-body-sm mt-0.5 text-foreground-muted">
+                Show parts as a compact list or image grid.
+              </p>
+              <SegmentedControl
+                className="mt-3"
+                size="sm"
+                segments={[
+                  { key: 'list', label: 'List' },
+                  { key: 'grid', label: 'Grid' },
+                ]}
+                value={defaultInventoryView}
+                onChange={val =>
+                  setDefaultInventoryView(val as 'list' | 'grid')
+                }
+              />
             </div>
 
             <div>

@@ -96,7 +96,7 @@ function InventoryItemComponent({
     <div className="grid-collision-container relative flex h-full w-full justify-start gap-6 rounded-lg border border-subtle bg-card p-3 grid:flex-col grid:justify-between">
       <MoreDropdown
         ariaLabel="More actions"
-        className="absolute top-3 right-3 rounded-full grid:top-4 grid:right-4 grid:z-10 grid:border grid:border-subtle grid:bg-white grid:shadow"
+        className="absolute top-3 right-3 rounded-full grid:top-4 grid:right-4 grid:z-10 grid:border grid:border-subtle grid:bg-card grid:text-foreground grid:shadow grid:hero-input-light"
       >
         {() => (
           <div className="min-w-min rounded-lg border border-subtle bg-card p-2 text-xs shadow-lg">

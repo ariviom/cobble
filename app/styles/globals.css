@@ -270,7 +270,7 @@
   --color-neutral-500: oklch(55.6% 0 0);
   --color-neutral-400: oklch(43.9% 0 0);
   --color-neutral-300: oklch(37.1% 0 0);
-  --color-neutral-200: oklch(26.9% 0 0);
+  --color-neutral-200: oklch(30% 0 0);
   --color-neutral-100: oklch(20.5% 0 0);
   --color-neutral-50: oklch(14.5% 0 0);
   --color-neutral-00: oklch(5% 0 0);
@@ -285,6 +285,10 @@
 
   /* Dark mode shadow depth - use dark gray instead of light */
   --color-shadow-depth: oklch(15% 0 0);
+
+  /* Link colors - lighter blue for readability on dark backgrounds */
+  --color-link: #60a5fa;
+  --color-link-hover: #93bbfd;
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -341,6 +345,18 @@
   &:where([data-has-tabs='true'] *) {
     @slot;
   }
+}
+
+/* Force light-mode semantic tokens on hero inputs so they stay readable
+   on colored backgrounds regardless of dark mode. Apply to a wrapper element. */
+@utility hero-input-light {
+  --color-card: oklch(100% 0 0);
+  --color-card-muted: oklch(98.5% 0 0);
+  --color-background-muted: oklch(92.2% 0 0);
+  --color-subtle: oklch(92.2% 0 0);
+  --color-strong: oklch(87% 0 0);
+  --color-foreground: oklch(20.5% 0 0);
+  --color-foreground-muted: oklch(37.1% 0 0);
 }
 
 input.hide-arrows::-webkit-outer-spin-button,
