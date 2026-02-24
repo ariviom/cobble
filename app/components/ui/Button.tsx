@@ -48,7 +48,7 @@ const buttonVariants = cva(
         'hero-secondary':
           'bg-white text-on-white border-transparent brick-button-depth [--brick-shadow-color:rgba(0,0,0,0.2)] focus-visible:ring-white',
         // Link - text link styling
-        link: 'bg-transparent text-link border-transparent underline hover:text-link-hover p-0 h-auto font-normal focus-visible:ring-link',
+        link: 'bg-transparent text-link border-transparent underline hover:text-link-hover p-0! h-auto font-normal focus-visible:ring-link',
       },
       size: {
         xs: 'px-2 py-1 text-2xs h-6',

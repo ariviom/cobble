@@ -1,8 +1,8 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { Button } from './Button';
 import { Card } from './Card';
-import type { ReactNode } from 'react';
 
 type SignInPromptProps = {
   variant?: 'card' | 'inline';
@@ -21,11 +21,15 @@ export function SignInPrompt({
 }: SignInPromptProps) {
   if (variant === 'inline') {
     return (
-      <div className="flex h-12 w-full min-w-min items-center justify-center rounded-lg border border-subtle px-3 text-xs text-foreground-muted">
-        <Button href="/login" variant="link" size="xs">
+      <div className="h-12 w-full min-w-min rounded-lg border border-subtle px-3 py-2 text-center text-xs text-foreground-muted">
+        <a
+          href="/login"
+          className="inline-block text-link underline underline-offset-2"
+        >
           Sign in
-        </Button>
-        <span className="ml-1">to track inventory</span>
+        </a>
+        {` `}
+        to track inventory
       </div>
     );
   }

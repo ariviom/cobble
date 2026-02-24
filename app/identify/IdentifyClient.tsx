@@ -25,7 +25,6 @@ import { Card } from '@/app/components/ui/Card';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
-import { SignInPrompt } from '@/app/components/ui/SignInPrompt';
 import { ThemedPageHeader } from '@/app/components/ui/ThemedPageHeader';
 import {
   addRecentIdentify,
@@ -188,7 +187,9 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
     id: number;
     name: string;
   }> | null>(null);
-  const [mode, setMode] = useState<'camera' | 'part'>('camera');
+  const [mode, setMode] = useState<'camera' | 'part'>(
+    isAuthenticated ? 'camera' : 'part'
+  );
   const [partSearchInput, setPartSearchInput] = useState('');
   const [quota, setQuota] = useState<IdentifyQuota>(
     initialQuota ??
@@ -1090,9 +1091,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
       <section className="relative overflow-hidden">
         <ThemedPageHeader preferredColor="green" className="py-6 lg:py-8">
           <div className="container-default">
-            <div
-              className={isAuthenticated ? 'mb-6 text-center' : 'text-center'}
-            >
+            <div className="mb-6 text-center">
               <h1 className="mb-2 text-3xl font-extrabold tracking-tight text-white lg:text-4xl">
                 Identify Parts & Minifigs
               </h1>
@@ -1101,38 +1100,38 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
               </p>
             </div>
 
-            {/* Controls panel — authenticated only */}
-            {isAuthenticated && (
-              <div className="mx-auto w-full max-w-md">
-                <SegmentedControl
-                  segments={[
-                    { key: 'camera', label: 'Camera' },
-                    { key: 'part', label: 'Part / Minifig' },
-                  ]}
-                  value={mode}
-                  onChange={key => handleModeChange(key as 'camera' | 'part')}
-                  size="md"
-                  className="mb-4 w-full shadow-lg"
-                />
+            {/* Controls panel */}
+            <div className="mx-auto w-full max-w-md">
+              <SegmentedControl
+                segments={[
+                  { key: 'camera', label: 'Camera' },
+                  { key: 'part', label: 'Part / Minifig' },
+                ]}
+                value={mode}
+                onChange={key => handleModeChange(key as 'camera' | 'part')}
+                size="md"
+                className="mb-4 w-full shadow-lg"
+              />
 
-                {/* Hidden file inputs */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={e => onFileChange(e.target.files?.[0] ?? null)}
-                />
-                <input
-                  ref={galleryInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => onFileChange(e.target.files?.[0] ?? null)}
-                />
+              {/* Hidden file inputs */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={e => onFileChange(e.target.files?.[0] ?? null)}
+              />
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => onFileChange(e.target.files?.[0] ?? null)}
+              />
 
-                {mode === 'camera' ? (
+              {mode === 'camera' ? (
+                isAuthenticated ? (
                   <div className="space-y-4">
                     <div className="relative">
                       <button
@@ -1213,46 +1212,64 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        value={partSearchInput}
-                        onChange={event =>
-                          setPartSearchInput(event.target.value)
-                        }
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') onPartSearch();
-                        }}
-                        placeholder="e.g. 3001, cas432, fig-007"
-                        size="lg"
-                        className="w-full pr-10 shadow-lg"
-                        aria-label="Part or minifig ID"
-                      />
-                      {partSearchInput && (
-                        <button
-                          type="button"
-                          onClick={() => setPartSearchInput('')}
-                          className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full p-0.5 text-foreground-muted/50 transition-colors hover:text-foreground"
-                          aria-label="Clear input"
-                        >
-                          <X className="size-4" />
-                        </button>
-                      )}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="lg"
-                      onClick={onPartSearch}
-                      disabled={isLoading || !partSearchInput.trim()}
-                      className="shrink-0 shadow-lg"
-                    >
-                      {isLoading ? 'Searching…' : 'Search'}
+                  <div className="rounded-lg border border-dashed border-white/40 bg-white/10 px-6 py-8 text-center backdrop-blur-sm">
+                    <p className="mb-3 text-sm text-white/90">
+                      Sign in to identify parts by photo
+                    </p>
+                    <Button href="/login" variant="primary" size="md">
+                      Sign in
                     </Button>
+                    <p className="mt-3 text-2xs text-white/60">
+                      5 per day on Free &middot; Powered by{' '}
+                      <a
+                        href="https://brickognize.com/"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline underline-offset-2 hover:text-white/80"
+                      >
+                        Brickognize
+                      </a>
+                    </p>
                   </div>
-                )}
-              </div>
-            )}
+                )
+              ) : (
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      value={partSearchInput}
+                      onChange={event => setPartSearchInput(event.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') onPartSearch();
+                      }}
+                      placeholder="e.g. 3001, cas432, fig-007"
+                      size="lg"
+                      className="w-full pr-10 shadow-lg"
+                      aria-label="Part or minifig ID"
+                    />
+                    {partSearchInput && (
+                      <button
+                        type="button"
+                        onClick={() => setPartSearchInput('')}
+                        className="absolute top-1/2 right-3 -translate-y-1/2 rounded-full p-0.5 text-foreground-muted/50 transition-colors hover:text-foreground"
+                        aria-label="Clear input"
+                      >
+                        <X className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="lg"
+                    onClick={onPartSearch}
+                    disabled={isLoading || !partSearchInput.trim()}
+                    className="shrink-0 shadow-lg"
+                  >
+                    {isLoading ? 'Searching…' : 'Search'}
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Decorative stud pattern */}
@@ -1265,28 +1282,8 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         <div className="h-1.5 bg-brand-yellow" />
       </section>
 
-      {/* Unauthenticated: sign-in card */}
-      {!isAuthenticated && (
-        <section className="container-default py-8">
-          <SignInPrompt
-            title="Sign In Required"
-            description="Sign in to use Identify and track your daily quota (5 per day on Free)."
-            footer={
-              <a
-                href="https://brickognize.com/"
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-foreground-muted underline underline-offset-2 hover:text-foreground"
-              >
-                Powered by Brickognize
-              </a>
-            }
-          />
-        </section>
-      )}
-
-      {/* Authenticated: empty state */}
-      {isAuthenticated && !showResults && (
+      {/* Empty state */}
+      {!showResults && (
         <section className="container-wide py-6 lg:py-8">
           <Card padding="lg">
             <IdentifyHistory
@@ -1300,8 +1297,8 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         </section>
       )}
 
-      {/* Authenticated: results */}
-      {isAuthenticated && showResults && (
+      {/* Results */}
+      {showResults && (
         <section className="container-wide py-6 lg:py-8">
           {error && <ErrorBanner message={error} className="mb-4" />}
 

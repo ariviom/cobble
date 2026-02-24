@@ -1,11 +1,11 @@
 'use client';
 
-import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/app/components/ui/utils';
+import { cva, type VariantProps } from 'class-variance-authority';
 import type { HTMLAttributes, PropsWithChildren, ReactNode } from 'react';
 
 const cardVariants = cva(
-  'rounded-lg border bg-card transition-all duration-150 overflow-hidden',
+  'rounded-lg border bg-card transition-all duration-150 overflow-hidden h-full',
   {
     variants: {
       variant: {
