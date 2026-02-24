@@ -941,9 +941,34 @@ async function ingestInventoryParts(
   const batchMap = new Map<string, InsertRow>();
   const batchSize = 2000;
 
+  // Track inventories whose old rows have been deleted so stale rows
+  // (e.g. parts reclassified between spare/non-spare upstream) are removed.
+  const cleanedInventories = new Set<number>();
+
   const flush = async () => {
     if (batchMap.size === 0) return;
     const rows = Array.from(batchMap.values());
+
+    // Delete stale rows for any inventory we haven't cleaned yet in this run.
+    const newIds = [
+      ...new Set(
+        rows
+          .map(r => r.inventory_id)
+          .filter(
+            (id): id is number => id != null && !cleanedInventories.has(id)
+          )
+      ),
+    ];
+    for (let i = 0; i < newIds.length; i += 200) {
+      const chunk = newIds.slice(i, i + 200);
+      const { error } = await supabase
+        .from('rb_inventory_parts')
+        .delete()
+        .in('inventory_id', chunk);
+      if (error) throw error;
+      for (const id of chunk) cleanedInventories.add(id);
+    }
+
     const { error } = await supabase.from('rb_inventory_parts').upsert(rows);
     if (error) throw error;
     batchMap.clear();
@@ -1033,6 +1058,39 @@ async function ingestInventoryMinifigs(
   > = [];
   const batchSize = 2000;
 
+  // Track inventories whose old rows have been deleted so stale rows are removed.
+  const cleanedInventories = new Set<number>();
+
+  const flush = async () => {
+    if (batch.length === 0) return;
+
+    // Delete stale rows for any inventory we haven't cleaned yet in this run.
+    const newIds = [
+      ...new Set(
+        batch
+          .map(r => r.inventory_id)
+          .filter(
+            (id): id is number => id != null && !cleanedInventories.has(id)
+          )
+      ),
+    ];
+    for (let i = 0; i < newIds.length; i += 200) {
+      const chunk = newIds.slice(i, i + 200);
+      const { error } = await supabase
+        .from('rb_inventory_minifigs')
+        .delete()
+        .in('inventory_id', chunk);
+      if (error) throw error;
+      for (const id of chunk) cleanedInventories.add(id);
+    }
+
+    const { error } = await supabase
+      .from('rb_inventory_minifigs')
+      .upsert(batch);
+    if (error) throw error;
+    batch.length = 0;
+  };
+
   for await (const record of parser) {
     const inventory_id_raw = record.inventory_id;
     const fig_num = record.fig_num as string | undefined;
@@ -1050,20 +1108,11 @@ async function ingestInventoryMinifigs(
     });
 
     if (batch.length >= batchSize) {
-      const { error } = await supabase
-        .from('rb_inventory_minifigs')
-        .upsert(batch);
-      if (error) throw error;
-      batch.length = 0;
+      await flush();
     }
   }
 
-  if (batch.length > 0) {
-    const { error } = await supabase
-      .from('rb_inventory_minifigs')
-      .upsert(batch);
-    if (error) throw error;
-  }
+  await flush();
 }
 
 // ===========================================================================
