@@ -124,7 +124,7 @@ export function createDefaultTabViewState(): TabViewState {
     sortKey: 'category',
     sortDir: 'asc',
     view: 'grid',
-    itemSize: 'md',
+    itemSize: 'sm',
     groupBy: 'none',
   };
 }
