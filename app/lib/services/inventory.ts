@@ -174,7 +174,8 @@ export async function getSetInventoryRowsWithMeta(
         const subpartIdentity = resolveRbMinifigSubpartIdentity(
           sp.rbPartId,
           sp.rbColorId,
-          ctx
+          ctx,
+          sp.blPartId
         );
         const canonicalKey = subpartIdentity.canonicalKey;
         const totalQtyForThisMinifig = sp.quantity * minifigQty;

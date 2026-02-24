@@ -177,9 +177,11 @@ export function resolveMinifigSubpartIdentity(
 export function resolveRbMinifigSubpartIdentity(
   rbPartId: string,
   rbColorId: number,
-  ctx: ResolutionContext
+  ctx: ResolutionContext,
+  /** BL part ID from rb_parts join — preferred over partMappings lookup. */
+  knownBlPartId?: string | null
 ): PartIdentity {
-  const blPartId = ctx.partMappings.get(rbPartId) ?? rbPartId; // same-by-default
+  const blPartId = knownBlPartId ?? ctx.partMappings.get(rbPartId) ?? rbPartId; // same-by-default
   const blColorId = ctx.rbToBlColor.get(rbColorId) ?? null;
   return createMatchedSubpartIdentity(rbPartId, rbColorId, blPartId, blColorId);
 }
