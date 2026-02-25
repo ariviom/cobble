@@ -95,7 +95,7 @@ export function OwnedQuantityControl({
   return (
     <div
       className={cn(
-        'flex h-[52px] w-full min-w-min shrink items-center justify-between rounded-md border border-subtle list:sm:max-w-min grid:w-full',
+        'flex h-[52px] w-full min-w-min shrink items-center justify-between rounded-md border border-subtle list:sm:max-w-min grid:w-full micro:h-11 micro:w-full micro:min-w-0',
         className
       )}
     >
@@ -103,16 +103,18 @@ export function OwnedQuantityControl({
         onClick={() => onChange(clampOwned(owned - 1, required))}
         disabled={owned <= 0}
         ariaLabel="Decrease owned"
+        className="micro:h-11 micro:min-w-0 micro:text-lg"
       >
         –
       </Button>
+      <div className="hidden h-full border-l border-subtle micro:block" />
       <input
         type="text"
         name="piece-count"
         inputMode="numeric"
         pattern="[0-9]*"
         className={cn(
-          'hide-arrows relative flex h-full w-full items-center text-center text-xs font-medium xs:text-sm',
+          'hide-arrows relative flex h-full w-full items-center text-center text-xs font-medium xs:text-sm micro:hidden',
           owned === required && 'border-x border-subtle font-bold'
         )}
         value={inputValue}
@@ -128,6 +130,7 @@ export function OwnedQuantityControl({
         onClick={() => onChange(clampOwned(owned + 1, required))}
         disabled={owned >= required}
         ariaLabel="Increase owned"
+        className="micro:h-11 micro:min-w-0 micro:text-lg"
       >
         +
       </Button>

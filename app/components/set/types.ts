@@ -97,7 +97,7 @@ export type SortKey =
   | 'rarity'
   | 'quantity';
 
-export type ViewType = 'list' | 'grid';
+export type ViewType = 'list' | 'grid' | 'micro';
 
 export type ItemSize = 'sm' | 'md' | 'lg';
 

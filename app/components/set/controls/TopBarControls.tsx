@@ -19,6 +19,7 @@ import {
   Filter,
   FolderTree,
   Grid,
+  LayoutGrid,
   List,
   Palette,
   Pin,
@@ -401,8 +402,16 @@ export function TopBarControls({
         <DropdownTrigger
           id="view-trigger"
           panelId="view-panel"
-          label={view === 'grid' ? 'Grid' : 'List'}
-          labelIcon={view === 'grid' ? <Grid size={16} /> : <List size={16} />}
+          label={view === 'micro' ? 'Micro' : view === 'grid' ? 'Grid' : 'List'}
+          labelIcon={
+            view === 'micro' ? (
+              <Grid size={16} />
+            ) : view === 'grid' ? (
+              <LayoutGrid size={16} />
+            ) : (
+              <List size={16} />
+            )
+          }
           isOpen={openDropdownId === 'view'}
           onToggle={() => onToggleDropdown('view')}
           disabled={isLoading}
@@ -421,7 +430,12 @@ export function TopBarControls({
               <SingleSelectList
                 options={[
                   { key: 'list', text: 'List', icon: <List size={16} /> },
-                  { key: 'grid', text: 'Grid', icon: <Grid size={16} /> },
+                  { key: 'grid', text: 'Grid', icon: <LayoutGrid size={16} /> },
+                  {
+                    key: 'micro',
+                    text: 'Micro',
+                    icon: <Grid size={16} />,
+                  },
                 ]}
                 selectedKey={view}
                 onChange={k => {
@@ -430,7 +444,10 @@ export function TopBarControls({
                 }}
               />
             </DropdownSection>
-            <DropdownSection label="Size">
+            <DropdownSection
+              label={view === 'micro' ? 'Size (Grid / List only)' : 'Size'}
+              disabled={view === 'micro'}
+            >
               <SingleSelectList
                 options={[
                   { key: 'lg', text: 'Large' },
@@ -442,6 +459,7 @@ export function TopBarControls({
                   onChangeItemSize(k as ItemSize);
                   onCloseDropdown('view');
                 }}
+                disabled={view === 'micro'}
               />
             </DropdownSection>
           </DropdownPanelFrame>

@@ -411,7 +411,8 @@ export function useInventoryViewModel(
     md: 'grid-size-md',
     lg: 'grid-size-lg',
   };
-  const gridSizes = gridSizeClass[itemSize];
+  const gridSizes =
+    view === 'micro' ? 'grid-size-micro' : gridSizeClass[itemSize];
 
   const countsByParent = useMemo(() => {
     const counts: Record<string, number> = {};

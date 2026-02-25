@@ -93,10 +93,10 @@ function InventoryItemComponent({
   };
 
   return (
-    <div className="grid-collision-container relative flex h-full w-full justify-start gap-6 rounded-lg border border-subtle bg-card p-3 grid:flex-col grid:justify-between">
+    <div className="grid-collision-container relative flex h-full w-full justify-start gap-6 rounded-lg border border-subtle bg-card p-3 grid:flex-col grid:justify-between micro:flex-col micro:justify-between micro:gap-1 micro:rounded-md micro:p-1.5">
       <MoreDropdown
         ariaLabel="More actions"
-        className="absolute top-3 right-3 rounded-full grid:top-4 grid:right-4 grid:z-10 grid:border grid:border-subtle grid:bg-card grid:text-foreground grid:shadow grid:hero-input-light"
+        className="absolute top-3 right-3 rounded-full grid:top-4 grid:right-4 grid:z-10 grid:border grid:border-subtle grid:bg-card grid:text-foreground grid:shadow grid:hero-input-light micro:hidden"
       >
         {() => (
           <div className="min-w-min rounded-lg border border-subtle bg-card p-2 text-xs shadow-lg">
@@ -142,7 +142,7 @@ function InventoryItemComponent({
         )}
       </MoreDropdown>
       <button
-        className="grid-collision-btn relative cursor-pointer list:grow-0 list:items-center grid:aspect-square grid:w-full list:item-sm:size-16 list:item-md:size-20 list:item-lg:size-32"
+        className="grid-collision-btn relative cursor-pointer list:grow-0 list:items-center grid:aspect-square grid:w-full list:item-sm:size-16 list:item-md:size-20 list:item-lg:size-32 micro:aspect-square micro:w-full"
         role="button"
         tabIndex={0}
         onClick={handleOpenMoreInfo}
@@ -175,7 +175,7 @@ function InventoryItemComponent({
         </div>
         <div
           className={cn(
-            'absolute right-0 bottom-0 flex h-6 min-w-6 translate-x-3 translate-y-1/2 items-center justify-center rounded-full grid:h-8 grid:min-w-8',
+            'absolute right-0 bottom-0 flex h-6 min-w-6 translate-x-3 translate-y-1/2 items-center justify-center rounded-full grid:h-8 grid:min-w-8 micro:h-5 micro:min-w-5 micro:translate-x-1',
             owned === row.quantityRequired &&
               'border-2 border-success bg-background text-success'
           )}
@@ -189,8 +189,8 @@ function InventoryItemComponent({
           )}
         </div>
       </button>
-      <div className="flex h-full max-h-min w-full flex-1 flex-col justify-between gap-x-6 gap-y-3 sm:flex-row grid:max-h-full grid:flex-col sm:grid:items-center">
-        <div className="h-full w-full list:pr-12 lg:list:pr-0">
+      <div className="flex h-full max-h-min w-full flex-1 flex-col justify-between gap-x-6 gap-y-3 sm:flex-row grid:max-h-full grid:flex-col sm:grid:items-center micro:max-h-full micro:flex-col micro:gap-y-0">
+        <div className="h-full w-full list:pr-12 lg:list:pr-0 micro:hidden">
           <p className="line-clamp-1 w-full overflow-hidden font-medium lg:line-clamp-2">
             {row.partName}
           </p>
@@ -211,7 +211,7 @@ function InventoryItemComponent({
           </div>
         </div>
         <div className="w-full sm:list:w-auto">
-          <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36 sm:list:pt-7">
+          <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36 sm:list:pt-7 micro:mt-1 micro:mb-0.5 micro:gap-1 micro:text-2xs">
             <p className="text-foreground-muted">
               {owned}/{row.quantityRequired}
             </p>

@@ -29,6 +29,45 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
  * - "+" button creates a new landing tab (Chrome new-tab pattern)
  * - Clicking a set from a landing tab replaces it in-place
  */
+/**
+ * Wrapper for landing tabs that resets scroll to top on activation.
+ * On mobile the whole page scrolls (window), on desktop the container scrolls.
+ */
+function LandingTabWrapper({
+  isActive,
+  isDesktop,
+  children,
+}: {
+  isActive: boolean;
+  isDesktop: boolean;
+  children: React.ReactNode;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const wasActive = useRef(isActive);
+
+  useEffect(() => {
+    if (isActive && !wasActive.current) {
+      // Reset scroll when landing tab becomes active
+      if (isDesktop) {
+        containerRef.current?.scrollTo(0, 0);
+      } else {
+        window.scrollTo(0, 0);
+      }
+    }
+    wasActive.current = isActive;
+  }, [isActive, isDesktop]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ display: isActive ? 'block' : 'none' }}
+      className="col-span-full lg:row-start-2 lg:row-end-5 lg:min-h-0 lg:overflow-auto"
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function SetsPage() {
   const isDesktop = useIsDesktop();
 
@@ -215,6 +254,8 @@ export default function SetsPage() {
     saveCurrentScroll();
     openLandingTab();
     window.history.pushState(null, '', '/sets');
+    // New landing tabs should always start at the top
+    window.scrollTo(0, 0);
   }, [saveCurrentScroll, openLandingTab]);
 
   // Handle selecting a set from a landing tab's content
@@ -305,16 +346,16 @@ export default function SetsPage() {
         if (!isLandingTab(tab)) return null;
         const isActive = tab.id === activeTabId;
         return (
-          <div
+          <LandingTabWrapper
             key={tab.id}
-            style={{ display: isActive ? 'block' : 'none' }}
-            className="col-span-full lg:row-start-2 lg:row-end-5 lg:min-h-0 lg:overflow-auto"
+            isActive={isActive}
+            isDesktop={isDesktop}
           >
             <SetsLandingContent
               onSelectSet={handleSelectSetFromLanding(tab.id)}
               isActive={isActive}
             />
-          </div>
+          </LandingTabWrapper>
         );
       })}
 

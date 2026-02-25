@@ -21,7 +21,11 @@ import type { GroupParticipant } from '@/app/hooks/useGroupParticipants';
 import { useSearchPartyChannel } from '@/app/hooks/useSearchPartyChannel';
 import { useSearchPartySession } from '@/app/hooks/useSearchPartySession';
 import { useSetComplete } from '@/app/hooks/useSetComplete';
-import type { SetTab, TabViewState } from '@/app/store/open-tabs';
+import {
+  persistTabControlsToStorage,
+  type SetTab,
+  type TabViewState,
+} from '@/app/store/open-tabs';
 
 type SetTabContainerProps = {
   tab: SetTab;
@@ -315,6 +319,20 @@ function SetTabContainerContent({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Save controls state to localStorage on every change so it survives hard refresh.
+  // Writes directly to localStorage (bypasses Zustand) to avoid re-render cascades.
+  useEffect(() => {
+    const state = getControlsState();
+    persistTabControlsToStorage(tab.id, {
+      filter: state.filter,
+      sortKey: state.sortKey,
+      sortDir: state.sortDir,
+      view: state.view,
+      itemSize: state.itemSize,
+      groupBy: state.groupBy,
+    });
+  }, [getControlsState, tab.id]);
 
   // Restore scroll position after inventory loads
   useEffect(() => {

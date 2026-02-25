@@ -163,16 +163,18 @@ export function DropdownPanelFrame({
 export type DropdownSectionProps = {
   label?: string;
   className?: string;
+  disabled?: boolean;
   children: React.ReactNode;
 };
 
 export function DropdownSection({
   label,
   className,
+  disabled,
   children,
 }: DropdownSectionProps) {
   return (
-    <div className={cx('', className)}>
+    <div className={cx('', className, disabled && 'opacity-40')}>
       {label && (
         <div className="border-b border-subtle bg-background-muted/50 px-4 py-2.5 text-xs font-bold tracking-wide text-foreground-muted uppercase">
           {label}
@@ -188,15 +190,17 @@ export type SingleSelectListProps = {
   options: DropdownOption[];
   selectedKey: string;
   onChange: (nextKey: string) => void;
+  disabled?: boolean;
 };
 
 export function SingleSelectList({
   options,
   selectedKey,
   onChange,
+  disabled,
 }: SingleSelectListProps) {
   return (
-    <div>
+    <div className={disabled ? 'pointer-events-none opacity-40' : undefined}>
       {options.map(option => {
         const selected = selectedKey === option.key;
         return (

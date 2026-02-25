@@ -299,7 +299,7 @@ export function Inventory() {
               className={
                 view === 'list'
                   ? 'flex flex-col gap-2 px-2 pt-4 pb-1'
-                  : `grid ${gridSizes} gap-2 px-3 pt-4 pb-1`
+                  : `grid ${gridSizes} ${view === 'micro' ? 'gap-1 px-1.5' : 'gap-2 px-3'} pt-4 pb-1`
               }
               data-view={view}
               data-item-size={itemSize}

@@ -195,12 +195,13 @@ function isValidTabViewState(obj: unknown): obj is TabViewState {
     isValidFilter(s.filter) &&
     typeof s.sortKey === 'string' &&
     (s.sortDir === 'asc' || s.sortDir === 'desc') &&
-    (s.view === 'list' || s.view === 'grid') &&
+    (s.view === 'list' || s.view === 'grid' || s.view === 'micro') &&
     (s.itemSize === 'sm' || s.itemSize === 'md' || s.itemSize === 'lg') &&
     (s.groupBy === 'none' ||
       s.groupBy === 'color' ||
       s.groupBy === 'size' ||
-      s.groupBy === 'category')
+      s.groupBy === 'category' ||
+      s.groupBy === 'rarity')
   );
 }
 
@@ -442,6 +443,33 @@ function persistState(state: OpenTabsState): void {
       tabStates: state.tabStates,
     };
     writeStorage(STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore persistence errors
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Direct localStorage persistence (bypasses Zustand to avoid re-render cascades)
+// ---------------------------------------------------------------------------
+
+/**
+ * Persist tab controls state directly to localStorage without updating Zustand.
+ * Used for real-time saves on every controls change so state survives hard refresh.
+ */
+export function persistTabControlsToStorage(
+  tabId: string,
+  controls: Partial<TabViewState>
+): void {
+  try {
+    const raw = readStorage(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw) as PersistedShape;
+    const existing = data.tabStates?.[tabId] ?? createDefaultTabViewState();
+    data.tabStates = {
+      ...data.tabStates,
+      [tabId]: { ...existing, ...controls },
+    };
+    writeStorage(STORAGE_KEY, JSON.stringify(data));
   } catch {
     // ignore persistence errors
   }

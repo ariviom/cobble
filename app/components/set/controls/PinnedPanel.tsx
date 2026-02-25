@@ -43,11 +43,13 @@ export function PinnedPanelContent({
   const hasAnyPins = currentSetKeys.length > 0 || otherSetNumbers.length > 0;
 
   const gridSizes =
-    itemSize === 'sm'
-      ? 'grid-cols-2 xs:grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'
-      : itemSize === 'md'
-        ? 'grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
-        : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6';
+    view === 'micro'
+      ? 'grid-cols-3 xs:grid-cols-4 sm:grid-cols-5 md:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10'
+      : itemSize === 'sm'
+        ? 'grid-cols-2 xs:grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'
+        : itemSize === 'md'
+          ? 'grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6'
+          : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6';
 
   // Modal state for item details
   const [selectedItem, setSelectedItem] = useState<{
@@ -233,7 +235,7 @@ function PinnedSetSection({
       <div
         data-view={view}
         data-item-size={itemSize}
-        className={`gap-2 ${view === 'grid' ? `grid ${gridSizes}` : 'flex flex-wrap'}`}
+        className={`gap-2 ${view !== 'list' ? `grid ${gridSizes}` : 'flex flex-wrap'}`}
       >
         {limitedItems.map(({ key, row }) => {
           const owned = ownedByKey[key] ?? 0;
