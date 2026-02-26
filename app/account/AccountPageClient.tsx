@@ -14,7 +14,13 @@ import type { Tables } from '@/supabase/types';
 import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
 
-import { AccountTab, DisplayTab, FeedbackTab, SetsTab } from './components';
+import {
+  AccountTab,
+  BillingTab,
+  DisplayTab,
+  FeedbackTab,
+  SetsTab,
+} from './components';
 import { useAccountData } from './hooks/useAccountData';
 
 type UserProfileRow = Tables<'user_profiles'>;
@@ -25,6 +31,7 @@ type AccountPageClientProps = {
   initialPricingCurrency: string;
   initialPricingCountry: string | null;
   initialSyncOwnedMinifigsFromSets: boolean;
+  initialSubscription: Tables<'billing_subscriptions'> | null;
 };
 
 export default function AccountPageClient({
@@ -33,6 +40,7 @@ export default function AccountPageClient({
   initialPricingCurrency,
   initialPricingCountry,
   initialSyncOwnedMinifigsFromSets,
+  initialSubscription,
 }: AccountPageClientProps) {
   useHydrateUserSets();
 
@@ -91,6 +99,7 @@ export default function AccountPageClient({
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="display">Display</TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="sets">Your sets</TabsTrigger>
           <TabsTrigger value="feedback">Feedback</TabsTrigger>
         </TabsList>
@@ -103,6 +112,10 @@ export default function AccountPageClient({
             setProfile={setProfile}
             setError={setError}
           />
+        </TabsContent>
+
+        <TabsContent value="billing">
+          <BillingTab subscription={initialSubscription} />
         </TabsContent>
 
         <TabsContent value="display">

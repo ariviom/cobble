@@ -23,6 +23,7 @@ export default async function AccountPage() {
   let initialPricingCurrency = DEFAULT_PRICING_PREFERENCES.currencyCode;
   let initialPricingCountry = DEFAULT_PRICING_PREFERENCES.countryCode;
   let initialSyncOwnedMinifigsFromSets = true;
+  let initialSubscription: Tables<'billing_subscriptions'> | null = null;
 
   try {
     const {
@@ -37,6 +38,7 @@ export default async function AccountPage() {
           initialPricingCurrency={initialPricingCurrency}
           initialPricingCountry={initialPricingCountry}
           initialSyncOwnedMinifigsFromSets={initialSyncOwnedMinifigsFromSets}
+          initialSubscription={null}
         />
       );
     }
@@ -92,6 +94,20 @@ export default async function AccountPage() {
       // Fall back to default sync behavior if preferences fail to load.
       initialSyncOwnedMinifigsFromSets = true;
     }
+
+    try {
+      const { data: sub } = await supabase
+        .from('billing_subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('status', ['active', 'trialing', 'past_due', 'canceled'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      initialSubscription = sub;
+    } catch {
+      // Subscription fetch failure is non-critical; billing tab will show free state.
+    }
   } catch {
     // If server-side auth fails, fall back to client-only behavior.
   }
@@ -103,6 +119,7 @@ export default async function AccountPage() {
       initialPricingCurrency={initialPricingCurrency}
       initialPricingCountry={initialPricingCountry}
       initialSyncOwnedMinifigsFromSets={initialSyncOwnedMinifigsFromSets}
+      initialSubscription={initialSubscription}
     />
   );
 }
