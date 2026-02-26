@@ -31,6 +31,7 @@ export {
   setCachedInventory,
   isInventoryCacheValid,
   invalidateInventoryCache,
+  pruneStaleInventoryCache,
   getCachedSetSummary,
   setCachedSetSummary,
 } from './catalogCache';

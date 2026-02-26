@@ -18,7 +18,7 @@ import {
 } from './schema';
 
 // Cache TTL: long-lived; version mismatches will force invalidation
-const INVENTORY_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+export const INVENTORY_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const SET_SUMMARY_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 // ============================================================================
@@ -292,6 +292,59 @@ export async function invalidateInventoryCache(
     }
   } catch (error) {
     console.warn('Failed to invalidate inventory cache:', error);
+  }
+}
+
+// ============================================================================
+// Stale Inventory Pruning
+// ============================================================================
+
+/**
+ * Delete cached inventory data for sets that have expired (older than TTL)
+ * and are not currently open in a tab.
+ *
+ * Call on startup to reclaim IndexedDB space over time.
+ */
+export async function pruneStaleInventoryCache(
+  openSetNumbers: Set<string>
+): Promise<number> {
+  if (!isIndexedDBAvailable()) return 0;
+
+  try {
+    const db = getLocalDb();
+    const cutoff = Date.now() - INVENTORY_CACHE_TTL_MS;
+
+    const staleEntries = await db.catalogSetMeta
+      .where('inventoryCachedAt')
+      .below(cutoff)
+      .toArray();
+
+    const toPrune = staleEntries.filter(
+      entry => !openSetNumbers.has(entry.setNumber)
+    );
+
+    if (toPrune.length === 0) return 0;
+
+    const setNumbers = toPrune.map(e => e.setNumber);
+
+    await db.transaction(
+      'rw',
+      [db.catalogSetMeta, db.catalogSetParts],
+      async () => {
+        await db.catalogSetMeta.bulkDelete(setNumbers);
+        for (const setNumber of setNumbers) {
+          await db.catalogSetParts
+            .where('setNumber')
+            .equals(setNumber)
+            .delete();
+        }
+      }
+    );
+
+    return toPrune.length;
+  } catch (error) {
+    console.warn('Failed to prune stale inventory cache:', error);
+    return 0;
   }
 }
 

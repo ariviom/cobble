@@ -102,7 +102,6 @@ type OpenTabsState = {
 
 const STORAGE_KEY_V1 = 'brick_party_open_tabs_v1';
 const STORAGE_KEY = 'brick_party_open_tabs_v2';
-const MAX_TABS = 10;
 
 // ---------------------------------------------------------------------------
 // Default filter state
@@ -498,8 +497,8 @@ export const useOpenTabsStore = create<OpenTabsState>((set, get) => ({
         i === existingIndex ? { ...t, ...tab } : t
       );
     } else {
-      // New tab - add to end, respecting max limit
-      nextTabs = [...tabs, tab].slice(-MAX_TABS);
+      // New tab - add to end
+      nextTabs = [...tabs, tab];
     }
 
     // Initialize tab state if not exists
@@ -574,7 +573,7 @@ export const useOpenTabsStore = create<OpenTabsState>((set, get) => ({
   openLandingTab: () => {
     const { tabs } = get();
     const landing = createLandingTab();
-    const nextTabs = [...tabs, landing].slice(-MAX_TABS);
+    const nextTabs = [...tabs, landing];
 
     const nextState: OpenTabsState = {
       ...get(),

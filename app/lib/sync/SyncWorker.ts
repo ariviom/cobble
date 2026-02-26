@@ -7,6 +7,7 @@ import {
   isIndexedDBAvailable,
   isMigrationComplete,
   markSyncOperationFailed,
+  pruneStaleInventoryCache,
   removeSyncOperations,
   setMigrationComplete,
   setStoredUserId,
@@ -80,6 +81,7 @@ export class SyncWorker {
         await this.initializeDb();
         this.registerEventListeners();
         this.subscribeToLeader();
+        void this.pruneStaleCache();
 
         // If userId was set before init finished, start sync loop now
         if (this.userId) {
@@ -381,6 +383,30 @@ export class SyncWorker {
       }
     } catch (error) {
       console.warn('localStorage → IndexedDB migration failed:', error);
+    }
+  }
+
+  // ===========================================================================
+  // Private: Cache Pruning
+  // ===========================================================================
+
+  private async pruneStaleCache(): Promise<void> {
+    if (!this.isAvailable) return;
+
+    try {
+      // Dynamically import to avoid circular dependency with store
+      const { useOpenTabsStore } = await import('@/app/store/open-tabs');
+      const tabs = useOpenTabsStore.getState().tabs;
+      const openSetNumbers = new Set<string>();
+      for (const tab of tabs) {
+        if (tab.type === 'set') {
+          openSetNumbers.add(tab.setNumber);
+        }
+      }
+
+      await pruneStaleInventoryCache(openSetNumbers);
+    } catch (error) {
+      console.warn('Failed to prune stale cache:', error);
     }
   }
 
