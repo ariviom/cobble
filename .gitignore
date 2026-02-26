@@ -59,6 +59,9 @@ node_modules
 # Claude Code memory
 .memory/
 
+# Git worktrees
+.worktrees/
+
 # References
 .playwright-mcp/
 ui_ref/
