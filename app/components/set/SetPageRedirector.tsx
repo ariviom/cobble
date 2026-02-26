@@ -1,7 +1,8 @@
 'use client';
 
+import { UpgradeModal } from '@/app/components/upgrade-modal';
+import { useGatedOpenTab } from '@/app/hooks/useGatedOpenTab';
 import { useSyncRecentSet } from '@/app/hooks/useSyncRecentSet';
-import { useOpenTabsStore } from '@/app/store/open-tabs';
 import { addRecentSet } from '@/app/store/recent-sets';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
@@ -35,7 +36,8 @@ export function SetPageRedirector({
   themeName,
 }: SetPageRedirectorProps) {
   const router = useRouter();
-  const openTab = useOpenTabsStore(state => state.openTab);
+  const { openTab, showUpgradeModal, dismissUpgradeModal, gateFeature } =
+    useGatedOpenTab();
   const syncRecentSet = useSyncRecentSet();
   const hasRedirected = useRef(false);
 
@@ -44,8 +46,8 @@ export function SetPageRedirector({
     if (hasRedirected.current) return;
     hasRedirected.current = true;
 
-    // Add to open tabs
-    openTab({
+    // Add to open tabs (may be blocked by tab limit)
+    const allowed = openTab({
       type: 'set',
       id: setNumber,
       setNumber,
@@ -57,7 +59,7 @@ export function SetPageRedirector({
       themeName,
     });
 
-    // Add to recent sets
+    // Add to recent sets regardless of tab limit
     addRecentSet({
       setNumber,
       name: setName,
@@ -69,8 +71,13 @@ export function SetPageRedirector({
     });
     syncRecentSet(setNumber);
 
-    // Redirect to SPA container
-    router.replace(`/sets?active=${encodeURIComponent(setNumber)}`);
+    if (allowed) {
+      // Redirect to SPA container
+      router.replace(`/sets?active=${encodeURIComponent(setNumber)}`);
+    } else {
+      // Tab limit reached — redirect to /sets so user sees the upgrade modal
+      router.replace('/sets');
+    }
   }, [
     setNumber,
     setName,
@@ -85,5 +92,14 @@ export function SetPageRedirector({
   ]);
 
   // Show skeleton layout while redirecting to prevent layout shift
-  return <SetPageSkeleton />;
+  return (
+    <>
+      <SetPageSkeleton />
+      <UpgradeModal
+        open={showUpgradeModal}
+        feature={gateFeature}
+        onClose={dismissUpgradeModal}
+      />
+    </>
+  );
 }

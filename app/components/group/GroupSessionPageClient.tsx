@@ -4,9 +4,11 @@ import { Button } from '@/app/components/ui/Button';
 import { ColorSlotPicker } from '@/app/components/ui/ColorSlotPicker';
 import { Input } from '@/app/components/ui/Input';
 import { Toast } from '@/app/components/ui/Toast';
+import { UpgradeModal } from '@/app/components/upgrade-modal';
+import { useGatedOpenTab } from '@/app/hooks/useGatedOpenTab';
 import { useGroupClientId } from '@/app/hooks/useGroupClientId';
 import { storeGroupSession } from '@/app/store/group-sessions';
-import { useOpenTabsStore, spTabId, type SetTab } from '@/app/store/open-tabs';
+import { spTabId, type SetTab } from '@/app/store/open-tabs';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -49,7 +51,8 @@ export function GroupSessionPageClient({
 
   const clientId = useGroupClientId();
   const router = useRouter();
-  const openTab = useOpenTabsStore(state => state.openTab);
+  const { openTab, showUpgradeModal, dismissUpgradeModal, gateFeature } =
+    useGatedOpenTab();
 
   const handleJoin = async () => {
     if (!clientId) return;
@@ -137,7 +140,8 @@ export function GroupSessionPageClient({
         groupParticipantId: data.participant.id,
         groupRole: 'joiner',
       };
-      openTab(setTab);
+      const allowed = openTab(setTab);
+      if (!allowed) return;
 
       // Redirect to the tabbed sets page
       router.push(`/sets?active=${encodeURIComponent(tabId)}`);
@@ -219,6 +223,12 @@ export function GroupSessionPageClient({
           onClose={() => setJoinError(null)}
         />
       )}
+
+      <UpgradeModal
+        open={showUpgradeModal}
+        feature={gateFeature}
+        onClose={dismissUpgradeModal}
+      />
     </div>
   );
 }

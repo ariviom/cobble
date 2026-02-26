@@ -4,8 +4,10 @@ import { SetPageSkeleton } from '@/app/components/set/SetPageSkeleton';
 import { SetTabBar } from '@/app/components/set/SetTabBar';
 import { SetTabContainer } from '@/app/components/set/SetTabContainer';
 import { SetsLandingContent } from '@/app/components/sets/SetsLandingContent';
+import { UpgradeModal } from '@/app/components/upgrade-modal';
 import { cn } from '@/app/components/ui/utils';
 import { useDynamicTitle } from '@/app/hooks/useDynamicTitle';
+import { useGatedOpenTab } from '@/app/hooks/useGatedOpenTab';
 import { useIsDesktop } from '@/app/hooks/useIsDesktop';
 import { readStorage } from '@/app/lib/persistence/storage';
 import {
@@ -84,9 +86,12 @@ export default function SetsPage() {
   const closeTab = useOpenTabsStore(state => state.closeTab);
   const saveTabState = useOpenTabsStore(state => state.saveTabState);
   const openLandingTab = useOpenTabsStore(state => state.openLandingTab);
-  const replaceLandingWithSet = useOpenTabsStore(
-    state => state.replaceLandingWithSet
-  );
+  const {
+    replaceLandingWithSet,
+    showUpgradeModal,
+    dismissUpgradeModal,
+    gateFeature,
+  } = useGatedOpenTab();
 
   // Auto-create a landing tab if store hydrates with no tabs
   const hasAutoCreatedRef = useRef(false);
@@ -261,8 +266,10 @@ export default function SetsPage() {
   // Handle selecting a set from a landing tab's content
   const handleSelectSetFromLanding = useCallback(
     (landingTabId: string) => (setTab: SetTab) => {
-      replaceLandingWithSet(landingTabId, setTab);
-      window.history.pushState(null, '', `/sets?active=${setTab.id}`);
+      const allowed = replaceLandingWithSet(landingTabId, setTab);
+      if (allowed) {
+        window.history.pushState(null, '', `/sets?active=${setTab.id}`);
+      }
     },
     [replaceLandingWithSet]
   );
@@ -383,6 +390,12 @@ export default function SetsPage() {
           );
         })}
       </div>
+
+      <UpgradeModal
+        open={showUpgradeModal}
+        feature={gateFeature}
+        onClose={dismissUpgradeModal}
+      />
     </div>
   );
 }
