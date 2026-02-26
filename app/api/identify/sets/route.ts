@@ -2,8 +2,9 @@ import { errorResponse } from '@/app/lib/api/responses';
 import { LRUCache } from '@/app/lib/cache/lru';
 import { RATE_LIMIT } from '@/app/lib/constants';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { logger } from '@/lib/metrics';
-import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
+import { consumeRateLimit } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
 import {
@@ -31,17 +32,26 @@ const identifySetsCache = new LRUCache<
  * - blColorId: BrickLink color ID (optional, mapped to RB if colorId not provided)
  */
 export async function GET(req: NextRequest) {
-  // IP-based rate limit
-  const clientIp = (await getClientIp(req)) ?? 'unknown';
-  const ipLimit = await consumeRateLimit(`identify-sets:ip:${clientIp}`, {
+  // Auth guard — this endpoint burns BrickLink API quota
+  const supabase = await getSupabaseAuthServerClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return errorResponse('unauthorized');
+  }
+
+  // User-based rate limit
+  const userLimit = await consumeRateLimit(`identify-sets:user:${user.id}`, {
     windowMs: RATE_LIMIT.WINDOW_MS,
     maxHits: RATE_LIMIT.IDENTIFY_SETS_MAX,
   });
-  if (!ipLimit.allowed) {
+  if (!userLimit.allowed) {
     return errorResponse('rate_limited', {
       status: 429,
-      headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
-      details: { retryAfterSeconds: ipLimit.retryAfterSeconds },
+      headers: { 'Retry-After': String(userLimit.retryAfterSeconds) },
+      details: { retryAfterSeconds: userLimit.retryAfterSeconds },
     });
   }
 

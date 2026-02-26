@@ -1,7 +1,11 @@
 'use client';
 
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import { invalidateUserListsCache } from '@/app/hooks/useUserLists';
+import {
+  optimisticUpdateUserLists,
+  useUserLists,
+  type UserListSummary,
+} from '@/app/hooks/useUserLists';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { Tables } from '@/supabase/types';
 import { useEffect, useMemo, useState } from 'react';
@@ -27,16 +31,11 @@ type UseSetListsArgs = {
   setNumber: string;
 };
 
-const LIST_CACHE_TTL_MS = 5 * 60 * 1000;
 const MEMBERSHIP_CACHE_LIMIT = 40;
 const STORAGE_KEY = 'brick_party_set_lists_cache_v1';
 const SET_ITEM_TYPE = 'set' as const;
 
-type ListCacheEntry = {
-  lists: UserList[];
-  selectedIds: string[];
-  updatedAt: number;
-};
+// --- Per-set membership persistence (sessionStorage) ---
 
 type PersistedMembership = {
   ids: string[];
@@ -44,19 +43,12 @@ type PersistedMembership = {
 };
 
 type PersistedUserState = {
-  lists: UserList[];
-  listsUpdatedAt: number;
   memberships: Record<string, PersistedMembership>;
 };
 
 type PersistedRoot = Record<string, PersistedUserState>;
 
-const listCache = new Map<string, ListCacheEntry>();
 let persistedRoot: PersistedRoot | null = null;
-
-function makeCacheKey(userId: string, setNumber: string): string {
-  return `${userId}::${setNumber}`;
-}
 
 function readPersistedRoot(): PersistedRoot {
   if (persistedRoot) return persistedRoot;
@@ -85,25 +77,28 @@ function writePersistedRoot(): void {
   }
 }
 
-function getPersistedUserState(userId: string): PersistedUserState | null {
+function getPersistedMembership(
+  userId: string,
+  setNum: string
+): string[] | null {
   if (!userId) return null;
   const root = readPersistedRoot();
-  return root[userId] ?? null;
+  return root[userId]?.memberships[setNum]?.ids ?? null;
 }
 
-function updatePersistedUserState(
+function updatePersistedMembership(
   userId: string,
-  updater: (prev: PersistedUserState | null) => PersistedUserState | null
+  setNum: string,
+  ids: string[]
 ): void {
   if (!userId) return;
   const root = readPersistedRoot();
-  const prev = root[userId] ?? null;
-  const next = updater(prev);
-  if (next) {
-    root[userId] = next;
-  } else {
-    delete root[userId];
-  }
+  const prev = root[userId] ?? { memberships: {} };
+  const memberships = {
+    ...prev.memberships,
+    [setNum]: { ids, updatedAt: Date.now() },
+  };
+  root[userId] = { memberships: trimMemberships(memberships) };
   writePersistedRoot();
 }
 
@@ -125,26 +120,43 @@ function trimMemberships(
   );
 }
 
-function getCachedEntry(key: string | null): ListCacheEntry | null {
-  if (!key) return null;
-  const entry = listCache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.updatedAt > LIST_CACHE_TTL_MS) {
-    listCache.delete(key);
-    return null;
-  }
-  return entry;
+// --- In-memory membership cache (keyed by userId::setNumber) ---
+
+type MembershipCacheEntry = {
+  selectedIds: string[];
+  updatedAt: number;
+};
+
+const MEMBERSHIP_TTL_MS = 5 * 60 * 1000;
+const membershipCache = new Map<string, MembershipCacheEntry>();
+
+function makeCacheKey(userId: string, setNumber: string): string {
+  return `${userId}::${setNumber}`;
 }
 
-function writeCacheEntry(key: string, entry: ListCacheEntry) {
-  listCache.set(key, entry);
+function getCachedMembership(key: string | null): string[] | null {
+  if (!key) return null;
+  const entry = membershipCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.updatedAt > MEMBERSHIP_TTL_MS) {
+    membershipCache.delete(key);
+    return null;
+  }
+  return entry.selectedIds;
+}
+
+function toUserList(summary: UserListSummary): UserList {
+  return { id: summary.id, name: summary.name, isSystem: summary.isSystem };
 }
 
 export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
   const { user } = useSupabaseUser();
-  const [lists, setLists] = useState<UserList[]>([]);
+  const { allLists, isLoading: listsLoading } = useUserLists();
+
+  const lists: UserList[] = useMemo(() => allLists.map(toUserList), [allLists]);
+
   const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [membershipLoading, setMembershipLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const normSetNum = useMemo(() => setNumber.trim(), [setNumber]);
@@ -154,30 +166,21 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
     [user, normSetNum]
   );
 
+  // Hydrate selectedListIds from persisted membership on mount
   useEffect(() => {
     if (!user) {
-      setLists([]);
       setSelectedListIds([]);
-      setIsLoading(false);
       setError(null);
       return;
     }
 
-    const persisted = getPersistedUserState(user.id);
-    if (!persisted) {
-      return;
-    }
-
-    if (persisted.lists.length > 0) {
-      setLists(prev => (prev.length === 0 ? persisted.lists : prev));
-      setIsLoading(false);
-    }
-    const membership = persisted.memberships[normSetNum];
-    if (membership && membership.ids.length > 0) {
-      setSelectedListIds(prev => (prev.length === 0 ? membership.ids : prev));
+    const persisted = getPersistedMembership(user.id, normSetNum);
+    if (persisted && persisted.length > 0) {
+      setSelectedListIds(prev => (prev.length === 0 ? persisted : prev));
     }
   }, [user, normSetNum]);
 
+  // Fetch per-set membership (user_list_items) only
   useEffect(() => {
     if (!user) {
       return;
@@ -185,84 +188,46 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
 
     let cancelled = false;
     const supabase = getSupabaseBrowserClient();
-    const cached = getCachedEntry(cacheKey);
+    const cached = getCachedMembership(cacheKey);
 
     if (cached) {
-      setLists(cached.lists);
-      setSelectedListIds(cached.selectedIds);
-      setIsLoading(false);
+      setSelectedListIds(cached);
+      setMembershipLoading(false);
     } else {
-      setIsLoading(true);
+      setMembershipLoading(true);
     }
 
     const run = async () => {
       setError(null);
       try {
-        const [listsRes, membershipRes] = await Promise.all([
-          supabase
-            .from('user_lists')
-            .select<'id,name,is_system'>('id,name,is_system')
-            .eq('user_id', user.id)
-            .order('name', { ascending: true }),
-          supabase
-            .from('user_list_items')
-            .select<'list_id'>('list_id')
-            .eq('user_id', user.id)
-            .eq('item_type', SET_ITEM_TYPE)
-            .eq('set_num', normSetNum),
-        ]);
+        const { data, error: membershipError } = await supabase
+          .from('user_list_items')
+          .select<'list_id'>('list_id')
+          .eq('user_id', user.id)
+          .eq('item_type', SET_ITEM_TYPE)
+          .eq('set_num', normSetNum);
 
         if (cancelled) return;
 
-        if (listsRes.error || membershipRes.error) {
-          console.error('useSetLists query error', {
-            listsError: listsRes.error,
-            membershipError: membershipRes.error,
-          });
-          const message =
-            listsRes.error?.message ??
-            membershipRes.error?.message ??
-            'Failed to load lists';
-          setError(message);
+        if (membershipError) {
+          console.error('useSetLists membership query error', membershipError);
+          setError(membershipError.message ?? 'Failed to load list membership');
           return;
         }
 
-        const listRows = (listsRes.data ?? []) as Array<Tables<'user_lists'>>;
-        const membershipRows = (membershipRes.data ?? []) as Array<
-          Tables<'user_list_items'>
-        >;
-
-        // Include system lists (like Wishlist) so they appear in the modal
-        const normalizedLists = listRows.map(row => ({
-          id: row.id,
-          name: row.name,
-          isSystem: row.is_system,
-        }));
+        const membershipRows = (data ?? []) as Array<Tables<'user_list_items'>>;
         const selected = membershipRows.map(row => row.list_id);
 
-        setLists(normalizedLists);
         setSelectedListIds(selected);
 
         if (cacheKey) {
-          writeCacheEntry(cacheKey, {
-            lists: normalizedLists,
+          membershipCache.set(cacheKey, {
             selectedIds: selected,
             updatedAt: Date.now(),
           });
         }
 
-        const now = Date.now();
-        updatePersistedUserState(user.id, prev => {
-          const nextMemberships = {
-            ...(prev?.memberships ?? {}),
-            [normSetNum]: { ids: selected, updatedAt: now },
-          };
-          return {
-            lists: normalizedLists,
-            listsUpdatedAt: now,
-            memberships: trimMemberships(nextMemberships),
-          };
-        });
+        updatePersistedMembership(user.id, normSetNum, selected);
       } catch (err) {
         if (!cancelled) {
           console.error('useSetLists load failed', err);
@@ -272,7 +237,7 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
         }
       } finally {
         if (!cancelled) {
-          setIsLoading(false);
+          setMembershipLoading(false);
         }
       }
     };
@@ -283,6 +248,8 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
       cancelled = true;
     };
   }, [user, normSetNum, cacheKey]);
+
+  const isLoading = listsLoading || membershipLoading;
 
   const toggleList = (listId: string) => {
     if (!user) return;
@@ -296,29 +263,13 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
     setSelectedListIds(nextSelected);
 
     if (cacheKey) {
-      const existing = listCache.get(cacheKey);
-      if (existing) {
-        listCache.set(cacheKey, {
-          ...existing,
-          selectedIds: nextSelected,
-          updatedAt: Date.now(),
-        });
-      }
+      membershipCache.set(cacheKey, {
+        selectedIds: nextSelected,
+        updatedAt: Date.now(),
+      });
     }
 
-    const now = Date.now();
-    updatePersistedUserState(user.id, prev => {
-      const listsState = prev?.lists ?? lists;
-      const memberships = {
-        ...(prev?.memberships ?? {}),
-        [normSetNum]: { ids: nextSelected, updatedAt: now },
-      };
-      return {
-        lists: listsState,
-        listsUpdatedAt: prev?.listsUpdatedAt ?? now,
-        memberships: trimMemberships(memberships),
-      };
-    });
+    updatePersistedMembership(user.id, normSetNum, nextSelected);
 
     if (isSelected) {
       void supabase
@@ -369,35 +320,13 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
 
     const supabase = getSupabaseBrowserClient();
     const tempId = `temp-${Date.now().toString(36)}`;
-    const optimistic: UserList = {
+    const optimistic: UserListSummary = {
       id: tempId,
       name: trimmed,
       isSystem: false,
     };
 
-    setLists(prev => {
-      const next = [...prev, optimistic];
-      if (cacheKey) {
-        const existing = listCache.get(cacheKey);
-        listCache.set(cacheKey, {
-          lists: next,
-          selectedIds: existing?.selectedIds ?? selectedListIds,
-          updatedAt: Date.now(),
-        });
-      }
-      if (user) {
-        const now = Date.now();
-        updatePersistedUserState(user.id, prevState => {
-          const memberships = prevState?.memberships ?? {};
-          return {
-            lists: next,
-            listsUpdatedAt: now,
-            memberships: trimMemberships(memberships),
-          };
-        });
-      }
-      return next;
-    });
+    optimisticUpdateUserLists(user.id, prev => [...prev, optimistic]);
 
     void supabase
       .from('user_lists')
@@ -412,69 +341,36 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
         if (err || !data) {
           console.error('Failed to create list', err);
           setError('Failed to create list');
-          setLists(prev => prev.filter(list => list.id !== tempId));
+          optimisticUpdateUserLists(user.id, prev =>
+            prev.filter(list => list.id !== tempId)
+          );
           return;
         }
 
-        const created: UserList = {
+        const created: UserListSummary = {
           id: data.id,
           name: data.name,
           isSystem: data.is_system,
         };
 
-        setLists(prev => {
-          const next = prev
+        optimisticUpdateUserLists(user.id, prev =>
+          prev
             .filter(list => list.id !== tempId)
             .concat(created)
-            .sort((a, b) => a.name.localeCompare(b.name));
-          if (cacheKey) {
-            const existing = listCache.get(cacheKey);
-            listCache.set(cacheKey, {
-              lists: next,
-              selectedIds: existing?.selectedIds ?? selectedListIds,
-              updatedAt: Date.now(),
-            });
-          }
-          if (user) {
-            const now = Date.now();
-            updatePersistedUserState(user.id, prevState => {
-              const memberships = prevState?.memberships ?? {};
-              return {
-                lists: next,
-                listsUpdatedAt: now,
-                memberships: trimMemberships(memberships),
-              };
-            });
-          }
-          return next;
-        });
+            .sort((a, b) => a.name.localeCompare(b.name))
+        );
 
-        setSelectedListIds(prev => {
-          const nextSelected = [...prev, created.id];
-          if (cacheKey) {
-            const existing = listCache.get(cacheKey);
-            listCache.set(cacheKey, {
-              lists: existing?.lists ?? lists,
-              selectedIds: nextSelected,
-              updatedAt: Date.now(),
-            });
-          }
-          if (user) {
-            const now = Date.now();
-            updatePersistedUserState(user.id, prevState => {
-              const nextMemberships = {
-                ...(prevState?.memberships ?? {}),
-                [normSetNum]: { ids: nextSelected, updatedAt: now },
-              };
-              return {
-                lists: prevState?.lists ?? lists,
-                listsUpdatedAt: prevState?.listsUpdatedAt ?? now,
-                memberships: trimMemberships(nextMemberships),
-              };
-            });
-          }
-          return nextSelected;
-        });
+        const nextSelected = [...selectedListIds, created.id];
+        setSelectedListIds(nextSelected);
+
+        if (cacheKey) {
+          membershipCache.set(cacheKey, {
+            selectedIds: nextSelected,
+            updatedAt: Date.now(),
+          });
+        }
+
+        updatePersistedMembership(user.id, normSetNum, nextSelected);
 
         const innerSupabase = getSupabaseBrowserClient();
         void innerSupabase
@@ -509,27 +405,9 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
       return;
     }
 
-    // Optimistic update
-    setLists(prev => {
-      const next = prev.map(l =>
-        l.id === listId ? { ...l, name: trimmed } : l
-      );
-      // Update in-memory cache entries for this user
-      for (const [key, entry] of listCache.entries()) {
-        if (key.startsWith(`${user.id}::`)) {
-          listCache.set(key, { ...entry, lists: next, updatedAt: Date.now() });
-        }
-      }
-      // Update persisted state
-      updatePersistedUserState(user.id, prev => ({
-        lists: next,
-        listsUpdatedAt: Date.now(),
-        memberships: prev?.memberships ?? {},
-      }));
-      return next;
-    });
-
-    invalidateUserListsCache(user.id);
+    optimisticUpdateUserLists(user.id, prev =>
+      prev.map(l => (l.id === listId ? { ...l, name: trimmed } : l))
+    );
 
     const supabase = getSupabaseBrowserClient();
     void supabase
@@ -548,28 +426,27 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
   const deleteList = (listId: string) => {
     if (!user) return;
 
-    // Optimistic update
-    setLists(prev => {
-      const next = prev.filter(l => l.id !== listId);
-      for (const [key, entry] of listCache.entries()) {
-        if (key.startsWith(`${user.id}::`)) {
-          listCache.set(key, {
-            lists: next,
-            selectedIds: entry.selectedIds.filter(id => id !== listId),
-            updatedAt: Date.now(),
-          });
-        }
-      }
-      updatePersistedUserState(user.id, prev => ({
-        lists: next,
-        listsUpdatedAt: Date.now(),
-        memberships: prev?.memberships ?? {},
-      }));
-      return next;
-    });
+    optimisticUpdateUserLists(user.id, prev =>
+      prev.filter(l => l.id !== listId)
+    );
+
     setSelectedListIds(prev => prev.filter(id => id !== listId));
 
-    invalidateUserListsCache(user.id);
+    if (cacheKey) {
+      const existing = membershipCache.get(cacheKey);
+      if (existing) {
+        membershipCache.set(cacheKey, {
+          selectedIds: existing.selectedIds.filter(id => id !== listId),
+          updatedAt: Date.now(),
+        });
+      }
+    }
+
+    updatePersistedMembership(
+      user.id,
+      normSetNum,
+      selectedListIds.filter(id => id !== listId)
+    );
 
     const supabase = getSupabaseBrowserClient();
     void supabase

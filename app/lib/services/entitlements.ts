@@ -118,9 +118,7 @@ export async function getEntitlements(
 ): Promise<Entitlements> {
   // Check beta status first so we can include it in the cache key
   const betaOn =
-    options?.betaOverride === true ||
-    process.env.BETA_ALL_ACCESS === 'true' ||
-    process.env.NEXT_PUBLIC_BETA_ALL_ACCESS === 'true';
+    options?.betaOverride === true || process.env.BETA_ALL_ACCESS === 'true';
 
   // Include beta status in cache key so cache is invalidated when beta changes
   const cacheKey = `${userId}:${options?.betaOverride ?? false}:${betaOn}`;

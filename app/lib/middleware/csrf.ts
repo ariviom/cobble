@@ -62,17 +62,6 @@ export function validateOrigin(
   return 'invalid';
 }
 
-function extractCsrfToken(req: NextRequest): string | null {
-  const header = req.headers.get('x-csrf-token');
-  const cookie = req.cookies.get('csrf_token')?.value ?? null;
-  // Optional double-submit: only enforce when header is provided.
-  if (header) {
-    if (!cookie) return null;
-    return header === cookie ? header : null;
-  }
-  return cookie ?? null;
-}
-
 export function withCsrfProtection(
   handler: (req: NextRequest) => Promise<NextResponse> | NextResponse
 ) {
@@ -89,16 +78,21 @@ export function withCsrfProtection(
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 
-    const token = extractCsrfToken(req);
+    const csrfHeader = req.headers.get('x-csrf-token');
+    const csrfCookie = req.cookies.get('csrf_token')?.value ?? null;
 
-    // If origin headers are missing (privacy tools, older browsers), require CSRF token
-    // This prevents attacks where Origin/Referer are intentionally stripped
-    if (originStatus === 'missing' && !token) {
-      return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+    // If origin headers are missing (privacy tools, older browsers), require
+    // double-submit validation: both x-csrf-token header AND csrf_token cookie
+    // must be present and match. Cookie alone is insufficient because browsers
+    // send cookies automatically on cross-site requests.
+    if (originStatus === 'missing') {
+      if (!csrfHeader || !csrfCookie || csrfHeader !== csrfCookie) {
+        return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+      }
     }
 
     // If CSRF header is provided, it must match the cookie (double-submit validation)
-    if (req.headers.get('x-csrf-token') && !token) {
+    if (csrfHeader && (!csrfCookie || csrfHeader !== csrfCookie)) {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 

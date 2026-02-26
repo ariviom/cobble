@@ -81,6 +81,30 @@ export function invalidateUserListsCache(userId?: string) {
   }
 }
 
+// --- Subscriber pattern for optimistic list mutations ---
+// Allows useSetLists/useMinifigLists to push optimistic updates that
+// all active useUserLists hook instances pick up immediately.
+
+type ListsListener = (lists: UserListSummary[]) => void;
+const listeners = new Set<ListsListener>();
+
+/**
+ * Optimistically update the shared user lists. Updates the cache and
+ * notifies all active useUserLists hook instances so they re-render
+ * with the new list state immediately.
+ */
+export function optimisticUpdateUserLists(
+  userId: string,
+  updater: (prev: UserListSummary[]) => UserListSummary[]
+): void {
+  const prev = getCachedLists(userId) ?? [];
+  const next = updater(prev);
+  setCachedLists(userId, next);
+  for (const listener of listeners) {
+    listener(next);
+  }
+}
+
 export type UseUserListsResult = {
   /** All lists (system + custom) */
   allLists: UserListSummary[];
@@ -102,6 +126,17 @@ export function useUserLists(): UseUserListsResult {
   const [allLists, setAllLists] = useState<UserListSummary[]>(cached ?? []);
   const [isLoading, setIsLoading] = useState<boolean>(!!user && !cached);
   const [error, setError] = useState<string | null>(null);
+
+  // Subscribe to optimistic updates from other hooks
+  useEffect(() => {
+    const listener: ListsListener = next => {
+      setAllLists(next);
+    };
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) {

@@ -6,8 +6,14 @@ import {
   type RarestSubpartSetsResult,
 } from '@/app/lib/catalog/minifigs';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
-import { logger } from '@/lib/metrics';
+import { incrementCounter, logger } from '@/lib/metrics';
+import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
+
+const BL_RATE_WINDOW_MS =
+  Number.parseInt(process.env.BL_RATE_WINDOW_MS ?? '', 10) || 60_000;
+const BL_RATE_LIMIT =
+  Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE ?? '', 10) || 30;
 
 type MinifigMetaLight = {
   /** BrickLink minifig ID (primary) */
@@ -105,6 +111,29 @@ export async function GET(
     return errorResponse('validation_failed', {
       message: 'Invalid minifig ID format',
     });
+  }
+
+  // Rate-limit when pricing is requested (hits BrickLink API)
+  if (includePricing) {
+    const clientIp = (await getClientIp(req)) ?? 'unknown';
+    const ipLimit = await consumeRateLimit(`bl-minifig:ip:${clientIp}`, {
+      windowMs: BL_RATE_WINDOW_MS,
+      maxHits: BL_RATE_LIMIT,
+    });
+    if (!ipLimit.allowed) {
+      incrementCounter('minifig_pricing_rate_limited');
+      return NextResponse.json(
+        {
+          error: 'rate_limited',
+          scope: 'ip',
+          retryAfterSeconds: ipLimit.retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+        }
+      );
+    }
   }
 
   // Input may be a BrickLink minifig ID (e.g., "sw0001") or an RB fig_num (e.g., "fig-005774")

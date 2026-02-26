@@ -227,7 +227,6 @@ These components already have auth gating:
 ```bash
 # Disable pricing display during beta
 BETA_ALL_ACCESS=true
-NEXT_PUBLIC_BETA_ALL_ACCESS=true
 NEXT_PUBLIC_PRICING_ENABLED=false
 ```
 
@@ -870,7 +869,6 @@ npm test -- app/hooks/__tests__/useGroupSessionChannel.test.ts
 ```bash
 # === Beta Mode ===
 BETA_ALL_ACCESS=true
-NEXT_PUBLIC_BETA_ALL_ACCESS=true
 NEXT_PUBLIC_PRICING_ENABLED=false
 
 # === Supabase ===

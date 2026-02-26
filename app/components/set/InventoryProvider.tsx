@@ -27,6 +27,9 @@ import type {
   ViewType,
 } from './types';
 
+/** Stable empty record used as default selector value to avoid re-renders. */
+const EMPTY_PINNED: Record<string, true> = {};
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -342,28 +345,30 @@ export function InventoryProvider({
   );
 
   // -------------------------------------------------------------------------
-  // Pinned store
+  // Pinned store — subscribe only to this set's pinned map
   // -------------------------------------------------------------------------
-  const pinnedStore = usePinnedStore();
+  const pinnedForSet = usePinnedStore(
+    state => state.pinned[setNumber] ?? EMPTY_PINNED
+  );
 
   const isPinned = useCallback(
-    (key: string) => pinnedStore.isPinned(setNumber, key),
-    [pinnedStore, setNumber]
+    (key: string) => !!pinnedForSet[key],
+    [pinnedForSet]
   );
 
   const togglePinned = useCallback(
     (key: string) =>
-      pinnedStore.togglePinned({
+      usePinnedStore.getState().togglePinned({
         setNumber,
         key,
         ...(setName ? { setName } : {}),
       }),
-    [pinnedStore, setNumber, setName]
+    [setNumber, setName]
   );
 
   const getPinnedCount = useCallback(
-    () => pinnedStore.getPinnedKeysForSet(setNumber).length,
-    [pinnedStore, setNumber]
+    () => Object.keys(pinnedForSet).length,
+    [pinnedForSet]
   );
 
   // -------------------------------------------------------------------------
