@@ -5,6 +5,7 @@ import {
   THEME_COLOR_HEX,
   THEME_COLOR_TO_VALUE,
   THEME_CONTRAST_TEXT,
+  THEME_FAVICON_HEX,
   THEME_TEXT_COLORS_DARK,
   THEME_TEXT_COLORS_LIGHT,
   ThemeColor,
@@ -75,13 +76,18 @@ function updateFavicon(iconColor: string) {
   if (typeof document === 'undefined') return;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="7 5.5 508 508"><path fill="${iconColor}" d="${FAVICON_SVG_PATHS}"/></svg>`;
   const url = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+
+  // Use a dedicated dynamic link (identified by data attribute) so we never
+  // touch the React-managed <link> from app/icon.svg.  Appending ours after
+  // the static one makes browsers prefer ours (last match wins).
   let link = document.querySelector<HTMLLinkElement>(
-    'link[rel="icon"][type="image/svg+xml"]'
+    'link[data-dynamic-favicon]'
   );
   if (!link) {
     link = document.createElement('link');
     link.rel = 'icon';
     link.type = 'image/svg+xml';
+    link.setAttribute('data-dynamic-favicon', '');
     document.head.appendChild(link);
   }
   link.href = url;
@@ -122,12 +128,11 @@ function applyThemeColor(
       metaThemeColor.setAttribute('content', hex);
     }
 
-    // Update SVG favicon to match theme color
-    const hex =
-      THEME_COLOR_HEX[nextColor] ?? THEME_COLOR_HEX[DEFAULT_THEME_COLOR];
-    updateFavicon(hex);
+    // Update SVG favicon — use darkened variants so light colors stay visible
+    const faviconHex =
+      THEME_FAVICON_HEX[nextColor] ?? THEME_FAVICON_HEX[DEFAULT_THEME_COLOR];
+    updateFavicon(faviconHex);
   }
-  persistThemeColor(nextColor);
 }
 
 async function saveUserPreferences(
@@ -213,6 +218,7 @@ function AppThemeInner({
   const setThemeColor = useCallback(
     (nextColor: ThemeColor) => {
       setThemeColorState(nextColor);
+      persistThemeColor(nextColor);
       const safeResolved = resolvedTheme === 'dark' ? 'dark' : 'light';
       applyThemeColor(nextColor, safeResolved);
       if (user) {

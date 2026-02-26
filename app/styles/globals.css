@@ -36,7 +36,7 @@
   --color-brand-green: #00b242;
   --color-brand-orange: #fe7000;
   --color-brand-purple: #4d2f93;
-  --color-theme-primary: var(--color-brand-blue);
+  --color-theme-primary: var(--color-brand-yellow);
   --color-theme-accent: color-mix(
     in oklch,
     var(--color-theme-primary) 90%,

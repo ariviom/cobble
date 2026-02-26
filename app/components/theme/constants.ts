@@ -5,7 +5,7 @@ export type ThemePreference = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';
 export type ThemeColor = 'blue' | 'yellow' | 'purple' | 'red' | 'green';
 
-export const DEFAULT_THEME_COLOR: ThemeColor = 'blue';
+export const DEFAULT_THEME_COLOR: ThemeColor = 'yellow';
 
 export const THEME_COLOR_TO_VALUE: Record<ThemeColor, string> = {
   blue: 'var(--color-brand-blue)',
@@ -48,6 +48,18 @@ export const THEME_TEXT_COLORS_DARK: Record<ThemeColor, string> = {
   purple: '#a78bfa', // Lighter purple
   red: '#f87171', // Lighter red
   green: '#4ade80', // Lighter green
+};
+
+/**
+ * Favicon hex colors — darkened variants for colors that wash out on light tabs.
+ * Falls back to THEME_COLOR_HEX for colors that are already high-contrast.
+ */
+export const THEME_FAVICON_HEX: Record<ThemeColor, string> = {
+  blue: '#016cb8',
+  yellow: '#d4a900', // Darkened gold — visible on light browser tabs
+  purple: '#4d2f93',
+  red: '#e3000b',
+  green: '#00b242',
 };
 
 /**
