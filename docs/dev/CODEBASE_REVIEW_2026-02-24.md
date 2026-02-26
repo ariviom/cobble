@@ -20,23 +20,15 @@
 
 ---
 
-### C3. Mobile data loss — `flushAllPendingWrites` is fire-and-forget on unload
+### ~~C3. Mobile data loss — `flushAllPendingWrites` is fire-and-forget on unload~~ ✅
 
-**`app/store/owned.ts:100-110`**
-
-`flushAllPendingWrites` is called on `beforeunload`, `pagehide`, and `visibilitychange`. It fires async IndexedDB writes via `flushWriteToIndexedDB`, but iOS Safari kills the page immediately after the event fires. The async chain is suspended and pending owned changes are silently lost.
-
-**Fix:** Persist pending writes to `localStorage` synchronously inside the unload handler as a fallback, then reconcile from localStorage on next page load. The SyncWorker's `sendBeacon` approach is the right model.
+**`app/store/owned.ts`** — Fixed: added synchronous `localStorage` fallback (`brick_party_pending_owned`) in `flushAllPendingWrites` before async IndexedDB writes. On next page load, `reconcilePendingFromLocalStorage()` replays pending writes into IndexedDB before hydration reads.
 
 ---
 
-### C4. Cross-user data leak after logout → login
+### ~~C4. Cross-user data leak after logout → login~~ ✅
 
-**`app/store/owned.ts:240-297`**
-
-`resetOwnedCache` clears `hydrationPromises` but does not cancel in-flight async operations. A `hydrateFromIndexedDB` promise started for User A can resolve after User B logs in, writing User A's owned data into the cache.
-
-**Fix:** Add a generation/epoch counter incremented in `resetOwnedCache`. Each hydration promise captures the epoch at start and checks it before writing to cache.
+**`app/store/owned.ts`** — Fixed: added module-level `cacheEpoch` counter incremented in `resetOwnedCache`. Both `hydrateFromIndexedDB` and `flushWriteToIndexedDB` capture the epoch at start and discard results if it changed during async operations.
 
 ---
 
@@ -52,31 +44,15 @@ Originally reported as 28K DOM nodes on identify and 7.3s blocking on inventory.
 
 ---
 
-### C6. `get_sets_with_minifigs()` returns wrong data
+### ~~C6. `get_sets_with_minifigs()` returns wrong data~~ ✅
 
-**`supabase/migrations/20251231184836_fix_linter_security_issues.sql:108`**
-
-The function declares `RETURNS TABLE(set_num text)` but the body selects `inventory_id` (an integer FK) aliased as `set_num`. It returns integer IDs like `"12345"` instead of set numbers like `"60001-1"`.
-
-**Fix:**
-
-```sql
-SELECT DISTINCT ri.set_num
-FROM public.rb_inventory_minifigs rim
-JOIN public.rb_inventories ri ON ri.id = rim.inventory_id
-WHERE ri.set_num IS NOT NULL AND ri.set_num NOT LIKE 'fig-%'
-ORDER BY ri.set_num;
-```
+**`supabase/migrations/20260226040741_fix_get_sets_with_minifigs.sql`** — Fixed: replaced the function body to join through `rb_inventories` for actual `set_num` instead of returning `inventory_id`.
 
 ---
 
-### C7. Three pricing tables have RLS enabled but zero policies
+### ~~C7. Three pricing tables have RLS enabled but zero policies~~ ✅
 
-**`supabase/migrations/20260218035317_create_pricing_tables.sql`**
-
-`bl_price_cache`, `bl_price_observations`, and `bp_derived_prices` each have `ENABLE ROW LEVEL SECURITY` but no policies are defined. Unlike every other internal table (which received explicit service_role policies in `fix_linter_security_issues.sql`), these tables were created after that migration.
-
-**Fix:** Add a migration with service_role full-access policies for all three tables.
+**`supabase/migrations/20260226040818_add_pricing_tables_rls_policies.sql`** — Fixed: added service_role full-access policies for `bl_price_cache`, `bl_price_observations`, and `bp_derived_prices`.
 
 ---
 
@@ -96,27 +72,13 @@ ORDER BY ri.set_num;
 
 ### Security
 
-#### H1. Open redirect in OAuth callback
+#### ~~H1. Open redirect in OAuth callback~~ ✅
 
-**`app/auth/callback/route.ts:50`**
+**`app/auth/callback/route.ts`** — Fixed: validates `next` param to require leading `/` without `//`, falling back to `'/'`.
 
-The `next` query parameter is used in a redirect without validation. `//evil.com` is a protocol-relative URL that browsers follow as an absolute redirect.
+#### ~~H2. CSRF bypass when Origin header is missing~~ ✅
 
-**Fix:**
-
-```typescript
-const rawNext = searchParams.get('next') ?? '/';
-const next =
-  rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
-```
-
-#### H2. CSRF bypass when Origin header is missing
-
-**`app/lib/middleware/csrf.ts:92-103`**
-
-When Origin is missing, the code accepts the CSRF cookie alone without requiring the `x-csrf-token` header. Browsers send cookies automatically, so a cross-site request without an Origin header bypasses CSRF protection.
-
-**Fix:** For `originStatus === 'missing'`, require both cookie and `x-csrf-token` header present and matching.
+**`app/lib/middleware/csrf.ts`** — Fixed: when Origin is missing, now requires both CSRF cookie and `x-csrf-token` header present and matching.
 
 #### ~~H3. Unauthenticated catalog writes (2 endpoints)~~ ✅
 
@@ -126,69 +88,41 @@ When Origin is missing, the code accepts the CSRF cookie alone without requiring
 
 **`lib/rateLimit.ts:94-108`** — Fixed: `getClientIp` now checks platform-verified headers first (`x-nf-client-connection-ip` for Netlify, `x-real-ip` for Vercel) before falling back to the spoofable `x-forwarded-for`.
 
-#### H5. `NEXT_PUBLIC_BETA_ALL_ACCESS` leaks entitlement strategy
+#### ~~H5. `NEXT_PUBLIC_BETA_ALL_ACCESS` leaks entitlement strategy~~ ✅
 
-**`.env.production:3`**
-
-`NEXT_PUBLIC_` variables are embedded in the client JS bundle. While the check is server-only, the beta bypass strategy is visible to anyone inspecting the bundle.
-
-**Fix:** Remove `NEXT_PUBLIC_BETA_ALL_ACCESS`. Use only `BETA_ALL_ACCESS` (no `NEXT_PUBLIC_` prefix).
+**`app/lib/services/entitlements.ts`** — Fixed: removed `NEXT_PUBLIC_BETA_ALL_ACCESS`, now uses only `BETA_ALL_ACCESS` (server-only, not bundled into client JS).
 
 ### Data Integrity
 
-#### H6. Inventory subpart quantity double-counting
+#### ~~H6. Inventory subpart quantity double-counting~~ ✅
 
-**`app/lib/services/inventory.ts:184-213`**
+**`app/lib/services/inventory.ts`** — Fixed: added `directCatalogKeys` Set to track keys from direct catalog parts. When merging minifig subparts, skips quantity increment for keys that already exist from direct catalog entries, only adding `parentRelations` link.
 
-When a subpart from `rb_minifig_parts` matches an existing catalog row, the code adds the minifig-based quantity unconditionally. Parts appearing both directly in a set and as minifig subparts show inflated `quantityRequired`. The live fallback path in `rebrickable/inventory.ts:143-144` correctly avoids this.
+#### ~~H7. Stripe duplicate customer creation (TOCTOU)~~ ✅
 
-**Fix:** Track whether a canonical key originated from a direct catalog part and skip the quantity increment, only adding the `parentRelations` link.
+**`app/lib/services/billing.ts`** — Fixed: added `idempotencyKey: \`create-customer-${user.id}\``to`stripe.customers.create()`. Concurrent calls for the same user now return the identical Stripe customer.
 
-#### H7. Stripe duplicate customer creation (TOCTOU)
+#### ~~H8. `found_count` sync is non-atomic~~ ✅
 
-**`app/lib/services/billing.ts:84-114`**
+**`app/api/sync/route.ts`**, **`supabase/migrations/20260226041000_atomic_found_count_update.sql`** — Fixed: created `update_found_count` SECURITY DEFINER function that atomically computes and writes `found_count` via `UPDATE ... SET found_count = (SELECT SUM(...))`. Route handler now calls via RPC.
 
-Two concurrent checkout initiations can both see no existing record, both create a Stripe customer, and race on the upsert. The losing Stripe customer is orphaned.
+#### ~~H9. `identify/sets` entirely unauthenticated~~ ✅
 
-**Fix:** Use Stripe's `idempotency_key` (keyed to `user.id`) on `stripe.customers.create()`.
-
-#### H8. `found_count` sync is non-atomic
-
-**`app/api/sync/route.ts:218-243`**
-
-Upserts, reads aggregate, then writes `found_count` — all outside a transaction. Concurrent syncs can write stale counts.
-
-**Fix:** Move aggregate+update into a `SECURITY DEFINER` SQL function called via RPC.
-
-#### H9. `identify/sets` entirely unauthenticated
-
-**`app/api/identify/sets/route.ts`**
-
-Has IP rate limiting but no `getUser()` check. Bypasses the quota-gated identify pipeline and burns BrickLink API quota.
-
-**Fix:** Add `getUser()` check, or document the intentional public access with BL budget implications.
+**`app/api/identify/sets/route.ts`** — Fixed: added `getUser()` auth guard and switched to user-based rate limiting.
 
 ### Client State
 
-#### H10. Dual leader election race
+#### ~~H10. Dual leader election race~~ ✅
 
-**`app/lib/sync/tabCoordinator.ts:120-137`**
-
-Two tabs opened simultaneously can both become leader within the 500ms claim window, causing duplicate sync operations.
-
-**Fix:** After 500ms, broadcast `claim_leader` a second time and wait 200ms before finalizing. Use tabId comparison for deterministic tiebreaking.
+**`app/lib/sync/tabCoordinator.ts`** — Fixed: two-phase claim with deterministic tiebreaking. After initial 500ms, broadcasts second `claim_leader` and waits 200ms. Lowest tabId wins ties.
 
 #### ~~H11. `SyncWorker.performSync` concurrent execution unguarded~~ ✅
 
 **`app/lib/sync/SyncWorker.ts:151`** — Fixed: added `if (this.isSyncing) return;` as the very first check in `performSync`, before any `await`.
 
-#### H12. `supabase_kept` overwrites local edits on remount
+#### ~~H12. `supabase_kept` overwrites local edits on remount~~ ✅
 
-**`app/hooks/useSupabaseOwned.ts:408-416`**
-
-When `existingDecision === 'supabase_kept'`, cloud data is re-applied to the owned store on every component mount, overwriting any local changes made since the last mount.
-
-**Fix:** Add a timestamp check — only re-apply cloud data if `updated_at` is newer than local IndexedDB timestamps.
+**`app/hooks/useSupabaseOwned.ts`** — Fixed: added timestamp check comparing cloud `updated_at` against local IndexedDB `maxUpdatedAt`. Cloud data only re-applied if genuinely newer or no local timestamps exist.
 
 ### Performance
 
@@ -196,33 +130,17 @@ When `existingDecision === 'supabase_kept'`, cloud data is re-applied to the own
 
 **`app/hooks/useInventoryViewModel.ts`**, **`app/components/set/Inventory.tsx`**, **`app/components/set/items/InventoryItem.tsx`** — Fixed: gated `ownedByKey` dependency on display filter (stable for display='all'), lifted `useAuth`/`useOptionalSearchParty` out of per-item rendering, removed `renderInventoryItem`/`renderedItems` memo layers. Owned changes no longer trigger O(n) recomputation in the default view.
 
-#### H14. `usePinnedStore()` subscribes to entire store
+#### ~~H14. `usePinnedStore()` subscribes to entire store~~ ✅
 
-**`app/components/set/InventoryProvider.tsx:347`**
+**`app/components/set/InventoryProvider.tsx`** — Fixed: added granular Zustand selector with stable `EMPTY_PINNED` reference to prevent unnecessary re-renders.
 
-No selector argument means Zustand triggers re-renders on any store change, cascading through `isPinned`/`togglePinned` callbacks.
+#### ~~H15. N identical `user_lists` queries per collection page~~ ✅
 
-**Fix:** Use granular selectors:
+**`app/hooks/useSetLists.ts`**, **`app/hooks/useUserLists.ts`** — Fixed: hoisted `user_lists` fetch to shared `useUserLists` hook. `useSetLists` now reads from the shared result, eliminating N duplicate queries.
 
-```typescript
-const pinned = usePinnedStore(state => state.pinned[setNumber] ?? EMPTY_OBJ);
-```
+#### ~~H16. `minifigs/[figNum]` missing rate limiting~~ ✅
 
-#### H15. N identical `user_lists` queries per collection page
-
-**`app/hooks/useSetLists.ts:200-213`**
-
-Each `SetDisplayCardWithControls` fires its own `user_lists` query. First render of a 50-card collection page fires 50 simultaneous identical queries before the TTL cache populates.
-
-**Fix:** Hoist the `user_lists` fetch to `useUserLists` (already exists) and have `useSetLists` read from that shared result.
-
-#### H16. `minifigs/[figNum]` missing rate limiting
-
-**`app/api/minifigs/[figNum]/route.ts`**
-
-No rate limit when `includePricing=true`, enabling unbounded BrickLink API calls via minifig ID enumeration.
-
-**Fix:** Add `consumeRateLimit` with IP-based key matching other BL-calling endpoints.
+**`app/api/minifigs/[figNum]/route.ts`** — Fixed: added `consumeRateLimit` with IP-based key when `includePricing=true`.
 
 ---
 
@@ -295,7 +213,7 @@ Profiled against dev server (`localhost:3000`) using Playwright. Dev mode inflat
 
 4. ~~**Add auth to catalog-write endpoints** (H3) + **fix IP spoofing** (H4)~~ ✅ — Fixed.
 
-5. **Guard mobile unload data persistence** (C3) — Prevents owned data loss on iOS Safari, which is likely a significant portion of the mobile user base.
+5. ~~**Guard mobile unload data persistence** (C3)~~ ✅ — Fixed with synchronous localStorage fallback.
 
 ---
 
