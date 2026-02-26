@@ -32,6 +32,8 @@ export type UseSearchPartyLifecycleResult = {
   searchPartyError: string | null;
   clearSearchPartyError: () => void;
   sessionEndedModalOpen: boolean;
+  showUpgradeModal: boolean;
+  clearUpgradeModal: () => void;
   handleSessionEnded: () => void;
   handleSessionEndedDismiss: () => void;
   handleStartSearchTogether: () => Promise<void>;
@@ -59,6 +61,7 @@ export function useSearchPartyLifecycle({
   const [isSearchTogetherLoading, setIsSearchTogetherLoading] = useState(false);
   const [searchPartyError, setSearchPartyError] = useState<string | null>(null);
   const [sessionEndedModalOpen, setSessionEndedModalOpen] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const isSpTab = isSpTabId(tab.id);
 
@@ -123,10 +126,7 @@ export function useSearchPartyLifecycle({
 
         if (!res.ok || !data.session) {
           if (res.status === 429 && data.error === 'quota_exceeded') {
-            setSearchPartyError(
-              data.message ||
-                `You've reached your limit of ${data.limit || 2} Search Party sessions this month.`
-            );
+            setShowUpgradeModal(true);
           } else {
             setSearchPartyError(
               'Failed to start Search Party. Please try again.'
@@ -373,11 +373,15 @@ export function useSearchPartyLifecycle({
     []
   );
 
+  const clearUpgradeModal = useCallback(() => setShowUpgradeModal(false), []);
+
   return {
     isSearchTogetherLoading,
     searchPartyError,
     clearSearchPartyError,
     sessionEndedModalOpen,
+    showUpgradeModal,
+    clearUpgradeModal,
     handleSessionEnded,
     handleSessionEndedDismiss,
     handleStartSearchTogether,

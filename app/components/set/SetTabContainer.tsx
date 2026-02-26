@@ -17,6 +17,7 @@ import { getSlotColor } from '@/app/components/ui/ColorSlotPicker';
 import { Confetti } from '@/app/components/ui/Confetti';
 import { Modal } from '@/app/components/ui/Modal';
 import { Toast } from '@/app/components/ui/Toast';
+import { UpgradeModal } from '@/app/components/upgrade-modal';
 import type { GroupParticipant } from '@/app/hooks/useGroupParticipants';
 import { useSearchPartyChannel } from '@/app/hooks/useSearchPartyChannel';
 import { useSearchPartySession } from '@/app/hooks/useSearchPartySession';
@@ -145,6 +146,12 @@ export function SetTabContainer({
           onClose={sp.clearSearchPartyError}
         />
       )}
+
+      <UpgradeModal
+        open={sp.showUpgradeModal}
+        feature="search_party.unlimited"
+        onClose={sp.clearUpgradeModal}
+      />
 
       <Modal
         open={sp.sessionEndedModalOpen}

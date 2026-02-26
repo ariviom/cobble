@@ -69,6 +69,8 @@ export type UseSearchPartySessionResult = {
   // For modal
   handleSessionEndedDismiss: () => void;
   clearSearchPartyError: () => void;
+  showUpgradeModal: boolean;
+  clearUpgradeModal: () => void;
 
   // Flags
   isJoiner: boolean;
@@ -257,6 +259,8 @@ export function useSearchPartySession(
     isSearchTogetherLoading: lifecycle.isSearchTogetherLoading,
     searchPartyError: lifecycle.searchPartyError,
     sessionEndedModalOpen,
+    showUpgradeModal: lifecycle.showUpgradeModal,
+    clearUpgradeModal: lifecycle.clearUpgradeModal,
     handleParticipantPiecesDelta,
     handleParticipantJoined,
     handleParticipantLeft,

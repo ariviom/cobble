@@ -26,6 +26,7 @@ import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
 import { ThemedPageHeader } from '@/app/components/ui/ThemedPageHeader';
+import { UpgradeModal } from '@/app/components/upgrade-modal';
 import {
   addRecentIdentify,
   type IdentifySource,
@@ -195,6 +196,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
     initialQuota ??
       (isAuthenticated ? { status: 'loading' } : { status: 'unauthorized' })
   );
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const searchRequestIdRef = useRef(0);
@@ -614,6 +616,15 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
+          if (
+            res.status === 429 &&
+            (data?.error === 'feature_unavailable' ||
+              data?.reason === 'quota_exceeded')
+          ) {
+            setShowUpgradeModal(true);
+            void refreshQuota();
+            return;
+          }
           throw new Error(data?.error ?? 'identify_failed');
         }
         const data = (await res.json()) as IdentifyResponse;
@@ -1191,11 +1202,19 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                         Upload an image
                       </button>
                       {quota.status === 'metered' ? (
-                        <span className="text-xs text-white/80">
-                          {isQuotaExhausted
-                            ? 'No IDs left today'
-                            : `${quota.remaining}/${quota.limit} left today`}
-                        </span>
+                        isQuotaExhausted ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowUpgradeModal(true)}
+                            className="text-xs text-white/80 underline underline-offset-2 hover:text-white"
+                          >
+                            No IDs left today &mdash; Upgrade
+                          </button>
+                        ) : (
+                          <span className="text-xs text-white/80">
+                            {quota.remaining}/{quota.limit} left today
+                          </span>
+                        )
                       ) : (
                         <span className="text-2xs text-white/80">
                           Powered by{' '}
@@ -1382,6 +1401,12 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           )}
         </section>
       )}
+
+      <UpgradeModal
+        open={showUpgradeModal}
+        feature="identify.unlimited"
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </>
   );
 }
