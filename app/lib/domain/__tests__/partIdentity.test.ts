@@ -34,7 +34,7 @@ describe('PartIdentity factories', () => {
       const id = createMinifigParentIdentity('sw0001');
       expect(id.canonicalKey).toBe('fig:sw0001');
       expect(id.rbPartId).toBe('fig:sw0001');
-      expect(id.rbColorId).toBe(0);
+      expect(id.rbColorId).toBe(-1);
       expect(id.rowType).toBe('minifig_parent');
       expect(id.blMinifigId).toBe('sw0001');
       expect(id.rbFigNum).toBeNull();
@@ -123,7 +123,7 @@ describe('parseCanonicalKey', () => {
 
   it('parses fig key', () => {
     const result = parseCanonicalKey('fig:sw0001');
-    expect(result).toEqual({ partNum: 'sw0001', colorId: 0, system: 'fig' });
+    expect(result).toEqual({ partNum: 'sw0001', colorId: -1, system: 'fig' });
   });
 
   it('parses bl: prefixed key', () => {

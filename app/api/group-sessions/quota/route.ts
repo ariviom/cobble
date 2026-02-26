@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { errorResponse } from '@/app/lib/api/responses';
 import { getEntitlements, hasFeature } from '@/app/lib/services/entitlements';
 import { logger } from '@/lib/metrics';
 import { getUsageStatus } from '@/app/lib/services/usageCounters';
@@ -60,9 +61,8 @@ export async function GET() {
     });
   } catch (err) {
     logger.error('Failed to check Search Party quota', { error: err });
-    return NextResponse.json(
-      { error: 'Failed to check quota' },
-      { status: 500 }
-    );
+    return errorResponse('unknown_error', {
+      message: 'Failed to check quota',
+    });
   }
 }

@@ -41,6 +41,12 @@ const ANON_READABLE_TABLES = new Set([
   'rb_download_versions',
   'rb_part_rarity',
   'rb_minifig_rarity',
+  // Inventory tables — anon/auth SELECT policies per migration 20251203054508
+  'rb_inventories',
+  'rb_inventory_parts',
+  'rb_inventory_minifigs',
+  'rb_minifigs',
+  'rb_minifig_parts',
 ]);
 
 /**
@@ -48,12 +54,6 @@ const ANON_READABLE_TABLES = new Set([
  * These are internal catalog tables used by scripts and server-side operations.
  */
 const SERVICE_ROLE_TABLES = new Set([
-  // Rebrickable internal tables (minifig inventory data)
-  'rb_inventories',
-  'rb_inventory_parts',
-  'rb_inventory_minifigs',
-  'rb_minifigs',
-  'rb_minifig_parts',
   'rb_minifig_images',
 
   // BrickLink mapping and cache tables

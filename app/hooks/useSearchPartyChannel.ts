@@ -242,9 +242,12 @@ export function useSearchPartyChannel(
           }
         }
         override.setBatch(updates);
-        // Persist authoritative host snapshot to localStorage
+        // Persist authoritative host snapshot to localStorage, preserving joiner-local keys
         if (groupSessionId) {
-          storeJoinerOwnedState(groupSessionId, updates);
+          storeJoinerOwnedState(groupSessionId, {
+            ...joinerOwnedRef.current,
+            ...updates,
+          });
         }
       } else {
         for (const [key, value] of Object.entries(snapshot)) {

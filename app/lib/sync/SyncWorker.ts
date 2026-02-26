@@ -188,6 +188,8 @@ export class SyncWorker {
         typeof navigator !== 'undefined' &&
         typeof navigator.sendBeacon === 'function';
 
+      let beaconUsed = false;
+
       if (useBeacon) {
         const blob = new Blob([JSON.stringify(payload)], {
           type: 'application/json',
@@ -196,6 +198,7 @@ export class SyncWorker {
         if (!sent) {
           throw new Error('sendBeacon failed');
         }
+        beaconUsed = true;
         // Best-effort delivery: keep queue entries until a confirmed sync
       } else {
         const response = await fetch('/api/sync', {
@@ -237,8 +240,10 @@ export class SyncWorker {
 
       await this.updatePendingCount();
 
-      // Notify other tabs that sync completed
-      notifySyncComplete(true);
+      // Only notify other tabs if we got confirmed delivery (not beacon fire-and-forget)
+      if (!beaconUsed) {
+        notifySyncComplete(true);
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown sync error';

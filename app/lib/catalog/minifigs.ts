@@ -680,16 +680,26 @@ export async function getRarestSubpartSets(
 
   if (!subparts?.length) return { count: null, sets: [] };
 
-  // 2. Batch-query rarity
-  const orClauses = subparts.map(
+  // 2. Batch-query rarity (chunk .or() clauses to avoid URL overflow)
+  const OR_BATCH_SIZE = 20;
+  const allOrClauses = subparts.map(
     p => `and(part_num.eq.${p.part_num},color_id.eq.${p.color_id})`
   );
-  const { data: rarityRows } = await supabase
-    .from('rb_part_rarity')
-    .select('part_num, color_id, set_count')
-    .or(orClauses.join(','));
+  const rarityBatches: Array<typeof allOrClauses> = [];
+  for (let i = 0; i < allOrClauses.length; i += OR_BATCH_SIZE) {
+    rarityBatches.push(allOrClauses.slice(i, i + OR_BATCH_SIZE));
+  }
+  const rarityResults = await Promise.all(
+    rarityBatches.map(batch =>
+      supabase
+        .from('rb_part_rarity')
+        .select('part_num, color_id, set_count')
+        .or(batch.join(','))
+    )
+  );
+  const rarityRows = rarityResults.flatMap(r => r.data ?? []);
 
-  if (!rarityRows?.length) return { count: null, sets: [] };
+  if (!rarityRows.length) return { count: null, sets: [] };
 
   // 3. Pick subpart with minimum set_count
   let minRow: (typeof rarityRows)[0] | null = null;

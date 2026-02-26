@@ -146,35 +146,35 @@ Originally reported as 28K DOM nodes on identify and 7.3s blocking on inventory.
 
 ## Medium (14 findings — fix when time permits)
 
-| #   | Finding                                                                                | Location                                               |
-| --- | -------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| M1  | `sendBeacon` notifies other tabs of sync success before delivery is confirmed          | `app/lib/sync/SyncWorker.ts:190-197`                   |
-| M2  | Webhook idempotency TOCTOU — concurrent Stripe retries can both process                | `app/api/stripe/webhook/route.ts:32-58`                |
-| M3  | Group session INSERT policy doesn't verify session `is_active`                         | `20251215062137_group_session_participant_limit.sql`   |
-| M4  | `bl-supersets` silently swallows BrickLink errors (empty catch)                        | `app/api/identify/bl-supersets/route.ts:47-50`         |
-| M5  | `user/minifigs/sync-from-sets` has 160 lines of business logic inline in route handler | `app/api/user/minifigs/sync-from-sets/route.ts:65-230` |
-| M6  | `group-sessions/quota` returns non-standard error shape (free-form vs `errorResponse`) | `app/api/group-sessions/quota/route.ts:62-66`          |
-| M7  | `tryComputeDerivedPrice` fetches unbounded observation rows into memory                | `app/lib/services/priceCache.ts:311`                   |
-| M8  | `catalogAccess.ts` table classification disagrees with actual RLS policies             | `app/lib/db/catalogAccess.ts:51-58`                    |
-| M9  | `requestPricesForKeys` callback unstable due to `pendingKeys`/`pricesByKey` state deps | `app/hooks/useInventoryPrices.ts:255`                  |
-| M10 | `computeMissingRows` not memoized — new function reference each render                 | `app/hooks/useInventory.ts:338`                        |
-| M11 | `useInventoryControls` with `skipStorageHydration: true` overwrites global sort pref   | `app/hooks/useInventoryControls.ts:106-121`            |
-| M12 | Joiner snapshot localStorage backup loses joiner-local keys on refresh                 | `app/hooks/useSearchPartyChannel.ts:227-253`           |
-| M13 | Minifig parent `rbColorId: 0` collides with RB Black color ID                          | `app/lib/domain/partIdentity.ts:53-68`                 |
-| M14 | `.or()` filter in `getRarestSubpartSets` can exceed URL limits for large minifigs      | `app/lib/catalog/minifigs.ts:683-690`                  |
+| #   | Finding                                                                                | Location                                               | Status                                                         |
+| --- | -------------------------------------------------------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------- |
+| M1  | `sendBeacon` notifies other tabs of sync success before delivery is confirmed          | `app/lib/sync/SyncWorker.ts:190-197`                   | ✅ Fixed                                                       |
+| M2  | Webhook idempotency TOCTOU — concurrent Stripe retries can both process                | `app/api/stripe/webhook/route.ts:32-58`                | ✅ Already fixed (H7 Stripe idempotency key)                   |
+| M3  | Group session INSERT policy doesn't verify session `is_active`                         | `20251215062137_group_session_participant_limit.sql`   | ✅ Fixed                                                       |
+| M4  | `bl-supersets` silently swallows BrickLink errors (empty catch)                        | `app/api/identify/bl-supersets/route.ts:47-50`         | ✅ Fixed                                                       |
+| M5  | `user/minifigs/sync-from-sets` has 160 lines of business logic inline in route handler | `app/api/user/minifigs/sync-from-sets/route.ts:65-230` | Deferred — refactor when touching sync-from-sets route         |
+| M6  | `group-sessions/quota` returns non-standard error shape (free-form vs `errorResponse`) | `app/api/group-sessions/quota/route.ts:62-66`          | ✅ Fixed                                                       |
+| M7  | `tryComputeDerivedPrice` fetches unbounded observation rows into memory                | `app/lib/services/priceCache.ts:311`                   | Deferred — add `.limit(1000)` if perf issues arise; monitoring |
+| M8  | `catalogAccess.ts` table classification disagrees with actual RLS policies             | `app/lib/db/catalogAccess.ts:51-58`                    | ✅ Fixed                                                       |
+| M9  | `requestPricesForKeys` callback unstable due to `pendingKeys`/`pricesByKey` state deps | `app/hooks/useInventoryPrices.ts:255`                  | Deferred — non-critical pricing UI path; no user-visible bugs  |
+| M10 | `computeMissingRows` not memoized — new function reference each render                 | `app/hooks/useInventory.ts:338`                        | ✅ Fixed                                                       |
+| M11 | `useInventoryControls` with `skipStorageHydration: true` overwrites global sort pref   | `app/hooks/useInventoryControls.ts:106-121`            | ✅ Fixed                                                       |
+| M12 | Joiner snapshot localStorage backup loses joiner-local keys on refresh                 | `app/hooks/useSearchPartyChannel.ts:227-253`           | ✅ Fixed                                                       |
+| M13 | Minifig parent `rbColorId: 0` collides with RB Black color ID                          | `app/lib/domain/partIdentity.ts:53-68`                 | ✅ Fixed                                                       |
+| M14 | `.or()` filter in `getRarestSubpartSets` can exceed URL limits for large minifigs      | `app/lib/catalog/minifigs.ts:683-690`                  | ✅ Fixed                                                       |
 
 ---
 
 ## Low (6 findings — informational)
 
-| #   | Finding                                                                                     | Location                                   |
-| --- | ------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| L1  | Identify cache-hit blocks deduplicated requests when quota is at 0 (despite `dedupe: true`) | `app/api/identify/route.ts:129-152`        |
-| L2  | `GET /api/sync` is an unauthenticated no-op returning `{ ok: true }`                        | `app/api/sync/route.ts:274-276`            |
-| L3  | `themes.ts` uses `console.error` instead of `logger`                                        | `app/lib/services/themes.ts:8`             |
-| L4  | `billing_subscriptions.user_id` is nullable (should be NOT NULL)                            | `20251212030414_billing_foundation.sql:52` |
-| L5  | `hydrationByUser` module cache prevents re-hydration after logout → login in same session   | `app/hooks/useHydrateUserSets.ts:29-30`    |
-| L6  | Entitlement cache allows 5-min grace period after subscription cancellation                 | `app/lib/services/entitlements.ts:32-37`   |
+| #   | Finding                                                                                     | Location                                   | Status                                                    |
+| --- | ------------------------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------- |
+| L1  | Identify cache-hit blocks deduplicated requests when quota is at 0 (despite `dedupe: true`) | `app/api/identify/route.ts:129-152`        | Deferred — cosmetic dedupe labeling; no functional impact |
+| L2  | `GET /api/sync` is an unauthenticated no-op returning `{ ok: true }`                        | `app/api/sync/route.ts:274-276`            | Accepted — intentional no-op; already documented in code  |
+| L3  | `themes.ts` uses `console.error` instead of `logger`                                        | `app/lib/services/themes.ts:8`             | ✅ Fixed                                                  |
+| L4  | `billing_subscriptions.user_id` is nullable (should be NOT NULL)                            | `20251212030414_billing_foundation.sql:52` | ✅ Fixed                                                  |
+| L5  | `hydrationByUser` module cache prevents re-hydration after logout → login in same session   | `app/hooks/useHydrateUserSets.ts:29-30`    | ✅ Fixed                                                  |
+| L6  | Entitlement cache allows 5-min grace period after subscription cancellation                 | `app/lib/services/entitlements.ts:32-37`   | Accepted — 5-min cache TTL trade-off                      |
 
 ---
 

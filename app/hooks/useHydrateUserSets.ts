@@ -69,17 +69,21 @@ export function useHydrateUserSets() {
   const hydrate = useUserSetsStore(state => state.hydrateFromSupabase);
   // Use ref to track per-instance cancellation (safe for Concurrent Mode)
   const cancelledRef = useRef(false);
+  const prevUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     cancelledRef.current = false;
 
     if (!user) {
-      // Clean up hydration state for logged-out users
-      // Don't clear the map - completed entries serve as cache
+      // Clean up hydration state for logged-out users so re-login re-hydrates
+      if (prevUserIdRef.current) {
+        hydrationByUser.delete(prevUserIdRef.current);
+      }
       return;
     }
 
     const userId = user.id;
+    prevUserIdRef.current = userId;
     const existing = hydrationByUser.get(userId);
 
     // If already completed successfully, skip

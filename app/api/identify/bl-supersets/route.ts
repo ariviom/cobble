@@ -47,7 +47,13 @@ export async function GET(req: NextRequest) {
     let supersets: BLSupersetItem[] = [];
     try {
       supersets = await blGetPartSupersets(blPart, blColorId);
-    } catch {}
+    } catch (err) {
+      logger.warn('identify.bl_supersets_fetch_error', {
+        part: blPart,
+        blColorId: typeof blColorId === 'number' ? blColorId : null,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
     let sets: PartInSet[] = (supersets ?? []).map(s => ({
       setNumber: s.setNumber,
       name: s.name,

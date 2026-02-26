@@ -105,6 +105,7 @@ export function useInventoryControls(options?: UseInventoryControlsOptions) {
   // Persist to localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (skipStorageHydration) return;
     try {
       const payload = {
         sortKey,
@@ -118,7 +119,15 @@ export function useInventoryControls(options?: UseInventoryControlsOptions) {
     } catch {
       // Ignore storage errors; runtime UX should not break
     }
-  }, [sortKey, sortDir, groupBy, view, itemSize, filter.display]);
+  }, [
+    sortKey,
+    sortDir,
+    groupBy,
+    view,
+    itemSize,
+    filter.display,
+    skipStorageHydration,
+  ]);
 
   // Setters
   const setSortKey = useCallback(

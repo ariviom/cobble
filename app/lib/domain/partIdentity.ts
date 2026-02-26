@@ -57,7 +57,7 @@ export function createMinifigParentIdentity(
   return {
     canonicalKey: `fig:${blMinifigId}`,
     rbPartId: `fig:${blMinifigId}`,
-    rbColorId: 0,
+    rbColorId: -1,
     blPartId: null,
     blColorId: null,
     elementId: null,
@@ -157,7 +157,7 @@ export function parseCanonicalKey(
   if (key.startsWith('fig:')) {
     const figId = key.slice(4);
     if (!figId) return null;
-    return { partNum: figId, colorId: 0, system: 'fig' };
+    return { partNum: figId, colorId: -1, system: 'fig' };
   }
 
   // Unmatched BL subpart: bl:{blPartId}:{blColorId}

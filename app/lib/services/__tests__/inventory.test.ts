@@ -75,7 +75,7 @@ vi.mock('@/app/lib/services/identityResolution', () => ({
     (blId: string, rbFigNum?: string | null) => ({
       canonicalKey: `fig:${blId}`,
       rbPartId: `fig:${rbFigNum ?? blId}`,
-      rbColorId: 0,
+      rbColorId: -1,
       blPartId: null,
       blColorId: null,
       elementId: null,

@@ -14,7 +14,13 @@ import {
 } from '@/app/lib/localDb';
 import { migrateOwnedKeys } from '@/app/lib/localDb/ownedStore';
 import { useQuery } from '@tanstack/react-query';
-import { useDeferredValue, useEffect, useMemo, useRef } from 'react';
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 
 export type MinifigStatus = {
   state: 'complete' | 'missing' | 'unknown';
@@ -335,7 +341,7 @@ export function useInventory(
     return result;
   }, [rows, deferredOwnedByKey]);
 
-  const computeMissingRows = () => {
+  const computeMissingRows = useCallback(() => {
     const result: MissingRow[] = [];
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
@@ -355,7 +361,7 @@ export function useInventory(
       }
     }
     return result;
-  };
+  }, [rows, keys, ownedByKey, setNumber]);
 
   return {
     rows,
