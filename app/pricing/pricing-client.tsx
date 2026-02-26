@@ -10,6 +10,7 @@ type Props = {
   tier: Tier;
   isAuthenticated: boolean;
   subscriptionStatus: string | null;
+  hadPriorSubscription: boolean;
   plusMonthlyPriceId: string;
 };
 
@@ -59,9 +60,11 @@ export function PricingPageClient({
   tier,
   isAuthenticated,
   subscriptionStatus,
+  hadPriorSubscription,
   plusMonthlyPriceId,
 }: Props) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const isActiveSubscription =
     subscriptionStatus === 'active' || subscriptionStatus === 'trialing';
@@ -70,6 +73,7 @@ export function PricingPageClient({
 
   const handleCheckout = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch('/api/billing/create-checkout-session', {
         method: 'POST',
@@ -77,7 +81,13 @@ export function PricingPageClient({
         body: JSON.stringify({ priceId: plusMonthlyPriceId }),
       });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setError('Something went wrong. Please try again.');
+      }
+    } catch {
+      setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -136,7 +146,11 @@ export function PricingPageClient({
         variant="primary"
         className="w-full"
       >
-        {loading ? 'Redirecting...' : 'Start 14-day free trial'}
+        {loading
+          ? 'Redirecting...'
+          : hadPriorSubscription
+            ? 'Get Plus'
+            : 'Start 14-day free trial'}
       </Button>
     );
   }
@@ -228,7 +242,10 @@ export function PricingPageClient({
                 </span>
               </p>
             </div>
-            <div className="mt-auto">{renderPlusCta()}</div>
+            <div className="mt-auto">
+              {renderPlusCta()}
+              {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+            </div>
           </div>
         </div>
       </div>
