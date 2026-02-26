@@ -69,6 +69,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       client_reference_id: user.id,
       subscription_data: {
         metadata: { user_id: user.id },
+        trial_period_days: 14,
       },
       metadata: { user_id: user.id },
     });
