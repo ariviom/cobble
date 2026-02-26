@@ -1,5 +1,6 @@
 'use client';
 
+import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { SyncWorker } from '@/app/lib/sync/SyncWorker';
 import type { SyncWorkerStatus } from '@/app/lib/sync/types';
@@ -20,6 +21,8 @@ const SyncContext = createContext<SyncContextValue | null>(null);
 
 export function SyncProvider({ children }: PropsWithChildren) {
   const { user } = useSupabaseUser();
+  const { hasFeature } = useEntitlements();
+  const syncMode = hasFeature('sync.cloud') ? 'full' : 'pull-only';
   const workerRef = useRef<SyncWorker | null>(null);
   const [status, setStatus] = useState<SyncWorkerStatus>({
     isReady: false,
@@ -47,6 +50,10 @@ export function SyncProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     workerRef.current?.setUserId(user?.id ?? null);
   }, [user?.id]);
+
+  useEffect(() => {
+    workerRef.current?.setSyncMode(syncMode);
+  }, [syncMode]);
 
   const syncNow = async () => {
     await workerRef.current?.performSync();

@@ -658,6 +658,155 @@ describe('SyncWorker', () => {
   });
 
   // =========================================================================
+  // setSyncMode()
+  // =========================================================================
+
+  describe('setSyncMode()', () => {
+    it('blocks push operations in pull-only mode', async () => {
+      worker = new SyncWorker();
+      const initPromise = worker.init();
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      await worker.setUserId('user-123');
+      await flushPromises();
+      vi.clearAllMocks();
+
+      worker.setSyncMode('pull-only');
+
+      localDb.getPendingSyncOperations.mockResolvedValue([
+        {
+          id: 1,
+          userId: 'user-123',
+          table: 'user_set_parts',
+          operation: 'upsert',
+          payload: {},
+          createdAt: Date.now(),
+          clientId: 'client-1',
+          retryCount: 0,
+          lastError: null,
+        },
+      ]);
+
+      await worker.performSync();
+
+      // Should not even read the queue in pull-only mode
+      expect(localDb.getPendingSyncOperations).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('allows push operations in full mode', async () => {
+      worker = new SyncWorker();
+      const initPromise = worker.init();
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      await worker.setUserId('user-123');
+      await flushPromises();
+      vi.clearAllMocks();
+
+      worker.setSyncMode('full');
+
+      localDb.getPendingSyncOperations.mockResolvedValue([
+        {
+          id: 1,
+          userId: 'user-123',
+          table: 'user_set_parts',
+          operation: 'upsert',
+          payload: {},
+          createdAt: Date.now(),
+          clientId: 'client-1',
+          retryCount: 0,
+          lastError: null,
+        },
+      ]);
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ success: true, processed: 1 }),
+      } as unknown as Response);
+
+      await worker.performSync();
+
+      expect(localDb.getPendingSyncOperations).toHaveBeenCalled();
+      expect(fetch).toHaveBeenCalled();
+    });
+
+    it('resumes pushing after switching from pull-only to full', async () => {
+      worker = new SyncWorker();
+      const initPromise = worker.init();
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      await worker.setUserId('user-123');
+      await flushPromises();
+
+      // Start in pull-only mode
+      worker.setSyncMode('pull-only');
+      vi.clearAllMocks();
+
+      localDb.getPendingSyncOperations.mockResolvedValue([
+        {
+          id: 1,
+          userId: 'user-123',
+          table: 'user_set_parts',
+          operation: 'upsert',
+          payload: {},
+          createdAt: Date.now(),
+          clientId: 'client-1',
+          retryCount: 0,
+          lastError: null,
+        },
+      ]);
+
+      await worker.performSync();
+      expect(fetch).not.toHaveBeenCalled();
+
+      // Upgrade to full mode
+      worker.setSyncMode('full');
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ success: true, processed: 1 }),
+      } as unknown as Response);
+
+      await worker.performSync();
+      expect(fetch).toHaveBeenCalled();
+    });
+
+    it('blocks push even with force flag in pull-only mode', async () => {
+      worker = new SyncWorker();
+      const initPromise = worker.init();
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      await worker.setUserId('user-123');
+      await flushPromises();
+
+      worker.setSyncMode('pull-only');
+      vi.clearAllMocks();
+
+      await worker.performSync({ force: true });
+      expect(localDb.getPendingSyncOperations).not.toHaveBeenCalled();
+    });
+
+    it('blocks push via keepalive/beacon in pull-only mode', async () => {
+      worker = new SyncWorker();
+      const initPromise = worker.init();
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      await worker.setUserId('user-123');
+      await flushPromises();
+
+      worker.setSyncMode('pull-only');
+      vi.clearAllMocks();
+
+      await worker.performSync({ keepalive: true, force: true });
+      expect(navigator.sendBeacon).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
   // Batch size config
   // =========================================================================
 

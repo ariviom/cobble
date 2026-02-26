@@ -23,6 +23,8 @@ import type { StatusListener, SyncWorkerStatus } from './types';
 // Migration IDs
 const MIGRATION_LOCALSTORAGE_OWNED = 'localStorage_owned_v1';
 
+export type SyncMode = 'full' | 'pull-only';
+
 type SyncWorkerConfig = {
   syncIntervalMs?: number;
   syncBatchSize?: number;
@@ -32,6 +34,7 @@ export class SyncWorker {
   private readonly syncIntervalMs: number;
   private readonly syncBatchSize: number;
 
+  private syncMode: SyncMode = 'full';
   private isReady = false;
   private isAvailable = false;
   private isSyncing = false;
@@ -147,6 +150,14 @@ export class SyncWorker {
   }
 
   // ===========================================================================
+  // Sync Mode
+  // ===========================================================================
+
+  setSyncMode(mode: SyncMode): void {
+    this.syncMode = mode;
+  }
+
+  // ===========================================================================
   // Sync
   // ===========================================================================
 
@@ -157,6 +168,9 @@ export class SyncWorker {
     if (this.isSyncing) return;
     if (this.isDestroyed) return;
     if (!this.isAvailable || !this.isReady) return;
+
+    // pull-only mode: skip pushing local changes to Supabase
+    if (this.syncMode === 'pull-only') return;
 
     // Only the leader tab should sync (unless forced for flush-on-unload)
     if (!opts?.force && !shouldSync()) return;
