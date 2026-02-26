@@ -50,7 +50,7 @@ describe('recent-identifies store', () => {
 
   it('deduplicates by partNum (case-insensitive) and bumps timestamp', () => {
     addRecentIdentify({
-      partNum: '3001',
+      partNum: '3001A',
       name: 'Brick 2x4',
       imageUrl: null,
       isMinifig: false,
@@ -65,9 +65,9 @@ describe('recent-identifies store', () => {
       setsFound: 10,
       source: 'text',
     });
-    // Re-add 3001 with different case — should dedup and move to top
+    // Re-add 3001a with different case — should dedup and move to top
     addRecentIdentify({
-      partNum: '3001',
+      partNum: '3001a',
       name: 'Brick 2x4 Updated',
       imageUrl: 'https://example.com/3001-v2.png',
       isMinifig: false,
@@ -77,7 +77,7 @@ describe('recent-identifies store', () => {
 
     const recents = getRecentIdentifies();
     expect(recents).toHaveLength(2);
-    expect(recents[0]?.partNum).toBe('3001');
+    expect(recents[0]?.partNum).toBe('3001a');
     expect(recents[0]?.name).toBe('Brick 2x4 Updated');
     expect(recents[0]?.setsFound).toBe(8);
     expect(recents[1]?.partNum).toBe('3003');

@@ -3,6 +3,15 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
+// Mock CSRF middleware to pass through
+vi.mock('@/app/lib/middleware/csrf', () => ({
+  withCsrfProtection: (
+    handler: (
+      req: import('next/server').NextRequest
+    ) => Promise<import('next/server').NextResponse>
+  ) => handler,
+}));
+
 import { POST } from '../route';
 
 vi.mock('@/lib/rateLimit', () => ({

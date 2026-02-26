@@ -1,19 +1,21 @@
 'use client';
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { addRecentSet, getRecentSets } from '@/app/store/recent-sets';
 
-vi.mock('@/app/lib/persistence/storage', () => {
-  const store: Record<string, string> = {};
-  return {
-    readStorage: (key: string) => store[key] ?? null,
-    writeStorage: (key: string, value: string) => {
-      store[key] = value;
-    },
-  };
-});
+let store: Record<string, string> = {};
+
+vi.mock('@/app/lib/persistence/storage', () => ({
+  readStorage: (key: string) => store[key] ?? null,
+  writeStorage: (key: string, value: string) => {
+    store[key] = value;
+  },
+}));
 
 describe('recent-sets store', () => {
+  beforeEach(() => {
+    store = {};
+  });
   it('adds and orders recent sets by lastViewedAt', () => {
     addRecentSet({
       setNumber: '1000-1',

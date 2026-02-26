@@ -67,9 +67,8 @@ describe('useInventory', () => {
     expect(missingRows).toHaveLength(2);
   });
 
-  it('aggregates quantityRequired for shared minifig parts', async () => {
-    // Create base rows with minifigs (no subparts initially)
-    const baseRows: InventoryRow[] = [
+  it('excludes minifig parent rows from totals', async () => {
+    const rowsWithMinifig: InventoryRow[] = [
       {
         setNumber: '75001-1',
         partId: 'fig:sw0001',
@@ -80,26 +79,23 @@ describe('useInventory', () => {
         imageUrl: null,
         inventoryKey: 'fig:sw0001',
         parentCategory: 'Minifigure',
-        componentRelations: [], // Will be populated by enrichment
+        componentRelations: [{ key: '3001:1', quantity: 1 }],
       },
       {
         setNumber: '75001-1',
-        partId: 'fig:sw0002',
-        partName: 'Han Solo',
-        colorId: 0,
-        colorName: '—',
-        quantityRequired: 1,
+        partId: '3001',
+        partName: 'Brick 2 x 4',
+        colorId: 1,
+        colorName: 'Red',
+        quantityRequired: 3,
         imageUrl: null,
-        inventoryKey: 'fig:sw0002',
-        parentCategory: 'Minifigure',
-        componentRelations: [], // Will be populated by enrichment
+        inventoryKey: '3001:1',
       },
     ];
 
-    // Mock fetch to return base data
     global.fetch = vi.fn(async () => ({
       ok: true,
-      json: async () => ({ rows: baseRows }),
+      json: async () => ({ rows: rowsWithMinifig }),
     })) as unknown as typeof fetch;
 
     const { result } = renderHook(() => useInventory('75001-1'), { wrapper });
@@ -108,14 +104,10 @@ describe('useInventory', () => {
       expect(result.current.rows.length).toBe(2);
     });
 
-    // Verify the aggregation logic works when
-    // server-enriched data is provided
-
-    // The aggregation happens in the useMemo when enrichedData contains
-    // subparts for multiple parents sharing the same part
-    // Since we can't easily mock the enrichment hook in this test,
-    // we'll verify the logic indirectly through the status test
-    expect(result.current.rows.length).toBe(2);
+    // totalRequired should exclude the minifig parent row (qty 1),
+    // only counting the regular part (qty 3)
+    expect(result.current.totalRequired).toBe(3);
+    expect(result.current.totalMissing).toBe(3);
   });
 
   it('computes minifig status correctly for shared parts', async () => {

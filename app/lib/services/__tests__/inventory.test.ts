@@ -35,11 +35,18 @@ type SubpartRow = {
 };
 const mockSubpartRows: SubpartRow[] = [];
 
+const mockRarityRows: Array<{
+  part_num: string;
+  color_id: number;
+  set_count: number;
+}> = [];
+
 vi.mock('@/app/lib/db/catalogAccess', () => ({
   getCatalogReadClient: () => ({
-    from: () => ({
+    from: (table: string) => ({
       select: () => ({
         in: () => Promise.resolve({ data: mockSubpartRows, error: null }),
+        or: () => Promise.resolve({ data: mockRarityRows, error: null }),
       }),
     }),
   }),
@@ -97,6 +104,11 @@ vi.mock('@/app/lib/services/identityResolution', () => ({
       rbFigNum: null,
     })
   ),
+}));
+
+// Mock image backfill to avoid real BrickLink API calls
+vi.mock('@/app/lib/services/imageBackfill', () => ({
+  backfillBLImages: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/metrics', () => ({
@@ -179,6 +191,7 @@ describe('getSetInventoryRowsWithMeta', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSubpartRows.length = 0;
+    mockRarityRows.length = 0;
 
     // Default: catalog returns parts, no minifigs
     mockGetSetInventoryLocal.mockResolvedValue([catalogRow('3001', 1, 10)]);
@@ -340,6 +353,42 @@ describe('getSetInventoryRowsWithMeta', () => {
       expect(parent).toBeDefined();
       expect(parent!.identity?.canonicalKey).toBe('fig:fig-000001');
       expect(parent!.componentRelations).toHaveLength(1);
+    });
+  });
+
+  // =========================================================================
+  // Rarity enrichment
+  // =========================================================================
+
+  describe('rarity enrichment', () => {
+    it('populates setCount from rarity data for catalog rows', async () => {
+      mockGetSetInventoryLocal.mockResolvedValue([
+        catalogRow('3001', 1, 10),
+        catalogRow('3002', 5, 4),
+      ]);
+
+      mockRarityRows.push(
+        { part_num: '3001', color_id: 1, set_count: 523 },
+        { part_num: '3002', color_id: 5, set_count: 42 }
+      );
+
+      const result = await getSetInventoryRowsWithMeta('75192-1');
+
+      const row1 = result.rows.find(r => r.partId === '3001');
+      expect(row1!.setCount).toBe(523);
+
+      const row2 = result.rows.find(r => r.partId === '3002');
+      expect(row2!.setCount).toBe(42);
+    });
+
+    it('sets setCount to null when no rarity data exists', async () => {
+      mockGetSetInventoryLocal.mockResolvedValue([catalogRow('9999', 1, 1)]);
+      // No rarity rows added
+
+      const result = await getSetInventoryRowsWithMeta('75192-1');
+
+      const row = result.rows.find(r => r.partId === '9999');
+      expect(row!.setCount).toBeNull();
     });
   });
 });

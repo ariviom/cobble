@@ -237,6 +237,24 @@ describe('LRUCache', () => {
 
       vi.useRealTimers();
     });
+
+    it('filters expired entries from entries()', () => {
+      vi.useFakeTimers();
+
+      const cache = new LRUCache<string, number>(10, 1000);
+      cache.set('a', 1);
+
+      vi.advanceTimersByTime(500);
+      cache.set('b', 2);
+
+      vi.advanceTimersByTime(600); // 'a' is now expired
+
+      const entries = cache.entries();
+      expect(entries).toHaveLength(1);
+      expect(entries).toContainEqual(['b', 2]);
+
+      vi.useRealTimers();
+    });
   });
 
   describe('constructor validation', () => {

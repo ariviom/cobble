@@ -6,6 +6,10 @@ import {
   useInventoryPrices,
 } from '@/app/hooks/useInventoryPrices';
 
+vi.mock('@/app/hooks/usePricingEnabled', () => ({
+  usePricingEnabled: () => true,
+}));
+
 vi.mock('@/app/lib/supabaseClient', () => ({
   getSupabaseBrowserClient: () => ({
     auth: {

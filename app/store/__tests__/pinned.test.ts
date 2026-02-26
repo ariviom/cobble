@@ -1,11 +1,30 @@
 import { act } from '@testing-library/react';
+import { vi } from 'vitest';
 import { usePinnedStore } from '@/app/store/pinned';
+
+vi.mock('@/app/lib/persistence/storage', () => {
+  let store: Record<string, string> = {};
+  return {
+    readStorage: (key: string) => store[key] ?? null,
+    writeStorage: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeStorage: (key: string) => {
+      delete store[key];
+    },
+    __resetStore: () => {
+      store = {};
+    },
+  };
+});
 
 describe('usePinnedStore', () => {
   const SET = '1234-1';
   const KEY = '3001:1';
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    const { __resetStore } = await import('@/app/lib/persistence/storage');
+    (__resetStore as () => void)();
     usePinnedStore.setState({
       pinned: {},
       meta: {},

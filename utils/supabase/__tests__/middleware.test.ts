@@ -69,6 +69,34 @@ describe('updateSession middleware', () => {
     expect(mockCalls[0]?.[1]).toBe('anon_key');
   });
 
+  it('sets x-request-id header on response', async () => {
+    const req = new NextRequest('http://example.test/api/foo');
+    const res = await updateSession(req);
+
+    const requestId = res.headers.get('x-request-id');
+    expect(requestId).toBeTruthy();
+    expect(typeof requestId).toBe('string');
+  });
+
+  it('forwards incoming x-request-id header', async () => {
+    const req = new NextRequest('http://example.test/api/foo', {
+      headers: { 'x-request-id': 'incoming-req-123' },
+    });
+    const res = await updateSession(req);
+
+    expect(res.headers.get('x-request-id')).toBe('incoming-req-123');
+  });
+
+  it('sets Content-Security-Policy header', async () => {
+    const req = new NextRequest('http://example.test/api/foo');
+    const res = await updateSession(req);
+
+    const csp = res.headers.get('Content-Security-Policy');
+    expect(csp).toBeTruthy();
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("frame-ancestors 'none'");
+  });
+
   it('is a no-op when env vars are missing', async () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

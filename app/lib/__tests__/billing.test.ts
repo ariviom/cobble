@@ -43,6 +43,6 @@ describe('billing price allowlist', () => {
   });
 
   it('throws on unknown price id', () => {
-    expect(() => mapPriceToTier('unknown')).toThrow();
+    expect(() => mapPriceToTier('unknown')).toThrow('Unknown Stripe price id');
   });
 });

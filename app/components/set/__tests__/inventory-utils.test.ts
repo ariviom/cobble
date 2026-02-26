@@ -2,6 +2,7 @@ import {
   clampOwned,
   computeMissing,
   deriveCategory,
+  getInventoryKey,
   isMinifigParentRow,
   parseStudAreaFromName,
 } from '@/app/components/set/inventory-utils';
@@ -145,6 +146,49 @@ describe('deriveCategory', () => {
   it('handles mixed case', () => {
     expect(deriveCategory('BRICK 2x4')).toBe('BRICK');
     expect(deriveCategory('BrickArch')).toBe('BrickArch');
+  });
+});
+
+describe('getInventoryKey', () => {
+  const baseRow: InventoryRow = {
+    setNumber: '75192-1',
+    partId: '3001',
+    partName: 'Brick 2 x 4',
+    colorId: 1,
+    colorName: 'Red',
+    quantityRequired: 4,
+    imageUrl: null,
+    inventoryKey: '3001:1',
+  };
+
+  it('prefers identity.canonicalKey when present', () => {
+    const row: InventoryRow = {
+      ...baseRow,
+      identity: {
+        canonicalKey: 'canonical:key',
+        rbPartId: '3001',
+        rbColorId: 1,
+        blPartId: '3001',
+        blColorId: null,
+        elementId: null,
+        rowType: 'catalog_part',
+        blMinifigId: null,
+        rbFigNum: null,
+      },
+    };
+    expect(getInventoryKey(row)).toBe('canonical:key');
+  });
+
+  it('falls back to inventoryKey when no identity', () => {
+    expect(getInventoryKey(baseRow)).toBe('3001:1');
+  });
+
+  it('derives key from partId:colorId as last resort', () => {
+    const row: InventoryRow = {
+      ...baseRow,
+      inventoryKey: undefined as unknown as string,
+    };
+    expect(getInventoryKey(row)).toBe('3001:1');
   });
 });
 

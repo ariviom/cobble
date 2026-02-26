@@ -83,4 +83,35 @@ describe('resolvePublicUser', () => {
 
     expect(result).toEqual({ type: 'not_found' });
   });
+
+  it('uses eq for UUID handles instead of ilike', async () => {
+    maybeSingleMock.mockResolvedValueOnce({
+      data: {
+        user_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        username: 'alice',
+        display_name: 'Alice',
+        lists_public: true,
+      },
+      error: null,
+    });
+
+    const result = await resolvePublicUser(
+      'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+    );
+
+    expect(eqMock).toHaveBeenCalledWith(
+      'user_id',
+      'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+    );
+    expect(ilikeMock).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      type: 'public',
+      profile: {
+        user_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        username: 'alice',
+        display_name: 'Alice',
+        lists_public: true,
+      },
+    });
+  });
 });

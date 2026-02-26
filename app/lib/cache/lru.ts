@@ -102,7 +102,7 @@ export class LRUCache<K, V> {
 
   /**
    * Get all entries as an array of [key, value] pairs.
-   * Does not filter expired entries for performance.
+   * Filters out expired entries.
    */
   entries(): Array<[K, V]> {
     const result: Array<[K, V]> = [];

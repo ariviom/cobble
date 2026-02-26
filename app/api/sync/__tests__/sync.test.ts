@@ -11,6 +11,13 @@ vi.mock('@/app/lib/middleware/csrf', () => ({
   ) => handler,
 }));
 
+// Mock rate limiting to avoid blocking authenticated requests
+vi.mock('@/lib/rateLimit', () => ({
+  consumeRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, retryAfterSeconds: 0 }),
+}));
+
 // Mock Supabase auth client
 const mockGetUser = vi.fn();
 const mockUpsert = vi.fn();

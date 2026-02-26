@@ -9,6 +9,14 @@ vi.mock('@/app/lib/services/search', () => ({
   searchSetsPage: vi.fn(),
 }));
 
+// Mock rate limiting to avoid blocking test requests
+vi.mock('@/lib/rateLimit', () => ({
+  consumeRateLimit: vi
+    .fn()
+    .mockResolvedValue({ allowed: true, retryAfterSeconds: 0 }),
+  getClientIp: vi.fn().mockResolvedValue('127.0.0.1'),
+}));
+
 // Mock metrics to avoid side effects
 vi.mock('@/lib/metrics', () => ({
   incrementCounter: vi.fn(),

@@ -1,5 +1,22 @@
 import { act } from '@testing-library/react';
+import { vi } from 'vitest';
 import { useUserSetsStore } from '@/app/store/user-sets';
+
+vi.mock('@/app/lib/persistence/storage', () => {
+  let store: Record<string, string> = {};
+  return {
+    readStorage: (key: string) => store[key] ?? null,
+    writeStorage: (key: string, value: string) => {
+      store[key] = value;
+    },
+    removeStorage: (key: string) => {
+      delete store[key];
+    },
+    __resetStore: () => {
+      store = {};
+    },
+  };
+});
 
 function setOwned(setNumber: string, owned: boolean): void {
   const setOwnedFn = useUserSetsStore.getState().setOwned;
@@ -22,7 +39,9 @@ function setOwned(setNumber: string, owned: boolean): void {
 describe('useUserSetsStore', () => {
   const SET = '1234-1';
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    const { __resetStore } = await import('@/app/lib/persistence/storage');
+    (__resetStore as () => void)();
     useUserSetsStore.setState({ sets: {} });
   });
 
