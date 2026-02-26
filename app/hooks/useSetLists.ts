@@ -1,5 +1,6 @@
 'use client';
 
+import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import {
   optimisticUpdateUserLists,
@@ -8,7 +9,9 @@ import {
 } from '@/app/hooks/useUserLists';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { Tables } from '@/supabase/types';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+
+const FREE_LIST_LIMIT = 5;
 
 export type UserList = {
   id: string;
@@ -25,6 +28,8 @@ export type UseSetListsResult = {
   createList: (name: string) => void;
   renameList: (listId: string, newName: string) => void;
   deleteList: (listId: string) => void;
+  showUpgradeModal: boolean;
+  dismissUpgradeModal: () => void;
 };
 
 type UseSetListsArgs = {
@@ -152,8 +157,11 @@ function toUserList(summary: UserListSummary): UserList {
 export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
   const { user } = useSupabaseUser();
   const { allLists, isLoading: listsLoading } = useUserLists();
+  const { hasFeature } = useEntitlements();
 
   const lists: UserList[] = useMemo(() => allLists.map(toUserList), [allLists]);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const dismissUpgradeModal = useCallback(() => setShowUpgradeModal(false), []);
 
   const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
   const [membershipLoading, setMembershipLoading] = useState(false);
@@ -309,6 +317,13 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
   const createList = (name: string) => {
     const trimmed = name.trim();
     if (!user || !trimmed) return;
+
+    // Enforce free-tier list limit (non-system lists only)
+    const customListCount = lists.filter(l => !l.isSystem).length;
+    if (customListCount >= FREE_LIST_LIMIT && !hasFeature('lists.unlimited')) {
+      setShowUpgradeModal(true);
+      return;
+    }
 
     const exists = lists.some(
       list => list.name.toLowerCase() == trimmed.toLowerCase()
@@ -471,5 +486,7 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
     createList,
     renameList,
     deleteList,
+    showUpgradeModal,
+    dismissUpgradeModal,
   };
 }

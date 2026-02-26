@@ -1,10 +1,13 @@
 'use client';
 
+import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { invalidateUserListsCache } from '@/app/hooks/useUserLists';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { Tables } from '@/supabase/types';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+const FREE_LIST_LIMIT = 5;
 
 export type MinifigUserList = {
   id: string;
@@ -21,6 +24,8 @@ export type UseMinifigListsResult = {
   createList: (name: string) => void;
   renameList: (listId: string, newName: string) => void;
   deleteList: (listId: string) => void;
+  showUpgradeModal: boolean;
+  dismissUpgradeModal: () => void;
 };
 
 type UseMinifigListsArgs = {
@@ -33,10 +38,13 @@ export function useMinifigLists({
   figNum,
 }: UseMinifigListsArgs): UseMinifigListsResult {
   const { user } = useSupabaseUser();
+  const { hasFeature } = useEntitlements();
   const [lists, setLists] = useState<MinifigUserList[]>([]);
   const [selectedListIds, setSelectedListIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const dismissUpgradeModal = useCallback(() => setShowUpgradeModal(false), []);
 
   useEffect(() => {
     if (!user) {
@@ -172,6 +180,13 @@ export function useMinifigLists({
   const createList = (name: string) => {
     const trimmed = name.trim();
     if (!user || !trimmed) return;
+
+    // Enforce free-tier list limit (non-system lists only)
+    const customListCount = lists.filter(l => !l.isSystem).length;
+    if (customListCount >= FREE_LIST_LIMIT && !hasFeature('lists.unlimited')) {
+      setShowUpgradeModal(true);
+      return;
+    }
 
     const exists = lists.some(
       list => list.name.toLowerCase() === trimmed.toLowerCase()
@@ -310,5 +325,7 @@ export function useMinifigLists({
     createList,
     renameList,
     deleteList,
+    showUpgradeModal,
+    dismissUpgradeModal,
   };
 }

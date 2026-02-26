@@ -4,6 +4,7 @@ import { CollectionsModalContent } from '@/app/components/collections/Collection
 import { Modal } from '@/app/components/ui/Modal';
 import { StatusToggleButton } from '@/app/components/ui/StatusToggleButton';
 import { Toast } from '@/app/components/ui/Toast';
+import { UpgradeModal } from '@/app/components/upgrade-modal';
 import { cn } from '@/app/components/ui/utils';
 import type { MinifigOwnershipState } from '@/app/hooks/useMinifigOwnershipState';
 import { Check, List } from 'lucide-react';
@@ -34,6 +35,8 @@ export function MinifigOwnershipAndCollectionsRow({
     deleteList,
     isAuthenticating,
     isAuthenticated,
+    showListUpgradeModal,
+    dismissListUpgradeModal,
   } = ownership;
 
   const [showCollections, setShowCollections] = useState(false);
@@ -162,6 +165,11 @@ export function MinifigOwnershipAndCollectionsRow({
           />,
           document.body
         )}
+      <UpgradeModal
+        open={showListUpgradeModal}
+        feature="lists.unlimited"
+        onClose={dismissListUpgradeModal}
+      />
     </>
   );
 }

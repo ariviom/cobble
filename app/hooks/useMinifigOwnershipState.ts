@@ -17,6 +17,8 @@ export type MinifigOwnershipState = {
   deleteList: (listId: string) => void;
   isAuthenticated: boolean;
   isAuthenticating: boolean;
+  showListUpgradeModal: boolean;
+  dismissListUpgradeModal: () => void;
 };
 
 type UseMinifigOwnershipStateArgs = {
@@ -37,6 +39,8 @@ export function useMinifigOwnershipState({
     createList,
     renameList,
     deleteList,
+    showUpgradeModal: showListUpgradeModal,
+    dismissUpgradeModal: dismissListUpgradeModal,
   } = useMinifigLists({ figNum });
 
   return {
@@ -52,5 +56,7 @@ export function useMinifigOwnershipState({
     deleteList,
     isAuthenticated: !!user,
     isAuthenticating: isLoading,
+    showListUpgradeModal,
+    dismissListUpgradeModal,
   };
 }

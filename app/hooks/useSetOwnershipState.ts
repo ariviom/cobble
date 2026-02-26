@@ -28,6 +28,8 @@ export type SetOwnershipState = {
   deleteList: (listId: string) => void;
   isAuthenticated: boolean;
   isAuthenticating: boolean;
+  showListUpgradeModal: boolean;
+  dismissListUpgradeModal: () => void;
 };
 
 export function useSetOwnershipState({
@@ -57,6 +59,8 @@ export function useSetOwnershipState({
     createList,
     renameList,
     deleteList,
+    showUpgradeModal: showListUpgradeModal,
+    dismissUpgradeModal: dismissListUpgradeModal,
   } = useSetLists({ setNumber });
 
   return {
@@ -72,5 +76,7 @@ export function useSetOwnershipState({
     deleteList,
     isAuthenticated: !!user,
     isAuthenticating: isLoading,
+    showListUpgradeModal,
+    dismissListUpgradeModal,
   };
 }
