@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useId } from 'react';
+import React, { ReactNode, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 
 type Props = {
