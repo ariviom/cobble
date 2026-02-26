@@ -4,6 +4,7 @@ import { isMinifigParentRow } from '@/app/components/set/inventory-utils';
 import type { InventoryRow } from '@/app/components/set/types';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { exportOwnedToRecord } from '@/app/lib/localDb/ownedStore';
 import {
   enqueueOwnedChangeIfPossible,
   parseInventoryKey,
@@ -277,13 +278,14 @@ export function useSupabaseOwned({
     async function run() {
       const supabase = getSupabaseBrowserClient();
       const supabaseByKey = new Map<string, number>();
+      let maxCloudUpdatedAt = 0;
       let offset = 0;
       let error: { message: string } | null = null;
 
       while (true) {
         const { data, error: pageError } = await supabase
           .from('user_set_parts')
-          .select('part_num, color_id, is_spare, owned_quantity')
+          .select('part_num, color_id, is_spare, owned_quantity, updated_at')
           .eq('user_id', userId as string)
           .eq('set_num', setNumber)
           .range(offset, offset + PAGE_SIZE - 1)
@@ -299,6 +301,10 @@ export function useSupabaseOwned({
           if (row.is_spare) continue;
           const key = `${row.part_num}:${row.color_id}`;
           supabaseByKey.set(key, row.owned_quantity ?? 0);
+          if (row.updated_at) {
+            const ts = new Date(row.updated_at).getTime();
+            if (ts > maxCloudUpdatedAt) maxCloudUpdatedAt = ts;
+          }
         }
 
         if (!data || data.length < PAGE_SIZE) {
@@ -406,12 +412,20 @@ export function useSupabaseOwned({
       }
 
       if (existingDecision === 'supabase_kept') {
-        // Merge cloud data into local store — only overwrite keys that
-        // cloud actually has.  Leaves local marks for keys not in cloud
-        // (e.g. BrickLink minifig subparts) untouched.
-        for (const [key, qty] of supabaseByKey) {
-          setOwned(setNumber, key, qty);
+        // Only re-apply cloud data if the cloud is actually newer than
+        // local edits. This prevents overwriting local changes made after
+        // the user initially chose "keep cloud".
+        const { maxUpdatedAt: localMaxUpdatedAt } =
+          await exportOwnedToRecord(setNumber);
+        if (cancelled) return;
+
+        if (localMaxUpdatedAt === 0 || maxCloudUpdatedAt > localMaxUpdatedAt) {
+          // No local timestamps (first load) or cloud is newer — apply cloud.
+          for (const [key, qty] of supabaseByKey) {
+            setOwned(setNumber, key, qty);
+          }
         }
+        // Otherwise local edits are newer — skip re-apply.
         setHydrated(true);
         return;
       }

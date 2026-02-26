@@ -1490,6 +1490,13 @@ export type Database = {
           new_count: number;
         }[];
       };
+      update_found_count: {
+        Args: {
+          p_user_id: string;
+          p_set_num: string;
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       collection_item_type: 'set' | 'minifig';

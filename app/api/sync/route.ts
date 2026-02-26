@@ -218,24 +218,12 @@ export const POST = withCsrfProtection(
       if (affectedSetNums.size > 0) {
         for (const setNum of affectedSetNums) {
           try {
-            const { data: aggData } = await supabase
-              .from('user_set_parts')
-              .select('owned_quantity')
-              .eq('user_id', user.id)
-              .eq('set_num', setNum)
-              .eq('is_spare', false)
-              .gt('owned_quantity', 0);
-
-            const foundCount = (aggData ?? []).reduce(
-              (sum, row) => sum + (row.owned_quantity ?? 0),
-              0
-            );
-
-            await supabase
-              .from('user_sets')
-              .update({ found_count: foundCount })
-              .eq('user_id', user.id)
-              .eq('set_num', setNum);
+            // Atomic aggregate+update via SQL function to prevent
+            // concurrent syncs from writing stale found_count values
+            await supabase.rpc('update_found_count', {
+              p_user_id: user.id,
+              p_set_num: setNum,
+            });
           } catch {
             // Non-critical — found_count will self-correct on next sync
           }

@@ -37,6 +37,8 @@ class TabCoordinator {
   private leaderCheckInterval: ReturnType<typeof setInterval> | null = null;
   private onLeaderChangeCallbacks: Set<LeaderChangeCallback> = new Set();
   private isDestroyed = false;
+  private isClaiming = false;
+  private rivalClaimTabId: string | null = null;
 
   constructor() {
     // Generate unique tab ID
@@ -86,8 +88,15 @@ class TabCoordinator {
             tabId: this.tabId,
           } satisfies SyncMessage);
         }
-        // If another tab has a lower ID (older), defer to them
-        else if (this.leaderTabId && this.leaderTabId < msg.tabId) {
+        // If we're also claiming, track the rival for tiebreaking
+        else if (this.isClaiming) {
+          // Keep the strongest rival (lowest tabId wins)
+          if (!this.rivalClaimTabId || msg.tabId < this.rivalClaimTabId) {
+            this.rivalClaimTabId = msg.tabId;
+          }
+        }
+        // If we know of an existing leader, tell the claimer
+        else if (this.leaderTabId) {
           this.channel?.postMessage({
             type: 'leader_ack',
             tabId: this.leaderTabId,
@@ -120,19 +129,52 @@ class TabCoordinator {
   private claimLeadership() {
     if (this.isDestroyed || !this.channel) return;
 
+    this.isClaiming = true;
+    this.rivalClaimTabId = null;
+
     this.channel.postMessage({
       type: 'claim_leader',
       tabId: this.tabId,
       timestamp: Date.now(),
     } satisfies SyncMessage);
 
-    // If no ack received within 500ms, become leader
+    // Phase 1: Wait 500ms for an existing leader to ack
     setTimeout(() => {
-      if (this.isDestroyed) return;
-
-      if (!this.leaderTabId) {
-        this.becomeLeader();
+      if (this.isDestroyed || !this.channel) {
+        this.isClaiming = false;
+        return;
       }
+
+      // An existing leader responded — defer to it
+      if (this.leaderTabId) {
+        this.isClaiming = false;
+        return;
+      }
+
+      // Phase 2: Broadcast a second claim to flush out simultaneous claimers
+      this.channel.postMessage({
+        type: 'claim_leader',
+        tabId: this.tabId,
+        timestamp: Date.now(),
+      } satisfies SyncMessage);
+
+      setTimeout(() => {
+        this.isClaiming = false;
+        if (this.isDestroyed) return;
+
+        // An existing leader responded during phase 2
+        if (this.leaderTabId) return;
+
+        // Deterministic tiebreak: lowest tabId wins
+        if (this.rivalClaimTabId && this.rivalClaimTabId < this.tabId) {
+          // Rival wins — don't become leader; wait for their heartbeat
+          this.rivalClaimTabId = null;
+          return;
+        }
+
+        this.rivalClaimTabId = null;
+        this.becomeLeader();
+      }, 200);
     }, 500);
   }
 

@@ -42,6 +42,9 @@ const MAX_CONSECUTIVE_FAILURES = 3;
 // Track ongoing hydration to prevent duplicate calls
 const hydrationPromises: Map<string, Promise<void>> = new Map();
 
+// Epoch counter: incremented on resetOwnedCache to invalidate in-flight async ops
+let cacheEpoch = 0;
+
 // Track if IndexedDB is available (checked once on init)
 let storageAvailable: boolean | null = null;
 
@@ -49,6 +52,87 @@ function checkStorageAvailable(): boolean {
   if (storageAvailable !== null) return storageAvailable;
   storageAvailable = isIndexedDBAvailable();
   return storageAvailable;
+}
+
+// ---------------------------------------------------------------------------
+// localStorage fallback for unload safety (iOS Safari kills async on unload)
+// ---------------------------------------------------------------------------
+const PENDING_WRITES_LS_KEY = 'brick_party_pending_owned';
+
+/**
+ * Synchronously snapshot all pending writes to localStorage.
+ * Safety net: if the page is killed before async IndexedDB writes land,
+ * we recover from localStorage on next page load.
+ */
+function savePendingToLocalStorage(): void {
+  if (pendingWrites.size === 0) return;
+  try {
+    const payload: Record<string, Record<string, number>> = {};
+    for (const [setNumber, data] of pendingWrites) {
+      payload[setNumber] = data;
+    }
+    localStorage.setItem(PENDING_WRITES_LS_KEY, JSON.stringify(payload));
+  } catch {
+    // localStorage may be full or unavailable — best effort only
+  }
+}
+
+function clearPendingLocalStorage(): void {
+  try {
+    localStorage.removeItem(PENDING_WRITES_LS_KEY);
+  } catch {
+    // Ignore
+  }
+}
+
+/**
+ * Replay pending writes saved to localStorage on a previous unload.
+ * Writes them into IndexedDB then clears the key.
+ * Runs once; awaited by the first hydrateFromIndexedDB call to guarantee
+ * IndexedDB is up-to-date before any set reads.
+ */
+let reconcilePromise: Promise<void> | null = null;
+
+function reconcilePendingFromLocalStorage(): Promise<void> {
+  if (reconcilePromise) return reconcilePromise;
+
+  reconcilePromise = (async () => {
+    try {
+      const raw = localStorage.getItem(PENDING_WRITES_LS_KEY);
+      if (!raw) return;
+
+      const payload = JSON.parse(raw) as Record<string, Record<string, number>>;
+      const setNumbers = Object.keys(payload);
+      if (setNumbers.length === 0) {
+        clearPendingLocalStorage();
+        return;
+      }
+
+      if (!checkStorageAvailable()) {
+        // Can't write to IndexedDB — leave localStorage for next attempt
+        return;
+      }
+
+      const promises = setNumbers.map(setNumber =>
+        setOwnedForSet(setNumber, payload[setNumber]!).catch(err => {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn(
+              `[owned] Failed to reconcile pending writes for ${setNumber}:`,
+              err
+            );
+          }
+        })
+      );
+      await Promise.all(promises);
+
+      clearPendingLocalStorage();
+    } catch {
+      // JSON parse failure or other error — clear corrupt data
+      clearPendingLocalStorage();
+    }
+  })();
+
+  return reconcilePromise;
 }
 
 /**
@@ -64,11 +148,21 @@ async function flushWriteToIndexedDB(setNumber: string): Promise<void> {
     return;
   }
 
+  // Capture epoch to detect cache resets during async write
+  const myEpoch = cacheEpoch;
+
   try {
     await setOwnedForSet(setNumber, data);
+    // Cache was reset while writing — don't touch module state
+    if (myEpoch !== cacheEpoch) return;
     pendingWrites.delete(setNumber);
     consecutiveWriteFailures = 0;
+    // Clear localStorage fallback when all pending writes have landed
+    if (pendingWrites.size === 0) clearPendingLocalStorage();
   } catch (error) {
+    // Cache was reset while writing — discard
+    if (myEpoch !== cacheEpoch) return;
+
     if (process.env.NODE_ENV !== 'production') {
       console.warn('[owned] Failed to flush data to IndexedDB:', error);
     }
@@ -96,16 +190,28 @@ function flushWriteNow(setNumber: string) {
 /**
  * Flush all pending writes immediately. Called on page unload/visibility change
  * to prevent data loss from debounced writes that haven't been persisted yet.
+ *
+ * Synchronously snapshots pending data to localStorage first so that if
+ * the browser kills the page before the async IndexedDB writes complete
+ * (common on iOS Safari), the data survives and is reconciled on next load.
  */
 function flushAllPendingWrites() {
   // Clear scheduled microtasks to prevent double-writes
   scheduledMicrotasks.clear();
 
-  // Flush all pending writes (fire-and-forget since we're unloading)
+  // Synchronous safety net — survives even if the page is killed immediately
+  savePendingToLocalStorage();
+
+  // Attempt async IndexedDB writes (may not complete on unload)
   for (const setNumber of pendingWrites.keys()) {
-    flushWriteToIndexedDB(setNumber).catch(() => {
-      // Swallow errors on unload - nothing we can do
-    });
+    flushWriteToIndexedDB(setNumber)
+      .then(() => {
+        // If all pending writes flushed successfully, clear the LS fallback
+        if (pendingWrites.size === 0) clearPendingLocalStorage();
+      })
+      .catch(() => {
+        // Swallow errors on unload — localStorage fallback has us covered
+      });
   }
 }
 
@@ -131,15 +237,19 @@ export async function resetOwnedCache(): Promise<void> {
   // 1. Flush any pending writes for the outgoing user
   await flushPendingWritesAsync();
 
-  // 2. Clear all module-level state
+  // 2. Invalidate any in-flight async operations (hydration, writes)
+  cacheEpoch++;
+
+  // 3. Clear all module-level state
   cache.clear();
   pendingWrites.clear();
   scheduledMicrotasks.clear();
   consecutiveWriteFailures = 0;
   storageAvailable = null;
   hydrationPromises.clear();
+  reconcilePromise = null;
 
-  // 3. Reset Zustand state so sets re-hydrate on next access
+  // 4. Reset Zustand state so sets re-hydrate on next access
   useOwnedStore.setState({
     _version: 0,
     _hydratedSets: new Set<string>(),
@@ -252,10 +362,19 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
 
     // Start hydration
     const hydrationPromise = (async () => {
+      // Capture epoch to detect cache resets during async work
+      const myEpoch = cacheEpoch;
+
+      // Ensure any pending writes saved to localStorage on a previous
+      // page unload have been flushed to IndexedDB before we read.
+      await reconcilePendingFromLocalStorage();
+      if (myEpoch !== cacheEpoch) return; // Cache was reset during reconcile
+
       // Check storage availability and update state if needed
       const available = checkStorageAvailable();
       if (!available) {
         // No IndexedDB - mark as hydrated with empty data (in-memory only mode)
+        if (myEpoch !== cacheEpoch) return; // Cache was reset; discard
         set(state => ({
           ...state,
           _storageAvailable: false,
@@ -267,6 +386,9 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
       try {
         const indexedDBData = await getOwnedForSet(setNumber);
 
+        // Cache was reset while we were reading — discard stale data
+        if (myEpoch !== cacheEpoch) return;
+
         // Update in-memory cache with IndexedDB data
         cache.set(setNumber, indexedDBData);
 
@@ -277,6 +399,9 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
           _hydratedSets: new Set([...state._hydratedSets, setNumber]),
         }));
       } catch (error) {
+        // Cache was reset while we were reading — discard
+        if (myEpoch !== cacheEpoch) return;
+
         if (process.env.NODE_ENV !== 'production') {
           console.warn('[owned] Failed to hydrate from IndexedDB:', error);
         }

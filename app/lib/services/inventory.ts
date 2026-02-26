@@ -153,13 +153,18 @@ export async function getSetInventoryRowsWithMeta(
     const childRowsByKey = new Map<string, InventoryRow>();
 
     // Build canonical key index for existing rows (for dedup with catalog parts)
+    // Also track which keys originated from direct catalog parts (non-minifig rows)
     const rowsByCanonicalKey = new Map<string, number>();
+    const directCatalogKeys = new Set<string>();
     rows.forEach((row, idx) => {
       const key =
         row.identity?.canonicalKey ??
         row.inventoryKey ??
         `${row.partId}:${row.colorId}`;
       rowsByCanonicalKey.set(key, idx);
+      if (!row.partId.startsWith('fig:')) {
+        directCatalogKeys.add(key);
+      }
     });
 
     // Create child rows for all subparts
@@ -206,7 +211,12 @@ export async function getSetInventoryRowsWithMeta(
             rel => rel.parentKey === parentKey
           );
           if (!alreadyLinked) {
-            existing.quantityRequired += totalQtyForThisMinifig;
+            // Only add to quantity if this key did NOT originate from a direct
+            // catalog part — direct parts already have the correct quantity.
+            // Parts from other minifig subparts should still aggregate.
+            if (!directCatalogKeys.has(canonicalKey)) {
+              existing.quantityRequired += totalQtyForThisMinifig;
+            }
             existing.parentRelations.push({
               parentKey,
               quantity: sp.quantity,

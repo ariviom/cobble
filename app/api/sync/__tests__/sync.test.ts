@@ -16,6 +16,7 @@ const mockGetUser = vi.fn();
 const mockUpsert = vi.fn();
 const mockDelete = vi.fn();
 const mockEq = vi.fn();
+const mockRpc = vi.fn();
 
 vi.mock('@/app/lib/supabaseAuthServerClient', () => ({
   getSupabaseAuthServerClient: vi.fn().mockImplementation(async () => ({
@@ -36,6 +37,7 @@ vi.mock('@/app/lib/supabaseAuthServerClient', () => ({
         }),
       }),
     }),
+    rpc: mockRpc,
   })),
 }));
 
@@ -58,6 +60,7 @@ describe('/api/sync', () => {
     vi.clearAllMocks();
     mockUpsert.mockResolvedValue({ error: null });
     mockDelete.mockResolvedValue({ error: null });
+    mockRpc.mockResolvedValue({ error: null });
   });
 
   describe('GET /api/sync (ping)', () => {

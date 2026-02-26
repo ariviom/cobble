@@ -94,10 +94,13 @@ export async function ensureStripeCustomer(
     return existing.stripe_customer_id;
   }
 
-  const customer = await stripe.customers.create({
-    ...(user.email ? { email: user.email } : {}),
-    metadata: { user_id: user.id },
-  });
+  const customer = await stripe.customers.create(
+    {
+      ...(user.email ? { email: user.email } : {}),
+      metadata: { user_id: user.id },
+    },
+    { idempotencyKey: `create-customer-${user.id}` }
+  );
 
   const { error: insertError } = await supabase
     .from('billing_customers')
