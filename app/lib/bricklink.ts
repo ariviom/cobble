@@ -20,6 +20,7 @@ import {
   type PriceCacheEntry,
   type PriceCacheKey,
 } from '@/app/lib/services/priceCache';
+import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import { logger } from '@/lib/metrics';
 
 const BL_STORE_BASE = 'https://api.bricklink.com/api/store/v1';
@@ -127,40 +128,105 @@ let consecutiveFailures = 0;
 let breakerOpenUntil = 0;
 
 // =============================================================================
-// Daily API quota tracking (in-process, resets at UTC midnight)
+// Daily API quota tracking (persisted to Supabase, shared across instances)
 // =============================================================================
 
 const BL_DAILY_QUOTA = Number(process.env.BL_DAILY_QUOTA) || 5000;
 const BL_DAILY_QUOTA_MARGIN = Number(process.env.BL_DAILY_QUOTA_MARGIN) || 500;
 const effectiveQuota = BL_DAILY_QUOTA - BL_DAILY_QUOTA_MARGIN;
+const BL_COUNTER_KEY = 'bricklink.daily_api_calls';
 
-let dailyApiCalls = 0;
-let dailyCounterResetAt = 0;
+/** In-process fallback counter used when the DB is unreachable. */
+let fallbackDailyApiCalls = 0;
+let fallbackResetAt = 0;
+
+function todayUtcDate(): string {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
 
 function nextMidnightUtc(): number {
   const now = new Date();
-  const tomorrow = new Date(
+  return new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
-  );
-  return tomorrow.getTime();
+  ).getTime();
 }
 
-function isDailyQuotaExhausted(): boolean {
-  const now = Date.now();
-  if (now >= dailyCounterResetAt) {
-    dailyApiCalls = 0;
-    dailyCounterResetAt = nextMidnightUtc();
+/**
+ * Check whether the daily BL API quota is exhausted.
+ * Reads from Supabase `system_counters`; falls back to in-process counter on error.
+ */
+async function isDailyQuotaExhausted(): Promise<boolean> {
+  try {
+    const db = getSupabaseServiceRoleClient();
+    const { data, error } = await (
+      db.rpc as (
+        fn: string,
+        args: Record<string, unknown>
+      ) => ReturnType<typeof db.rpc>
+    )('get_system_counter', {
+      p_key: BL_COUNTER_KEY,
+      p_window_start: todayUtcDate(),
+    });
+    if (error) throw error;
+    const count = typeof data === 'number' ? data : 0;
+    return count >= effectiveQuota;
+  } catch (err) {
+    logger.warn('bricklink.quota_check_fallback', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    // Fallback to in-process counter
+    const now = Date.now();
+    if (now >= fallbackResetAt) {
+      fallbackDailyApiCalls = 0;
+      fallbackResetAt = nextMidnightUtc();
+    }
+    return fallbackDailyApiCalls >= effectiveQuota;
   }
-  return dailyApiCalls >= effectiveQuota;
 }
 
-function incrementDailyCounter(): void {
-  dailyApiCalls++;
+/**
+ * Atomically increment the daily BL API call counter in Supabase.
+ * Falls back to in-process counter on error.
+ */
+async function incrementDailyCounter(): Promise<void> {
+  try {
+    const db = getSupabaseServiceRoleClient();
+    await (
+      db.rpc as (
+        fn: string,
+        args: Record<string, unknown>
+      ) => ReturnType<typeof db.rpc>
+    )('increment_system_counter', {
+      p_key: BL_COUNTER_KEY,
+      p_window_start: todayUtcDate(),
+      p_limit: effectiveQuota,
+    });
+  } catch (err) {
+    logger.warn('bricklink.quota_increment_fallback', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    fallbackDailyApiCalls++;
+  }
 }
 
-/** Current daily API call count (for monitoring/debugging). */
-export function getDailyApiCallCount(): number {
-  return dailyApiCalls;
+/** Current daily API call count (best-effort, for monitoring/debugging). */
+export async function getDailyApiCallCount(): Promise<number> {
+  try {
+    const db = getSupabaseServiceRoleClient();
+    const { data, error } = await (
+      db.rpc as (
+        fn: string,
+        args: Record<string, unknown>
+      ) => ReturnType<typeof db.rpc>
+    )('get_system_counter', {
+      p_key: BL_COUNTER_KEY,
+      p_window_start: todayUtcDate(),
+    });
+    if (error) throw error;
+    return typeof data === 'number' ? data : 0;
+  } catch {
+    return fallbackDailyApiCalls;
+  }
 }
 
 async function acquireSlot(): Promise<void> {
@@ -805,8 +871,8 @@ async function fetchPriceGuide(
     }
 
     // 3. Check daily quota before calling BL API
-    if (isDailyQuotaExhausted()) {
-      logger.warn('bricklink.daily_quota_exhausted', { dailyApiCalls });
+    if (await isDailyQuotaExhausted()) {
+      logger.warn('bricklink.daily_quota_exhausted', {});
       const pg: BLPriceGuide = {
         unitPriceUsed: null,
         unitPriceNew: null,
@@ -855,7 +921,7 @@ async function fetchPriceGuide(
       });
     }
 
-    incrementDailyCounter();
+    await incrementDailyCounter();
 
     const { unitPriceUsed, minPriceUsed, maxPriceUsed } =
       parsePriceGuideDetails(data);

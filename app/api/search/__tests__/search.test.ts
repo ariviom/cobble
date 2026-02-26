@@ -175,7 +175,9 @@ describe('GET /api/search', () => {
       const req = new NextRequest('http://localhost/api/search?q=test');
       const res = await GET(req);
 
-      expect(res.headers.get('Cache-Control')).toBe('no-store');
+      expect(res.headers.get('Cache-Control')).toBe(
+        'public, max-age=60, stale-while-revalidate=300'
+      );
     });
 
     it('returns null nextPage when no more results', async () => {

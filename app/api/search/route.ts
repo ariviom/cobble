@@ -7,8 +7,8 @@ import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-// Keep fully dynamic to avoid stale responses (CDN/browser).
-const CACHE_CONTROL = 'no-store';
+// Catalog data is the same for all users; short CDN TTL avoids redundant function invocations.
+const CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
 
 const allowedFilters: FilterType[] = ['all', 'set', 'theme', 'subtheme'];
 const allowedSizes = new Set([20, 40, 60, 80, 100]);
