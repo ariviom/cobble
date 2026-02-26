@@ -1,9 +1,15 @@
+import { DunningBanner } from '@/app/components/dunning-banner';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { AuthProvider } from '@/app/components/providers/auth-provider';
+import { EntitlementsProvider } from '@/app/components/providers/entitlements-provider';
 import { ReactQueryProvider } from '@/app/components/providers/react-query-provider';
 import { SentryUserContext } from '@/app/components/providers/sentry-user-context';
 import { SyncProvider } from '@/app/components/providers/sync-provider';
 import { ThemeProvider } from '@/app/components/providers/theme-provider';
+import {
+  getEntitlements,
+  type Entitlements,
+} from '@/app/lib/services/entitlements';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { resolveThemePreference } from '@/app/lib/theme/resolve';
 import { buildUserHandle } from '@/app/lib/users';
@@ -56,6 +62,8 @@ export default async function RootLayout({
   let initialUser: User | null = null;
   let initialHandle: string | null = null;
   let dbThemeColor: ThemeColor | null = null;
+  let initialEntitlements: Entitlements | null = null;
+  let subscriptionStatus: string | null = null;
 
   try {
     const supabase = await getSupabaseAuthServerClient();
@@ -119,6 +127,19 @@ export default async function RootLayout({
           username: null,
         });
       }
+
+      initialEntitlements = await getEntitlements(user.id);
+
+      // Load subscription status for dunning banner
+      const { data: sub } = await supabase
+        .from('billing_subscriptions')
+        .select('status')
+        .eq('user_id', user.id)
+        .in('status', ['active', 'trialing', 'past_due'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      subscriptionStatus = sub?.status ?? null;
     }
   } catch {
     // Swallow errors and fall back to client-side theme handling.
@@ -179,17 +200,20 @@ export default async function RootLayout({
       </head>
       <body className="bg-background text-foreground antialiased">
         <AuthProvider initialUser={initialUser} initialHandle={initialHandle}>
-          <SentryUserContext />
-          <SyncProvider>
-            <ThemeProvider
-              initialTheme={initialTheme}
-              initialThemeColor={dbThemeColor ?? undefined}
-            >
-              <ReactQueryProvider>
-                <ErrorBoundary>{children}</ErrorBoundary>
-              </ReactQueryProvider>
-            </ThemeProvider>
-          </SyncProvider>
+          <EntitlementsProvider initialEntitlements={initialEntitlements}>
+            <SentryUserContext />
+            <DunningBanner subscriptionStatus={subscriptionStatus} />
+            <SyncProvider>
+              <ThemeProvider
+                initialTheme={initialTheme}
+                initialThemeColor={dbThemeColor ?? undefined}
+              >
+                <ReactQueryProvider>
+                  <ErrorBoundary>{children}</ErrorBoundary>
+                </ReactQueryProvider>
+              </ThemeProvider>
+            </SyncProvider>
+          </EntitlementsProvider>
         </AuthProvider>
       </body>
     </html>
