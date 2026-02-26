@@ -1,5 +1,6 @@
 'use client';
 
+import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import { ClearAllButton } from '@/app/components/ui/ClearAllButton';
 import {
   DropdownPanelFrame,
@@ -11,6 +12,7 @@ import {
 } from '@/app/components/ui/GroupedDropdown';
 import { RowButton } from '@/app/components/ui/RowButton';
 import { RowCheckbox } from '@/app/components/ui/RowCheckbox';
+import { UpgradeModal } from '@/app/components/upgrade-modal';
 import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
 import {
   CheckSquare,
@@ -25,6 +27,7 @@ import {
   Pin,
   SortAsc,
 } from 'lucide-react';
+import { useState } from 'react';
 import type {
   GroupBy,
   InventoryFilter,
@@ -111,6 +114,9 @@ export function TopBarControls({
   isLoading,
 }: Props) {
   const pricingEnabled = usePricingEnabled();
+  const { hasFeature } = useEntitlements();
+  const rarityEnabled = hasFeature('rarity.enabled');
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   return (
     <>
@@ -254,16 +260,31 @@ export function TopBarControls({
           id="rarity-trigger"
           panelId="rarity-panel"
           label={
-            filter.rarityTiers?.length
-              ? `Rarity (${filter.rarityTiers.length})`
-              : 'Rarity'
+            <span className="inline-flex items-center gap-1">
+              <span>
+                {filter.rarityTiers?.length
+                  ? `Rarity (${filter.rarityTiers.length})`
+                  : 'Rarity'}
+              </span>
+              {!rarityEnabled && (
+                <span className="text-xs font-medium text-theme-primary">
+                  (Plus)
+                </span>
+              )}
+            </span>
           }
           labelIcon={<Diamond size={16} />}
-          isOpen={openDropdownId === 'rarity'}
-          onToggle={() => onToggleDropdown('rarity')}
+          isOpen={rarityEnabled && openDropdownId === 'rarity'}
+          onToggle={() => {
+            if (!rarityEnabled) {
+              setShowUpgradeModal(true);
+              return;
+            }
+            onToggleDropdown('rarity');
+          }}
           disabled={isLoading}
         />
-        {openDropdownId === 'rarity' && (
+        {rarityEnabled && openDropdownId === 'rarity' && (
           <DropdownPanelFrame
             id="rarity-panel"
             labelledBy="rarity-trigger"
@@ -352,13 +373,20 @@ export function TopBarControls({
                     { key: 'size', text: 'Size' },
                     { key: 'category', text: 'Category' },
                     { key: 'quantity', text: 'Quantity' },
-                    { key: 'rarity', text: 'Rarity' },
+                    {
+                      key: 'rarity',
+                      text: rarityEnabled ? 'Rarity' : 'Rarity (Plus)',
+                    },
                     ...(pricingEnabled
                       ? [{ key: 'price', text: 'Price' }]
                       : []),
                   ],
                   selectedKey: sortKey,
                   onChange: k => {
+                    if (k === 'rarity' && !rarityEnabled) {
+                      setShowUpgradeModal(true);
+                      return;
+                    }
                     onChangeSortKey(k as SortKey);
                     onCloseDropdown('sort');
                   },
@@ -384,10 +412,17 @@ export function TopBarControls({
                     { key: 'color', text: 'Color' },
                     { key: 'size', text: 'Size' },
                     { key: 'category', text: 'Category' },
-                    { key: 'rarity', text: 'Rarity' },
+                    {
+                      key: 'rarity',
+                      text: rarityEnabled ? 'Rarity' : 'Rarity (Plus)',
+                    },
                   ],
                   selectedKey: groupBy,
                   onChange: g => {
+                    if (g === 'rarity' && !rarityEnabled) {
+                      setShowUpgradeModal(true);
+                      return;
+                    }
                     onChangeGroupBy(g as GroupBy);
                     onCloseDropdown('sort');
                   },
@@ -558,6 +593,12 @@ export function TopBarControls({
           disabled={isLoading}
         />
       </div>
+
+      <UpgradeModal
+        open={showUpgradeModal}
+        feature="rarity.enabled"
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </>
   );
 }

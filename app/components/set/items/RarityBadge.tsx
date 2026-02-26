@@ -1,5 +1,6 @@
 'use client';
 
+import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import { Badge } from '@/app/components/ui/Badge';
 import type { RarityTier } from '../types';
 
@@ -13,6 +14,9 @@ const tierConfig: Record<
 };
 
 export function RarityBadge({ tier }: { tier: RarityTier }) {
+  const { hasFeature } = useEntitlements();
+  if (!hasFeature('rarity.enabled')) return null;
+
   const { label, variant } = tierConfig[tier];
   return (
     <Badge variant={variant} size="sm">
