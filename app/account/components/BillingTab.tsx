@@ -68,18 +68,26 @@ function PlanBadge({
 
 export function BillingTab({ subscription }: BillingTabProps) {
   const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
   const { tier } = useEntitlements();
   const state = getSubscriptionState(subscription);
 
   const openPortal = useCallback(async () => {
     setPortalLoading(true);
+    setPortalError(null);
     try {
       const res = await fetch('/api/billing/create-portal-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setPortalError('Something went wrong. Please try again.');
+      }
+    } catch {
+      setPortalError('Something went wrong. Please try again.');
     } finally {
       setPortalLoading(false);
     }
@@ -211,6 +219,10 @@ export function BillingTab({ subscription }: BillingTabProps) {
                 Resubscribe
               </Button>
             </div>
+          )}
+
+          {portalError && (
+            <p className="mt-4 text-sm text-red-600">{portalError}</p>
           )}
         </CardContent>
       </Card>

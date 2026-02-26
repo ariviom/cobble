@@ -8,10 +8,9 @@ import {
   type UserListSummary,
 } from '@/app/hooks/useUserLists';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { FREE_LIST_LIMIT } from '@/app/lib/domain/limits';
 import type { Tables } from '@/supabase/types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-
-const FREE_LIST_LIMIT = 5;
 
 export type UserList = {
   id: string;
@@ -318,7 +317,7 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
     const trimmed = name.trim();
     if (!user || !trimmed) return;
 
-    // Enforce free-tier list limit (non-system lists only)
+    // Client-side pre-check for fast UX rejection (server enforces authoritatively)
     const customListCount = lists.filter(l => !l.isSystem).length;
     if (customListCount >= FREE_LIST_LIMIT && !hasFeature('lists.unlimited')) {
       setShowUpgradeModal(true);
@@ -333,7 +332,6 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
       return;
     }
 
-    const supabase = getSupabaseBrowserClient();
     const tempId = `temp-${Date.now().toString(36)}`;
     const optimistic: UserListSummary = {
       id: tempId,
@@ -343,25 +341,42 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
 
     optimisticUpdateUserLists(user.id, prev => [...prev, optimistic]);
 
-    void supabase
-      .from('user_lists')
-      .insert({
-        user_id: user.id,
-        name: trimmed,
-        is_system: false,
-      })
-      .select<'id,name,is_system'>('id,name,is_system')
-      .single()
-      .then(async ({ data, error: err }) => {
-        if (err || !data) {
-          console.error('Failed to create list', err);
-          setError('Failed to create list');
+    void (async () => {
+      try {
+        const res = await fetch('/api/lists', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: trimmed }),
+        });
+
+        if (res.status === 403) {
+          const body = await res.json();
+          if (body.error === 'feature_unavailable') {
+            optimisticUpdateUserLists(user.id, prev =>
+              prev.filter(list => list.id !== tempId)
+            );
+            setShowUpgradeModal(true);
+            return;
+          }
+        }
+
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          console.error('Failed to create list', body);
+          setError(
+            (body as { message?: string })?.message ?? 'Failed to create list'
+          );
           optimisticUpdateUserLists(user.id, prev =>
             prev.filter(list => list.id !== tempId)
           );
           return;
         }
 
+        const data = (await res.json()) as {
+          id: string;
+          name: string;
+          is_system: boolean;
+        };
         const created: UserListSummary = {
           id: data.id,
           name: data.name,
@@ -387,8 +402,8 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
 
         updatePersistedMembership(user.id, normSetNum, nextSelected);
 
-        const innerSupabase = getSupabaseBrowserClient();
-        void innerSupabase
+        const supabase = getSupabaseBrowserClient();
+        void supabase
           .from('user_list_items')
           .upsert(
             {
@@ -405,7 +420,14 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
               setError('Failed to add set to new list');
             }
           });
-      });
+      } catch (err) {
+        console.error('Failed to create list', err);
+        setError('Failed to create list');
+        optimisticUpdateUserLists(user.id, prev =>
+          prev.filter(list => list.id !== tempId)
+        );
+      }
+    })();
   };
 
   const renameList = (listId: string, newName: string) => {

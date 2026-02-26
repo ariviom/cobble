@@ -5,7 +5,7 @@ import { useGatedOpenTab } from '@/app/hooks/useGatedOpenTab';
 import { useSyncRecentSet } from '@/app/hooks/useSyncRecentSet';
 import { addRecentSet } from '@/app/store/recent-sets';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { SetPageSkeleton } from '@/app/components/set/SetPageSkeleton';
 
 type SetPageRedirectorProps = {
@@ -74,10 +74,9 @@ export function SetPageRedirector({
     if (allowed) {
       // Redirect to SPA container
       router.replace(`/sets?active=${encodeURIComponent(setNumber)}`);
-    } else {
-      // Tab limit reached — redirect to /sets so user sees the upgrade modal
-      router.replace('/sets');
     }
+    // If !allowed, don't redirect — the UpgradeModal will show.
+    // The handleUpgradeDismiss callback redirects after the user dismisses it.
   }, [
     setNumber,
     setName,
@@ -91,6 +90,11 @@ export function SetPageRedirector({
     router,
   ]);
 
+  const handleUpgradeDismiss = useCallback(() => {
+    dismissUpgradeModal();
+    router.replace('/sets');
+  }, [dismissUpgradeModal, router]);
+
   // Show skeleton layout while redirecting to prevent layout shift
   return (
     <>
@@ -98,7 +102,7 @@ export function SetPageRedirector({
       <UpgradeModal
         open={showUpgradeModal}
         feature={gateFeature}
-        onClose={dismissUpgradeModal}
+        onClose={handleUpgradeDismiss}
       />
     </>
   );

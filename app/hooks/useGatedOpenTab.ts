@@ -4,9 +4,8 @@ import { useCallback, useState } from 'react';
 
 import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import type { FeatureGateKey } from '@/app/components/upgrade-modal';
+import { FREE_TAB_LIMIT } from '@/app/lib/domain/limits';
 import { useOpenTabsStore, isSetTab, type SetTab } from '@/app/store/open-tabs';
-
-const FREE_TAB_LIMIT = 3;
 
 /**
  * Wraps the open-tabs store actions with a free-tier tab limit check.
