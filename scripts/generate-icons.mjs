@@ -37,7 +37,10 @@ async function generateIcon(size, outputPath, { bgColor, logoFill }) {
 
   const logoSize = Math.round(size * 0.75);
   const logoBuffer = await sharp(Buffer.from(makeSvg(logoFill)))
-    .resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .resize(logoSize, logoSize, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
     .png()
     .toBuffer();
 
@@ -61,7 +64,10 @@ async function generateFavicon(outputPath, { bgColor, logoFill }) {
 
   const logoSize = Math.round(size * 0.75);
   const logoBuffer = await sharp(Buffer.from(makeSvg(logoFill)))
-    .resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .resize(logoSize, logoSize, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
     .png()
     .toBuffer();
 
@@ -74,17 +80,17 @@ async function generateFavicon(outputPath, { bgColor, logoFill }) {
 
   // ICO format: header + directory entry + PNG data
   const ico = Buffer.alloc(6 + 16 + pngBuffer.length);
-  ico.writeUInt16LE(0, 0);      // reserved
-  ico.writeUInt16LE(1, 2);      // type: icon
-  ico.writeUInt16LE(1, 4);      // count: 1
-  ico.writeUInt8(size, 6);      // width
-  ico.writeUInt8(size, 7);      // height
-  ico.writeUInt8(0, 8);         // color palette
-  ico.writeUInt8(0, 9);         // reserved
-  ico.writeUInt16LE(1, 10);     // color planes
-  ico.writeUInt16LE(32, 12);    // bits per pixel
+  ico.writeUInt16LE(0, 0); // reserved
+  ico.writeUInt16LE(1, 2); // type: icon
+  ico.writeUInt16LE(1, 4); // count: 1
+  ico.writeUInt8(size, 6); // width
+  ico.writeUInt8(size, 7); // height
+  ico.writeUInt8(0, 8); // color palette
+  ico.writeUInt8(0, 9); // reserved
+  ico.writeUInt16LE(1, 10); // color planes
+  ico.writeUInt16LE(32, 12); // bits per pixel
   ico.writeUInt32LE(pngBuffer.length, 14); // size
-  ico.writeUInt32LE(22, 18);    // offset (6 + 16)
+  ico.writeUInt32LE(22, 18); // offset (6 + 16)
   pngBuffer.copy(ico, 22);
 
   writeFileSync(outputPath, ico);
@@ -93,10 +99,19 @@ async function generateFavicon(outputPath, { bgColor, logoFill }) {
 
 async function main() {
   // PWA icons: white logo on theme blue
-  await generateIcon(192, join(root, 'public/logo/brickparty_logo_sm.png'), { bgColor: PWA_BG, logoFill: '#ffffff' });
-  await generateIcon(512, join(root, 'public/logo/brickparty_logo.png'), { bgColor: PWA_BG, logoFill: '#ffffff' });
+  await generateIcon(192, join(root, 'public/logo/brickparty_logo_sm.png'), {
+    bgColor: PWA_BG,
+    logoFill: '#ffffff',
+  });
+  await generateIcon(512, join(root, 'public/logo/brickparty_logo.png'), {
+    bgColor: PWA_BG,
+    logoFill: '#ffffff',
+  });
   // ICO favicon: dark logo on yellow (Google SEO fallback)
-  await generateFavicon(join(root, 'app/favicon.ico'), { bgColor: FAVICON_BG, logoFill: FAVICON_LOGO_FILL });
+  await generateFavicon(join(root, 'app/favicon.ico'), {
+    bgColor: FAVICON_BG,
+    logoFill: FAVICON_LOGO_FILL,
+  });
   console.log('Done!');
 }
 

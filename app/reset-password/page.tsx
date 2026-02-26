@@ -233,7 +233,7 @@ function ResetPasswordForm() {
             />
             <label
               htmlFor="confirm-password"
-              className="text-2xs mt-2 font-medium text-foreground"
+              className="mt-2 text-2xs font-medium text-foreground"
             >
               Confirm password
             </label>

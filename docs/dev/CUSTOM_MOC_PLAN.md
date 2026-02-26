@@ -10,29 +10,29 @@ This analysis covers what exists, what's new, where the complexity lives, and a 
 
 ## What Already Exists (high reuse)
 
-| Component | Reuse | Notes |
-|---|---|---|
-| `InventoryProvider` + `Inventory` | ~95% | Renders any `InventoryRow[]` — source-agnostic |
-| Export (RB CSV, BL CSV, PAB) | ~95% | Operates on `MissingRow[]`, no set assumptions |
-| Owned state (IndexedDB `localOwned`) | ~80% | Keyed by `setNumber` string — `moc:{id}` works without schema changes |
-| `SyncQueueItem.table` union | Direct | Already extensible: `'user_set_parts' \| 'user_lists' \| ...` |
-| `csv-parse` library | Server-only | Used in ingestion scripts; need browser-side parser too |
-| File input pattern | Partial | Identify page has `<input type="file">` with ref-click; no drag-drop |
-| RLS policies | Pattern | Every user table follows `auth.uid() = user_id` |
-| Identity resolution | ~60% | `buildResolutionContext()` does batch RB lookups; need reverse (BL→RB) path for XML imports |
+| Component                            | Reuse       | Notes                                                                                       |
+| ------------------------------------ | ----------- | ------------------------------------------------------------------------------------------- |
+| `InventoryProvider` + `Inventory`    | ~95%        | Renders any `InventoryRow[]` — source-agnostic                                              |
+| Export (RB CSV, BL CSV, PAB)         | ~95%        | Operates on `MissingRow[]`, no set assumptions                                              |
+| Owned state (IndexedDB `localOwned`) | ~80%        | Keyed by `setNumber` string — `moc:{id}` works without schema changes                       |
+| `SyncQueueItem.table` union          | Direct      | Already extensible: `'user_set_parts' \| 'user_lists' \| ...`                               |
+| `csv-parse` library                  | Server-only | Used in ingestion scripts; need browser-side parser too                                     |
+| File input pattern                   | Partial     | Identify page has `<input type="file">` with ref-click; no drag-drop                        |
+| RLS policies                         | Pattern     | Every user table follows `auth.uid() = user_id`                                             |
+| Identity resolution                  | ~60%        | `buildResolutionContext()` does batch RB lookups; need reverse (BL→RB) path for XML imports |
 
 ## What's New (must be built)
 
-| Component | Size | Risk |
-|---|---|---|
-| Supabase tables + migration | S | Follows `user_lists` pattern exactly |
-| CSV/XML parsing (client or server) | M | Browser `DOMParser` handles XML; need `papaparse` or server route for CSV |
-| Part validation route | M | Batch lookup against `rb_parts`; solved pattern but new endpoint |
-| Upload UI (file pick, preview, save) | M | New page/modal; drag-drop is new |
-| Merge diff + resolution | **L** | Core complexity of the feature |
-| `MocTab` type + tab rendering | M | Extends `OpenTab` union; touches many files |
-| Supabase Storage bucket (images) | M | First-ever storage usage; config + RLS + client code |
-| Collection page integration | M | Third segment + MocCard + list membership |
+| Component                            | Size  | Risk                                                                      |
+| ------------------------------------ | ----- | ------------------------------------------------------------------------- |
+| Supabase tables + migration          | S     | Follows `user_lists` pattern exactly                                      |
+| CSV/XML parsing (client or server)   | M     | Browser `DOMParser` handles XML; need `papaparse` or server route for CSV |
+| Part validation route                | M     | Batch lookup against `rb_parts`; solved pattern but new endpoint          |
+| Upload UI (file pick, preview, save) | M     | New page/modal; drag-drop is new                                          |
+| Merge diff + resolution              | **L** | Core complexity of the feature                                            |
+| `MocTab` type + tab rendering        | M     | Extends `OpenTab` union; touches many files                               |
+| Supabase Storage bucket (images)     | M     | First-ever storage usage; config + RLS + client code                      |
+| Collection page integration          | M     | Third segment + MocCard + list membership                                 |
 
 ---
 
@@ -55,14 +55,14 @@ The inventory view system is almost entirely source-agnostic:
 
 **Recommended: Client-side read + parse, server-side validate.**
 
-| Step | Where | Why |
-|---|---|---|
-| File reading | Client (`FileReader`) | Instant, no upload needed |
-| CSV parsing | Client (split on commas; RB format is trivial) | No library needed for 3-column format |
-| XML parsing | Client (`DOMParser`) | Browser-native, no library |
-| Stud.io ZIP | Client (`JSZip` ~12KB) | Avoids uploading large ZIPs; deferred to Phase 3 |
-| Part validation + ID mapping | **Server** (`POST /api/mocs/validate`) | Needs `rb_parts`, `rb_colors` catalog tables |
-| BL→RB color/part reverse mapping | **Server** | `getColorMaps()` and `rb_parts.bl_part_id` are server-only |
+| Step                             | Where                                          | Why                                                        |
+| -------------------------------- | ---------------------------------------------- | ---------------------------------------------------------- |
+| File reading                     | Client (`FileReader`)                          | Instant, no upload needed                                  |
+| CSV parsing                      | Client (split on commas; RB format is trivial) | No library needed for 3-column format                      |
+| XML parsing                      | Client (`DOMParser`)                           | Browser-native, no library                                 |
+| Stud.io ZIP                      | Client (`JSZip` ~12KB)                         | Avoids uploading large ZIPs; deferred to Phase 3           |
+| Part validation + ID mapping     | **Server** (`POST /api/mocs/validate`)         | Needs `rb_parts`, `rb_colors` catalog tables               |
+| BL→RB color/part reverse mapping | **Server**                                     | `getColorMaps()` and `rb_parts.bl_part_id` are server-only |
 
 The server route receives a small JSON array of `{ partId, colorId, quantity, system }` (not the raw file), validates against the catalog, and returns enriched rows with names, images, and identity.
 
@@ -103,6 +103,7 @@ Unmatched parts are still allowed — stored with user-provided IDs and flagged 
 ### 4. Upload UI — M
 
 New flow (likely a modal from the MOC collection page):
+
 1. Name input + optional source URL
 2. File drop zone (`.csv`, `.xml`) — drag-drop or click-to-select
 3. Auto-detect format from extension/content
@@ -117,12 +118,15 @@ File input pattern from `IdentifyClient.tsx` can be reused. Add `onDragOver`/`on
 When re-uploading a CSV for an existing MOC:
 
 **Diff computation** (pure function):
+
 ```
 computeMocDiff(existing, incoming) → { unchanged, quantityChanged, added, removed }
 ```
+
 Keyed by `${partNum}:${colorId}` — same canonical key pattern.
 
 **Owned count rules**:
+
 - Unchanged parts: keep owned count
 - Quantity increased: keep owned count (now out of higher total)
 - Quantity decreased: clamp owned to new total: `min(owned, newQty)`
@@ -130,6 +134,7 @@ Keyed by `${partNum}:${colorId}` — same canonical key pattern.
 - Removed parts: discard owned data
 
 **Recommended v1 simplification**: Two modes only, no per-part review UI:
+
 1. **Replace all** — wipe and reimport (loses owned counts)
 2. **Smart merge** — automatic diff with owned preservation + clamping
 
@@ -168,6 +173,7 @@ Show users which MOC parts they already own across their existing set collection
 **Server route**: `POST /api/mocs/check-owned` — accepts an array of `{ partNum, colorId }` from the MOC inventory, queries `user_set_parts` grouped by `(part_num, color_id)` with `SUM(owned_quantity)`, returns `Record<inventoryKey, totalOwned>`.
 
 **Query**:
+
 ```sql
 SELECT part_num, color_id, SUM(owned_quantity) as total_owned
 FROM user_set_parts
@@ -189,6 +195,7 @@ HAVING SUM(owned_quantity) > 0
 ### 9. Image Upload — M (deferrable)
 
 First-ever Supabase Storage usage:
+
 - Create `moc-images` bucket with `50MB` limit, `image/png` + `image/jpeg` only
 - Storage RLS: users upload to `{user_id}/` folder
 - Client-side resize to ~800x600 before upload (canvas API or `browser-image-compression`)
@@ -201,6 +208,7 @@ First-ever Supabase Storage usage:
 ## Phased Approach
 
 ### Phase 1: Core Upload + View
+
 - Schema migration (user_mocs + user_moc_parts + enum extension + list_items column)
 - RB CSV client-side parsing + server-side validation route
 - Upload modal (name, file pick, source URL, preview, save)
@@ -213,12 +221,14 @@ First-ever Supabase Storage usage:
 **Delivers**: Upload RB CSV, view in collection, open as tab, track owned, see what you already own, export missing, add to lists.
 
 ### Phase 2: Full Integration
+
 - BrickLink XML import with color/part ID mapping
 - Smart merge (replace-with-preservation mode)
 - Supabase sync for MOC owned state
 - MOC name/source URL inline editing
 
 ### Phase 3: Polish
+
 - Image upload via Supabase Storage (or URL paste in v1)
 - Full merge review UI with per-part diff
 - Stud.io format support (JSZip client-side)
@@ -249,17 +259,17 @@ First-ever Supabase Storage usage:
 
 ## Key Files
 
-| File | Relevance |
-|---|---|
-| `app/store/open-tabs.ts` | Extend `OpenTab` union with `MocTab` |
-| `app/components/set/InventoryProvider.tsx` | Core context — MOCs reuse directly |
-| `app/components/set/types.ts` | `InventoryRow` type MOC rows must match |
-| `app/lib/services/identityResolution.ts` | Batch lookup patterns for part validation |
-| `app/lib/localDb/schema.ts` | `SyncQueueItem.table` union extension |
-| `app/components/home/UserCollectionOverview.tsx` | Collection page segments + grid |
-| `app/lib/export/rebrickableCsv.ts` | Import format mirror + `MissingRow` type |
-| `app/lib/colors/colorMapping.ts` | BL→RB color reverse mapping |
-| `app/hooks/useInventory.ts` | Pattern for `useMocInventory` |
-| `app/identify/IdentifyClient.tsx` | File input pattern |
-| `app/store/owned.ts` | Per-set owned cache; no cross-set aggregation (server-only for global) |
-| `app/api/sync/route.ts` | Precedent for `user_set_parts` aggregate queries |
+| File                                             | Relevance                                                              |
+| ------------------------------------------------ | ---------------------------------------------------------------------- |
+| `app/store/open-tabs.ts`                         | Extend `OpenTab` union with `MocTab`                                   |
+| `app/components/set/InventoryProvider.tsx`       | Core context — MOCs reuse directly                                     |
+| `app/components/set/types.ts`                    | `InventoryRow` type MOC rows must match                                |
+| `app/lib/services/identityResolution.ts`         | Batch lookup patterns for part validation                              |
+| `app/lib/localDb/schema.ts`                      | `SyncQueueItem.table` union extension                                  |
+| `app/components/home/UserCollectionOverview.tsx` | Collection page segments + grid                                        |
+| `app/lib/export/rebrickableCsv.ts`               | Import format mirror + `MissingRow` type                               |
+| `app/lib/colors/colorMapping.ts`                 | BL→RB color reverse mapping                                            |
+| `app/hooks/useInventory.ts`                      | Pattern for `useMocInventory`                                          |
+| `app/identify/IdentifyClient.tsx`                | File input pattern                                                     |
+| `app/store/owned.ts`                             | Per-set owned cache; no cross-set aggregation (server-only for global) |
+| `app/api/sync/route.ts`                          | Precedent for `user_set_parts` aggregate queries                       |
