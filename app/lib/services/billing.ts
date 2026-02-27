@@ -11,8 +11,6 @@ import { logger } from '@/lib/metrics';
 export type BillingTier = 'free' | 'plus' | 'pro';
 export type BillingCadence = 'monthly' | 'yearly';
 
-const BETA_ALL_ACCESS_ENV = 'BETA_ALL_ACCESS';
-
 type PriceEntry = { tier: BillingTier; cadence: BillingCadence };
 
 const REQUIRED_PRICE_ENVS: Array<{
@@ -228,11 +226,6 @@ export async function getUserEntitlements(
   options?: { supabase?: SupabaseClient<Database> }
 ): Promise<{ tier: BillingTier; features: string[] }> {
   const supabase = options?.supabase ?? getSupabaseServiceRoleClient();
-
-  // Beta override: treat everyone as plus when flag is set (no pro gating yet).
-  if (process.env[BETA_ALL_ACCESS_ENV] === 'true') {
-    return { tier: 'plus', features: [] };
-  }
 
   const { data, error } = await supabase
     .from('billing_subscriptions')

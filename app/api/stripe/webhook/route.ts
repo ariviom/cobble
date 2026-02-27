@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 
 import { errorResponse } from '@/app/lib/api/responses';
 import { upsertSubscriptionFromStripe } from '@/app/lib/services/billing';
+import { invalidateEntitlements } from '@/app/lib/services/entitlements';
 import {
   getStripeClient,
   getStripeWebhookSecret,
@@ -133,17 +134,19 @@ async function handleCheckoutCompleted(
       : null) ??
     undefined;
 
-  await upsertSubscriptionFromStripe(subscription, {
+  const result = await upsertSubscriptionFromStripe(subscription, {
     supabase,
     ...(resolvedUserId ? { userId: resolvedUserId } : {}),
   });
+  invalidateEntitlements(result.userId);
 }
 
 async function handleSubscriptionEvent(
   supabase: Supabase,
   subscription: Stripe.Subscription
 ) {
-  await upsertSubscriptionFromStripe(subscription, { supabase });
+  const result = await upsertSubscriptionFromStripe(subscription, { supabase });
+  invalidateEntitlements(result.userId);
 }
 
 export async function POST(req: NextRequest) {

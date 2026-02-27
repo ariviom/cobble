@@ -49,7 +49,7 @@ export type Database = {
           stripe_subscription_id: string;
           tier: string | null;
           updated_at: string | null;
-          user_id: string | null;
+          user_id: string;
         };
         Insert: {
           cancel_at_period_end?: boolean | null;
@@ -64,7 +64,7 @@ export type Database = {
           stripe_subscription_id: string;
           tier?: string | null;
           updated_at?: string | null;
-          user_id?: string | null;
+          user_id: string;
         };
         Update: {
           cancel_at_period_end?: boolean | null;
@@ -79,7 +79,7 @@ export type Database = {
           stripe_subscription_id?: string;
           tier?: string | null;
           updated_at?: string | null;
-          user_id?: string | null;
+          user_id?: string;
         };
         Relationships: [];
       };
@@ -982,6 +982,27 @@ export type Database = {
           },
         ];
       };
+      system_counters: {
+        Row: {
+          count: number;
+          counter_key: string;
+          updated_at: string | null;
+          window_start: string;
+        };
+        Insert: {
+          count?: number;
+          counter_key: string;
+          updated_at?: string | null;
+          window_start: string;
+        };
+        Update: {
+          count?: number;
+          counter_key?: string;
+          updated_at?: string | null;
+          window_start?: string;
+        };
+        Relationships: [];
+      };
       usage_counters: {
         Row: {
           count: number;
@@ -1477,6 +1498,17 @@ export type Database = {
           set_num: string;
         }[];
       };
+      get_system_counter: {
+        Args: { p_key: string; p_window_start: string };
+        Returns: number;
+      };
+      increment_system_counter: {
+        Args: { p_key: string; p_limit: number; p_window_start: string };
+        Returns: {
+          allowed: boolean;
+          new_count: number;
+        }[];
+      };
       increment_usage_counter: {
         Args: {
           p_feature_key: string;
@@ -1491,10 +1523,7 @@ export type Database = {
         }[];
       };
       update_found_count: {
-        Args: {
-          p_user_id: string;
-          p_set_num: string;
-        };
+        Args: { p_set_num: string; p_user_id: string };
         Returns: undefined;
       };
     };

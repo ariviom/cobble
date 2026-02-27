@@ -3,7 +3,6 @@
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { Modal } from '@/app/components/ui/Modal';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
-import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import { DollarSign, ExternalLink, Layers } from 'lucide-react';
 import Link from 'next/link';
@@ -120,8 +119,6 @@ function formatModalPrice(
 }
 
 export function InventoryItemModal({ open, onClose, data }: Props) {
-  const pricingEnabled = usePricingEnabled();
-
   // Derive values needed for validation hook (must be called unconditionally)
   const row = data?.row;
   const bricklinkColorId = data?.bricklinkColorId;
@@ -213,8 +210,7 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
 
   // Determine if we have stats to show in the grid
   const showPriceCell =
-    pricingEnabled &&
-    (hasPrice || hasRange || isPricePending || pricingSource === 'unavailable');
+    hasPrice || hasRange || isPricePending || pricingSource === 'unavailable';
   const showSetsCell = row.setCount != null;
   const showStatsGrid = showPriceCell || showSetsCell;
 

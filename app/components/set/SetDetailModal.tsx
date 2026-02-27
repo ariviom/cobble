@@ -3,7 +3,6 @@
 import { SetOwnershipAndCollectionsRow } from '@/app/components/set/SetOwnershipAndCollectionsRow';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { Modal } from '@/app/components/ui/Modal';
-import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import { Button } from '@/app/components/ui/Button';
 import { DollarSign, ExternalLink, Info, ArrowRight } from 'lucide-react';
@@ -63,7 +62,6 @@ export function SetDetailModal({
   themeId,
   themeName,
 }: SetDetailModalProps) {
-  const pricingEnabled = usePricingEnabled();
   const [priceState, setPriceState] = useState<PriceState>({ status: 'idle' });
   const fetchedRef = useRef(false);
 
@@ -81,7 +79,7 @@ export function SetDetailModal({
 
   // Fetch set price when modal opens
   useEffect(() => {
-    if (!open || !pricingEnabled || fetchedRef.current) return;
+    if (!open || fetchedRef.current) return;
     fetchedRef.current = true;
 
     let cancelled = false;
@@ -108,7 +106,7 @@ export function SetDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [open, pricingEnabled, setNumber]);
+  }, [open, setNumber]);
 
   // Reset fetch ref when modal closes
   useEffect(() => {
@@ -147,46 +145,42 @@ export function SetDetailModal({
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-px border-t-2 border-subtle bg-subtle">
           {/* Price cell — fixed height to prevent layout shift during load */}
-          {pricingEnabled && (
-            <div className="flex min-h-[60px] items-center gap-2.5 bg-card px-4 py-3">
-              <DollarSign className="size-4 shrink-0 text-foreground-muted" />
-              <div className="min-w-0">
-                <div className="text-xs text-foreground-muted">Used Price</div>
-                {hasPrice && priceState.status === 'loaded' ? (
-                  <>
-                    <div className="text-sm font-medium">
+          <div className="flex min-h-[60px] items-center gap-2.5 bg-card px-4 py-3">
+            <DollarSign className="size-4 shrink-0 text-foreground-muted" />
+            <div className="min-w-0">
+              <div className="text-xs text-foreground-muted">Used Price</div>
+              {hasPrice && priceState.status === 'loaded' ? (
+                <>
+                  <div className="text-sm font-medium">
+                    {formatModalPrice(
+                      priceState.data.total!,
+                      priceState.data.currency
+                    )}
+                  </div>
+                  {hasRange && (
+                    <div className="text-xs text-foreground-muted">
                       {formatModalPrice(
-                        priceState.data.total!,
+                        priceState.data.minPrice!,
+                        priceState.data.currency
+                      )}{' '}
+                      –{' '}
+                      {formatModalPrice(
+                        priceState.data.maxPrice!,
                         priceState.data.currency
                       )}
                     </div>
-                    {hasRange && (
-                      <div className="text-xs text-foreground-muted">
-                        {formatModalPrice(
-                          priceState.data.minPrice!,
-                          priceState.data.currency
-                        )}{' '}
-                        –{' '}
-                        {formatModalPrice(
-                          priceState.data.maxPrice!,
-                          priceState.data.currency
-                        )}
-                      </div>
-                    )}
-                  </>
-                ) : priceState.status === 'loading' ||
-                  priceState.status === 'idle' ? (
-                  <div className="text-sm text-foreground-muted">Loading…</div>
-                ) : priceState.status === 'error' ? (
-                  <div className="text-sm text-foreground-muted">
-                    Unavailable
-                  </div>
-                ) : (
-                  <div className="text-sm text-foreground-muted">–</div>
-                )}
-              </div>
+                  )}
+                </>
+              ) : priceState.status === 'loading' ||
+                priceState.status === 'idle' ? (
+                <div className="text-sm text-foreground-muted">Loading…</div>
+              ) : priceState.status === 'error' ? (
+                <div className="text-sm text-foreground-muted">Unavailable</div>
+              ) : (
+                <div className="text-sm text-foreground-muted">–</div>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Details cell */}
           <div className="flex min-h-[60px] items-center gap-2.5 bg-card px-4 py-3">
@@ -204,9 +198,6 @@ export function SetDetailModal({
               )}
             </div>
           </div>
-
-          {/* If pricing disabled, add empty cell to maintain grid */}
-          {!pricingEnabled && <div className="bg-card" />}
         </div>
 
         {/* External links */}

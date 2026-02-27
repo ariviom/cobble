@@ -11,8 +11,8 @@ import { runIdentifyPipeline } from '@/app/lib/identify/pipeline';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getEntitlements, hasFeature } from '@/app/lib/services/entitlements';
 import {
-  checkAndIncrementUsage,
   getUsageStatus,
+  incrementUsage,
 } from '@/app/lib/services/usageCounters';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { logger } from '@/lib/metrics';
@@ -151,15 +151,15 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       return NextResponse.json(cached.body, { status: cached.status });
     }
 
-    // Quota
+    // Quota pre-check (read-only — don't increment yet)
     if (!hasUnlimited) {
-      const usage = await checkAndIncrementUsage({
+      const usage = await getUsageStatus({
         userId: user.id,
         featureKey: 'identify:daily',
         windowKind: 'daily',
         limit: 5,
       });
-      if (!usage.allowed) {
+      if (usage.remaining === 0) {
         return NextResponse.json(
           {
             error: 'feature_unavailable',
@@ -181,17 +181,26 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       budget
     );
 
+    // Failed identifications don't consume quota
     if (result.status === 'no_match') return errorResponse('no_match');
     if (result.status === 'no_valid_candidate')
       return errorResponse('no_valid_candidate');
 
-    // Budget exhaustion with no useful results → 429
     if (
       budget.isExhausted &&
       result.status === 'fallback' &&
       !result.payload.sets.length
     ) {
       return errorResponse('budget_exceeded', { status: 429 });
+    }
+
+    // Success — increment quota now
+    if (!hasUnlimited) {
+      void incrementUsage({
+        userId: user.id,
+        featureKey: 'identify:daily',
+        windowKind: 'daily',
+      });
     }
 
     // Shape response

@@ -31,7 +31,7 @@ import {
   addRecentIdentify,
   type IdentifySource,
 } from '@/app/store/recent-identifies';
-import { X } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 
 type IdentifyCacheEntry = IdentifyResponse & { cachedAt: number };
 
@@ -625,7 +625,14 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             void refreshQuota();
             return;
           }
-          throw new Error(data?.error ?? 'identify_failed');
+          const code = data?.error ?? 'identify_failed';
+          const friendly =
+            code === 'no_match' || code === 'no_valid_candidate'
+              ? 'No part identified from photo. Try again with a different image.'
+              : code === 'budget_exceeded'
+                ? 'Too many lookups needed for this image. Try a clearer photo.'
+                : 'Something went wrong identifying this image. Please try again.';
+          throw new Error(friendly);
         }
         const data = (await res.json()) as IdentifyResponse;
         const fallbackImage =
@@ -711,6 +718,12 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           );
           updateUrlParams(data.part.partNum, 'camera');
         }
+        // Optimistically decrement so the banner updates immediately
+        setQuota(prev =>
+          prev.status === 'metered' && prev.remaining > 0
+            ? { ...prev, remaining: prev.remaining - 1 }
+            : prev
+        );
         void refreshQuota();
       } catch (e) {
         if (searchRequestIdRef.current !== requestId) return;
@@ -784,10 +797,12 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
       const url = URL.createObjectURL(file);
       setImagePreview(url);
 
-      // Auto-search unless quota is exhausted
+      // Auto-search or show upgrade modal if quota is exhausted
       const isExhausted =
         quota.status === 'metered' && quota.remaining === 0 && isAuthenticated;
-      if (!isExhausted) {
+      if (isExhausted) {
+        setShowUpgradeModal(true);
+      } else {
         void performImageSearch(file, url);
       }
     },
@@ -1147,10 +1162,13 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                     <div className="relative">
                       <button
                         type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="relative block w-full overflow-hidden rounded-lg border border-dashed border-white/40 bg-white/10 backdrop-blur-sm hover:border-white/60 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                        onClick={() =>
+                          isQuotaExhausted
+                            ? setShowUpgradeModal(true)
+                            : fileInputRef.current?.click()
+                        }
+                        className="relative block w-full overflow-hidden rounded-lg border border-dashed border-white/40 bg-white/10 backdrop-blur-sm hover:border-white/60 hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:outline-none"
                         aria-label="Upload or take a photo"
-                        disabled={isQuotaExhausted}
                       >
                         <div className="aspect-[5/2] w-full">
                           {imagePreview ? (
@@ -1195,39 +1213,26 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                     <div className="flex items-center justify-between">
                       <button
                         type="button"
-                        onClick={() => galleryInputRef.current?.click()}
-                        disabled={isQuotaExhausted}
-                        className="text-2xs text-white/80 underline underline-offset-2 hover:text-white/90 disabled:cursor-not-allowed disabled:opacity-70"
+                        onClick={() =>
+                          isQuotaExhausted
+                            ? setShowUpgradeModal(true)
+                            : galleryInputRef.current?.click()
+                        }
+                        className="text-2xs text-white/80 underline underline-offset-2 hover:text-white/90"
                       >
                         Upload an image
                       </button>
-                      {quota.status === 'metered' ? (
-                        isQuotaExhausted ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowUpgradeModal(true)}
-                            className="text-xs text-white/80 underline underline-offset-2 hover:text-white"
-                          >
-                            No IDs left today &mdash; Upgrade
-                          </button>
-                        ) : (
-                          <span className="text-xs text-white/80">
-                            {quota.remaining}/{quota.limit} left today
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-2xs text-white/80">
-                          Powered by{' '}
-                          <a
-                            href="https://brickognize.com/"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="underline underline-offset-2 hover:text-white/90"
-                          >
-                            Brickognize
-                          </a>
-                        </span>
-                      )}
+                      <span className="text-2xs text-white/80">
+                        Powered by{' '}
+                        <a
+                          href="https://brickognize.com/"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline underline-offset-2 hover:text-white/90"
+                        >
+                          Brickognize
+                        </a>
+                      </span>
                     </div>
                   </div>
                 ) : (
@@ -1300,6 +1305,39 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         </ThemedPageHeader>
         <div className="h-1.5 bg-brand-yellow" />
       </section>
+
+      {/* Quota banner for logged-in free users */}
+      {quota.status === 'metered' && (
+        <div
+          className={`border-b px-4 py-2.5 text-center text-sm ${
+            isQuotaExhausted
+              ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200'
+              : 'border-neutral-200 bg-neutral-50 text-foreground-muted dark:border-neutral-700 dark:bg-neutral-900'
+          }`}
+        >
+          {isQuotaExhausted ? (
+            <span className="flex items-center justify-center gap-1.5">
+              <Sparkles className="size-4 shrink-0" />
+              <span>
+                {"You've used all 5 free searches today. "}
+                <button
+                  type="button"
+                  onClick={() => setShowUpgradeModal(true)}
+                  className="font-semibold underline underline-offset-2 hover:text-amber-700 dark:hover:text-amber-100"
+                >
+                  Upgrade to Plus
+                </button>
+                {' for unlimited identifies.'}
+              </span>
+            </span>
+          ) : (
+            <span>
+              {quota.remaining} of {quota.limit} free identify{' '}
+              {quota.remaining === 1 ? 'search' : 'searches'} remaining today
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Empty state */}
       {!showResults && (

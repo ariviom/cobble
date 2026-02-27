@@ -39,9 +39,7 @@ function setOwned(setNumber: string, owned: boolean): void {
 describe('useUserSetsStore', () => {
   const SET = '1234-1';
 
-  beforeEach(async () => {
-    const { __resetStore } = await import('@/app/lib/persistence/storage');
-    (__resetStore as () => void)();
+  beforeEach(() => {
     useUserSetsStore.setState({ sets: {} });
   });
 

@@ -13,7 +13,6 @@ import {
 import { RowButton } from '@/app/components/ui/RowButton';
 import { RowCheckbox } from '@/app/components/ui/RowCheckbox';
 import { UpgradeModal } from '@/app/components/upgrade-modal';
-import { usePricingEnabled } from '@/app/hooks/usePricingEnabled';
 import {
   CheckSquare,
   Diamond,
@@ -113,7 +112,6 @@ export function TopBarControls({
   onOpenExportModal,
   isLoading,
 }: Props) {
-  const pricingEnabled = usePricingEnabled();
   const { hasFeature } = useEntitlements();
   const rarityEnabled = hasFeature('rarity.enabled');
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -377,9 +375,7 @@ export function TopBarControls({
                       key: 'rarity',
                       text: rarityEnabled ? 'Rarity' : 'Rarity (Plus)',
                     },
-                    ...(pricingEnabled
-                      ? [{ key: 'price', text: 'Price' }]
-                      : []),
+                    { key: 'price', text: 'Price' },
                   ],
                   selectedKey: sortKey,
                   onChange: k => {

@@ -24,7 +24,6 @@ export type Entitlements = {
 
 type Options = {
   supabase?: SupabaseClient<Database>;
-  betaOverride?: boolean;
 };
 
 // Use LRU cache with TTL to prevent unbounded memory growth
@@ -35,6 +34,11 @@ const entitlementsCache = new LRUCache<string, Entitlements>(
   ENTITLEMENTS_CACHE_MAX,
   ENTITLEMENTS_CACHE_TTL_MS
 );
+
+/** Evict cached entitlements so the next call fetches fresh data from the DB. */
+export function invalidateEntitlements(userId: string): void {
+  entitlementsCache.delete(userId);
+}
 
 const TIER_RANK: Record<Entitlements['tier'], number> = {
   free: 0,
@@ -116,12 +120,7 @@ export async function getEntitlements(
   userId: string,
   options?: Options
 ): Promise<Entitlements> {
-  // Check beta status first so we can include it in the cache key
-  const betaOn =
-    options?.betaOverride === true || process.env.BETA_ALL_ACCESS === 'true';
-
-  // Include beta status in cache key so cache is invalidated when beta changes
-  const cacheKey = `${userId}:${options?.betaOverride ?? false}:${betaOn}`;
+  const cacheKey = userId;
   if (entitlementsCache.has(cacheKey)) {
     return entitlementsCache.get(cacheKey)!;
   }
@@ -132,7 +131,7 @@ export async function getEntitlements(
     supabase,
   });
 
-  const tier: Entitlements['tier'] = betaOn ? 'plus' : base.tier;
+  const tier: Entitlements['tier'] = base.tier;
 
   // Use service role client for reading feature flags and overrides
   // because these tables have restrictive RLS policies

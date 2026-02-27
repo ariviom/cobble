@@ -22,9 +22,7 @@ describe('usePinnedStore', () => {
   const SET = '1234-1';
   const KEY = '3001:1';
 
-  beforeEach(async () => {
-    const { __resetStore } = await import('@/app/lib/persistence/storage');
-    (__resetStore as () => void)();
+  beforeEach(() => {
     usePinnedStore.setState({
       pinned: {},
       meta: {},

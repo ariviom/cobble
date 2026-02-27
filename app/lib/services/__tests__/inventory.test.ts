@@ -43,7 +43,7 @@ const mockRarityRows: Array<{
 
 vi.mock('@/app/lib/db/catalogAccess', () => ({
   getCatalogReadClient: () => ({
-    from: (table: string) => ({
+    from: (_table: string) => ({
       select: () => ({
         in: () => Promise.resolve({ data: mockSubpartRows, error: null }),
         or: () => Promise.resolve({ data: mockRarityRows, error: null }),
