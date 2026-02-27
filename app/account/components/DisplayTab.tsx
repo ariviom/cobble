@@ -11,6 +11,7 @@ import { Input } from '@/app/components/ui/Input';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
 import { Select } from '@/app/components/ui/Select';
 import { Switch } from '@/app/components/ui/Switch';
+import { getKeepAwake } from '@/app/hooks/useWakeLock';
 import { useOrigin } from '@/app/hooks/useOrigin';
 import { useTheme } from '@/app/hooks/useTheme';
 import {
@@ -18,10 +19,11 @@ import {
   BRICKLINK_CURRENCY_OPTIONS,
 } from '@/app/lib/pricing';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { writeStorage } from '@/app/lib/persistence/storage';
 import { saveUserPricingPreferences } from '@/app/lib/userPricingPreferences';
 import { buildUserHandle } from '@/app/lib/users';
 import type { User } from '@supabase/supabase-js';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { UserId, UserProfileRow } from '../hooks/useAccountData';
 
@@ -73,6 +75,17 @@ export function DisplayTab({
   const [defaultInventoryView, setDefaultInventoryView] = useState<
     'list' | 'grid'
   >('list');
+
+  // Wake lock (keep screen awake)
+  const [supportsWakeLock, setSupportsWakeLock] = useState(false);
+  const [keepAwake, setKeepAwake] = useState(false);
+
+  useEffect(() => {
+    if ('wakeLock' in navigator) {
+      setSupportsWakeLock(true);
+      setKeepAwake(getKeepAwake());
+    }
+  }, []);
 
   const themeOptions = useMemo(
     () => [
@@ -382,6 +395,37 @@ export function DisplayTab({
           </div>
         </CardContent>
       </Card>
+
+      {/* Screen Section — only on browsers that support Wake Lock */}
+      {supportsWakeLock && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Screen</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div>
+              <label className="text-label font-semibold text-foreground">
+                Keep screen awake
+              </label>
+              <p className="text-body-sm mt-0.5 text-foreground-muted">
+                Prevents your device from sleeping while viewing sets. This uses
+                more battery.
+              </p>
+              <div className="mt-3">
+                <Switch
+                  checked={keepAwake}
+                  onChange={() => {
+                    const next = !keepAwake;
+                    setKeepAwake(next);
+                    writeStorage('brick_party_keep_awake_v1', String(next));
+                  }}
+                  label={keepAwake ? 'On' : 'Off'}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Pricing Section */}
       <Card>

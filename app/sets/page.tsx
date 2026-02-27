@@ -8,6 +8,7 @@ import { UpgradeModal } from '@/app/components/upgrade-modal';
 import { cn } from '@/app/components/ui/utils';
 import { useDynamicTitle } from '@/app/hooks/useDynamicTitle';
 import { useGatedOpenTab } from '@/app/hooks/useGatedOpenTab';
+import { useWakeLock } from '@/app/hooks/useWakeLock';
 import { useIsDesktop } from '@/app/hooks/useIsDesktop';
 import { readStorage } from '@/app/lib/persistence/storage';
 import {
@@ -71,6 +72,7 @@ function LandingTabWrapper({
 }
 
 export default function SetsPage() {
+  useWakeLock();
   const isDesktop = useIsDesktop();
 
   // Track client-side mount to handle SSR → hydration transition
