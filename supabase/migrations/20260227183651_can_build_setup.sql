@@ -1,3 +1,32 @@
+-- 0. Recreate user_parts_inventory (dropped in 20260216 cleanup migration)
+create table if not exists public.user_parts_inventory (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  part_num text not null references public.rb_parts (part_num),
+  color_id integer not null references public.rb_colors (id),
+  quantity integer not null default 0,
+  updated_at timestamptz not null default now(),
+  constraint user_parts_inventory_pkey primary key (user_id, part_num, color_id)
+);
+
+create index if not exists user_parts_inventory_user_id_idx
+  on public.user_parts_inventory (user_id);
+create index if not exists user_parts_inventory_part_color_idx
+  on public.user_parts_inventory (part_num, color_id);
+create index if not exists user_parts_inventory_color_id_idx
+  on public.user_parts_inventory (color_id);
+
+alter table public.user_parts_inventory enable row level security;
+
+create policy "Select own parts inventory" on public.user_parts_inventory
+  for select using ((select auth.uid()) = user_id);
+create policy "Insert own parts inventory" on public.user_parts_inventory
+  for insert with check ((select auth.uid()) = user_id);
+create policy "Update own parts inventory" on public.user_parts_inventory
+  for update using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+create policy "Delete own parts inventory" on public.user_parts_inventory
+  for delete using ((select auth.uid()) = user_id);
+
 -- 1. Trigger function: recalculate user_parts_inventory on user_set_parts changes
 -- SECURITY DEFINER is required because user_parts_inventory has RLS enabled
 -- and the trigger fires in the context of the modifying session.
@@ -13,6 +42,9 @@ declare
   v_color_id integer;
   v_total integer;
 begin
+  -- part_num and color_id are immutable on user_set_parts;
+  -- only owned_quantity changes. If that assumption changes,
+  -- this trigger must handle OLD and NEW key tuples separately.
   v_user_id  := coalesce(new.user_id, old.user_id);
   v_part_num := coalesce(new.part_num, old.part_num);
   v_color_id := coalesce(new.color_id, old.color_id);
@@ -40,6 +72,7 @@ end;
 $$;
 
 -- 2. Attach trigger to user_set_parts
+drop trigger if exists trg_sync_user_parts_inventory on public.user_set_parts;
 create trigger trg_sync_user_parts_inventory
   after insert or update or delete on public.user_set_parts
   for each row
