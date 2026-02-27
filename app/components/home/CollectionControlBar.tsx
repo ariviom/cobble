@@ -19,7 +19,7 @@ export type ListFilter = 'all' | 'owned' | 'wishlist' | CustomListFilter;
 export type CollectionSortField = 'collection' | 'theme' | 'year' | 'pieces';
 export type MinifigSortField = 'collection' | 'category';
 export type SortDir = 'asc' | 'desc';
-export type CollectionType = 'sets' | 'minifigs';
+export type CollectionType = 'sets' | 'minifigs' | 'can-build';
 
 type ListInfo = { id: string; name: string };
 type ThemeOption = { id: number; name: string };
@@ -32,6 +32,7 @@ type CategoryOption = { id: number; name: string };
 const typeOptions: DropdownOption[] = [
   { key: 'sets', text: 'Sets' },
   { key: 'minifigs', text: 'Minifigs' },
+  { key: 'can-build', text: 'Can Build' },
 ];
 
 const setsSortOptions: DropdownOption[] = [
@@ -172,7 +173,9 @@ export function CollectionControlBar({
   const { openDropdownId, toggleDropdown, closeDropdown, containerRef } =
     useControlBarDropdown();
 
-  const hasAnyItems = collectionType === 'sets' ? hasAnySets : hasAnyMinifigs;
+  const isCanBuild = collectionType === 'can-build';
+  const hasAnyItems =
+    !isCanBuild && (collectionType === 'sets' ? hasAnySets : hasAnyMinifigs);
 
   const listOptions = buildListOptions(lists);
 
@@ -186,7 +189,7 @@ export function CollectionControlBar({
         <DropdownTrigger
           id="coll-type-trigger"
           panelId="coll-type-panel"
-          label={collectionType === 'sets' ? 'Sets' : 'Minifigs'}
+          label={labelFor(typeOptions, collectionType)}
           labelIcon={<Layers size={16} />}
           isOpen={openDropdownId === 'type'}
           onToggle={() => toggleDropdown('type')}

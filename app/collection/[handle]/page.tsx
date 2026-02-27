@@ -87,10 +87,13 @@ function extractInitialView(
   return 'all';
 }
 
-function extractInitialType(params: SearchParams): 'sets' | 'minifigs' {
+function extractInitialType(
+  params: SearchParams
+): 'sets' | 'minifigs' | 'can-build' {
   const raw = params.type;
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (value === 'minifigs') return 'minifigs';
+  if (value === 'can-build') return 'can-build';
   return 'sets';
 }
 
@@ -534,7 +537,7 @@ export default async function CollectionHandlePage({
         lists={publicLists}
         initialThemes={themes}
         initialView={initialView}
-        initialType={initialType}
+        initialType={initialType === 'can-build' ? 'sets' : initialType}
       />
     </PageLayout>
   );

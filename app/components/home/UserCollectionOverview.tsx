@@ -16,6 +16,7 @@ import { useUserSetsStore } from '@/app/store/user-sets';
 import type { Tables } from '@/supabase/types';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CanBuildView } from '@/app/components/can-build/CanBuildView';
 import {
   CollectionControlBar,
   type CollectionSortField,
@@ -749,6 +750,8 @@ export function UserCollectionOverview({
         minifigSortDir={minifigSortDir}
         onMinifigSortDirChange={setMinifigSortDir}
       />
+
+      {collectionType === 'can-build' && <CanBuildView />}
 
       <div className="mx-auto w-full max-w-7xl px-4">
         {!hasAnySets && collectionType === 'sets' && (
