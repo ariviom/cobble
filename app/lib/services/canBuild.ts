@@ -115,13 +115,20 @@ export async function findBuildableSets(
     : []) as unknown as BuildableSetRow[];
   const total = rows.length > 0 ? (rows[0]!.total_count ?? 0) : 0;
 
-  // Get total pieces count
-  const { data: piecesData } = await (
+  // Get total pieces count (cosmetic — graceful degradation to 0 on failure)
+  const { data: piecesData, error: piecesError } = await (
     supabase.rpc as (
       fn: string,
       args: Record<string, unknown>
     ) => ReturnType<typeof supabase.rpc>
   )('get_user_total_pieces', { p_user_id: userId });
+
+  if (piecesError) {
+    logger.warn('can_build.get_total_pieces_failed', {
+      userId,
+      error: piecesError.message,
+    });
+  }
 
   const totalPieces = typeof piecesData === 'number' ? piecesData : 0;
 
