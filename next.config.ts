@@ -75,24 +75,7 @@ const nextConfig: NextConfig = {
     return config;
   },
   images: {
-    qualities: [70, 75],
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'cdn.rebrickable.com',
-        pathname: '/media/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'storage.googleapis.com',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'img.bricklink.com',
-        pathname: '/**',
-      },
-    ],
+    unoptimized: true,
   },
   async redirects() {
     return [
