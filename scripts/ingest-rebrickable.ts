@@ -1235,6 +1235,59 @@ async function materializeMinifigParts(
 }
 
 // ===========================================================================
+// Parts Infrastructure Materialized Views Refresh
+// ===========================================================================
+
+async function refreshPartsMatviews(
+  supabase: ReturnType<typeof createClient<Database>>
+): Promise<void> {
+  log(
+    'Refreshing parts materialized views (mv_set_parts, mv_set_non_spare_count)...'
+  );
+
+  const { error } = await supabase.rpc(
+    'exec_sql' as never,
+    {
+      query: `
+      REFRESH MATERIALIZED VIEW public.mv_set_parts;
+      REFRESH MATERIALIZED VIEW public.mv_set_non_spare_count;
+    `,
+    } as never
+  );
+
+  if (error) {
+    log(
+      `Warning: failed to refresh parts matviews via exec_sql: ${error.message}`
+    );
+    log('Falling back to individual refreshes...');
+
+    const { error: e1 } = await supabase.rpc(
+      'exec_sql' as never,
+      {
+        query: `REFRESH MATERIALIZED VIEW public.mv_set_parts;`,
+      } as never
+    );
+    if (e1) {
+      log(`Warning: mv_set_parts refresh failed: ${e1.message}`);
+      return;
+    }
+
+    const { error: e2 } = await supabase.rpc(
+      'exec_sql' as never,
+      {
+        query: `REFRESH MATERIALIZED VIEW public.mv_set_non_spare_count;`,
+      } as never
+    );
+    if (e2) {
+      log(`Warning: mv_set_non_spare_count refresh failed: ${e2.message}`);
+      return;
+    }
+  }
+
+  log('Parts materialized views refreshed.');
+}
+
+// ===========================================================================
 // Part Rarity Materialization
 // ===========================================================================
 
@@ -2418,8 +2471,10 @@ async function main() {
       await enrichMinifigImages(supabase);
     } else if (info.source === 'inventories') {
       await ingestInventories(supabase, stream);
+      await refreshPartsMatviews(supabase);
     } else if (info.source === 'inventory_parts') {
       await ingestInventoryParts(supabase, stream);
+      await refreshPartsMatviews(supabase);
     } else if (info.source === 'inventory_minifigs') {
       await ingestInventoryMinifigs(supabase, stream);
       await matchUnmappedMinifigs(supabase, blBudget);

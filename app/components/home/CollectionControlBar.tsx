@@ -19,7 +19,7 @@ export type ListFilter = 'all' | 'owned' | 'wishlist' | CustomListFilter;
 export type CollectionSortField = 'collection' | 'theme' | 'year' | 'pieces';
 export type MinifigSortField = 'collection' | 'category';
 export type SortDir = 'asc' | 'desc';
-export type CollectionType = 'sets' | 'minifigs' | 'can-build';
+export type CollectionType = 'sets' | 'minifigs';
 
 type ListInfo = { id: string; name: string };
 type ThemeOption = { id: number; name: string };
@@ -32,7 +32,6 @@ type CategoryOption = { id: number; name: string };
 const typeOptions: DropdownOption[] = [
   { key: 'sets', text: 'Sets' },
   { key: 'minifigs', text: 'Minifigs' },
-  { key: 'can-build', text: 'Can Build' },
 ];
 
 const setsSortOptions: DropdownOption[] = [
@@ -173,9 +172,7 @@ export function CollectionControlBar({
   const { openDropdownId, toggleDropdown, closeDropdown, containerRef } =
     useControlBarDropdown();
 
-  const isCanBuild = collectionType === 'can-build';
-  const hasAnyItems =
-    !isCanBuild && (collectionType === 'sets' ? hasAnySets : hasAnyMinifigs);
+  const hasAnyItems = collectionType === 'sets' ? hasAnySets : hasAnyMinifigs;
 
   const listOptions = buildListOptions(lists);
 
