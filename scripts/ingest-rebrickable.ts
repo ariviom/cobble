@@ -1150,14 +1150,15 @@ async function materializeMinifigParts(
     // Fallback: run as a multi-step approach if rpc not available
     log('rpc exec_sql not available, using chunked materialization...');
 
-    // Get all fig-* inventory IDs
-    const { data: figInventories, error: invErr } = await supabase
-      .from('rb_inventories')
-      .select('id, set_num')
-      .like('set_num', 'fig-%');
+    // Get all fig-* inventory IDs (paginated to avoid 1000-row limit)
+    const figInventories = await fetchAllRows<{ id: number; set_num: string }>(
+      supabase
+        .from('rb_inventories')
+        .select('id, set_num')
+        .like('set_num', 'fig-%')
+    );
 
-    if (invErr) throw invErr;
-    if (!figInventories || figInventories.length === 0) {
+    if (figInventories.length === 0) {
       log('No fig-* inventories found, skipping materialization.');
       return;
     }
@@ -1171,15 +1172,22 @@ async function materializeMinifigParts(
       const chunk = figInventories.slice(i, i + batchSize);
       const invIds = chunk.map(inv => inv.id);
 
-      // Get all non-spare parts for these inventories
-      const { data: parts, error: partsErr } = await supabase
-        .from('rb_inventory_parts')
-        .select('inventory_id, part_num, color_id, quantity, img_url')
-        .in('inventory_id', invIds)
-        .eq('is_spare', false);
+      // Get all non-spare parts for these inventories (paginated to avoid 1000-row limit)
+      const parts = await fetchAllRows<{
+        inventory_id: number;
+        part_num: string;
+        color_id: number;
+        quantity: number;
+        img_url: string | null;
+      }>(
+        supabase
+          .from('rb_inventory_parts')
+          .select('inventory_id, part_num, color_id, quantity, img_url')
+          .in('inventory_id', invIds)
+          .eq('is_spare', false)
+      );
 
-      if (partsErr) throw partsErr;
-      if (!parts || parts.length === 0) continue;
+      if (parts.length === 0) continue;
 
       // Build figNum lookup
       const invToFig = new Map<number, string>();
