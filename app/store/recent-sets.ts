@@ -112,6 +112,14 @@ export function addRecentSet(entry: {
   }
 }
 
+export function saveRecentSets(entries: RecentSetEntry[]): void {
+  try {
+    writeStorage(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_RECENT)));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function removeRecentSet(setNumber: string): void {
   try {
     const existing = loadRecentSetsUnsafe();

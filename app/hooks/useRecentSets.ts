@@ -6,6 +6,7 @@ import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import {
   getRecentSets,
   removeRecentSet,
+  saveRecentSets,
   type RecentSetEntry,
 } from '@/app/store/recent-sets';
 import type { RecentSetsResponse } from '@/app/api/recent-sets/route';
@@ -54,10 +55,13 @@ export function useRecentSets(isActive = true) {
       }
     }
 
-    const sorted = [...merged.values()].sort(
-      (a, b) => b.lastViewedAt - a.lastViewedAt
-    );
-    setSets(sorted.slice(0, 100));
+    const sorted = [...merged.values()]
+      .sort((a, b) => b.lastViewedAt - a.lastViewedAt)
+      .slice(0, 100);
+
+    // Persist merged result so next visit loads the full set instantly
+    saveRecentSets(sorted);
+    setSets(sorted);
   }, []);
 
   // Fetch cloud data once per session for authenticated users
