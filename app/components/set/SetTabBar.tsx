@@ -44,7 +44,7 @@ export function SetTabBar({
     >
       <div className="absolute inset-x-0 bottom-0 h-px bg-subtle" />
       <nav
-        className="relative flex h-full min-w-0 flex-1 items-end overflow-x-auto px-1 no-scrollbar lg:flex-initial lg:pl-2"
+        className="relative flex h-full min-w-0 flex-1 items-end overflow-x-auto px-1 no-scrollbar lg:flex-initial lg:px-2"
         aria-label="Open sets"
       >
         {tabs.map((tab: OpenTab, index: number) => {
