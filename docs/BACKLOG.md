@@ -1,6 +1,6 @@
 # Project Backlog
 
-**Last Updated:** February 15, 2026
+**Last Updated:** March 1, 2026
 **Purpose:** Consolidated list of all outstanding and planned work
 
 ---
@@ -18,17 +18,19 @@ Required before accepting paid users. Groups are ordered by priority; see [depen
 - [ ] Contact `apisupport@bricklink.com` (commercial use, BYO key, quota)
 - [ ] Post-launch: API call volume monitoring + alerting at 80% of 5k/day
 
-### Group B: Feature Gating (blocks billing UI)
+### Group B: Feature Gating (blocks billing UI) ✅
 
-- [ ] SSR entitlements preload in root layout
-- [ ] Client `useFeatureFlag` hook
-- [ ] Reusable API guard helper for tier-restricted endpoints
-- [ ] Tab limit enforcement (free: 3, Plus: unlimited) — currently hardcoded `MAX_TABS = 10` in `open-tabs.ts`
-- [ ] List limit (free: 3, Plus: unlimited)
-- [ ] Export limit (free: 1/month, Plus: unlimited)
-- [ ] Search Party limit (free: 2/month, Plus: unlimited) — verify quota route blocks creation
-- [ ] Gate rarity badges/filter behind `rarity.enabled` flag (Plus tier)
-- [ ] Usage counters wiring (service exists at `usageCounters.ts`, needs connection to more features)
+- [x] SSR entitlements preload in root layout
+- [x] Client `useEntitlements` hook
+- [x] Reusable API guard helper for tier-restricted endpoints (`hasFeature()` / `assertFeature()`)
+- [x] Tab limit enforcement (free: 3, Plus: unlimited)
+- [x] List limit (free: 5, Plus: unlimited)
+- [x] ~~Export limit~~ — removed; exports are unlimited for all tiers (enables free-tier offline workflow without cloud sync)
+- [x] Search Party limit (free: 2/month, Plus: unlimited)
+- [x] Gate rarity badges/filter behind `rarity.enabled` flag (Plus tier)
+- [x] Usage counters wiring (connected to identify + search party)
+
+**Note:** Implementation complete. Needs thorough end-to-end testing of all gates and quota enforcement.
 
 **Pricing philosophy:** Expose surface area on free tier so users can try everything; gate on volume. Sync is a value-add, not a prerequisite — free users can manually export/import collection data.
 
@@ -39,22 +41,23 @@ Required before accepting paid users. Groups are ordered by priority; see [depen
 | Flag                     | Min Tier | Free Limit   |
 | ------------------------ | -------- | ------------ |
 | `tabs.unlimited`         | Plus     | 3 open tabs  |
-| `identify.unlimited`     | Plus     | 5-10/month   |
-| `exports.unlimited`      | Plus     | 1/month      |
+| `identify.unlimited`     | Plus     | 5/day        |
 | `sync.enabled`           | Plus     | -            |
-| `lists.unlimited`        | Plus     | 3 lists      |
+| `lists.unlimited`        | Plus     | 5 lists      |
 | `search_party.unlimited` | Plus     | 2 runs/month |
 | `search_party.advanced`  | Plus     | -            |
 | `rarity.enabled`         | Plus     | -            |
 
 See `docs/billing/stripe-subscriptions.md` for full spec.
 
-### Group C: Stripe Billing UI (depends on Group B)
+### Group C: Stripe Billing UI (depends on Group B) ✅
 
-- [ ] Account/Billing page: current tier, status, renewal date, cancel_at_period_end
-- [ ] Upgrade/Manage CTAs on pricing page
-- [ ] Inline upsells on gated features
-- [ ] Dunning: past_due/unpaid handling with in-app banner
+- [x] Account/Billing page: current tier, status, renewal date, cancel_at_period_end
+- [x] Upgrade/Manage CTAs on pricing page
+- [x] Inline upsells on gated features
+- [x] Dunning: past_due/unpaid handling with in-app banner
+
+**Note:** UI implementation complete. Still needs end-to-end testing and Stripe-side configuration (webhook endpoints, product/price setup in Stripe dashboard).
 
 ### Group D: Part Rarity (independent — can parallel B/C) ✅
 
@@ -87,12 +90,12 @@ See `docs/billing/stripe-subscriptions.md` for full spec.
 
 ```
 A (BL compliance) ──────────────────────────────────> done
-B1-B3 (gating infra) ─┬─> B4-B9 (individual gates) ─> C (billing UI) ─> C4 (dunning)
-                       │
-D (rarity) ────────────┤   (independent, can parallel)
-                       │
-E (import/export) ─────┘   (independent, can parallel)
-                                                        F (polish & testing) ─> LAUNCH
+B (gating) ─────────────────────────────────────────> done (needs testing)
+C (billing UI) ─────────────────────────────────────> done (needs Stripe config + testing)
+D (rarity) ─────────────────────────────────────────> done
+E (import/export) ──────────────────────────────────> TODO
+F (polish & testing) ───────────────────────────────> partial (onboarding TODO)
+                                                        ─> LAUNCH
 ```
 
 ---
@@ -266,6 +269,9 @@ Major completed initiatives - see `docs/dev/archive/` for detailed plans:
 - **Cache Architecture** (Dec 2025) - Targeted fixes applied, strategy documented in `memory/system-patterns.md`
 - **Codebase Review Issues** (Dec 2025) - Error handling, logging, test coverage improvements
 - **Stripe Foundation** (Dec 2025) - Schema, webhooks, checkout/portal routes, beta override. See `docs/billing/stripe-subscriptions.md`
+- **Stripe Billing UI** (Mar 2026) - Account/billing page, upgrade CTAs on pricing page, inline upsells, dunning banners. Needs Stripe-side webhook configuration and end-to-end testing before launch
+- **Feature Gating** (Mar 2026) - SSR entitlements, `useEntitlements` hook, `hasFeature()`/`assertFeature()` guards, tab/list/search-party/identify quotas, rarity gating. Exports unlimited for all tiers (free-tier offline workflow)
+- **Tab Bar Redesign** (Mar 2026) - Chrome-like tab styling, overscroll fix, spacing improvements
 
 ---
 

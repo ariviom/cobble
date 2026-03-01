@@ -151,15 +151,15 @@ Indexes: `billing_subscriptions(user_id)`, `billing_subscriptions(stripe_subscri
 - Initial feature keys (seed candidates; seeds aligned via `20251212090000_update_feature_flag_seeds.sql`):
   - `identify.unlimited` → min_tier `plus`
   - `tabs.unlimited` → min_tier `plus` (free capped at 3 open tabs)
-  - `lists.unlimited` → min_tier `plus` (user collections of sets; free capped at 3 lists)
-  - `exports.unlimited` → min_tier `plus` (free capped at 1/month)
+  - `lists.unlimited` → min_tier `plus` (user collections of sets; free capped at 5 lists)
+  - ~~`exports.unlimited`~~ → removed; exports unlimited for all tiers (enables free-tier offline workflow)
   - `sync.enabled` → min_tier `plus`
   - `search_party.unlimited` → min_tier `plus` (free capped via usage counters)
   - `search_party.advanced` → min_tier `plus` (advanced tools toggled separately)
   - `exclusive_pieces` → min_tier `plus` (part rarity/set-exclusive indicators)
 - Removed flags: `prices.detailed` (BL pricing free for all), `pricing.full_cached`, `bricklink.byo_key`, and `mocs.custom` (Pro tier deferred). Migration `20260216053312_delete_stale_feature_flags.sql` deletes these from the DB.
 - Planned quantitative limits (to enforce via `usage_counters` + per-tier rules):
-  - User lists (set collections): free tier capped at 3 lists; Plus unlimited.
+  - User lists (set collections): free tier capped at 5 lists; Plus unlimited.
   - Search Party: free tier capped at 2 runs per month per user; Plus unlimited.
 
 ## Foundation Implementation Steps (to execute)
