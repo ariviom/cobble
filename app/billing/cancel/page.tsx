@@ -14,8 +14,8 @@ export default function BillingCancelPage() {
       </header>
       <div className="flex flex-wrap gap-3">
         <Button href="/pricing">View plans</Button>
-        <Button href="/" variant="outline">
-          Back to app
+        <Button href="/sets" variant="outline">
+          Browse sets
         </Button>
       </div>
     </main>

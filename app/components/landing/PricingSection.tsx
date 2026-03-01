@@ -90,8 +90,8 @@ export function PricingSection({
 
   const isActiveSubscription =
     subscriptionStatus === 'active' || subscriptionStatus === 'trialing';
-  const isCanceledOrPastDue =
-    subscriptionStatus === 'canceled' || subscriptionStatus === 'past_due';
+  const isCanceled = subscriptionStatus === 'canceled';
+  const isPastDue = subscriptionStatus === 'past_due';
 
   const showToggle = plusYearlyPriceId !== '';
   const activePriceId =
@@ -116,6 +116,27 @@ export function PricingSection({
         setError('Too many attempts. Please wait a moment and try again.');
         return;
       }
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setError('Something went wrong. Please try again.');
+      }
+    } catch {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenPortal = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/billing/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
@@ -174,7 +195,19 @@ export function PricingSection({
         </span>
       );
     }
-    if (isCanceledOrPastDue) {
+    if (isPastDue) {
+      return (
+        <Button
+          onClick={handleOpenPortal}
+          disabled={loading}
+          variant="primary"
+          className="w-full"
+        >
+          {loading ? 'Redirecting...' : 'Update Payment'}
+        </Button>
+      );
+    }
+    if (isCanceled) {
       return (
         <Button
           onClick={handleCheckout}

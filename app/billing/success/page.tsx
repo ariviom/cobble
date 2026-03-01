@@ -23,15 +23,16 @@ export default async function BillingSuccessPage() {
           </p>
           <h1 className="text-3xl font-bold">You&apos;re in!</h1>
           <p className="text-foreground-muted">
-            Check your email for a link to sign in and start using Plus.
+            Sign in to start using Plus. If you&apos;re new, check your email
+            for an invite link.
           </p>
         </header>
         <div className="flex flex-wrap gap-3">
           <Button href="/login" variant="primary">
             Sign in
           </Button>
-          <Button href="/" variant="outline">
-            Back to app
+          <Button href="/sets" variant="outline">
+            Browse sets
           </Button>
         </div>
       </main>
