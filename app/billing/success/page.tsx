@@ -23,8 +23,7 @@ export default async function BillingSuccessPage() {
           </p>
           <h1 className="text-3xl font-bold">You&apos;re in!</h1>
           <p className="text-foreground-muted">
-            We sent an invite to your email. Click the link to set up your
-            password and start using Plus.
+            Check your email for a link to sign in and start using Plus.
           </p>
         </header>
         <div className="flex flex-wrap gap-3">
