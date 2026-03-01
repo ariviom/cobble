@@ -169,14 +169,26 @@ async function saveUserPreferences(
 type ThemeProviderProps = PropsWithChildren<{
   initialTheme?: ThemePreference | undefined;
   initialThemeColor?: ThemeColor | undefined;
+  isAuthenticated?: boolean;
 }>;
 
 function AppThemeInner({
   children,
   initialThemeColor,
-}: PropsWithChildren<{ initialThemeColor?: ThemeColor }>) {
+  forcedResolvedTheme,
+}: PropsWithChildren<{
+  initialThemeColor?: ThemeColor;
+  forcedResolvedTheme?: 'light' | 'dark';
+}>) {
   const { user } = useSupabaseUser();
-  const { theme, resolvedTheme, setTheme: setNextTheme } = useNextTheme();
+  const {
+    theme,
+    resolvedTheme: ntResolvedTheme,
+    setTheme: setNextTheme,
+  } = useNextTheme();
+  // next-themes' resolvedTheme reflects the stored/system theme, NOT forcedTheme.
+  // When we force light mode for non-auth users, override it here.
+  const resolvedTheme = forcedResolvedTheme ?? ntResolvedTheme;
   const [themeColor, setThemeColorState] =
     useState<ThemeColor>(DEFAULT_THEME_COLOR);
   const [isMounted, setIsMounted] = useState(false);
@@ -275,17 +287,22 @@ export function ThemeProvider({
   children,
   initialTheme,
   initialThemeColor,
+  isAuthenticated,
 }: ThemeProviderProps) {
   return (
     <NextThemesProvider
       attribute="class"
       defaultTheme={initialTheme ?? 'light'}
-      enableSystem
+      enableSystem={isAuthenticated !== false}
       storageKey={USER_THEME_KEY}
       enableColorScheme
+      {...(isAuthenticated === false ? { forcedTheme: 'light' } : {})}
     >
       <AppThemeInner
         {...(initialThemeColor !== undefined ? { initialThemeColor } : {})}
+        {...(isAuthenticated === false
+          ? { forcedResolvedTheme: 'light' as const }
+          : {})}
       >
         {children}
       </AppThemeInner>

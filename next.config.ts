@@ -79,12 +79,6 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      // Root redirects to /sets landing
-      {
-        source: '/',
-        destination: '/sets',
-        permanent: false,
-      },
       // Legacy /sets/id/[setNumber] URLs redirect to /sets/[setNumber]
       {
         source: '/sets/id/:setNumber*',
