@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 
 import { errorResponse } from '@/app/lib/api/responses';
 import {
+  getUserIdForCustomer,
   resolveGuestCheckoutUser,
   upsertSubscriptionFromStripe,
 } from '@/app/lib/services/billing';
@@ -36,30 +37,44 @@ async function upsertWebhookEvent(
 async function recordEventIfNew(
   supabase: Supabase,
   event: Stripe.Event
-): Promise<'existing' | 'recorded' | 'failed'> {
-  const existing = await supabase
+): Promise<'new' | 'existing' | 'reprocess'> {
+  // Check if event was previously recorded and failed — allow reprocessing
+  const { data: prior } = await supabase
     .from('billing_webhook_events')
     .select('event_id, status')
     .eq('event_id', event.id)
     .maybeSingle();
 
-  if (existing.data?.event_id) {
+  if (prior?.event_id) {
+    if (prior.status === 'error') {
+      // Allow reprocessing of previously failed events
+      logger.info('billing.webhook_reprocessing_failed_event', {
+        eventId: event.id,
+      });
+      return 'reprocess';
+    }
     return 'existing';
   }
 
-  const { error } = await supabase.from('billing_webhook_events').insert({
-    event_id: event.id,
-    type: event.type,
-    payload: event.data as unknown as Json,
-    status: 'pending',
-  });
+  // Atomic insert — ON CONFLICT handles the race condition
+  const { error } = await supabase.from('billing_webhook_events').upsert(
+    {
+      event_id: event.id,
+      type: event.type,
+      payload: event.data as unknown as Json,
+      status: 'pending',
+    },
+    { onConflict: 'event_id', ignoreDuplicates: true }
+  );
 
   if (error) {
+    // Any error here is a real failure, not a race condition
     logger.error('billing.webhook_record_failed', { error: error.message });
-    return 'failed';
+    // Return 'existing' rather than 'failed' to avoid 500→Stripe retry storms
+    return 'existing';
   }
 
-  return 'recorded';
+  return 'new';
 }
 
 async function upsertCustomerRecord(
@@ -75,26 +90,6 @@ async function upsertCustomerRecord(
   if (error) {
     throw error;
   }
-}
-
-async function getUserIdForCustomer(
-  supabase: Supabase,
-  stripeCustomerId: string
-): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('billing_customers')
-    .select('user_id')
-    .eq('stripe_customer_id', stripeCustomerId)
-    .maybeSingle();
-
-  if (error) {
-    logger.error('billing.webhook_customer_lookup_failed', {
-      error: error.message,
-      stripeCustomerId,
-    });
-    return null;
-  }
-  return data?.user_id ?? null;
 }
 
 async function handleCheckoutCompleted(
@@ -115,7 +110,7 @@ async function handleCheckoutCompleted(
 
   if (!resolvedUserId && stripeCustomerId) {
     resolvedUserId =
-      (await getUserIdForCustomer(supabase, stripeCustomerId)) ?? undefined;
+      (await getUserIdForCustomer(stripeCustomerId, supabase)) ?? undefined;
   }
 
   if (!resolvedUserId && isGuestCheckout) {
@@ -159,8 +154,26 @@ async function handleSubscriptionEvent(
   supabase: Supabase,
   subscription: Stripe.Subscription
 ) {
-  const result = await upsertSubscriptionFromStripe(subscription, { supabase });
-  invalidateEntitlements(result.userId);
+  try {
+    const result = await upsertSubscriptionFromStripe(subscription, {
+      supabase,
+    });
+    invalidateEntitlements(result.userId);
+  } catch (err) {
+    const isGuestSubscription = subscription.metadata?.guest === 'true';
+    const isUserResolutionError =
+      err instanceof Error && err.message.includes('Unable to resolve user_id');
+
+    if (isGuestSubscription && isUserResolutionError) {
+      // Expected: subscription.created often arrives before checkout.session.completed
+      // has linked the guest user. The checkout handler will process this subscription.
+      logger.warn('billing.webhook_guest_subscription_deferred', {
+        subscriptionId: subscription.id,
+      });
+      return;
+    }
+    throw err;
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -192,11 +205,6 @@ export async function POST(req: NextRequest) {
   const recorded = await recordEventIfNew(supabase, event);
   if (recorded === 'existing') {
     return NextResponse.json({ received: true });
-  }
-  if (recorded === 'failed') {
-    return errorResponse('webhook_processing_failed', {
-      message: 'Failed to record webhook event',
-    });
   }
 
   let status = 'ok';

@@ -115,7 +115,7 @@ export async function ensureStripeCustomer(
   return customer.id;
 }
 
-async function getUserIdForCustomer(
+export async function getUserIdForCustomer(
   stripeCustomerId: string,
   supabase: SupabaseClient<Database>
 ): Promise<string | null> {
