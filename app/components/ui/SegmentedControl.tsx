@@ -1,9 +1,10 @@
 'use client';
 
 import { cx } from 'class-variance-authority';
+import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 
-export type Segment = { key: string; label: string };
+export type Segment = { key: string; label: ReactNode };
 
 type Props = {
   segments: Segment[];
@@ -43,7 +44,7 @@ export function SegmentedControl({
       ref={containerRef}
       className={cx(
         'relative inline-flex items-center overflow-hidden rounded-xl border border-subtle bg-card-muted',
-        size === 'sm' ? 'h-9 text-sm' : 'h-11 text-base',
+        size === 'sm' ? 'min-h-9 text-sm' : 'min-h-11 text-base',
         className
       )}
       role="tablist"

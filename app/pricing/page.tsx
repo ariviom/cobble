@@ -49,6 +49,7 @@ export default async function PricingPage() {
       subscriptionStatus={subscriptionStatus}
       hadPriorSubscription={hadPriorSubscription}
       plusMonthlyPriceId={process.env.STRIPE_PRICE_PLUS_MONTHLY ?? ''}
+      plusYearlyPriceId={process.env.STRIPE_PRICE_PLUS_YEARLY ?? ''}
     />
   );
 }
