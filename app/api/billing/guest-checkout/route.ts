@@ -13,6 +13,8 @@ const schema = z.object({
   priceId: z.string().min(1),
 });
 
+// No CSRF protection — this endpoint is unauthenticated (no session to protect).
+// IP-based rate limiting provides abuse prevention instead.
 export async function POST(req: NextRequest) {
   // IP-based rate limit
   const clientIp = (await getClientIp(req)) ?? 'unknown';

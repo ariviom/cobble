@@ -44,8 +44,7 @@ export default async function BillingSuccessPage() {
         <p className="text-sm font-semibold text-green-600">Success</p>
         <h1 className="text-3xl font-bold">Welcome to Plus!</h1>
         <p className="text-foreground-muted">
-          Your 14-day trial has started. You now have full access to all Plus
-          features.
+          You now have full access to all Plus features.
         </p>
       </header>
       <div className="flex flex-wrap gap-3">

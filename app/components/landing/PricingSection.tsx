@@ -112,6 +112,10 @@ export function PricingSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ priceId: activePriceId }),
       });
+      if (res.status === 429) {
+        setError('Too many attempts. Please wait a moment and try again.');
+        return;
+      }
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
