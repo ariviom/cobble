@@ -86,6 +86,39 @@ describe('POST /api/billing/guest-checkout', () => {
       const json = await res.json();
       expect(json.error).toBe('validation_failed');
     });
+
+    it('returns 400 for malformed JSON body', async () => {
+      const req = new NextRequest(
+        'http://localhost/api/billing/guest-checkout',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{{not json',
+        }
+      );
+
+      const res = await POST(req);
+
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toBe('validation_failed');
+    });
+
+    it('returns 400 for empty body', async () => {
+      const req = new NextRequest(
+        'http://localhost/api/billing/guest-checkout',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+
+      const res = await POST(req);
+
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toBe('validation_failed');
+    });
   });
 
   describe('price validation', () => {

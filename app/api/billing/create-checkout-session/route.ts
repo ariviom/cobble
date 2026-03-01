@@ -24,7 +24,16 @@ function getEnvOrThrow(name: string): string {
 }
 
 export const POST = withCsrfProtection(async (req: NextRequest) => {
-  const parsed = schema.safeParse(await req.json());
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return errorResponse('validation_failed', {
+      message: 'Invalid JSON body',
+      status: 400,
+    });
+  }
+  const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return errorResponse('validation_failed', {
       details: parsed.error.flatten(),
