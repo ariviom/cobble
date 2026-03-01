@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { errorResponse } from '@/app/lib/api/responses';
+import { getEnvOrThrow } from '@/app/lib/env';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import {
   ensureStripeCustomer,
@@ -14,14 +15,6 @@ import { logger } from '@/lib/metrics';
 const schema = z.object({
   priceId: z.string().min(1),
 });
-
-function getEnvOrThrow(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
 
 export const POST = withCsrfProtection(async (req: NextRequest) => {
   let body: unknown;

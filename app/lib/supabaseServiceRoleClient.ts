@@ -4,15 +4,9 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '@/supabase/types';
 
-let serviceRoleClient: SupabaseClient<Database> | null = null;
+import { getEnvOrThrow } from '@/app/lib/env';
 
-function getEnvOrThrow(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
+let serviceRoleClient: SupabaseClient<Database> | null = null;
 
 export function getSupabaseServiceRoleClient(): SupabaseClient<Database> {
   if (serviceRoleClient) {

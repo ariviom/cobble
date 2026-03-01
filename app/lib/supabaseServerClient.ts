@@ -3,15 +3,9 @@ import 'server-only';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/supabase/types';
 
-let serverClient: SupabaseClient<Database> | null = null;
+import { getEnvOrThrow } from '@/app/lib/env';
 
-function getEnvOrThrow(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
+let serverClient: SupabaseClient<Database> | null = null;
 
 export function getSupabaseServerClient(): SupabaseClient<Database> {
   if (serverClient) return serverClient;

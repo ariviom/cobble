@@ -2,13 +2,7 @@ import 'server-only';
 
 import Stripe from 'stripe';
 
-function getEnvOrThrow(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
+import { getEnvOrThrow } from '@/app/lib/env';
 
 let stripeClient: Stripe | null = null;
 

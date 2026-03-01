@@ -1,19 +1,12 @@
 import { NextResponse } from 'next/server';
 
 import { errorResponse } from '@/app/lib/api/responses';
+import { getEnvOrThrow } from '@/app/lib/env';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { ensureStripeCustomer } from '@/app/lib/services/billing';
 import { getStripeClient } from '@/app/lib/stripe/client';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { logger } from '@/lib/metrics';
-
-function getEnvOrThrow(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
 
 export const POST = withCsrfProtection(async () => {
   const supabase = await getSupabaseAuthServerClient();

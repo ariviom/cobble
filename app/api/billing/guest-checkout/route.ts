@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { errorResponse } from '@/app/lib/api/responses';
 import { RATE_LIMIT } from '@/app/lib/constants';
+import { getEnvOrThrow } from '@/app/lib/env';
 import { mapPriceToTier } from '@/app/lib/services/billing';
 import { getStripeClient } from '@/app/lib/stripe/client';
 import { logger } from '@/lib/metrics';
@@ -11,14 +12,6 @@ import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 const schema = z.object({
   priceId: z.string().min(1),
 });
-
-function getEnvOrThrow(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
 
 export async function POST(req: NextRequest) {
   // IP-based rate limit
