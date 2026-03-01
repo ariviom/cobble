@@ -297,7 +297,7 @@ export function SetTopBar({
                 onError={handleImageError}
               />
             ) : (
-              <ImagePlaceholder variant="thumbnail" />
+              <ImagePlaceholder variant="fill" />
             )}
           </button>
           <div className="flex min-w-0 flex-1 flex-col items-start text-left">

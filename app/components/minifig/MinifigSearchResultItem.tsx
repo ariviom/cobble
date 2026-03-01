@@ -49,7 +49,7 @@ export function MinifigSearchResultItem({
                   className="aspect-square h-full w-full overflow-hidden rounded-lg object-cover"
                 />
               ) : (
-                <ImagePlaceholder variant="simple" text="No image" />
+                <ImagePlaceholder variant="inventory" />
               )}
             </div>
           </div>

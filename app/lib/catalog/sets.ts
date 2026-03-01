@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { InventoryRow } from '@/app/components/set/types';
+import { getBlMinifigImageUrl } from '@/app/lib/catalog/minifigs';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import type { PartInSet, SimpleSet } from '@/app/lib/rebrickable';
 import {
@@ -674,7 +675,9 @@ export async function getSetInventoryLocal(
         colorId: 0,
         colorName: '—',
         quantityRequired: parentQuantity,
-        imageUrl: figImgById.get(figNum) ?? null,
+        imageUrl:
+          figImgById.get(figNum) ??
+          (blMinifigId ? getBlMinifigImageUrl(blMinifigId) : null),
         partCategoryName: 'Minifig',
         parentCategory: 'Minifigure',
         inventoryKey: parentKey,

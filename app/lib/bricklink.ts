@@ -685,6 +685,37 @@ export async function blGetPartSupersets(
   return list;
 }
 
+async function fetchMinifigSupersets(no: string): Promise<BLSupersetItem[]> {
+  const path = `/items/${STORE_ITEM_TYPE_MINIFIG}/${encodeURIComponent(no)}/supersets`;
+  const data = await blGet<
+    BLSupersetResponse[] | { entries?: BLSupersetResponse[] }
+  >(path);
+  const raw: BLSupersetResponse[] = Array.isArray(data)
+    ? data
+    : Array.isArray((data as { entries?: BLSupersetResponse[] }).entries)
+      ? ((data as { entries?: BLSupersetResponse[] }).entries ?? [])
+      : [];
+  return normalizeSupersetEntries(raw);
+}
+
+export async function blGetMinifigSupersets(
+  no: string
+): Promise<BLSupersetItem[]> {
+  const key = makeKey(`MINIFIG::${no}`);
+  const cached = supersetsCache.get(key);
+  if (cached) return cached;
+  const list = await fetchMinifigSupersets(no);
+  if (process.env.NODE_ENV !== 'production') {
+    logger.debug('bricklink.minifig_supersets', {
+      no,
+      count: Array.isArray(list) ? list.length : 0,
+      rawSample: list.slice(0, 2),
+    });
+  }
+  supersetsCache.set(key, list);
+  return list;
+}
+
 export async function blGetPartColors(no: string): Promise<BLColorEntry[]> {
   const key = makeKey(no, undefined);
   const cached = colorsCache.get(key);

@@ -14,6 +14,98 @@ import {
   type ThemeMeta,
 } from './themes';
 
+// ---------------------------------------------------------------------------
+// Shared types & utilities
+// ---------------------------------------------------------------------------
+
+export type RbMinifigRow = {
+  fig_num: string;
+  name: string | null;
+  num_parts: number | null;
+  bl_minifig_id: string | null;
+};
+
+/** Deterministic BrickLink minifig image URL. */
+export function getBlMinifigImageUrl(blMinifigId: string): string {
+  return `https://img.bricklink.com/ItemImage/MN/0/${encodeURIComponent(blMinifigId)}.png`;
+}
+
+/**
+ * Single-minifig lookup: tries `bl_minifig_id` first, falls back to `fig_num`.
+ * Replaces the duplicated two-query pattern across pages.
+ */
+export async function findRbMinifig(
+  idOrFigNum: string
+): Promise<RbMinifigRow | null> {
+  const supabase = getCatalogReadClient();
+
+  const { data: byBlId } = await supabase
+    .from('rb_minifigs')
+    .select('fig_num, name, num_parts, bl_minifig_id')
+    .eq('bl_minifig_id', idOrFigNum)
+    .limit(1);
+
+  if (byBlId?.[0]) return byBlId[0];
+
+  const { data: byFigNum } = await supabase
+    .from('rb_minifigs')
+    .select('fig_num, name, num_parts, bl_minifig_id')
+    .eq('fig_num', idOrFigNum)
+    .limit(1);
+
+  return byFigNum?.[0] ?? null;
+}
+
+/**
+ * Batch minifig lookup: tries `.in('bl_minifig_id', ids)` first, then falls
+ * back to `.in('fig_num', unmatchedIds)` for any IDs not found.
+ * Returns a Map keyed by the original input ID → RbMinifigRow.
+ */
+export async function findRbMinifigsByBlIds(
+  blIds: string[]
+): Promise<Map<string, RbMinifigRow>> {
+  if (blIds.length === 0) return new Map();
+
+  const supabase = getCatalogReadClient();
+  const result = new Map<string, RbMinifigRow>();
+
+  const { data: byBlId } = await supabase
+    .from('rb_minifigs')
+    .select('fig_num, name, num_parts, bl_minifig_id')
+    .in('bl_minifig_id', blIds);
+
+  for (const row of byBlId ?? []) {
+    if (row.bl_minifig_id) {
+      result.set(row.bl_minifig_id, row);
+    }
+  }
+
+  const unmatchedIds = blIds.filter(id => !result.has(id));
+  if (unmatchedIds.length > 0) {
+    const { data: byFigNum } = await supabase
+      .from('rb_minifigs')
+      .select('fig_num, name, num_parts, bl_minifig_id')
+      .in('fig_num', unmatchedIds);
+
+    for (const row of byFigNum ?? []) {
+      const key = row.bl_minifig_id ?? row.fig_num;
+      if (!result.has(key)) {
+        result.set(key, row);
+      }
+      // Also set by fig_num if that was the input ID
+      if (unmatchedIds.includes(row.fig_num) && !result.has(row.fig_num)) {
+        result.set(row.fig_num, row);
+      }
+    }
+  }
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Search types & helpers
+// ---------------------------------------------------------------------------
+
 export type MinifigCatalogResult = {
   figNum: string;
   name: string;
@@ -362,6 +454,13 @@ export async function searchMinifigsLocal(
     }
   }
 
+  // BrickLink image fallback for items still missing images
+  for (const [blId, result] of seen.entries()) {
+    if (!result.imageUrl) {
+      seen.set(blId, { ...result, imageUrl: getBlMinifigImageUrl(blId) });
+    }
+  }
+
   let items = Array.from(seen.values());
 
   // Part counts are already available from rb_minifigs.num_parts
@@ -588,7 +687,8 @@ export async function getSetMinifigsLocal(
  * Returns null if both lookups fail.
  */
 export async function getOrFetchMinifigImageUrl(
-  figNum: string
+  figNum: string,
+  blMinifigId?: string | null
 ): Promise<string | null> {
   const supabase = getCatalogReadClient();
 
@@ -605,48 +705,52 @@ export async function getOrFetchMinifigImageUrl(
 
   // Fetch from RB API
   const apiKey = process.env.REBRICKABLE_API;
-  if (!apiKey) return null;
+  if (apiKey) {
+    try {
+      const res = await fetch(
+        `https://rebrickable.com/api/v3/lego/minifigs/${encodeURIComponent(figNum)}/?key=${apiKey}`
+      );
+      if (res.ok) {
+        const data = (await res.json()) as { set_img_url?: string | null };
+        const imgUrl = data.set_img_url ?? null;
 
-  try {
-    const res = await fetch(
-      `https://rebrickable.com/api/v3/lego/minifigs/${encodeURIComponent(figNum)}/?key=${apiKey}`
-    );
-    if (!res.ok) return null;
-
-    const data = (await res.json()) as { set_img_url?: string | null };
-    const imgUrl = data.set_img_url ?? null;
-
-    // Cache the result (best-effort, don't block on failure)
-    if (imgUrl) {
-      const writer = getCatalogWriteClient();
-      writer
-        .from('rb_minifig_images')
-        .upsert(
-          {
-            fig_num: figNum,
-            image_url: imgUrl,
-            last_fetched_at: new Date().toISOString(),
-          },
-          { onConflict: 'fig_num' }
-        )
-        .then(({ error }) => {
-          if (error) {
-            logger.warn('minifig.image_cache_write_failed', {
-              figNum,
-              error: error.message,
+        // Cache the result (best-effort, don't block on failure)
+        if (imgUrl) {
+          const writer = getCatalogWriteClient();
+          writer
+            .from('rb_minifig_images')
+            .upsert(
+              {
+                fig_num: figNum,
+                image_url: imgUrl,
+                last_fetched_at: new Date().toISOString(),
+              },
+              { onConflict: 'fig_num' }
+            )
+            .then(({ error }) => {
+              if (error) {
+                logger.warn('minifig.image_cache_write_failed', {
+                  figNum,
+                  error: error.message,
+                });
+              }
             });
-          }
-        });
+          return imgUrl;
+        }
+      }
+    } catch (err) {
+      logger.warn('minifig.image_api_fetch_failed', {
+        figNum,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
-
-    return imgUrl;
-  } catch (err) {
-    logger.warn('minifig.image_api_fetch_failed', {
-      figNum,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return null;
   }
+
+  // BrickLink image fallback
+  if (blMinifigId) {
+    return getBlMinifigImageUrl(blMinifigId);
+  }
+  return null;
 }
 
 /** Max set_count for a subpart to be considered "rare" enough to show. */

@@ -1,8 +1,11 @@
 import { PageLayout } from '@/app/components/layout/PageLayout';
 import { PublicUserCollectionOverview } from '@/app/components/user/PublicUserCollectionOverview';
 import { resolvePublicUser } from '@/app/lib/publicUsers';
+import {
+  findRbMinifigsByBlIds,
+  getBlMinifigImageUrl,
+} from '@/app/lib/catalog/minifigs';
 import { fetchThemes } from '@/app/lib/services/themes';
-import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import { buildUserHandle } from '@/app/lib/users';
 import { Lock } from 'lucide-react';
@@ -289,7 +292,7 @@ export default async function PublicProfilePage({
     new Set([...minifigStatusMap.keys(), ...listMinifigIds])
   ).filter(Boolean);
 
-  let minifigMeta: Record<
+  const minifigMeta: Record<
     string,
     {
       name: string | null;
@@ -300,36 +303,16 @@ export default async function PublicProfilePage({
   > = {};
 
   if (allMinifigIds.length > 0) {
-    // user_minifigs.fig_num stores BrickLink IDs (e.g., sw0001)
-    // Look up metadata from rb_minifigs via bl_minifig_id
-    const catalogClient = getCatalogWriteClient();
-    const { data: minifigs } = await catalogClient
-      .from('rb_minifigs')
-      .select('fig_num,name,num_parts,bl_minifig_id')
-      .in('bl_minifig_id', allMinifigIds);
+    const rbMap = await findRbMinifigsByBlIds(allMinifigIds);
 
-    minifigMeta = Object.fromEntries(
-      (minifigs ?? []).map(fig => [
-        fig.bl_minifig_id!,
-        {
-          name: fig.name,
-          num_parts: fig.num_parts,
-          image_url: null,
-          bl_id: fig.bl_minifig_id,
-        },
-      ])
-    );
-
-    // For any IDs not found in rb_minifigs, use the ID itself as a fallback name
     for (const figId of allMinifigIds) {
-      if (!minifigMeta[figId]) {
-        minifigMeta[figId] = {
-          name: figId,
-          num_parts: null,
-          image_url: null,
-          bl_id: figId,
-        };
-      }
+      const fig = rbMap.get(figId);
+      minifigMeta[figId] = {
+        name: fig?.name ?? figId,
+        num_parts: fig?.num_parts ?? null,
+        image_url: getBlMinifigImageUrl(figId),
+        bl_id: fig?.bl_minifig_id ?? figId,
+      };
     }
   }
 

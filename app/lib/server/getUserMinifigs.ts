@@ -1,4 +1,9 @@
+import {
+  findRbMinifigsByBlIds,
+  getBlMinifigImageUrl,
+} from '@/app/lib/catalog/minifigs';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
+import { resolveBlMinifigId } from '@/app/lib/services/minifigMapping';
 import type { Database } from '@/supabase/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -60,23 +65,34 @@ export async function getUserMinifigs({
 
   const catalog = getCatalogReadClient();
 
-  // Lookup rb_minifigs by BL minifig ID for name, num_parts, and fig_num
-  const { data: rbMinifigs } = await catalog
-    .from('rb_minifigs')
-    .select('fig_num, name, num_parts, bl_minifig_id')
-    .in('bl_minifig_id', blMinifigNos);
+  // Batch lookup: bl_minifig_id → fallback fig_num
+  const rbMap = await findRbMinifigsByBlIds(blMinifigNos);
+
+  // Self-healing: resolve unmatched IDs (rare — ~2% of minifigs)
+  const unmatchedIds = blMinifigNos.filter(id => !rbMap.has(id));
+  if (unmatchedIds.length > 0) {
+    await Promise.all(
+      unmatchedIds.map(async id => {
+        const resolved = await resolveBlMinifigId(id);
+        if (resolved) {
+          // Re-fetch the now-mapped row
+          const updated = await findRbMinifigsByBlIds([id]);
+          const row = updated.get(id);
+          if (row) rbMap.set(id, row);
+        }
+      })
+    );
+  }
 
   const nameByBlId = new Map<string, string>();
   const numPartsByBlId = new Map<string, number>();
   const blIdToFigNum = new Map<string, string>();
 
-  for (const fig of rbMinifigs ?? []) {
-    const blId = fig.bl_minifig_id;
-    if (!blId) continue;
-    if (fig.name) nameByBlId.set(blId, fig.name);
+  for (const [key, fig] of rbMap) {
+    if (fig.name) nameByBlId.set(key, fig.name);
     if (typeof fig.num_parts === 'number')
-      numPartsByBlId.set(blId, fig.num_parts);
-    blIdToFigNum.set(blId, fig.fig_num);
+      numPartsByBlId.set(key, fig.num_parts);
+    blIdToFigNum.set(key, fig.fig_num);
   }
 
   // Get images from rb_minifig_images
@@ -100,6 +116,13 @@ export async function getUserMinifigs({
         const blId = figNumToBlId.get(img.fig_num);
         if (blId) imageByBlId.set(blId, img.image_url);
       }
+    }
+  }
+
+  // BrickLink image fallback for minifigs without RB images
+  for (const blId of blMinifigNos) {
+    if (!imageByBlId.has(blId)) {
+      imageByBlId.set(blId, getBlMinifigImageUrl(blId));
     }
   }
 

@@ -138,7 +138,7 @@ export function SetDetailModal({
               className="size-full object-contain p-4 drop-shadow-sm"
             />
           ) : (
-            <ImagePlaceholder variant="thumbnail" className="size-full" />
+            <ImagePlaceholder variant="fill" />
           )}
         </div>
 

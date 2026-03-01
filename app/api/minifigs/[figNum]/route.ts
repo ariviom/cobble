@@ -1,6 +1,8 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
 import {
+  findRbMinifig,
+  getBlMinifigImageUrl,
   getOrFetchMinifigImageUrl,
   getRarestSubpartSets,
   type RarestSubpartSetsResult,
@@ -142,22 +144,7 @@ export async function GET(
   try {
     const supabase = getCatalogReadClient();
 
-    // Try bl_minifig_id first, then fall back to fig_num (inventory links use RB fig_nums)
-    const { data: rbMinifigRows } = await supabase
-      .from('rb_minifigs')
-      .select('fig_num, name, num_parts, bl_minifig_id')
-      .eq('bl_minifig_id', inputMinifigId)
-      .limit(1);
-    let rbMinifig = rbMinifigRows?.[0] ?? null;
-
-    if (!rbMinifig) {
-      const { data: byFigNum } = await supabase
-        .from('rb_minifigs')
-        .select('fig_num, name, num_parts, bl_minifig_id')
-        .eq('fig_num', inputMinifigId)
-        .limit(1);
-      rbMinifig = byFigNum?.[0] ?? null;
-    }
+    const rbMinifig = await findRbMinifig(inputMinifigId);
 
     const blMinifigNo = rbMinifig?.bl_minifig_id ?? inputMinifigId;
     const name = rbMinifig?.name || inputMinifigId;
@@ -165,9 +152,16 @@ export async function GET(
     let numParts: number | null = rbMinifig?.num_parts ?? null;
     let imageUrl: string | null = null;
 
-    // Get RB image (checks cache, fetches from API on miss)
+    // Get RB image (checks cache, fetches from API on miss, BL fallback)
     if (rbMinifig?.fig_num) {
-      imageUrl = await getOrFetchMinifigImageUrl(rbMinifig.fig_num);
+      imageUrl = await getOrFetchMinifigImageUrl(
+        rbMinifig.fig_num,
+        blMinifigNo
+      );
+    }
+    // Even without an rbMinifig match, provide BL image
+    if (!imageUrl) {
+      imageUrl = getBlMinifigImageUrl(blMinifigNo);
     }
 
     // Get sets containing this minifig from rb_inventory_minifigs

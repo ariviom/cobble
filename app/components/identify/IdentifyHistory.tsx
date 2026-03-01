@@ -70,7 +70,7 @@ export function IdentifyHistory({ onSelectPart, source }: Props) {
                       className="h-full w-full object-contain"
                     />
                   ) : (
-                    <ImagePlaceholder variant="thumbnail" />
+                    <ImagePlaceholder variant="fill" />
                   )}
                 </div>
                 <span className="w-full truncate text-center text-xs text-foreground-muted">

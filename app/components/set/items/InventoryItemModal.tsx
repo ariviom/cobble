@@ -227,7 +227,7 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
               className="size-full object-contain p-6 drop-shadow-sm"
             />
           ) : (
-            <ImagePlaceholder variant="thumbnail" className="size-full" />
+            <ImagePlaceholder variant="fill" />
           )}
         </div>
 

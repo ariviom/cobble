@@ -80,7 +80,7 @@ export function IdentifyResultCard({
               className="h-full w-full object-cover"
             />
           ) : (
-            <ImagePlaceholder variant="thumbnail" />
+            <ImagePlaceholder variant="fill" />
           )}
         </div>
         <div className="min-w-0 flex-1">

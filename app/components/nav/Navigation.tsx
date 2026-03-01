@@ -38,7 +38,11 @@ export function Navigation({
       return 'sets';
     if (pathname.startsWith('/search')) return 'search';
     if (pathname.startsWith('/identify')) return 'identify';
-    if (pathname.startsWith('/collection') || pathname.startsWith('/set/'))
+    if (
+      pathname.startsWith('/collection') ||
+      pathname.startsWith('/set/') ||
+      pathname.startsWith('/minifigs/')
+    )
       return 'collection';
     if (pathname.startsWith('/account')) return 'profile';
     if (pathname.startsWith('/login')) return 'profile';

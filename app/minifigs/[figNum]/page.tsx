@@ -1,7 +1,12 @@
 import { PageLayout } from '@/app/components/layout/PageLayout';
 import { MinifigPageClient } from '@/app/components/minifig/MinifigPageClient';
-import { getOrFetchMinifigImageUrl } from '@/app/lib/catalog/minifigs';
+import {
+  findRbMinifig,
+  getBlMinifigImageUrl,
+  getOrFetchMinifigImageUrl,
+} from '@/app/lib/catalog/minifigs';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
+import { resolveBlMinifigId } from '@/app/lib/services/minifigMapping';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
@@ -41,47 +46,36 @@ async function getServerMinifigMeta(
   try {
     const supabase = getCatalogReadClient();
 
-    // Lookup by bl_minifig_id first, then fall back to fig_num
-    // (inventory links use RB fig_nums like "fig-005774")
-    const { data: rbMinifigRows } = await supabase
-      .from('rb_minifigs')
-      .select('fig_num, name, num_parts, bl_minifig_id')
-      .eq('bl_minifig_id', blMinifigNo)
-      .limit(1);
-    let rbMinifig = rbMinifigRows?.[0] ?? null;
+    let rbMinifig = await findRbMinifig(blMinifigNo);
 
+    // Self-healing: if not found, try resolving the BL ID mapping
     if (!rbMinifig) {
-      const { data: byFigNum } = await supabase
-        .from('rb_minifigs')
-        .select('fig_num, name, num_parts, bl_minifig_id')
-        .eq('fig_num', blMinifigNo)
-        .limit(1);
-      rbMinifig = byFigNum?.[0] ?? null;
+      const resolved = await resolveBlMinifigId(blMinifigNo);
+      if (resolved) {
+        rbMinifig = await findRbMinifig(resolved);
+      }
     }
 
     if (!rbMinifig) return empty;
 
     const rbFigNum = rbMinifig.fig_num;
+    const blId = rbMinifig.bl_minifig_id ?? blMinifigNo;
 
     // Parallelize independent work: image fetch + sets/theme lookup + rarity
     const [imageUrl, setsResult, rarityRow] = await Promise.all([
-      rbFigNum ? getOrFetchMinifigImageUrl(rbFigNum) : Promise.resolve(null),
-      rbFigNum
-        ? getSetsCountAndTheme(supabase, rbFigNum)
-        : Promise.resolve({ setsCount: 0, year: null, themeName: null }),
-      rbFigNum
-        ? supabase
-            .from('rb_minifig_rarity')
-            .select('min_subpart_set_count')
-            .eq('fig_num', rbFigNum)
-            .maybeSingle()
-            .then(({ data }) => data)
-        : Promise.resolve(null),
+      getOrFetchMinifigImageUrl(rbFigNum, blId),
+      getSetsCountAndTheme(supabase, rbFigNum),
+      supabase
+        .from('rb_minifig_rarity')
+        .select('min_subpart_set_count')
+        .eq('fig_num', rbFigNum)
+        .maybeSingle()
+        .then(({ data }) => data),
     ]);
 
     return {
       name: rbMinifig.name ?? null,
-      imageUrl,
+      imageUrl: imageUrl ?? getBlMinifigImageUrl(blId),
       year: setsResult.year,
       themeName: setsResult.themeName,
       numParts: rbMinifig.num_parts ?? null,

@@ -12,6 +12,7 @@ import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useUserMinifigs } from '@/app/hooks/useUserMinifigs';
 import { formatMinifigId, pickMinifigRouteId } from '@/app/lib/minifigIds';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { RarityBadge } from '@/app/components/set/items/RarityBadge';
 import { getRarityTier } from '@/app/components/set/types';
@@ -183,9 +184,10 @@ export function MinifigPageClient({
                 priority
               />
             ) : (
-              <div className="flex size-full items-center justify-center rounded-lg border border-dashed border-subtle text-sm text-foreground-muted">
-                No image
-              </div>
+              <ImagePlaceholder
+                variant="card"
+                className="size-full rounded-lg"
+              />
             )}
           </div>
         </div>
