@@ -48,7 +48,7 @@ export default async function BillingSuccessPage() {
         </p>
       </header>
       <div className="flex flex-wrap gap-3">
-        <Button href="/">Start exploring</Button>
+        <Button href="/sets">Start exploring</Button>
         <Button href="/account" variant="outline">
           View account
         </Button>

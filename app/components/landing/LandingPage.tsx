@@ -106,7 +106,7 @@ export function LandingPage({
             list. Free. No account required.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-            <Button href="/" variant="hero-secondary" size="lg">
+            <Button href="/sets" variant="hero-secondary" size="lg">
               Start building
             </Button>
             <Button
@@ -267,7 +267,7 @@ export function LandingPage({
             Start tracking your LEGO inventory today. No sign-up required.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
-            <Button href="/" variant="hero-primary" size="lg">
+            <Button href="/sets" variant="hero-primary" size="lg">
               Get started free
             </Button>
             <Button href="/login" variant="hero-secondary" size="lg">
