@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
 import { errorResponse } from '@/app/lib/api/responses';
-import { upsertSubscriptionFromStripe } from '@/app/lib/services/billing';
+import {
+  resolveGuestCheckoutUser,
+  upsertSubscriptionFromStripe,
+} from '@/app/lib/services/billing';
 import { invalidateEntitlements } from '@/app/lib/services/entitlements';
 import {
   getStripeClient,
@@ -105,10 +108,28 @@ async function handleCheckoutCompleted(
       : session.customer?.id) ?? null;
   const metadataUserId =
     (session.metadata?.user_id as string | undefined) ?? null;
+  const isGuestCheckout = session.metadata?.guest === 'true';
 
-  if (stripeCustomerId && metadataUserId) {
+  // Resolve userId: metadata → customer lookup → guest checkout
+  let resolvedUserId: string | undefined = metadataUserId ?? undefined;
+
+  if (!resolvedUserId && stripeCustomerId) {
+    resolvedUserId =
+      (await getUserIdForCustomer(supabase, stripeCustomerId)) ?? undefined;
+  }
+
+  if (!resolvedUserId && isGuestCheckout) {
+    const email =
+      session.customer_details?.email ?? session.customer_email ?? null;
+    if (email) {
+      resolvedUserId = await resolveGuestCheckoutUser(email, { supabase });
+    }
+  }
+
+  // Link Stripe customer to Supabase user (after resolution so guests are included)
+  if (stripeCustomerId && resolvedUserId) {
     await upsertCustomerRecord(supabase, {
-      userId: metadataUserId,
+      userId: resolvedUserId,
       stripeCustomerId,
       email: session.customer_details?.email ?? session.customer_email ?? null,
     });
@@ -126,13 +147,6 @@ async function handleCheckoutCompleted(
   const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
     expand: ['items.data.price.product'],
   });
-
-  const resolvedUserId =
-    metadataUserId ??
-    (stripeCustomerId
-      ? await getUserIdForCustomer(supabase, stripeCustomerId)
-      : null) ??
-    undefined;
 
   const result = await upsertSubscriptionFromStripe(subscription, {
     supabase,
