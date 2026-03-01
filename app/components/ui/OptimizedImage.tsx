@@ -61,7 +61,7 @@ export function OptimizedImage({
   const shouldFade = !disableFade && !priority;
 
   return (
-    <div className="relative">
+    <div className="relative size-full">
       {shouldFade && !isLoaded && (
         <Skeleton variant="image" className="absolute inset-0 h-full w-full" />
       )}
