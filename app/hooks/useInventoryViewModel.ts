@@ -328,12 +328,6 @@ export function useInventoryViewModel(
       const ra = rows[a]!;
       const rb = rows[b]!;
 
-      if (sortKey === 'price') {
-        // Price sort is handled at the call-site where prices are known.
-        // Here we keep the base order stable.
-        return 0;
-      }
-
       let base = 0;
       switch (sortKey) {
         case 'name':

@@ -93,7 +93,6 @@ export type SortKey =
   | 'color'
   | 'size'
   | 'category'
-  | 'price'
   | 'rarity'
   | 'quantity';
 

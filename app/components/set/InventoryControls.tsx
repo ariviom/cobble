@@ -103,9 +103,7 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
       }
     } else if (dropdownId === 'sort') {
       if (groupId === 'sortBy')
-        setSortKey(
-          key as 'name' | 'color' | 'size' | 'category' | 'price' | 'rarity'
-        );
+        setSortKey(key as 'name' | 'color' | 'size' | 'category' | 'rarity');
       else if (groupId === 'order') {
         if (key !== sortDir) setSortDir(key === 'asc' ? 'asc' : 'desc');
       } else if (groupId === 'groupBy')

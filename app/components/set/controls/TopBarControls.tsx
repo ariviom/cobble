@@ -375,7 +375,6 @@ export function TopBarControls({
                       key: 'rarity',
                       text: rarityEnabled ? 'Rarity' : 'Rarity (Plus)',
                     },
-                    { key: 'price', text: 'Price' },
                   ],
                   selectedKey: sortKey,
                   onChange: k => {
@@ -433,7 +432,9 @@ export function TopBarControls({
         <DropdownTrigger
           id="view-trigger"
           panelId="view-panel"
-          label={view === 'micro' ? 'Micro' : view === 'grid' ? 'Grid' : 'List'}
+          label={
+            view === 'micro' ? 'Thumbnail' : view === 'grid' ? 'Grid' : 'List'
+          }
           labelIcon={
             view === 'micro' ? (
               <Grid size={16} />
@@ -464,7 +465,7 @@ export function TopBarControls({
                   { key: 'grid', text: 'Grid', icon: <LayoutGrid size={16} /> },
                   {
                     key: 'micro',
-                    text: 'Micro',
+                    text: 'Thumbnail',
                     icon: <Grid size={16} />,
                   },
                 ]}
