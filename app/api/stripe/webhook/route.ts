@@ -46,10 +46,11 @@ async function recordEventIfNew(
     .maybeSingle();
 
   if (prior?.event_id) {
-    if (prior.status === 'error') {
-      // Allow reprocessing of previously failed events
-      logger.info('billing.webhook_reprocessing_failed_event', {
+    if (prior.status === 'error' || prior.status === 'deferred') {
+      // Allow reprocessing of previously failed or deferred events
+      logger.info('billing.webhook_reprocessing_event', {
         eventId: event.id,
+        priorStatus: prior.status,
       });
       return 'reprocess';
     }
@@ -173,12 +174,13 @@ async function handleCheckoutCompleted(
 async function handleSubscriptionEvent(
   supabase: Supabase,
   subscription: Stripe.Subscription
-) {
+): Promise<'processed' | 'deferred'> {
   try {
     const result = await upsertSubscriptionFromStripe(subscription, {
       supabase,
     });
     invalidateEntitlements(result.userId);
+    return 'processed';
   } catch (err) {
     const isGuestSubscription = subscription.metadata?.guest === 'true';
     const isUserResolutionError =
@@ -190,7 +192,7 @@ async function handleSubscriptionEvent(
       logger.warn('billing.webhook_guest_subscription_deferred', {
         subscriptionId: subscription.id,
       });
-      return;
+      return 'deferred';
     }
     throw err;
   }
@@ -241,12 +243,14 @@ export async function POST(req: NextRequest) {
         break;
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
-      case 'customer.subscription.deleted':
-        await handleSubscriptionEvent(
+      case 'customer.subscription.deleted': {
+        const result = await handleSubscriptionEvent(
           supabase,
           event.data.object as Stripe.Subscription
         );
+        if (result === 'deferred') status = 'deferred';
         break;
+      }
       case 'invoice.paid':
       case 'invoice.payment_failed':
       case 'customer.subscription.trial_will_end':

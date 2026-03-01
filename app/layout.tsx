@@ -6,10 +6,8 @@ import { ReactQueryProvider } from '@/app/components/providers/react-query-provi
 import { SentryUserContext } from '@/app/components/providers/sentry-user-context';
 import { SyncProvider } from '@/app/components/providers/sync-provider';
 import { ThemeProvider } from '@/app/components/providers/theme-provider';
-import {
-  getEntitlements,
-  type Entitlements,
-} from '@/app/lib/services/entitlements';
+import type { ClientEntitlements } from '@/app/components/providers/entitlements-provider';
+import { getEntitlements } from '@/app/lib/services/entitlements';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { resolveThemePreference } from '@/app/lib/theme/resolve';
 import { buildUserHandle } from '@/app/lib/users';
@@ -62,7 +60,7 @@ export default async function RootLayout({
   let initialUser: User | null = null;
   let initialHandle: string | null = null;
   let dbThemeColor: ThemeColor | null = null;
-  let initialEntitlements: Entitlements | null = null;
+  let initialEntitlements: ClientEntitlements | null = null;
   let subscriptionStatus: string | null = null;
 
   try {
@@ -128,7 +126,12 @@ export default async function RootLayout({
         });
       }
 
-      initialEntitlements = await getEntitlements(user.id);
+      const fullEntitlements = await getEntitlements(user.id);
+      // Only pass tier + features to the client; strip server-only flag config
+      initialEntitlements = {
+        tier: fullEntitlements.tier,
+        features: fullEntitlements.features,
+      };
 
       // Load subscription status for dunning banner
       const { data: sub } = await supabase
@@ -207,6 +210,7 @@ export default async function RootLayout({
               <ThemeProvider
                 initialTheme={initialTheme}
                 initialThemeColor={dbThemeColor ?? undefined}
+                isAuthenticated={!!initialUser}
               >
                 <ReactQueryProvider>
                   <ErrorBoundary>{children}</ErrorBoundary>

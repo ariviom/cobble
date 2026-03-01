@@ -55,7 +55,7 @@ Local (test) example paths:
 ## Stripe Resources to Create (Test Mode First)
 
 1. Products & Prices
-   - Product: Plus — monthly price in USD; trial 7 days; enable tax behavior; statement descriptor set.
+   - Product: Plus — monthly price in USD; trial 14 days; enable tax behavior; statement descriptor set.
    - Yearly prices: create but do not expose in env/UI if hiding at launch.
    - Pro product: create when Pro tier launches.
    - Metadata (optional): `tier=plus`.

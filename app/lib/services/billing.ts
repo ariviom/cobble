@@ -59,6 +59,7 @@ const CANCEL_TO_FREE: Stripe.Subscription.Status[] = [
   'unpaid',
   'incomplete',
   'incomplete_expired',
+  'paused',
 ];
 
 function getEnv(name: string): string | undefined {

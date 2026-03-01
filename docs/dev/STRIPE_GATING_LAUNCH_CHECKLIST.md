@@ -50,7 +50,7 @@ See `docs/plans/2026-02-26-feature-gating-billing-ui-design.md` for the full des
 
 - [x] **Beta override removed** — `BETA_ALL_ACCESS` is no longer referenced in code. Remove from any environment configs if still present.
 
-- [ ] **Enable pricing UI** — Set `NEXT_PUBLIC_PRICING_ENABLED=true` (currently `false` in both `.env.local` lines 8/23 and `.env.production` line 3). Check if any code reads this flag to conditionally show pricing UI.
+- [x] **Pricing UI enabled** — `NEXT_PUBLIC_PRICING_ENABLED` is no longer referenced in code. Pricing UI is always shown. Remove the env var from any configs if still present.
 
 - [ ] **Verify Stripe keys on Vercel** — Ensure these are set in Vercel production env:
   - `STRIPE_SECRET_KEY` (live key, not test)
@@ -61,15 +61,11 @@ See `docs/plans/2026-02-26-feature-gating-billing-ui-design.md` for the full des
   - `STRIPE_CHECKOUT_CANCEL_URL` (production domain)
   - `STRIPE_BILLING_PORTAL_RETURN_URL` (production domain + `/account`)
 
-- [ ] **Remove duplicate env var** — `.env.local` has `NEXT_PUBLIC_PRICING_ENABLED=false` on both line 8 and line 23.
-
 ### 3. Cleanup
 
-- [ ] **Remove or redirect `/account/billing` placeholder** — There's a standalone beta placeholder page at `app/account/billing/page.tsx` that's now redundant. The real billing UI is the Billing tab on `/account`. Either:
-  - Delete the file (breaking change if anyone bookmarked it)
-  - Replace it with a redirect to `/account` (preferred)
+- [x] **`/account/billing` redirects to `/account`** — The beta placeholder page now redirects to the account page where the Billing tab lives.
 
-- [ ] **Update `STRIPE_BILLING_PORTAL_RETURN_URL`** — Currently set to `http://localhost:3000/account/billing`. When the standalone page is removed/redirected, update to `/account` instead. Also update for production domain.
+- [x] **`STRIPE_BILLING_PORTAL_RETURN_URL` updated** — Now points to `/account`. Update for production domain when deploying.
 
 ### 4. Supabase
 

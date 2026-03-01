@@ -7,10 +7,14 @@ import React, {
   type PropsWithChildren,
 } from 'react';
 
-import type { Entitlements } from '@/app/lib/services/entitlements';
+/** Client-safe subset of Entitlements — excludes server-only flag config. */
+export type ClientEntitlements = {
+  tier: 'free' | 'plus' | 'pro';
+  features: string[];
+};
 
 type EntitlementsContextValue = {
-  tier: Entitlements['tier'];
+  tier: ClientEntitlements['tier'];
   features: string[];
   isPlus: boolean;
   hasFeature: (key: string) => boolean;
@@ -28,7 +32,7 @@ const FREE_DEFAULTS: EntitlementsContextValue = {
 };
 
 type Props = PropsWithChildren<{
-  initialEntitlements: Entitlements | null;
+  initialEntitlements: ClientEntitlements | null;
 }>;
 
 export function EntitlementsProvider({ initialEntitlements, children }: Props) {
