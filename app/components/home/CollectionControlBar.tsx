@@ -8,7 +8,7 @@ import {
   type DropdownOption,
 } from '@/app/components/ui/GroupedDropdown';
 import { useControlBarDropdown } from '@/app/hooks/useControlBarDropdown';
-import { ArrowUpDown, Filter, Layers, SortAsc, Tag } from 'lucide-react';
+import { ArrowUpDown, Filter, SortAsc, Tag } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,11 +28,6 @@ type CategoryOption = { id: number; name: string };
 // ---------------------------------------------------------------------------
 // Options
 // ---------------------------------------------------------------------------
-
-const typeOptions: DropdownOption[] = [
-  { key: 'sets', text: 'Sets' },
-  { key: 'minifigs', text: 'Minifigs' },
-];
 
 const setsSortOptions: DropdownOption[] = [
   { key: 'collection', text: 'Collection' },
@@ -120,7 +115,6 @@ function labelFor(options: DropdownOption[], key: string): string {
 
 type CollectionControlBarProps = {
   collectionType: CollectionType;
-  onCollectionTypeChange: (next: CollectionType) => void;
   listFilter: ListFilter;
   onListFilterChange: (next: ListFilter) => void;
   lists: ListInfo[];
@@ -147,7 +141,6 @@ type CollectionControlBarProps = {
 
 export function CollectionControlBar({
   collectionType,
-  onCollectionTypeChange,
   listFilter,
   onListFilterChange,
   lists,
@@ -181,32 +174,6 @@ export function CollectionControlBar({
 
   return (
     <ControlBar containerRef={containerRef}>
-      {/* Type toggle */}
-      <div className="relative shrink-0">
-        <DropdownTrigger
-          id="coll-type-trigger"
-          panelId="coll-type-panel"
-          label={labelFor(typeOptions, collectionType)}
-          labelIcon={<Layers size={16} />}
-          isOpen={openDropdownId === 'type'}
-          onToggle={() => toggleDropdown('type')}
-        />
-        <DropdownPanelFrame
-          id="coll-type-panel"
-          labelledBy="coll-type-trigger"
-          isOpen={openDropdownId === 'type'}
-        >
-          <SingleSelectList
-            options={typeOptions}
-            selectedKey={collectionType}
-            onChange={key => {
-              onCollectionTypeChange(key as CollectionType);
-              closeDropdown();
-            }}
-          />
-        </DropdownPanelFrame>
-      </div>
-
       {/* Collection / List filter */}
       {hasAnyItems && (
         <div className="relative shrink-0">

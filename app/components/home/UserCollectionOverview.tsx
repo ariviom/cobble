@@ -16,6 +16,7 @@ import { useUserSetsStore } from '@/app/store/user-sets';
 import type { Tables } from '@/supabase/types';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CollectionHero } from '@/app/collection/CollectionHero';
 import {
   CollectionControlBar,
   type CollectionSortField,
@@ -725,9 +726,12 @@ export function UserCollectionOverview({
 
   return (
     <section className="mb-8">
-      <CollectionControlBar
+      <CollectionHero
         collectionType={collectionType}
         onCollectionTypeChange={handleCollectionTypeChange}
+      />
+      <CollectionControlBar
+        collectionType={collectionType}
         listFilter={listFilter}
         onListFilterChange={handleListFilterChange}
         lists={lists}
