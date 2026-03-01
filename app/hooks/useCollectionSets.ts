@@ -37,6 +37,144 @@ function normalizeKey(setNumber: string): string {
   return setNumber.trim().toLowerCase();
 }
 
+// --- localStorage cache for collection items ---
+
+const COLLECTION_CACHE_KEY = 'brick_party_collection_items_v1';
+
+type CollectionCacheEntry = {
+  bySet: [string, string[]][];
+  meta: [string, RbSetRow][];
+  updatedAt: number;
+};
+
+type CollectionCacheRoot = Record<string, CollectionCacheEntry>;
+
+let collectionCacheRoot: CollectionCacheRoot | null = null;
+
+function readCollectionCache(): CollectionCacheRoot {
+  if (collectionCacheRoot) return collectionCacheRoot;
+  if (typeof window === 'undefined') {
+    collectionCacheRoot = {};
+    return collectionCacheRoot;
+  }
+  try {
+    const raw = window.localStorage.getItem(COLLECTION_CACHE_KEY);
+    collectionCacheRoot = raw ? (JSON.parse(raw) as CollectionCacheRoot) : {};
+  } catch {
+    collectionCacheRoot = {};
+  }
+  return collectionCacheRoot!;
+}
+
+function writeCollectionCache(root: CollectionCacheRoot): void {
+  collectionCacheRoot = root;
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(COLLECTION_CACHE_KEY, JSON.stringify(root));
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function getCachedCollection(
+  userId: string
+): { bySet: Map<string, string[]>; meta: Map<string, RbSetRow> } | null {
+  const root = readCollectionCache();
+  const entry = root[userId];
+  if (!entry) return null;
+  return {
+    bySet: new Map(entry.bySet),
+    meta: new Map(entry.meta),
+  };
+}
+
+function setCachedCollection(
+  userId: string,
+  bySet: Map<string, string[]>,
+  meta: Map<string, RbSetRow>
+): void {
+  const root = readCollectionCache();
+  root[userId] = {
+    bySet: Array.from(bySet.entries()),
+    meta: Array.from(meta.entries()),
+    updatedAt: Date.now(),
+  };
+  writeCollectionCache(root);
+}
+
+/**
+ * Update the collection localStorage cache when a list membership changes.
+ * Called from useSetLists on toggle so the next tab/page load reflects changes.
+ */
+export function updateCollectionCacheForToggle(
+  userId: string,
+  setNum: string,
+  listId: string,
+  added: boolean
+): void {
+  const root = readCollectionCache();
+  const entry = root[userId];
+  if (!entry) return; // no cache to update
+
+  const bySet = new Map(entry.bySet);
+  const key = normalizeKey(setNum);
+  const existing = bySet.get(key) ?? [];
+
+  if (added) {
+    if (!existing.includes(listId)) {
+      bySet.set(key, [...existing, listId]);
+    }
+  } else {
+    const filtered = existing.filter(id => id !== listId);
+    if (filtered.length > 0) {
+      bySet.set(key, filtered);
+    } else {
+      bySet.delete(key);
+    }
+  }
+
+  root[userId] = {
+    ...entry,
+    bySet: Array.from(bySet.entries()),
+    updatedAt: Date.now(),
+  };
+  writeCollectionCache(root);
+}
+
+function mapsEqual(
+  a: Map<string, string[]>,
+  b: Map<string, string[]>
+): boolean {
+  if (a.size !== b.size) return false;
+  for (const [key, val] of a) {
+    const other = b.get(key);
+    if (!other || other.length !== val.length) return false;
+    for (let i = 0; i < val.length; i++) {
+      if (val[i] !== other[i]) return false;
+    }
+  }
+  return true;
+}
+
+function metaMapsEqual(
+  a: Map<string, RbSetRow>,
+  b: Map<string, RbSetRow>
+): boolean {
+  if (a.size !== b.size) return false;
+  for (const [key, val] of a) {
+    const other = b.get(key);
+    if (!other) return false;
+    if (
+      val.set_num !== other.set_num ||
+      val.name !== other.name ||
+      val.year !== other.year ||
+      val.num_parts !== other.num_parts
+    )
+      return false;
+  }
+  return true;
+}
+
 /**
  * Pure merge function: unions owned sets and list items, deduplicates by
  * normalized set number, and attaches isOwned + listIds to each entry.
@@ -120,13 +258,20 @@ export function useCollectionSets(): UseCollectionSetsResult {
   const storeSets = useUserSetsStore(state => state.sets);
   const { allLists, wishlist, isLoading: listsLoading } = useUserLists();
 
+  // Hydrate from localStorage cache on first render (before effects run)
+  const initialCache = useMemo(
+    () => (user ? getCachedCollection(user.id) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user?.id]
+  );
+
   const [listItemsBySet, setListItemsBySet] = useState<Map<string, string[]>>(
-    new Map()
+    () => initialCache?.bySet ?? new Map()
   );
   const [listOnlyMeta, setListOnlyMeta] = useState<Map<string, RbSetRow>>(
-    new Map()
+    () => initialCache?.meta ?? new Map()
   );
-  const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const [isLoadingItems, setIsLoadingItems] = useState(!!user && !initialCache);
   const [error, setError] = useState<string | null>(null);
 
   const [listFilter, setListFilter] = useState<ListFilter>('all');
@@ -135,6 +280,8 @@ export function useCollectionSets(): UseCollectionSetsResult {
   // Fetch user_list_items where item_type = 'set'.
   // Only re-fetches on login/logout — the merge useMemo handles owned-set
   // reactivity without re-querying Supabase.
+  // When cache is available, data is shown immediately and this runs as a
+  // background refresh.
   useEffect(() => {
     if (!user) {
       setListItemsBySet(new Map());
@@ -144,11 +291,15 @@ export function useCollectionSets(): UseCollectionSetsResult {
       return;
     }
 
+    const hadCache = !!getCachedCollection(user.id);
+
     let cancelled = false;
     const supabase = getSupabaseBrowserClient();
 
     async function fetchListItems() {
-      setIsLoadingItems(true);
+      if (!hadCache) {
+        setIsLoadingItems(true);
+      }
       setError(null);
 
       try {
@@ -182,14 +333,13 @@ export function useCollectionSets(): UseCollectionSetsResult {
         }
 
         if (cancelled) return;
-        setListItemsBySet(bySet);
 
         // Fetch metadata for all list set numbers from rb_sets.
         // The merge step will skip entries that already have owned-store metadata,
         // but we fetch them all here since we don't read storeSets in this effect.
+        const metaMap = new Map<string, RbSetRow>();
         if (allListSetNums.length > 0) {
           const CHUNK_SIZE = 200;
-          const metaMap = new Map<string, RbSetRow>();
 
           for (let i = 0; i < allListSetNums.length; i += CHUNK_SIZE) {
             const chunk = allListSetNums.slice(i, i + CHUNK_SIZE);
@@ -205,17 +355,19 @@ export function useCollectionSets(): UseCollectionSetsResult {
               metaMap.set(normalizeKey(row.set_num), row);
             }
           }
-
-          if (!cancelled) {
-            setListOnlyMeta(metaMap);
-          }
-        } else {
-          setListOnlyMeta(new Map());
         }
 
-        if (!cancelled) {
-          setIsLoadingItems(false);
-        }
+        if (cancelled) return;
+
+        // Update cache
+        setCachedCollection(user!.id, bySet, metaMap);
+
+        // Only update state if data actually changed from what's currently shown
+        setListItemsBySet(prev => (mapsEqual(prev, bySet) ? prev : bySet));
+        setListOnlyMeta(prev =>
+          metaMapsEqual(prev, metaMap) ? prev : metaMap
+        );
+        setIsLoadingItems(false);
       } catch {
         if (!cancelled) {
           setError('Failed to load collection data');

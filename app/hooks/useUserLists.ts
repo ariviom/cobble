@@ -27,7 +27,7 @@ function readCache(): CacheShape {
     return cache;
   }
   try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(STORAGE_KEY);
     cache = raw ? (JSON.parse(raw) as CacheShape) : {};
   } catch {
     cache = {};
@@ -39,7 +39,7 @@ function writeCache(next: CacheShape) {
   cache = next;
   if (typeof window === 'undefined') return;
   try {
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch {
     // ignore storage failures
   }
@@ -73,12 +73,57 @@ export function invalidateUserListsCache(userId?: string) {
     cache = null;
     if (typeof window !== 'undefined') {
       try {
-        window.sessionStorage.removeItem(STORAGE_KEY);
+        window.localStorage.removeItem(STORAGE_KEY);
       } catch {
         // ignore
       }
     }
   }
+}
+
+// --- In-flight request deduplication ---
+// When many components mount simultaneously (e.g. landing page cards),
+// they all call useUserLists. This ensures only one network request fires per user.
+let inflight: {
+  userId: string;
+  promise: Promise<UserListSummary[] | null>;
+} | null = null;
+
+function fetchUserListsDeduped(
+  userId: string
+): Promise<UserListSummary[] | null> {
+  if (inflight && inflight.userId === userId) return inflight.promise;
+
+  const supabase = getSupabaseBrowserClient();
+  const promise = Promise.resolve(
+    supabase
+      .from('user_lists')
+      .select<'id,name,is_system'>('id,name,is_system')
+      .eq('user_id', userId)
+      .order('name', { ascending: true })
+  )
+    .then(({ data, error }) => {
+      inflight = null;
+      if (error) {
+        console.error('useUserLists failed', error);
+        return null;
+      }
+      const rows = (data ?? []) as Array<Tables<'user_lists'>>;
+      const normalized = rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        isSystem: row.is_system,
+      }));
+      setCachedLists(userId, normalized);
+      return normalized;
+    })
+    .catch(() => {
+      inflight = null;
+      return null;
+    });
+
+  inflight = { userId, promise };
+  return promise;
 }
 
 // --- Subscriber pattern for optimistic list mutations ---
@@ -146,48 +191,46 @@ export function useUserLists(): UseUserListsResult {
       return;
     }
 
-    let cancelled = false;
-    const supabase = getSupabaseBrowserClient();
     const existingCache = getCachedLists(user.id);
-    if (existingCache && existingCache.length > 0) {
+
+    // Cache hit — show cached data immediately (no spinner), but fire a
+    // background refresh so stale cross-tab/session data gets corrected.
+    if (existingCache !== null) {
       setAllLists(existingCache);
       setIsLoading(false);
+
+      let bgCancelled = false;
+      void fetchUserListsDeduped(user.id).then(result => {
+        if (bgCancelled || !result) return;
+        // Only update if the result actually differs
+        const changed =
+          result.length !== existingCache.length ||
+          result.some(
+            (l, i) =>
+              l.id !== existingCache[i]?.id ||
+              l.name !== existingCache[i]?.name ||
+              l.isSystem !== existingCache[i]?.isSystem
+          );
+        if (changed) setAllLists(result);
+      });
+      return () => {
+        bgCancelled = true;
+      };
     }
 
-    const run = async () => {
-      setError(null);
-      if (!existingCache) {
-        setIsLoading(true);
-      }
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
 
-      const { data, error } = await supabase
-        .from('user_lists')
-        .select<'id,name,is_system'>('id,name,is_system')
-        .eq('user_id', user.id)
-        .order('name', { ascending: true });
-
+    void fetchUserListsDeduped(user.id).then(result => {
       if (cancelled) return;
-
-      if (error) {
-        console.error('useUserLists failed', error);
-        setAllLists(existingCache ?? []);
-        setError(error.message ?? 'Failed to load lists');
-        setIsLoading(false);
-        return;
+      if (result) {
+        setAllLists(result);
+      } else {
+        setError('Failed to load lists');
       }
-
-      const rows = (data ?? []) as Array<Tables<'user_lists'>>;
-      const normalized = rows.map(row => ({
-        id: row.id,
-        name: row.name,
-        isSystem: row.is_system,
-      }));
-      setAllLists(normalized);
-      setCachedLists(user.id, normalized);
       setIsLoading(false);
-    };
-
-    void run();
+    });
 
     return () => {
       cancelled = true;

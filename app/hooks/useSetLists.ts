@@ -2,6 +2,7 @@
 
 import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import { updateCollectionCacheForToggle } from '@/app/hooks/useCollectionSets';
 import {
   optimisticUpdateUserLists,
   useUserLists,
@@ -61,7 +62,7 @@ function readPersistedRoot(): PersistedRoot {
     return persistedRoot;
   }
   try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(STORAGE_KEY);
     persistedRoot = raw ? (JSON.parse(raw) as PersistedRoot) : {};
   } catch {
     persistedRoot = {};
@@ -72,7 +73,7 @@ function readPersistedRoot(): PersistedRoot {
 function writePersistedRoot(): void {
   if (typeof window === 'undefined') return;
   try {
-    window.sessionStorage.setItem(
+    window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify(persistedRoot ?? {})
     );
@@ -173,7 +174,7 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
     [user, normSetNum]
   );
 
-  // Hydrate selectedListIds from persisted membership on mount
+  // Fetch per-set membership (user_list_items) only
   useEffect(() => {
     if (!user) {
       setSelectedListIds([]);
@@ -181,32 +182,34 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
       return;
     }
 
-    const persisted = getPersistedMembership(user.id, normSetNum);
-    if (persisted && persisted.length > 0) {
-      setSelectedListIds(prev => (prev.length === 0 ? persisted : prev));
+    // In-memory cache hit — use cached data, skip network request
+    const cached = getCachedMembership(cacheKey);
+    if (cached) {
+      setSelectedListIds(cached);
+      setMembershipLoading(false);
+      return;
     }
-  }, [user, normSetNum]);
 
-  // Fetch per-set membership (user_list_items) only
-  useEffect(() => {
-    if (!user) {
+    // Promote persisted (sessionStorage) data to in-memory cache if available,
+    // avoiding a network request when the data was saved from a previous page load
+    const persisted = getPersistedMembership(user.id, normSetNum);
+    if (persisted && cacheKey) {
+      membershipCache.set(cacheKey, {
+        selectedIds: persisted,
+        updatedAt: Date.now(),
+      });
+      setSelectedListIds(persisted);
+      setMembershipLoading(false);
       return;
     }
 
     let cancelled = false;
-    const supabase = getSupabaseBrowserClient();
-    const cached = getCachedMembership(cacheKey);
-
-    if (cached) {
-      setSelectedListIds(cached);
-      setMembershipLoading(false);
-    } else {
-      setMembershipLoading(true);
-    }
+    setMembershipLoading(true);
 
     const run = async () => {
       setError(null);
       try {
+        const supabase = getSupabaseBrowserClient();
         const { data, error: membershipError } = await supabase
           .from('user_list_items')
           .select<'list_id'>('list_id')
@@ -277,6 +280,7 @@ export function useSetLists({ setNumber }: UseSetListsArgs): UseSetListsResult {
     }
 
     updatePersistedMembership(user.id, normSetNum, nextSelected);
+    updateCollectionCacheForToggle(user.id, normSetNum, listId, !isSelected);
 
     if (isSelected) {
       void supabase
