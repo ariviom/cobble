@@ -45,6 +45,7 @@ const mockFetch = vi.fn();
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  mockFetch.mockReset();
   vi.stubGlobal('fetch', mockFetch);
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
@@ -186,6 +187,50 @@ describe('resolveGuestCheckoutUser', () => {
         process.env.NEXT_PUBLIC_APP_URL = originalUrl;
       }
     }
+  });
+
+  it('retries lookup when invite fails with "already been registered"', async () => {
+    // First findUserByEmail: no match
+    // inviteUserByEmail: fails with "already been registered"
+    // Second findUserByEmail: finds the user (created by concurrent webhook)
+    mockFetch
+      .mockResolvedValueOnce(mockFetchResponse([]))
+      .mockResolvedValueOnce(
+        mockFetchResponse([{ id: EXISTING_USER_ID, email: TEST_EMAIL }])
+      );
+
+    const { supabase } = makeMockSupabase({
+      inviteUserByEmail: vi.fn().mockResolvedValue({
+        data: { user: null },
+        error: {
+          message: 'A user with this email address has already been registered',
+        },
+      }),
+    });
+
+    const userId = await resolveGuestCheckoutUser(TEST_EMAIL, { supabase });
+
+    expect(userId).toBe(EXISTING_USER_ID);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws when invite race retry lookup also fails', async () => {
+    mockFetch
+      .mockResolvedValueOnce(mockFetchResponse([]))
+      .mockResolvedValueOnce(mockFetchResponse([]));
+
+    const { supabase } = makeMockSupabase({
+      inviteUserByEmail: vi.fn().mockResolvedValue({
+        data: { user: null },
+        error: {
+          message: 'A user with this email address has already been registered',
+        },
+      }),
+    });
+
+    await expect(
+      resolveGuestCheckoutUser(TEST_EMAIL, { supabase })
+    ).rejects.toThrow('Failed to invite guest user');
   });
 
   it('passes email as filter param to GoTrue REST endpoint', async () => {

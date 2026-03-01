@@ -335,6 +335,18 @@ export async function resolveGuestCheckoutUser(
     await supabase.auth.admin.inviteUserByEmail(email, { redirectTo });
 
   if (inviteError) {
+    // Race condition: another webhook may have created the user concurrently
+    const isAlreadyRegistered =
+      inviteError.message?.includes('already been registered') ?? false;
+
+    if (isAlreadyRegistered) {
+      logger.info('billing.guest_invite_race_condition', { email });
+      const retryLookup = await findUserByEmail(email);
+      if (retryLookup) {
+        return retryLookup.id;
+      }
+    }
+
     logger.error('billing.guest_invite_failed', {
       email,
       error: inviteError.message,
