@@ -141,21 +141,11 @@ export function PricingSection({
   };
 
   function renderFreeCta() {
-    if (!isAuthenticated) {
-      return (
-        <Button href="/signup" variant="outline" className="w-full">
-          Sign up free
-        </Button>
-      );
-    }
-    if (tier === 'free' && !isActiveSubscription) {
-      return (
-        <span className="inline-flex w-full items-center justify-center rounded-md border-2 border-subtle bg-card-muted px-4 py-2.5 text-base font-semibold text-foreground-muted">
-          Current plan
-        </span>
-      );
-    }
-    return null;
+    return (
+      <Button href="/signup" variant="outline" className="w-full">
+        Sign up free
+      </Button>
+    );
   }
 
   function renderPlusCta() {
@@ -275,17 +265,21 @@ export function PricingSection({
       </div>
 
       {/* CTA row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {/* Free tier card */}
-        <div className="flex flex-col gap-4 rounded-xl border border-subtle bg-card p-6 shadow-sm">
-          <div>
-            <h2 className="text-card-title text-foreground">Free</h2>
-            <p className="mt-1 text-sm text-foreground-muted">
-              Search, track, and export -- no account required.
-            </p>
+      <div
+        className={`grid grid-cols-1 gap-4${!isAuthenticated ? 'sm:grid-cols-2' : ''}`}
+      >
+        {/* Free tier card — only shown to anonymous visitors */}
+        {!isAuthenticated && (
+          <div className="flex flex-col gap-4 rounded-xl border border-subtle bg-card p-6 shadow-sm">
+            <div>
+              <h2 className="text-card-title text-foreground">Free</h2>
+              <p className="mt-1 text-sm text-foreground-muted">
+                Search, track, and export -- no account required.
+              </p>
+            </div>
+            <div className="mt-auto">{renderFreeCta()}</div>
           </div>
-          <div className="mt-auto">{renderFreeCta()}</div>
-        </div>
+        )}
 
         {/* Plus tier card */}
         <div className="relative flex flex-col gap-4 rounded-xl border-2 border-theme-primary bg-card p-6 shadow-md shadow-[#996f00]/20">
