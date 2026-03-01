@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/app/components/ui/Button';
+import { usePortalSession } from '@/app/hooks/usePortalSession';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
 import { Check, Minus } from 'lucide-react';
 import { useState } from 'react';
@@ -85,8 +86,16 @@ export function PricingSection({
   plusYearlyPriceId,
 }: PricingSectionProps) {
   const [cadence, setCadence] = useState<'monthly' | 'yearly'>('monthly');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const {
+    openPortal,
+    loading: portalLoading,
+    error: portalError,
+  } = usePortalSession();
+
+  const loading = checkoutLoading || portalLoading;
+  const error = checkoutError || portalError;
 
   const isActiveSubscription =
     subscriptionStatus === 'active' || subscriptionStatus === 'trialing';
@@ -101,8 +110,8 @@ export function PricingSection({
   const headerPrice = cadence === 'yearly' ? '$80/yr' : '$8/mo';
 
   const handleCheckout = async () => {
-    setLoading(true);
-    setError(null);
+    setCheckoutLoading(true);
+    setCheckoutError(null);
     try {
       const endpoint = isAuthenticated
         ? '/api/billing/create-checkout-session'
@@ -113,40 +122,21 @@ export function PricingSection({
         body: JSON.stringify({ priceId: activePriceId }),
       });
       if (res.status === 429) {
-        setError('Too many attempts. Please wait a moment and try again.');
+        setCheckoutError(
+          'Too many attempts. Please wait a moment and try again.'
+        );
         return;
       }
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
       } else {
-        setError('Something went wrong. Please try again.');
+        setCheckoutError('Something went wrong. Please try again.');
       }
     } catch {
-      setError('Something went wrong. Please try again.');
+      setCheckoutError('Something went wrong. Please try again.');
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOpenPortal = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/billing/create-portal-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        setError('Something went wrong. Please try again.');
-      }
-    } catch {
-      setError('Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
+      setCheckoutLoading(false);
     }
   };
 
@@ -198,7 +188,7 @@ export function PricingSection({
     if (isPastDue) {
       return (
         <Button
-          onClick={handleOpenPortal}
+          onClick={openPortal}
           disabled={loading}
           variant="primary"
           className="w-full"

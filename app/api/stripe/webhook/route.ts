@@ -18,7 +18,7 @@ import type { Json } from '@/supabase/types';
 
 type Supabase = ReturnType<typeof getSupabaseServiceRoleClient>;
 
-async function upsertWebhookEvent(
+async function updateWebhookEvent(
   supabase: Supabase,
   event: Stripe.Event,
   status: string,
@@ -264,7 +264,13 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  await upsertWebhookEvent(supabase, event, status, errorMessage);
+  await updateWebhookEvent(supabase, event, status, errorMessage);
+
+  if (status === 'error') {
+    // Return 500 so Stripe retries transient failures (DB errors, timeouts).
+    // The idempotency check in recordEventIfNew allows reprocessing.
+    return NextResponse.json({ error: 'processing failed' }, { status: 500 });
+  }
 
   return NextResponse.json({ received: true });
 }

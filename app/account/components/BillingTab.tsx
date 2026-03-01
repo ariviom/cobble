@@ -9,8 +9,8 @@ import {
   CardTitle,
 } from '@/app/components/ui/Card';
 import { useEntitlements } from '@/app/components/providers/entitlements-provider';
+import { usePortalSession } from '@/app/hooks/usePortalSession';
 import type { Tables } from '@/supabase/types';
-import { useCallback, useState } from 'react';
 
 type BillingSubscriptionRow = Tables<'billing_subscriptions'>;
 
@@ -67,31 +67,13 @@ function PlanBadge({
 }
 
 export function BillingTab({ subscription }: BillingTabProps) {
-  const [portalLoading, setPortalLoading] = useState(false);
-  const [portalError, setPortalError] = useState<string | null>(null);
+  const {
+    openPortal,
+    loading: portalLoading,
+    error: portalError,
+  } = usePortalSession();
   const { tier } = useEntitlements();
   const state = getSubscriptionState(subscription);
-
-  const openPortal = useCallback(async () => {
-    setPortalLoading(true);
-    setPortalError(null);
-    try {
-      const res = await fetch('/api/billing/create-portal-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        setPortalError('Something went wrong. Please try again.');
-      }
-    } catch {
-      setPortalError('Something went wrong. Please try again.');
-    } finally {
-      setPortalLoading(false);
-    }
-  }, []);
 
   const tierLabel = tier === 'plus' || tier === 'pro' ? 'Plus' : 'Free';
 

@@ -31,8 +31,7 @@ Pro can be introduced later without schema changes — the `billing_subscription
 - Supabase tables + RLS in place: `billing_customers`, `billing_subscriptions`, `billing_webhook_events`, `feature_flags`, `feature_overrides`.
 - Server helpers: Stripe client, price allowlist, customer ensure, subscription upsert, entitlements resolver.
 - API routes: `POST /api/billing/create-checkout-session`, `POST /api/billing/create-portal-session`, `POST /api/stripe/webhook` (idempotent).
-- Beta override: `BETA_ALL_ACCESS=true` treats all users as Plus.
-- Pages for flows: `/billing/success`, `/billing/cancel`, `/account/billing` (billing portal entry).
+- Pages for flows: `/billing/success`, `/billing/cancel`, `/account` (billing tab).
 - Tests: price allowlist/mapping.
 
 ## Environment Variables (set for test and live separately)
@@ -51,8 +50,7 @@ Local (test) example paths:
 
 - `STRIPE_CHECKOUT_SUCCESS_URL=http://localhost:3000/billing/success`
 - `STRIPE_CHECKOUT_CANCEL_URL=http://localhost:3000/billing/cancel`
-- `STRIPE_BILLING_PORTAL_RETURN_URL=http://localhost:3000/account/billing`
-- Optional beta override: `BETA_ALL_ACCESS=true` (treats everyone as Plus during beta).
+- `STRIPE_BILLING_PORTAL_RETURN_URL=http://localhost:3000/account`
 
 ## Stripe Resources to Create (Test Mode First)
 
@@ -129,7 +127,7 @@ Indexes: `billing_subscriptions(user_id)`, `billing_subscriptions(stripe_subscri
   - `ensureStripeCustomer(user)`: find/create `billing_customers` row and Stripe customer.
   - `mapPriceToTier(priceId)`: allowlist from env; unknown price → error.
   - `upsertSubscriptionFromStripe(stripeSub)`: persist `billing_subscriptions`.
-  - `getUserEntitlements(userId)`: returns `{ tier, features }`; supports `BETA_ALL_ACCESS=true` to treat all users as Plus during beta.
+  - `getUserEntitlements(userId)`: returns `{ tier }` based on highest active subscription.
 
 - Route Handlers:
   - `POST /api/billing/create-checkout-session`
@@ -177,27 +175,27 @@ Indexes: `billing_subscriptions(user_id)`, `billing_subscriptions(stripe_subscri
 
 > **Tracking:** See `docs/BACKLOG.md` for consolidated task tracking.
 
-| Task                                              | Priority | Status         |
-| ------------------------------------------------- | -------- | -------------- |
-| Account/Billing page (tier/status/renewal/cancel) | High     | ⏳ Not started |
-| Upgrade/Manage CTAs                               | High     | ⏳ Not started |
-| Inline upsells on gated features                  | High     | ⏳ Not started |
-| SSR entitlements preload                          | High     | ⏳ Not started |
-| API guards for tier-restricted endpoints          | High     | ⏳ Not started |
-| Client `useFeatureFlag` hook                      | High     | ⏳ Not started |
-| Usage counters enforcement                        | High     | ⏳ Not started |
-| Dunning/notifications (past_due handling)         | Medium   | ⏳ Not started |
-| Yearly pricing UI                                 | Low      | ⏳ Not started |
-| Multi-currency/localized pricing                  | Low      | ⏳ Not started |
-| Analytics/observability                           | Low      | ⏳ Not started |
+| Task                                              | Priority | Status      |
+| ------------------------------------------------- | -------- | ----------- |
+| Account/Billing page (tier/status/renewal/cancel) | High     | Done        |
+| Upgrade/Manage CTAs                               | High     | Done        |
+| Inline upsells on gated features                  | High     | Not started |
+| SSR entitlements preload                          | High     | Done        |
+| API guards for tier-restricted endpoints          | High     | Not started |
+| Client `useFeatureFlag` hook                      | High     | Not started |
+| Usage counters enforcement                        | High     | Not started |
+| Dunning/notifications (past_due handling)         | Medium   | Done        |
+| Yearly pricing UI                                 | Low      | Done        |
+| Guest checkout (Stripe-first)                     | High     | Done        |
+| Multi-currency/localized pricing                  | Low      | Not started |
+| Analytics/observability                           | Low      | Not started |
 
 ## Testing Checklist
 
 - Stripe CLI: `stripe listen --forward-to localhost:3000/api/stripe/webhook`.
-- Flows: checkout success/cancel, trial start/end (7 days), payment failure (invoice.payment_failed), cancel_at_period_end, subscription delete.
+- Flows: checkout success/cancel, trial start/end (14 days), payment failure (invoice.payment_failed), cancel_at_period_end, subscription delete.
 - Verify DB: `billing_customers` and `billing_subscriptions` reflect Stripe state; idempotency table records events.
 - Ensure unknown price IDs are rejected.
-- Beta override path: with `BETA_ALL_ACCESS=true`, entitlements should resolve to Plus even without an active subscription (used for beta testing; disable for real gating).
 
 ## Ops Runbook (baseline)
 

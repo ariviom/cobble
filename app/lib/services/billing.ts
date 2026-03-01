@@ -15,7 +15,7 @@ export type BillingCadence = 'monthly' | 'yearly';
 function maskEmail(email: string): string {
   const [local, domain] = email.split('@');
   if (!local || !domain) return '***';
-  const visible = local.slice(0, 3);
+  const visible = local.length <= 2 ? local[0] : local.slice(0, 3);
   return `${visible}***@${domain}`;
 }
 
@@ -48,11 +48,16 @@ const REQUIRED_PRICE_ENVS: Array<{
   },
 ];
 
-const ACTIVE_STATUSES: Stripe.Subscription.Status[] = ['active', 'trialing'];
+const ACTIVE_STATUSES: Stripe.Subscription.Status[] = [
+  'active',
+  'trialing',
+  'past_due',
+];
 
 const CANCEL_TO_FREE: Stripe.Subscription.Status[] = [
   'canceled',
   'unpaid',
+  'incomplete',
   'incomplete_expired',
 ];
 
@@ -203,6 +208,11 @@ export async function upsertSubscriptionFromStripe(
     const value = (subscription as unknown as Record<string, unknown>)[
       'current_period_end'
     ];
+    if (value === undefined) {
+      logger.warn('billing.missing_current_period_end', {
+        subscriptionId: subscription.id,
+      });
+    }
     return typeof value === 'number' ? value : null;
   })();
 
@@ -240,7 +250,7 @@ export async function upsertSubscriptionFromStripe(
 export async function getUserEntitlements(
   userId: string,
   options?: { supabase?: SupabaseClient<Database> }
-): Promise<{ tier: BillingTier; features: string[] }> {
+): Promise<{ tier: BillingTier }> {
   const supabase = options?.supabase ?? getSupabaseServiceRoleClient();
 
   const { data, error } = await supabase
@@ -250,7 +260,7 @@ export async function getUserEntitlements(
 
   if (error) {
     logger.error('billing.entitlements_query_failed', { error: error.message });
-    return { tier: 'free', features: [] };
+    return { tier: 'free' };
   }
 
   const tierRank: Record<BillingTier, number> = { free: 0, plus: 1, pro: 2 };
@@ -266,7 +276,7 @@ export async function getUserEntitlements(
     }
   }
 
-  return { tier: bestTier, features: [] };
+  return { tier: bestTier };
 }
 
 /**

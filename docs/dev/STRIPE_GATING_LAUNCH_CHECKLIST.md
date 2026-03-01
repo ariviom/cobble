@@ -48,10 +48,7 @@ See `docs/plans/2026-02-26-feature-gating-billing-ui-design.md` for the full des
 
 ### 2. Environment Variables
 
-- [ ] **Disable beta override** — Set `BETA_ALL_ACCESS=false` in:
-  - `.env.local` (line 22)
-  - `.env.production` (line 2)
-  - Vercel environment variables (all environments)
+- [x] **Beta override removed** — `BETA_ALL_ACCESS` is no longer referenced in code. Remove from any environment configs if still present.
 
 - [ ] **Enable pricing UI** — Set `NEXT_PUBLIC_PRICING_ENABLED=true` (currently `false` in both `.env.local` lines 8/23 and `.env.production` line 3). Check if any code reads this flag to conditionally show pricing UI.
 
