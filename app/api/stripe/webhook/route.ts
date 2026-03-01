@@ -139,9 +139,29 @@ async function handleCheckoutCompleted(
     return;
   }
 
-  const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+  let subscription = await stripe.subscriptions.retrieve(subscriptionId, {
     expand: ['items.data.price.product'],
   });
+
+  // Cancel trial for returning users to prevent trial abuse via guest checkout.
+  // Guest checkout always creates a session with trial_period_days because we
+  // don't know the user's identity until this webhook resolves it.
+  if (resolvedUserId && subscription.trial_end) {
+    const { count } = await supabase
+      .from('billing_subscriptions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', resolvedUserId)
+      .neq('stripe_subscription_id', subscription.id);
+
+    if (count && count > 0) {
+      logger.info('billing.trial_canceled_returning_user', {
+        subscriptionId: subscription.id,
+      });
+      subscription = await stripe.subscriptions.update(subscription.id, {
+        trial_end: 'now',
+      });
+    }
+  }
 
   const result = await upsertSubscriptionFromStripe(subscription, {
     supabase,
