@@ -3,9 +3,8 @@
 import { IdentifySetList } from '@/app/components/identify/IdentifySetList';
 import type { IdentifySet } from '@/app/components/identify/types';
 import { MinifigOwnershipAndCollectionsRow } from '@/app/components/minifig/MinifigOwnershipAndCollectionsRow';
-import { Badge } from '@/app/components/ui/Badge';
 import { Card } from '@/app/components/ui/Card';
-import { QuantityDropdown } from '@/app/components/ui/QuantityDropdown';
+import { OwnedQuantityControl } from '@/app/components/set/items/OwnedQuantityControl';
 import { cn } from '@/app/components/ui/utils';
 import { useMinifigDetails } from '@/app/hooks/useMinifigDetails';
 import { useMinifigOwnershipState } from '@/app/hooks/useMinifigOwnershipState';
@@ -18,12 +17,10 @@ import { RarityBadge } from '@/app/components/set/items/RarityBadge';
 import { getRarityTier } from '@/app/components/set/types';
 import {
   Box,
-  Calendar,
   ChevronDown,
   DollarSign,
   ExternalLink,
   Layers,
-  Tag,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -40,40 +37,6 @@ function formatPrice(value: number, currency: string | null): string {
   } catch {
     return `${currency ?? '$'}${value.toFixed(2)}`;
   }
-}
-
-function PriceCell({
-  label,
-  unitPrice,
-  minPrice,
-  maxPrice,
-  currency,
-}: {
-  label: string;
-  unitPrice: number;
-  minPrice: number | null;
-  maxPrice: number | null;
-  currency: string | null;
-}) {
-  const hasRange =
-    minPrice != null && maxPrice != null && minPrice !== maxPrice;
-  return (
-    <div className="flex items-center gap-2.5 bg-card px-4 py-3">
-      <DollarSign className="size-4 shrink-0 text-foreground-muted" />
-      <div>
-        <div className="text-xs text-foreground-muted">{label}</div>
-        <div className="text-sm font-medium">
-          {formatPrice(unitPrice, currency)}
-        </div>
-        {hasRange && (
-          <div className="text-xs text-foreground-muted">
-            {formatPrice(minPrice, currency)} –{' '}
-            {formatPrice(maxPrice!, currency)}
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }
 
 type MinifigPageClientProps = {
@@ -229,154 +192,154 @@ export function MinifigPageClient({
 
         {/* Identity section */}
         <div className="border-t border-subtle px-5 py-4 sm:px-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-section-title text-foreground">
-                {displayName}
-              </h1>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Badge variant="muted" size="sm">
-                  {idDisplay.label}
-                </Badge>
-                {typeof partsCount === 'number' && partsCount > 0 && (
-                  <Badge variant="muted" size="sm">
-                    {partsCount} parts
-                  </Badge>
-                )}
-                {getRarityTier(initialMinSubpartSetCount ?? setsCount) !=
-                  null && (
-                  <RarityBadge
-                    tier={
-                      getRarityTier(initialMinSubpartSetCount ?? setsCount)!
-                    }
-                  />
-                )}
-              </div>
+          {themeName && (
+            <div className="mb-1 text-xs font-bold tracking-wide text-theme-text uppercase">
+              {themeName}
             </div>
-            {bricklinkId && (
-              <Link
-                href={`https://www.bricklink.com/v2/catalog/catalogitem.page?M=${encodeURIComponent(bricklinkId)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex shrink-0 items-center gap-1 text-xs text-foreground-muted transition-colors hover:text-theme-text"
-              >
-                BrickLink
-                <ExternalLink className="size-3" />
-              </Link>
+          )}
+          <h1 className="text-lg leading-tight font-bold text-foreground">
+            {displayName}
+          </h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-foreground-muted">
+            <span>{idDisplay.label}</span>
+            {year && (
+              <>
+                <span>•</span>
+                <span>{year}</span>
+              </>
+            )}
+            {typeof partsCount === 'number' && partsCount > 0 && (
+              <>
+                <span>•</span>
+                <span>{partsCount} parts</span>
+              </>
+            )}
+            {getRarityTier(initialMinSubpartSetCount ?? setsCount) != null && (
+              <>
+                <span>•</span>
+                <RarityBadge
+                  tier={getRarityTier(initialMinSubpartSetCount ?? setsCount)!}
+                />
+              </>
             )}
           </div>
         </div>
 
-        {/* Stats grid */}
-        {(themeName || year || setsCount > 0) && (
-          <div className="grid grid-cols-2 gap-px border-t border-subtle bg-subtle sm:grid-cols-3">
-            {themeName && (
-              <div className="flex items-center gap-2.5 bg-card px-4 py-3">
-                <Tag className="size-4 shrink-0 text-foreground-muted" />
-                <div className="min-w-0">
-                  <div className="text-xs text-foreground-muted">Theme</div>
-                  <div className="truncate text-sm font-medium">
-                    {themeName}
+        {/* Used price & Appears in — side by side */}
+        <div className="grid grid-cols-2 gap-px border-t border-subtle bg-subtle">
+          {/* Used price cell */}
+          <div className="flex min-h-[60px] items-center gap-2.5 bg-card px-4 py-3">
+            <DollarSign className="size-4 shrink-0 text-foreground-muted" />
+            <div className="min-w-0">
+              <div className="text-xs text-foreground-muted">Used Price</div>
+              {isPricingLoading ? (
+                <div className="text-sm text-foreground-muted">Loading…</div>
+              ) : priceGuide?.used?.unitPrice != null ? (
+                <>
+                  <div className="text-sm font-medium">
+                    {formatPrice(
+                      priceGuide.used.unitPrice,
+                      priceGuide.used.currency
+                    )}
                   </div>
+                  {priceGuide.used.minPrice != null &&
+                    priceGuide.used.maxPrice != null &&
+                    priceGuide.used.minPrice !== priceGuide.used.maxPrice && (
+                      <div className="text-xs text-foreground-muted">
+                        {formatPrice(
+                          priceGuide.used.minPrice,
+                          priceGuide.used.currency
+                        )}{' '}
+                        –{' '}
+                        {formatPrice(
+                          priceGuide.used.maxPrice,
+                          priceGuide.used.currency
+                        )}
+                      </div>
+                    )}
+                </>
+              ) : priceGuide?.source === 'quota_exhausted' ? (
+                <div className="text-sm text-foreground-muted italic">
+                  Unavailable
                 </div>
-              </div>
-            )}
-            {year && (
-              <div className="flex items-center gap-2.5 bg-card px-4 py-3">
-                <Calendar className="size-4 shrink-0 text-foreground-muted" />
-                <div>
-                  <div className="text-xs text-foreground-muted">Year</div>
-                  <div className="text-sm font-medium">{year}</div>
-                </div>
-              </div>
-            )}
-            {typeof setsCount === 'number' && setsCount > 0 && (
-              <Link
-                href={{
-                  pathname: '/identify',
-                  query: {
-                    mode: 'part',
-                    part: routeId ? `fig:${routeId}` : `fig:${trimmedFigNum}`,
-                  },
-                }}
-                className="col-span-2 flex items-center gap-2.5 bg-card px-4 py-3 transition-colors hover:bg-card-muted sm:col-span-1"
-              >
-                <Layers className="size-4 shrink-0 text-foreground-muted" />
-                <div>
-                  <div className="text-xs text-foreground-muted">
-                    Appears in
-                  </div>
-                  <div className="text-sm font-medium text-theme-text">
-                    {setsCount} {setsCount === 1 ? 'set' : 'sets'} →
-                  </div>
-                </div>
-              </Link>
-            )}
+              ) : (
+                <div className="text-sm text-foreground-muted">–</div>
+              )}
+            </div>
           </div>
-        )}
 
-        {/* Pricing section */}
-        {isPricingLoading && (
-          <div className="border-t border-subtle px-5 py-3 sm:px-6">
-            <p className="text-sm text-foreground-muted">Fetching price…</p>
-          </div>
-        )}
-        {!isPricingLoading &&
-          priceGuide?.source === 'quota_exhausted' &&
-          priceGuide?.used?.unitPrice == null && (
-            <div className="border-t border-subtle px-5 py-3 sm:px-6">
-              <p className="text-sm text-foreground-muted italic">
-                Pricing data currently unavailable
-              </p>
+          {/* Appears in cell */}
+          {typeof setsCount === 'number' && setsCount > 0 ? (
+            <Link
+              href={{
+                pathname: '/identify',
+                query: {
+                  mode: 'part',
+                  part: routeId ? `fig:${routeId}` : `fig:${trimmedFigNum}`,
+                },
+              }}
+              className="flex min-h-[60px] items-center gap-2.5 bg-card px-4 py-3 transition-colors hover:bg-card-muted"
+            >
+              <Layers className="size-4 shrink-0 text-foreground-muted" />
+              <div>
+                <div className="text-xs text-foreground-muted">Appears in</div>
+                <div className="text-sm font-medium text-theme-text">
+                  {setsCount} {setsCount === 1 ? 'set' : 'sets'} →
+                </div>
+              </div>
+            </Link>
+          ) : (
+            <div className="flex min-h-[60px] items-center gap-2.5 bg-card px-4 py-3">
+              <Layers className="size-4 shrink-0 text-foreground-muted" />
+              <div>
+                <div className="text-xs text-foreground-muted">Appears in</div>
+                <div className="text-sm text-foreground-muted">–</div>
+              </div>
             </div>
           )}
-        {!isPricingLoading && priceGuide?.used?.unitPrice != null && (
-          <div className="grid grid-cols-2 gap-px border-t border-subtle bg-subtle">
-            <PriceCell
-              label="Used"
-              unitPrice={priceGuide.used.unitPrice}
-              minPrice={priceGuide.used.minPrice}
-              maxPrice={priceGuide.used.maxPrice}
-              currency={priceGuide.used.currency}
-            />
-            {priceGuide.new?.unitPrice != null ? (
-              <PriceCell
-                label="New"
-                unitPrice={priceGuide.new.unitPrice}
-                minPrice={priceGuide.new.minPrice}
-                maxPrice={priceGuide.new.maxPrice}
-                currency={priceGuide.new.currency}
-              />
-            ) : (
-              <div className="flex items-center gap-2.5 bg-card px-4 py-3">
-                <DollarSign className="size-4 shrink-0 text-foreground-muted" />
-                <div>
-                  <div className="text-xs text-foreground-muted">New</div>
-                  <div className="text-sm text-foreground-muted">–</div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        </div>
+
+        {/* External links */}
+        <div className="flex gap-px border-t border-subtle bg-subtle">
+          {bricklinkId ? (
+            <a
+              href={`https://www.bricklink.com/v2/catalog/catalogitem.page?M=${encodeURIComponent(bricklinkId)}`}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-5 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
+            >
+              BrickLink
+              <ExternalLink className="size-3.5" />
+            </a>
+          ) : (
+            <div className="flex flex-1 items-center justify-center bg-card px-3 py-5" />
+          )}
+          <a
+            href={`https://rebrickable.com/minifigs/${encodeURIComponent(trimmedFigNum)}/`}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-5 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
+          >
+            Rebrickable
+            <ExternalLink className="size-3.5" />
+          </a>
+        </div>
 
         {/* Ownership section */}
         <div className="border-t border-subtle bg-card-muted/30 px-5 py-4 sm:px-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <MinifigOwnershipAndCollectionsRow
               ownership={ownership}
               variant="inline"
             />
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-foreground-muted">Qty</span>
-              <QuantityDropdown
-                value={quantity}
+            {canEditQuantity && (
+              <OwnedQuantityControl
+                required={20}
+                owned={quantity}
                 onChange={handleQuantityChange}
-                max={20}
-                size="md"
-                disabled={!canEditQuantity}
-                aria-label="Minifigure quantity"
+                className="max-w-40"
               />
-            </div>
+            )}
           </div>
           {!ownership.isAuthenticated && !ownership.isAuthenticating && (
             <p className="mt-2 text-xs text-foreground-muted">
