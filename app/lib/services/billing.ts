@@ -252,3 +252,108 @@ export async function getUserEntitlements(
 
   return { tier: bestTier, features: [] };
 }
+
+/**
+ * Look up a Supabase auth user by email using the service-role client.
+ *
+ * The Supabase JS SDK (v2.89) doesn't expose `getUserByEmail` on the admin
+ * API, so we query the `auth.users` view via the service-role `rpc` pathway.
+ * This uses `listUsers` and filters client-side since the SDK's `listUsers`
+ * doesn't support server-side email filtering.
+ *
+ * @internal Exported only for the billing module; not part of the public API.
+ */
+async function findUserByEmail(
+  email: string,
+  supabase: SupabaseClient<Database>
+): Promise<{ id: string } | null> {
+  // listUsers returns paginated results; page through until we find a match
+  // or exhaust all pages. In practice, the user we're looking for is usually
+  // on page 1, and the total user count is small for this app.
+  const perPage = 50;
+  let page = 1;
+  const maxPages = 20; // safety limit
+
+  while (page <= maxPages) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+
+    if (error) {
+      logger.error('billing.list_users_failed', {
+        email,
+        page,
+        error: error.message,
+      });
+      return null;
+    }
+
+    const users = data?.users ?? [];
+    const match = users.find(
+      u => u.email?.toLowerCase() === email.toLowerCase()
+    );
+    if (match) {
+      return { id: match.id };
+    }
+
+    // If we got fewer results than perPage, we've exhausted all users
+    if (users.length < perPage) {
+      break;
+    }
+    page++;
+  }
+
+  return null;
+}
+
+/**
+ * Resolve (or create) a Supabase user for a guest checkout by email.
+ *
+ * 1. Look up existing user by email (covers Google OAuth, prior signups)
+ * 2. If not found, invite via admin API — creates the user immediately and
+ *    sends an invite email to set their password
+ * 3. Return the user_id for linking billing records
+ */
+export async function resolveGuestCheckoutUser(
+  email: string,
+  options?: { supabase?: SupabaseClient<Database> }
+): Promise<string> {
+  const supabase = options?.supabase ?? getSupabaseServiceRoleClient();
+
+  // Step 1: Check for existing user
+  const existing = await findUserByEmail(email, supabase);
+
+  if (existing) {
+    logger.info('billing.guest_user_resolved_existing', {
+      email,
+      userId: existing.id,
+    });
+    return existing.id;
+  }
+
+  // Step 2: Invite new user
+  const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/auth/callback?next=/sets`;
+
+  const { data: inviteData, error: inviteError } =
+    await supabase.auth.admin.inviteUserByEmail(email, { redirectTo });
+
+  if (inviteError) {
+    logger.error('billing.guest_invite_failed', {
+      email,
+      error: inviteError.message,
+    });
+    throw new Error(`Failed to invite guest user: ${inviteError.message}`);
+  }
+
+  if (!inviteData?.user) {
+    throw new Error('Invite succeeded but no user returned');
+  }
+
+  logger.info('billing.guest_user_invited', {
+    email,
+    userId: inviteData.user.id,
+  });
+
+  return inviteData.user.id;
+}
