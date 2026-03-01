@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { errorResponse } from '@/app/lib/api/responses';
+import { RATE_LIMIT } from '@/app/lib/constants';
 import { mapPriceToTier } from '@/app/lib/services/billing';
 import { getStripeClient } from '@/app/lib/stripe/client';
 import { logger } from '@/lib/metrics';
+import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 
 const schema = z.object({
   priceId: z.string().min(1),
@@ -19,6 +21,20 @@ function getEnvOrThrow(name: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  // IP-based rate limit
+  const clientIp = (await getClientIp(req)) ?? 'unknown';
+  const ipLimit = await consumeRateLimit(`guest-checkout:ip:${clientIp}`, {
+    windowMs: RATE_LIMIT.WINDOW_MS,
+    maxHits: RATE_LIMIT.GUEST_CHECKOUT_MAX,
+  });
+  if (!ipLimit.allowed) {
+    return errorResponse('rate_limited', {
+      status: 429,
+      headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+      details: { retryAfterSeconds: ipLimit.retryAfterSeconds },
+    });
+  }
+
   let body: unknown;
   try {
     body = await req.json();

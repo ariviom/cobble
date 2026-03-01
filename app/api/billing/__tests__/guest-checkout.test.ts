@@ -25,6 +25,14 @@ vi.mock('@/app/lib/stripe/client', () => ({
   })),
 }));
 
+// Mock rate limiter
+const mockConsumeRateLimit = vi.fn();
+const mockGetClientIp = vi.fn();
+vi.mock('@/lib/rateLimit', () => ({
+  consumeRateLimit: (...args: unknown[]) => mockConsumeRateLimit(...args),
+  getClientIp: (...args: unknown[]) => mockGetClientIp(...args),
+}));
+
 // Mock billing service — mapPriceToTier
 const mockMapPriceToTier = vi.fn();
 vi.mock('@/app/lib/services/billing', () => ({
@@ -52,6 +60,12 @@ describe('POST /api/billing/guest-checkout', () => {
     process.env.STRIPE_CHECKOUT_SUCCESS_URL = 'https://example.com/success';
     process.env.STRIPE_CHECKOUT_CANCEL_URL = 'https://example.com/cancel';
 
+    mockConsumeRateLimit.mockResolvedValue({
+      allowed: true,
+      retryAfterSeconds: 0,
+    });
+    mockGetClientIp.mockResolvedValue('127.0.0.1');
+
     mockMapPriceToTier.mockReturnValue({
       tier: 'plus',
       cadence: 'monthly',
@@ -59,6 +73,33 @@ describe('POST /api/billing/guest-checkout', () => {
 
     mockCheckoutSessionsCreate.mockResolvedValue({
       url: 'https://checkout.stripe.com/session_123',
+    });
+  });
+
+  describe('rate limiting', () => {
+    it('returns 429 when rate limit exceeded', async () => {
+      mockConsumeRateLimit.mockResolvedValue({
+        allowed: false,
+        retryAfterSeconds: 42,
+      });
+
+      const res = await POST(makeRequest({ priceId: VALID_PRICE_ID }));
+
+      expect(res.status).toBe(429);
+      const json = await res.json();
+      expect(json.error).toBe('rate_limited');
+      expect(res.headers.get('Retry-After')).toBe('42');
+    });
+
+    it('does not call Stripe when rate limited', async () => {
+      mockConsumeRateLimit.mockResolvedValue({
+        allowed: false,
+        retryAfterSeconds: 10,
+      });
+
+      await POST(makeRequest({ priceId: VALID_PRICE_ID }));
+
+      expect(mockCheckoutSessionsCreate).not.toHaveBeenCalled();
     });
   });
 

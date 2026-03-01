@@ -22,6 +22,8 @@ export const RATE_LIMIT = {
   IDENTIFY_SETS_MAX: 20,
   /** Maximum sync requests per window per user */
   SYNC_MAX: 30,
+  /** Maximum guest checkout requests per window per IP */
+  GUEST_CHECKOUT_MAX: 5,
 } as const;
 
 // =============================================================================
