@@ -96,8 +96,10 @@
   --color-on-blue: #ffffff;
   --color-on-green: #ffffff;
 
-  /* Theme text colors - readable versions of theme primary for text on backgrounds */
-  --color-theme-text: var(--color-theme-primary);
+  /* Theme text colors - readable versions of theme primary for text on backgrounds.
+     Default matches THEME_TEXT_COLORS_LIGHT['yellow'] (#996f00) so the CSS
+     fallback is already the dark-amber value before JS applies it. */
+  --color-theme-text: #996f00;
   --color-theme-primary-contrast: white;
 
   /* Link color - always blue for consistent contrast on any background */
@@ -125,6 +127,7 @@
   --spacing-nav-offset: 0; /* Mobile: nav at bottom, no top offset needed */
   --spacing-topnav-height: 6rem;
   --spacing-tab-bar-height: 2.5rem;
+  --spacing-tab-curve-size: 12px;
   --spacing-controls-height: 3.5rem;
   /* Pinned panel height - viewport minus header elements.
      --sticky-header-bottom is set by ResizeObserver in SetTabContainer;
@@ -405,6 +408,35 @@ body {
   filter: url('#knockout-white');
 }
 
+/* Chrome-style tab: concave curves at bottom corners of active tab */
+@utility tab-curve-left {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: calc(-1 * var(--tab-curve-size));
+  width: var(--tab-curve-size);
+  height: var(--tab-curve-size);
+  background: radial-gradient(
+    circle at 0 0,
+    transparent var(--tab-curve-size),
+    var(--color-card) var(--tab-curve-size)
+  );
+}
+
+@utility tab-curve-right {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: calc(-1 * var(--tab-curve-size));
+  width: var(--tab-curve-size);
+  height: var(--tab-curve-size);
+  background: radial-gradient(
+    circle at 100% 0,
+    transparent var(--tab-curve-size),
+    var(--color-card) var(--tab-curve-size)
+  );
+}
+
 /* Utility: hide scrollbars (Chrome/Safari/Opera, Firefox, IE/Edge) */
 @utility no-scrollbar {
   -ms-overflow-style: none; /* IE and Edge */
@@ -433,7 +465,7 @@ body {
 /* Desktop: 2 columns (sidebar + main) */
 @media (min-width: 1024px) {
   .set-grid-layout {
-    grid-template-columns: 20rem 1fr;
+    grid-template-columns: 20rem minmax(0, 1fr);
   }
 }
 

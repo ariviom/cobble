@@ -75,7 +75,7 @@ See `docs/billing/stripe-subscriptions.md` for full spec.
 
 - [ ] `/` route: marketing landing page for unauthenticated users (auth users redirect to `/sets` as today)
 - [ ] Onboarding flow for new users (first set, feature discovery, tier awareness)
-- [ ] Sets tab bar: Chrome-like styling, fix overscroll, spacing
+- [x] Sets tab bar: Chrome-like styling, fix overscroll, spacing
 - [ ] UI review: remove outdated design patterns, evaluate LEGO app alignment
 - [ ] Loader animation: standardize placement across loading states
 - [ ] Minifig/set detail modal UI review (from set inventory)

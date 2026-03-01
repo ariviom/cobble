@@ -13,6 +13,8 @@ type SetTabItemProps = {
   isActive: boolean;
   /** Show a divider on the left side of this tab */
   showDivider?: boolean;
+  /** Last tab in the bar — suppress trailing divider */
+  isLast?: boolean;
   hasSearchParty: boolean;
   /** Callback when tab is activated (for SPA mode). */
   onActivate?: ((id: string) => void) | undefined;
@@ -24,6 +26,7 @@ export function SetTabItem({
   tab,
   isActive,
   showDivider = false,
+  isLast = false,
   hasSearchParty,
   onActivate,
   onClose,
@@ -71,8 +74,10 @@ export function SetTabItem({
       <>
         <div
           className={cn(
-            'flex h-11 items-end gap-4 py-1 lg:h-9 lg:min-w-fit',
-            isActive && 'fixed left-0 z-10 lg:static'
+            'flex h-11 max-w-40 min-w-36 flex-1 items-end lg:h-9 lg:max-w-60 lg:min-w-20',
+            isActive
+              ? 'fixed left-0 z-10 w-36 pt-1 lg:static lg:w-auto'
+              : 'py-1.5'
           )}
         >
           <Link
@@ -83,35 +88,31 @@ export function SetTabItem({
             aria-label="Sets"
             onClick={handleClick}
             className={cn(
-              'group relative flex h-full w-32 flex-shrink-0 items-center gap-2 px-3 pr-10 transition-colors lg:w-auto lg:pr-8',
+              'group relative flex h-full w-full min-w-0 items-center gap-2 px-3 pr-10 transition-colors lg:pr-8',
               isActive
-                ? 'rounded-t-sm bg-card text-foreground'
-                : 'rounded text-foreground-muted hover:rounded-md hover:border-transparent hover:bg-theme-primary/10 hover:text-foreground'
+                ? 'z-10 rounded-t-md bg-card text-foreground [--tab-curve-size:var(--spacing-tab-curve-size)] before:tab-curve-left after:tab-curve-right'
+                : 'rounded-md text-foreground-muted hover:bg-theme-primary/15 hover:text-foreground'
             )}
           >
-            {/* bridge to card background */}
-            {isActive && (
-              <div className="absolute inset-x-0 -bottom-2 h-2 bg-card" />
-            )}
             {/* Sets icon */}
             <div className="flex size-5 flex-shrink-0 items-center justify-center">
               <Layers size={16} />
             </div>
 
             {/* Label */}
-            <div className="flex min-w-24 items-center gap-1.5 text-xs font-medium">
+            <span className="truncate text-xs font-medium">
               <span className="font-bold">Sets</span>
-            </div>
+            </span>
 
             {/* Close button */}
             <button
               type="button"
               onClick={handleClose}
               className={cn(
-                'absolute right-1.5 flex items-center justify-center rounded transition-colors',
+                'absolute right-1.5 flex items-center justify-center rounded-full transition-colors',
                 'size-7 lg:size-5',
                 isActive
-                  ? 'text-foreground-muted hover:bg-neutral-200 hover:text-foreground dark:hover:bg-neutral-700'
+                  ? 'text-foreground-muted hover:bg-foreground/10 hover:text-foreground'
                   : 'text-foreground-muted/70 hover:bg-theme-primary/15 hover:text-foreground'
               )}
               aria-label="Close tab"
@@ -120,35 +121,32 @@ export function SetTabItem({
             </button>
           </Link>
         </div>
-        <div
-          aria-hidden="true"
-          className={cn(
-            'flex h-full min-h-11 w-4 items-center justify-center lg:min-h-9',
-            !showDivider && 'lg:hidden'
-          )}
-        >
+        {!isLast && (
           <div
-            className={cn(
-              'h-5 w-px bg-foreground-muted/30 lg:h-4',
-              isActive && 'hidden'
-            )}
-          ></div>
-        </div>
+            aria-hidden="true"
+            className="flex h-full min-h-11 w-4 items-center justify-center lg:min-h-9"
+          >
+            <div
+              className={cn(
+                'h-5 w-px bg-foreground-muted/30 lg:h-4',
+                (!showDivider || isActive) && 'invisible'
+              )}
+            ></div>
+          </div>
+        )}
       </>
     );
   }
 
   // Set tab display
-  // Truncate name for display
-  const displayName =
-    tab.name.length > 24 ? `${tab.name.slice(0, 22)}...` : tab.name;
-
   return (
     <>
       <div
         className={cn(
-          'flex h-11 items-end gap-4 py-1 lg:h-9 lg:min-w-fit',
-          isActive && 'fixed left-0 z-10 lg:static'
+          'flex h-11 max-w-40 min-w-36 flex-1 items-end lg:h-9 lg:max-w-60 lg:min-w-20',
+          isActive
+            ? 'fixed left-0 z-10 w-36 pt-1 lg:static lg:w-auto'
+            : 'py-1.5'
         )}
       >
         <Link
@@ -159,16 +157,12 @@ export function SetTabItem({
           aria-label={`${displaySetNumber}: ${tab.name}`}
           onClick={handleClick}
           className={cn(
-            'group relative flex h-full w-36 flex-shrink-0 items-center gap-2 px-3 pr-10 transition-colors lg:w-auto lg:pr-8',
+            'group relative flex h-full w-full min-w-0 items-center gap-2 px-3 pr-10 transition-colors lg:pr-8',
             isActive
-              ? 'rounded-t-sm bg-card text-foreground'
-              : 'rounded text-foreground-muted hover:rounded-md hover:border-transparent hover:bg-theme-primary/10 hover:text-foreground'
+              ? 'z-10 rounded-t-md bg-card text-foreground [--tab-curve-size:var(--spacing-tab-curve-size)] before:tab-curve-left after:tab-curve-right'
+              : 'rounded-md text-foreground-muted hover:bg-theme-primary/15 hover:text-foreground'
           )}
         >
-          {/* bridge to card background */}
-          {isActive && (
-            <div className="absolute inset-x-0 -bottom-2 h-2 bg-card" />
-          )}
           {/* Set image */}
           <div className="relative size-5 flex-shrink-0 overflow-hidden rounded">
             {tab.imageUrl ? (
@@ -187,12 +181,10 @@ export function SetTabItem({
           </div>
 
           {/* Set number and name */}
-          <div className="flex min-w-12 items-center gap-1.5 text-xs font-medium">
-            <span className="font-bold">{displaySetNumber}</span>
-            <span className="hidden text-foreground-muted lg:inline">
-              {displayName}
-            </span>
-          </div>
+          <span className="truncate text-xs font-medium">
+            <span className="font-bold">{displaySetNumber}</span>{' '}
+            <span className="text-foreground-muted">{tab.name}</span>
+          </span>
 
           {/* Search Party indicator */}
           {hasSearchParty && (
@@ -212,10 +204,10 @@ export function SetTabItem({
             type="button"
             onClick={handleClose}
             className={cn(
-              'absolute right-1.5 flex items-center justify-center rounded transition-colors',
+              'absolute right-1.5 flex items-center justify-center rounded-full transition-colors',
               'size-7 lg:size-5',
               isActive
-                ? 'text-foreground-muted hover:bg-neutral-200 hover:text-foreground dark:hover:bg-neutral-700'
+                ? 'text-foreground-muted hover:bg-foreground/10 hover:text-foreground'
                 : 'text-foreground-muted/70 hover:bg-theme-primary/15 hover:text-foreground'
             )}
             aria-label={`Close ${displaySetNumber}`}
@@ -224,17 +216,19 @@ export function SetTabItem({
           </button>
         </Link>
       </div>
-      <div
-        aria-hidden="true"
-        className="flex h-full min-h-11 w-4 items-center justify-center lg:min-h-9"
-      >
+      {!isLast && (
         <div
-          className={cn(
-            'h-5 w-px bg-foreground-muted/30 lg:h-4',
-            (!showDivider || isActive) && 'hidden'
-          )}
-        ></div>
-      </div>
+          aria-hidden="true"
+          className="flex h-full min-h-11 w-4 items-center justify-center lg:min-h-9"
+        >
+          <div
+            className={cn(
+              'h-5 w-px bg-foreground-muted/30 lg:h-4',
+              (!showDivider || isActive) && 'invisible'
+            )}
+          ></div>
+        </div>
+      )}
     </>
   );
 }
