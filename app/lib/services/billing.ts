@@ -11,6 +11,14 @@ import { logger } from '@/lib/metrics';
 export type BillingTier = 'free' | 'plus' | 'pro';
 export type BillingCadence = 'monthly' | 'yearly';
 
+/** Mask email for logging: `buy***@example.com` */
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!local || !domain) return '***';
+  const visible = local.slice(0, 3);
+  return `${visible}***@${domain}`;
+}
+
 type PriceEntry = { tier: BillingTier; cadence: BillingCadence };
 
 const REQUIRED_PRICE_ENVS: Array<{
@@ -290,7 +298,7 @@ async function findUserByEmail(email: string): Promise<{ id: string } | null> {
 
     if (!res.ok) {
       logger.error('billing.find_user_rest_failed', {
-        email,
+        email: maskEmail(email),
         status: res.status,
       });
       return null;
@@ -304,7 +312,7 @@ async function findUserByEmail(email: string): Promise<{ id: string } | null> {
     return match ? { id: match.id } : null;
   } catch (err) {
     logger.error('billing.find_user_request_failed', {
-      email,
+      email: maskEmail(email),
       error: err instanceof Error ? err.message : String(err),
     });
     return null;
@@ -330,7 +338,7 @@ export async function resolveGuestCheckoutUser(
 
   if (existing) {
     logger.info('billing.guest_user_resolved_existing', {
-      email,
+      email: maskEmail(email),
       userId: existing.id,
     });
     return existing.id;
@@ -348,7 +356,9 @@ export async function resolveGuestCheckoutUser(
       inviteError.message?.includes('already been registered') ?? false;
 
     if (isAlreadyRegistered) {
-      logger.info('billing.guest_invite_race_condition', { email });
+      logger.info('billing.guest_invite_race_condition', {
+        email: maskEmail(email),
+      });
       const retryLookup = await findUserByEmail(email);
       if (retryLookup) {
         return retryLookup.id;
@@ -356,7 +366,7 @@ export async function resolveGuestCheckoutUser(
     }
 
     logger.error('billing.guest_invite_failed', {
-      email,
+      email: maskEmail(email),
       error: inviteError.message,
     });
     throw new Error(`Failed to invite guest user: ${inviteError.message}`);
@@ -367,7 +377,7 @@ export async function resolveGuestCheckoutUser(
   }
 
   logger.info('billing.guest_user_invited', {
-    email,
+    email: maskEmail(email),
     userId: inviteData.user.id,
   });
 
