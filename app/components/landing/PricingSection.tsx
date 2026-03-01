@@ -266,7 +266,9 @@ export function PricingSection({
 
       {/* CTA row */}
       <div
-        className={`grid grid-cols-1 gap-4${!isAuthenticated ? 'sm:grid-cols-2' : ''}`}
+        className={
+          'grid grid-cols-1 gap-4' + (!isAuthenticated ? ' sm:grid-cols-2' : '')
+        }
       >
         {/* Free tier card — only shown to anonymous visitors */}
         {!isAuthenticated && (
