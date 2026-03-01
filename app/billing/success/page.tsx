@@ -1,6 +1,44 @@
 import { Button } from '@/app/components/ui/Button';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 
-export default function BillingSuccessPage() {
+export default async function BillingSuccessPage() {
+  let isAuthenticated = false;
+
+  try {
+    const supabase = await getSupabaseAuthServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    isAuthenticated = !!user;
+  } catch {
+    // Auth check failed — treat as unauthenticated
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <main className="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-12">
+        <header className="space-y-2">
+          <p className="text-sm font-semibold text-green-600">
+            Payment confirmed
+          </p>
+          <h1 className="text-3xl font-bold">You&apos;re in!</h1>
+          <p className="text-foreground-muted">
+            We sent an invite to your email. Click the link to set up your
+            password and start using Plus.
+          </p>
+        </header>
+        <div className="flex flex-wrap gap-3">
+          <Button href="/login" variant="primary">
+            Sign in
+          </Button>
+          <Button href="/" variant="outline">
+            Back to app
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-12">
       <header className="space-y-2">
