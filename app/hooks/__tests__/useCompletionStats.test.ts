@@ -124,23 +124,27 @@ describe('mergeLocalAndCloud', () => {
     ]);
   });
 
-  it('filters out sets where ownedCount >= totalParts', () => {
+  it('includes complete sets and caps ownedCount at totalParts', () => {
     const localStats: SetCompletionStats[] = [
       { setNumber: '75192-1', ownedCount: 500, totalParts: 500 }, // Complete
       { setNumber: '10295-1', ownedCount: 100, totalParts: 200 }, // Partial
+      { setNumber: '42151-1', ownedCount: 85, totalParts: 79 }, // Over-owned (raw)
     ];
 
     const result = mergeLocalAndCloud(localStats, null, new Map(), new Map());
 
     expect(result).toEqual([
+      { setNumber: '75192-1', ownedCount: 500, totalParts: 500 },
       { setNumber: '10295-1', ownedCount: 100, totalParts: 200 },
+      { setNumber: '42151-1', ownedCount: 79, totalParts: 79 },
     ]);
   });
 
-  it('uses max(local, cloud) for ownedCount when set in both', () => {
+  it('prefers local ownedCount over cloud when catalog data available', () => {
     const localStats: SetCompletionStats[] = [
       { setNumber: '75192-1', ownedCount: 50, totalParts: 500 },
     ];
+    // Cloud has a higher (stale/uncapped) count — local is authoritative
     const cloudOwned = new Map([['75192-1', 80]]);
 
     const result = mergeLocalAndCloud(
@@ -151,8 +155,26 @@ describe('mergeLocalAndCloud', () => {
     );
 
     expect(result).toEqual([
-      { setNumber: '75192-1', ownedCount: 80, totalParts: 500 },
+      { setNumber: '75192-1', ownedCount: 50, totalParts: 500 },
     ]);
+  });
+
+  it('uses cloud ownedCount when local lacks catalog data', () => {
+    const localStats: SetCompletionStats[] = [
+      { setNumber: '75192-1', ownedCount: 50, totalParts: 0 },
+    ];
+    const cloudOwned = new Map([['75192-1', 80]]);
+
+    const result = mergeLocalAndCloud(
+      localStats,
+      cloudOwned,
+      new Map(),
+      new Map()
+    );
+
+    // totalParts is 0 so no catalog data — cloud count used, but
+    // filtered out because totalParts === 0
+    expect(result).toEqual([]);
   });
 
   it('skips cloud-only sets with no metadata at all', () => {

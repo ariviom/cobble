@@ -63,10 +63,12 @@ function getStoreMetaMap(): Map<string, CloudSetMeta> {
 }
 
 /**
- * Merge local and cloud completion data. Cloud-only sets are included
- * with totalParts from cloudMeta. For sets in both sources, ownedCount
- * uses max(local, cloud) since local may have un-synced increments and
- * cloud may have data from other devices.
+ * Merge local and cloud completion data. Returns ALL sets with owned
+ * parts (partial, complete, and over-owned), capping ownedCount at
+ * totalParts. Cloud-only sets are included with totalParts from
+ * cloudMeta. For sets in both sources, ownedCount uses max(local,
+ * cloud) since local may have un-synced increments and cloud may
+ * have data from other devices.
  *
  * @visibleForTesting
  */
@@ -92,7 +94,12 @@ export function mergeLocalAndCloud(
     for (const [setNum, cloudCount] of cloudOwned) {
       const existing = mergedMap.get(setNum);
       if (existing) {
-        existing.ownedCount = Math.max(existing.ownedCount, cloudCount);
+        // Only use cloud count when local lacks catalog data (totalParts === 0
+        // means raw estimate). When local has catalog-backed data, it's
+        // authoritative because it's computed with per-part capping.
+        if (existing.totalParts === 0) {
+          existing.ownedCount = Math.max(existing.ownedCount, cloudCount);
+        }
       } else {
         // For cloud-only sets, prefer local catalogSetParts totalParts
         // (accurate, excludes fig: parents, uses BL minifig data) over
@@ -116,8 +123,12 @@ export function mergeLocalAndCloud(
     totalParts: number;
   }> = [];
   for (const [setNumber, { ownedCount, totalParts }] of mergedMap) {
-    if (ownedCount > 0 && totalParts > 0 && ownedCount < totalParts) {
-      results.push({ setNumber, ownedCount, totalParts });
+    if (ownedCount > 0 && totalParts > 0) {
+      results.push({
+        setNumber,
+        ownedCount: Math.min(ownedCount, totalParts),
+        totalParts,
+      });
     }
   }
   return results;
@@ -223,6 +234,34 @@ export function useCompletionStats(isActive = true) {
         // Read cloud data from user sets store (already hydrated, no network call)
         const cloudOwned = getCloudOwnedFromStore();
         const storeMeta = getStoreMetaMap();
+
+        // Resolve missing totalParts for local sets without catalogSetParts cache
+        // (e.g. after DB upgrade that clears catalog cache but keeps localOwned)
+        const needsTotalParts = localStats.filter(s => s.totalParts === 0);
+        if (needsTotalParts.length > 0) {
+          const recents = getRecentSets();
+          const recentByNum = new Map(recents.map(r => [r.setNumber, r]));
+          for (const stat of needsTotalParts) {
+            // 1. User sets store
+            const meta = storeMeta.get(stat.setNumber);
+            if (meta && meta.numParts > 0) {
+              stat.totalParts = meta.numParts;
+              continue;
+            }
+            // 2. Recent sets
+            const recent = recentByNum.get(stat.setNumber);
+            if (recent && recent.numParts > 0) {
+              stat.totalParts = recent.numParts;
+              continue;
+            }
+            // 3. Catalog sets cache (async)
+            const cached = await getCachedSetSummary(stat.setNumber);
+            if (cancelled) return;
+            if (cached && cached.numParts > 0) {
+              stat.totalParts = cached.numParts;
+            }
+          }
+        }
 
         // For cloud-only sets, try to get accurate totalParts from local catalog
         const localSetNums = new Set(localStats.map(s => s.setNumber));

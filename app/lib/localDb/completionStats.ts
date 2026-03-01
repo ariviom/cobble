@@ -3,8 +3,11 @@
  *
  * Queries localOwned and catalogSetParts to find sets where the user
  * has marked any parts as owned. Returns all such sets (including
- * fully-complete ones) so the merge layer can use local totalParts
- * instead of rb_sets.num_parts for cloud data.
+ * fully-complete ones) with ownedCount capped per-part at the required
+ * quantity, matching the set detail page's counting behavior.
+ *
+ * Sets with owned data but no catalogSetParts cache are returned with
+ * totalParts: 0 so callers can resolve from metadata fallbacks.
  */
 
 import { getLocalDb, isIndexedDBAvailable } from './schema';
@@ -17,9 +20,9 @@ export type SetCompletionStats = {
 
 /**
  * Find sets where the user has owned any parts (partial or complete).
- * Includes complete sets so the cloud merge can use local totalParts
- * and avoid re-adding them with the wrong rb_sets.num_parts count.
- * Callers filter for partial completion (ownedCount < totalParts).
+ * Caps each part's owned quantity at its required quantity to match
+ * the set detail page totals. Returns sets with totalParts: 0 when
+ * catalogSetParts cache is missing (e.g. after DB upgrade).
  */
 export async function getPartiallyCompleteSets(): Promise<
   SetCompletionStats[]
@@ -29,47 +32,79 @@ export async function getPartiallyCompleteSets(): Promise<
   try {
     const db = getLocalDb();
 
-    // Get all owned rows grouped by setNumber
+    // Get all owned rows grouped by setNumber → inventoryKey → quantity
     const allOwned = await db.localOwned.toArray();
 
-    // Group and sum quantities by setNumber
-    const ownedBySet = new Map<string, number>();
+    const ownedBySetKey = new Map<string, Map<string, number>>();
+    const setsWithOwned = new Set<string>();
     for (const row of allOwned) {
       if (row.quantity > 0) {
         // Skip minifig parent rows — excluded from set page totals
         if (row.inventoryKey.startsWith('fig:')) continue;
-        ownedBySet.set(
-          row.setNumber,
-          (ownedBySet.get(row.setNumber) ?? 0) + row.quantity
-        );
+        setsWithOwned.add(row.setNumber);
+        let keyMap = ownedBySetKey.get(row.setNumber);
+        if (!keyMap) {
+          keyMap = new Map();
+          ownedBySetKey.set(row.setNumber, keyMap);
+        }
+        keyMap.set(row.inventoryKey, row.quantity);
       }
     }
 
-    if (ownedBySet.size === 0) return [];
+    if (setsWithOwned.size === 0) return [];
 
-    // Count actual ownable parts from catalogSetParts, excluding minifig
-    // parent rows (fig:*). This is always correct regardless of whether
-    // catalogSetMeta.partCount is stale.
-    const setNumbers = [...ownedBySet.keys()];
+    // Get catalog set parts to build per-key required quantities
+    const setNumbers = [...setsWithOwned];
     const allSetParts = await db.catalogSetParts
       .where('setNumber')
       .anyOf(setNumbers)
       .toArray();
 
+    // Build required-by-key and total-by-set maps
+    const requiredBySetKey = new Map<string, Map<string, number>>();
     const totalBySet = new Map<string, number>();
     for (const part of allSetParts) {
-      if (!part.partNum.startsWith('fig:')) {
-        totalBySet.set(
-          part.setNumber,
-          (totalBySet.get(part.setNumber) ?? 0) + part.quantityRequired
-        );
+      if (part.partNum.startsWith('fig:')) continue;
+
+      totalBySet.set(
+        part.setNumber,
+        (totalBySet.get(part.setNumber) ?? 0) + part.quantityRequired
+      );
+
+      let keyMap = requiredBySetKey.get(part.setNumber);
+      if (!keyMap) {
+        keyMap = new Map();
+        requiredBySetKey.set(part.setNumber, keyMap);
       }
+      keyMap.set(
+        part.inventoryKey,
+        (keyMap.get(part.inventoryKey) ?? 0) + part.quantityRequired
+      );
     }
 
     const results: SetCompletionStats[] = [];
-    for (const [setNumber, ownedCount] of ownedBySet) {
-      const totalParts = totalBySet.get(setNumber);
-      if (typeof totalParts === 'number' && totalParts > 0) {
+    for (const setNumber of setsWithOwned) {
+      const totalParts = totalBySet.get(setNumber) ?? 0;
+      const ownedKeys = ownedBySetKey.get(setNumber)!;
+      const requiredKeys = requiredBySetKey.get(setNumber);
+
+      let ownedCount = 0;
+      if (requiredKeys) {
+        // Catalog data available — cap each part at required quantity
+        for (const [key, owned] of ownedKeys) {
+          const required = requiredKeys.get(key);
+          if (required != null && required > 0) {
+            ownedCount += Math.min(owned, required);
+          }
+        }
+      } else {
+        // No catalog data — sum raw as rough estimate
+        for (const owned of ownedKeys.values()) {
+          ownedCount += owned;
+        }
+      }
+
+      if (ownedCount > 0) {
         results.push({ setNumber, ownedCount, totalParts });
       }
     }

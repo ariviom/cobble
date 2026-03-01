@@ -37,8 +37,18 @@ describe('completionStats', () => {
 
       // Two parts for the set with different quantityRequired values
       mockToArray.mockResolvedValue([
-        { setNumber: '75192-1', partNum: '3001', quantityRequired: 10 },
-        { setNumber: '75192-1', partNum: '3002', quantityRequired: 5 },
+        {
+          setNumber: '75192-1',
+          partNum: '3001',
+          inventoryKey: '3001:1',
+          quantityRequired: 10,
+        },
+        {
+          setNumber: '75192-1',
+          partNum: '3002',
+          inventoryKey: '3002:1',
+          quantityRequired: 5,
+        },
       ]);
 
       const result = await getPartiallyCompleteSets();
@@ -55,7 +65,12 @@ describe('completionStats', () => {
       ]);
 
       mockToArray.mockResolvedValue([
-        { setNumber: '75192-1', partNum: '3001', quantityRequired: 10 },
+        {
+          setNumber: '75192-1',
+          partNum: '3001',
+          inventoryKey: '3001:1',
+          quantityRequired: 10,
+        },
       ]);
 
       const result = await getPartiallyCompleteSets();
@@ -72,8 +87,18 @@ describe('completionStats', () => {
       ]);
 
       mockToArray.mockResolvedValue([
-        { setNumber: '75192-1', partNum: '3001', quantityRequired: 10 },
-        { setNumber: '75192-1', partNum: 'fig:sw0001', quantityRequired: 1 },
+        {
+          setNumber: '75192-1',
+          partNum: '3001',
+          inventoryKey: '3001:1',
+          quantityRequired: 10,
+        },
+        {
+          setNumber: '75192-1',
+          partNum: 'fig:sw0001',
+          inventoryKey: 'fig:sw0001',
+          quantityRequired: 1,
+        },
       ]);
 
       const result = await getPartiallyCompleteSets();
@@ -94,7 +119,7 @@ describe('completionStats', () => {
       expect(mockWhere).not.toHaveBeenCalled();
     });
 
-    it('skips sets with no cached inventory', async () => {
+    it('returns sets without cached inventory with totalParts: 0', async () => {
       mockLocalOwnedToArray.mockResolvedValue([
         { setNumber: '75192-1', inventoryKey: '3001:1', quantity: 3 },
         { setNumber: '10295-1', inventoryKey: '3003:2', quantity: 1 },
@@ -102,14 +127,52 @@ describe('completionStats', () => {
 
       // Only 75192-1 has cached inventory
       mockToArray.mockResolvedValue([
-        { setNumber: '75192-1', partNum: '3001', quantityRequired: 10 },
+        {
+          setNumber: '75192-1',
+          partNum: '3001',
+          inventoryKey: '3001:1',
+          quantityRequired: 10,
+        },
       ]);
 
       const result = await getPartiallyCompleteSets();
 
-      // Only 75192-1 should be in results (10295-1 has no cached parts)
+      // 75192-1 has catalog data; 10295-1 has owned data but no catalog → totalParts: 0
+      expect(result).toEqual(
+        expect.arrayContaining([
+          { setNumber: '75192-1', ownedCount: 3, totalParts: 10 },
+          { setNumber: '10295-1', ownedCount: 1, totalParts: 0 },
+        ])
+      );
+      expect(result).toHaveLength(2);
+    });
+
+    it('caps ownedCount at quantityRequired per part', async () => {
+      mockLocalOwnedToArray.mockResolvedValue([
+        { setNumber: '75192-1', inventoryKey: '3001:1', quantity: 15 },
+        { setNumber: '75192-1', inventoryKey: '3002:1', quantity: 3 },
+      ]);
+
+      mockToArray.mockResolvedValue([
+        {
+          setNumber: '75192-1',
+          partNum: '3001',
+          inventoryKey: '3001:1',
+          quantityRequired: 10,
+        },
+        {
+          setNumber: '75192-1',
+          partNum: '3002',
+          inventoryKey: '3002:1',
+          quantityRequired: 5,
+        },
+      ]);
+
+      const result = await getPartiallyCompleteSets();
+
+      // 3001:1 owned 15 capped at 10; 3002:1 owned 3 not capped → total 13
       expect(result).toEqual([
-        { setNumber: '75192-1', ownedCount: 3, totalParts: 10 },
+        { setNumber: '75192-1', ownedCount: 13, totalParts: 15 },
       ]);
     });
 
