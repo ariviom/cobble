@@ -254,57 +254,53 @@ export async function getUserEntitlements(
 }
 
 /**
- * Look up a Supabase auth user by email using the service-role client.
+ * Look up a Supabase auth user by email using the GoTrue admin REST API.
  *
- * The Supabase JS SDK (v2.89) doesn't expose `getUserByEmail` on the admin
- * API, so we query the `auth.users` view via the service-role `rpc` pathway.
- * This uses `listUsers` and filters client-side since the SDK's `listUsers`
- * doesn't support server-side email filtering.
- *
- * @internal Exported only for the billing module; not part of the public API.
+ * Uses the `filter` query parameter for server-side SQL filtering,
+ * then verifies exact email match client-side (filter is a LIKE/substring match).
  */
-async function findUserByEmail(
-  email: string,
-  supabase: SupabaseClient<Database>
-): Promise<{ id: string } | null> {
-  // listUsers returns paginated results; page through until we find a match
-  // or exhaust all pages. In practice, the user we're looking for is usually
-  // on page 1, and the total user count is small for this app.
-  const perPage = 50;
-  let page = 1;
-  const maxPages = 20; // safety limit
+async function findUserByEmail(email: string): Promise<{ id: string } | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  while (page <= maxPages) {
-    const { data, error } = await supabase.auth.admin.listUsers({
-      page,
-      perPage,
+  if (!supabaseUrl || !serviceRoleKey) {
+    logger.error('billing.find_user_missing_env', {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!serviceRoleKey,
+    });
+    return null;
+  }
+
+  try {
+    const url = `${supabaseUrl}/auth/v1/admin/users?filter=${encodeURIComponent(email.toLowerCase())}`;
+    const res = await fetch(url, {
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
     });
 
-    if (error) {
-      logger.error('billing.list_users_failed', {
+    if (!res.ok) {
+      logger.error('billing.find_user_rest_failed', {
         email,
-        page,
-        error: error.message,
+        status: res.status,
       });
       return null;
     }
 
-    const users = data?.users ?? [];
-    const match = users.find(
+    const data: { users?: Array<{ id: string; email?: string }> } =
+      await res.json();
+    const match = data.users?.find(
       u => u.email?.toLowerCase() === email.toLowerCase()
     );
-    if (match) {
-      return { id: match.id };
-    }
-
-    // If we got fewer results than perPage, we've exhausted all users
-    if (users.length < perPage) {
-      break;
-    }
-    page++;
+    return match ? { id: match.id } : null;
+  } catch (err) {
+    logger.error('billing.find_user_request_failed', {
+      email,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
   }
-
-  return null;
 }
 
 /**
@@ -322,7 +318,7 @@ export async function resolveGuestCheckoutUser(
   const supabase = options?.supabase ?? getSupabaseServiceRoleClient();
 
   // Step 1: Check for existing user
-  const existing = await findUserByEmail(email, supabase);
+  const existing = await findUserByEmail(email);
 
   if (existing) {
     logger.info('billing.guest_user_resolved_existing', {

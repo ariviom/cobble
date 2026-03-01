@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/supabase/types';
 
@@ -11,7 +11,6 @@ import { resolveGuestCheckoutUser } from '../billing';
 // ---------------------------------------------------------------------------
 
 type MockAdmin = {
-  listUsers: ReturnType<typeof vi.fn>;
   inviteUserByEmail: ReturnType<typeof vi.fn>;
 };
 
@@ -20,12 +19,6 @@ function makeMockSupabase(overrides: Partial<MockAdmin> = {}): {
   admin: MockAdmin;
 } {
   const admin: MockAdmin = {
-    listUsers:
-      overrides.listUsers ??
-      vi.fn().mockResolvedValue({
-        data: { users: [] },
-        error: null,
-      }),
     inviteUserByEmail:
       overrides.inviteUserByEmail ??
       vi.fn().mockResolvedValue({
@@ -43,44 +36,58 @@ const TEST_EMAIL = 'buyer@example.com';
 const EXISTING_USER_ID = 'existing-user-uuid';
 const INVITED_USER_ID = 'invited-user-uuid';
 
+// Mock fetch for GoTrue REST API
+const mockFetch = vi.fn();
+
+// ---------------------------------------------------------------------------
+// Setup
+// ---------------------------------------------------------------------------
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+  vi.stubGlobal('fetch', mockFetch);
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'test-service-role-key';
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+// Helper to create a mock fetch response
+function mockFetchResponse(users: Array<{ id: string; email: string }>) {
+  return {
+    ok: true,
+    json: async () => ({ users }),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe('resolveGuestCheckoutUser', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('returns existing user id when listUsers finds a matching email', async () => {
-    const { supabase, admin } = makeMockSupabase({
-      listUsers: vi.fn().mockResolvedValue({
-        data: {
-          users: [
-            { id: 'other-user', email: 'other@example.com' },
-            { id: EXISTING_USER_ID, email: TEST_EMAIL },
-          ],
-        },
-        error: null,
-      }),
-    });
+  it('returns existing user id when GoTrue finds a matching email', async () => {
+    mockFetch.mockResolvedValue(
+      mockFetchResponse([
+        { id: 'other-user', email: 'other@example.com' },
+        { id: EXISTING_USER_ID, email: TEST_EMAIL },
+      ])
+    );
+    const { supabase, admin } = makeMockSupabase();
 
     const userId = await resolveGuestCheckoutUser(TEST_EMAIL, { supabase });
 
     expect(userId).toBe(EXISTING_USER_ID);
-    expect(admin.listUsers).toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(admin.inviteUserByEmail).not.toHaveBeenCalled();
   });
 
   it('matches email case-insensitively', async () => {
-    const { supabase, admin } = makeMockSupabase({
-      listUsers: vi.fn().mockResolvedValue({
-        data: {
-          users: [{ id: EXISTING_USER_ID, email: 'Buyer@Example.COM' }],
-        },
-        error: null,
-      }),
-    });
+    mockFetch.mockResolvedValue(
+      mockFetchResponse([{ id: EXISTING_USER_ID, email: 'Buyer@Example.COM' }])
+    );
+    const { supabase, admin } = makeMockSupabase();
 
     const userId = await resolveGuestCheckoutUser(TEST_EMAIL, { supabase });
 
@@ -89,11 +96,8 @@ describe('resolveGuestCheckoutUser', () => {
   });
 
   it('invites user and returns new user id when no existing user found', async () => {
+    mockFetch.mockResolvedValue(mockFetchResponse([]));
     const { supabase, admin } = makeMockSupabase({
-      listUsers: vi.fn().mockResolvedValue({
-        data: { users: [] },
-        error: null,
-      }),
       inviteUserByEmail: vi.fn().mockResolvedValue({
         data: { user: { id: INVITED_USER_ID } },
         error: null,
@@ -111,12 +115,13 @@ describe('resolveGuestCheckoutUser', () => {
     );
   });
 
-  it('falls through to invite when listUsers errors', async () => {
+  it('falls through to invite when GoTrue REST call fails', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    });
     const { supabase } = makeMockSupabase({
-      listUsers: vi.fn().mockResolvedValue({
-        data: { users: [] },
-        error: { message: 'Service unavailable' },
-      }),
       inviteUserByEmail: vi.fn().mockResolvedValue({
         data: { user: { id: INVITED_USER_ID } },
         error: null,
@@ -129,11 +134,8 @@ describe('resolveGuestCheckoutUser', () => {
   });
 
   it('throws when invite fails', async () => {
+    mockFetch.mockResolvedValue(mockFetchResponse([]));
     const { supabase } = makeMockSupabase({
-      listUsers: vi.fn().mockResolvedValue({
-        data: { users: [] },
-        error: null,
-      }),
       inviteUserByEmail: vi.fn().mockResolvedValue({
         data: { user: null },
         error: { message: 'Rate limit exceeded' },
@@ -146,11 +148,8 @@ describe('resolveGuestCheckoutUser', () => {
   });
 
   it('throws when invite succeeds but returns no user', async () => {
+    mockFetch.mockResolvedValue(mockFetchResponse([]));
     const { supabase } = makeMockSupabase({
-      listUsers: vi.fn().mockResolvedValue({
-        data: { users: [] },
-        error: null,
-      }),
       inviteUserByEmail: vi.fn().mockResolvedValue({
         data: { user: null },
         error: null,
@@ -167,11 +166,8 @@ describe('resolveGuestCheckoutUser', () => {
     process.env.NEXT_PUBLIC_APP_URL = 'https://brickparty.app';
 
     try {
+      mockFetch.mockResolvedValue(mockFetchResponse([]));
       const { supabase, admin } = makeMockSupabase({
-        listUsers: vi.fn().mockResolvedValue({
-          data: { users: [] },
-          error: null,
-        }),
         inviteUserByEmail: vi.fn().mockResolvedValue({
           data: { user: { id: INVITED_USER_ID } },
           error: null,
@@ -192,33 +188,22 @@ describe('resolveGuestCheckoutUser', () => {
     }
   });
 
-  it('paginates through listUsers when first page has no match', async () => {
-    // First page: 50 users, no match (triggers pagination)
-    // Second page: contains the match
-    const fiftyOtherUsers = Array.from({ length: 50 }, (_, i) => ({
-      id: `user-${i}`,
-      email: `user${i}@example.com`,
-    }));
+  it('passes email as filter param to GoTrue REST endpoint', async () => {
+    mockFetch.mockResolvedValue(
+      mockFetchResponse([{ id: EXISTING_USER_ID, email: TEST_EMAIL }])
+    );
+    const { supabase } = makeMockSupabase();
 
-    const listUsersFn = vi
-      .fn()
-      .mockResolvedValueOnce({
-        data: { users: fiftyOtherUsers },
-        error: null,
+    await resolveGuestCheckoutUser(TEST_EMAIL, { supabase });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      `https://test.supabase.co/auth/v1/admin/users?filter=${encodeURIComponent(TEST_EMAIL)}`,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          apikey: 'test-service-role-key',
+          Authorization: 'Bearer test-service-role-key',
+        }),
       })
-      .mockResolvedValueOnce({
-        data: { users: [{ id: EXISTING_USER_ID, email: TEST_EMAIL }] },
-        error: null,
-      });
-
-    const { supabase, admin } = makeMockSupabase({ listUsers: listUsersFn });
-
-    const userId = await resolveGuestCheckoutUser(TEST_EMAIL, { supabase });
-
-    expect(userId).toBe(EXISTING_USER_ID);
-    expect(listUsersFn).toHaveBeenCalledTimes(2);
-    expect(listUsersFn).toHaveBeenCalledWith({ page: 1, perPage: 50 });
-    expect(listUsersFn).toHaveBeenCalledWith({ page: 2, perPage: 50 });
-    expect(admin.inviteUserByEmail).not.toHaveBeenCalled();
+    );
   });
 });
