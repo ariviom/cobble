@@ -20,7 +20,12 @@ const REQUIRED_PRICE_ENVS: Array<{
   optional?: boolean;
 }> = [
   { env: 'STRIPE_PRICE_PLUS_MONTHLY', tier: 'plus', cadence: 'monthly' },
-  { env: 'STRIPE_PRICE_PRO_MONTHLY', tier: 'pro', cadence: 'monthly' },
+  {
+    env: 'STRIPE_PRICE_PRO_MONTHLY',
+    tier: 'pro',
+    cadence: 'monthly',
+    optional: true, // Pro tier deferred — not offered at launch
+  },
   {
     env: 'STRIPE_PRICE_PLUS_YEARLY',
     tier: 'plus',
@@ -183,6 +188,9 @@ export async function upsertSubscriptionFromStripe(
       : product && !('deleted' in product)
         ? (product.id as string)
         : '';
+  // current_period_end is present in the Stripe API response but missing from
+  // the TypeScript definitions in stripe@20.x (API version 2025-12-15.clover).
+  // Access via index signature until the type definitions are updated.
   const currentPeriodEnd = (() => {
     const value = (subscription as unknown as Record<string, unknown>)[
       'current_period_end'
