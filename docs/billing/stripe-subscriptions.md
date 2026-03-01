@@ -5,7 +5,7 @@ This document defines the foundational architecture for Stripe subscriptions, al
 ## Snapshot Decisions
 
 - Tiers at launch: **Free and Plus only.** Pro deferred until features warrant it (custom MoCs, instructions uploads, potentially BYO BrickLink key pending BL approval).
-- Trial: 7 days for Plus.
+- Trial: 14 days for Plus.
 - Pricing: Monthly required; yearly supported but can be hidden at launch (omit UI use of yearly price IDs until ready).
 - Currency: USD primary. Multi-currency/localized pricing is post-foundation.
 - Countries: All Stripe-supported countries allowed.
