@@ -36,7 +36,6 @@ describe('EntitlementsProvider', () => {
     const plusEntitlements = {
       tier: 'plus' as const,
       features: ['tabs.unlimited', 'lists.unlimited', 'rarity.enabled'],
-      featureFlagsByKey: {},
     };
     render(
       <EntitlementsProvider initialEntitlements={plusEntitlements}>
