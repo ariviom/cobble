@@ -383,16 +383,18 @@ export function useCollectionSets(): UseCollectionSetsResult {
     };
   }, [user]);
 
-  // Merge owned + list sets
+  // Merge owned + list sets (only genuinely owned sets, not tracked-only)
   const allSets = useMemo(() => {
-    const ownedEntries = Object.values(storeSets).map(s => ({
-      setNumber: s.setNumber,
-      name: s.name,
-      year: s.year,
-      imageUrl: s.imageUrl,
-      numParts: s.numParts,
-      themeId: s.themeId,
-    }));
+    const ownedEntries = Object.values(storeSets)
+      .filter(s => s.status.owned)
+      .map(s => ({
+        setNumber: s.setNumber,
+        name: s.name,
+        year: s.year,
+        imageUrl: s.imageUrl,
+        numParts: s.numParts,
+        themeId: s.themeId,
+      }));
     return mergeCollectionSets(ownedEntries, listItemsBySet, listOnlyMeta);
   }, [storeSets, listItemsBySet, listOnlyMeta]);
 

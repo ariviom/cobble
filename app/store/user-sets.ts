@@ -145,8 +145,8 @@ function parsePersisted(raw: string | null): Pick<UserSetsState, 'sets'> {
             : 0;
         const status = coerceStatus(v.status);
 
-        // Drop entries that are not owned.
-        if (!status.owned) {
+        // Drop entries that are not owned and have no tracked progress.
+        if (!status.owned && foundCount <= 0) {
           continue;
         }
 
@@ -209,10 +209,16 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
     set(prevState => {
       const prevEntry = prevState.sets[normKey];
 
-      // If not owned, remove the entry entirely.
+      // If not owned, remove or downgrade the entry.
       if (!owned) {
         const nextSets = { ...prevState.sets };
-        delete nextSets[normKey];
+        const existing = nextSets[normKey];
+        if (existing && existing.foundCount > 0) {
+          // Preserve entry with tracked progress, just clear owned flag
+          nextSets[normKey] = { ...existing, status: { owned: false } };
+        } else {
+          delete nextSets[normKey];
+        }
         const nextState: UserSetsState = {
           ...prevState,
           sets: nextSets,

@@ -43,6 +43,16 @@ type UserSetRowWithMeta = {
   } | null;
 };
 
+type TrackedProgressRow = {
+  set_num: string;
+  found_count: number;
+  name: string | null;
+  year: number | null;
+  num_parts: number | null;
+  image_url: string | null;
+  theme_id: number | null;
+};
+
 export async function GET() {
   const supabase = await getSupabaseAuthServerClient();
 
@@ -57,38 +67,58 @@ export async function GET() {
       return errorResponse('unauthorized');
     }
 
-    // Fetch user sets with joined metadata from rb_sets
-    const { data: userSets, error: setsError } = await supabase
-      .from('user_sets')
-      .select(
+    // Fetch user_sets rows and tracked progress aggregate in parallel
+    const [userSetsResult, trackedResult] = await Promise.all([
+      supabase
+        .from('user_sets')
+        .select(
+          `
+          set_num,
+          owned,
+          updated_at,
+          found_count,
+          rb_sets (
+            name,
+            year,
+            num_parts,
+            image_url,
+            theme_id
+          )
         `
-        set_num,
-        owned,
-        updated_at,
-        found_count,
-        rb_sets (
-          name,
-          year,
-          num_parts,
-          image_url,
-          theme_id
         )
-      `
-      )
-      .eq('user_id', user.id as UserSetRow['user_id']);
+        .eq('user_id', user.id as UserSetRow['user_id']),
+      supabase.rpc('get_tracked_set_progress', { p_user_id: user.id }),
+    ]);
 
-    if (setsError) {
+    if (userSetsResult.error) {
       logger.error('user_sets.query_failed', {
         userId: user.id,
-        error: setsError.message,
+        error: userSetsResult.error.message,
       });
       return errorResponse('unknown_error');
     }
 
-    const typedRows = (userSets ?? []) as UserSetRowWithMeta[];
+    // Build aggregate map from RPC (graceful degradation on failure)
+    const trackedMap = new Map<string, TrackedProgressRow>();
+    if (trackedResult.error) {
+      logger.warn('user_sets.tracked_progress_failed', {
+        userId: user.id,
+        error: trackedResult.error.message,
+      });
+    } else {
+      for (const row of (trackedResult.data ?? []) as TrackedProgressRow[]) {
+        trackedMap.set(row.set_num, row);
+      }
+    }
 
+    const typedRows = (userSetsResult.data ?? []) as UserSetRowWithMeta[];
+    const seenSetNums = new Set<string>();
+
+    // Map owned sets, using RPC aggregate for foundCount when available
     const sets: UserSetWithMeta[] = typedRows.map(row => {
       const meta = row.rb_sets;
+      const tracked = trackedMap.get(row.set_num);
+      seenSetNums.add(row.set_num);
 
       return {
         setNumber: row.set_num,
@@ -99,9 +129,27 @@ export async function GET() {
         imageUrl: meta?.image_url ?? null,
         themeId: meta?.theme_id ?? null,
         updatedAt: row.updated_at,
-        foundCount: row.found_count ?? 0,
+        foundCount: tracked
+          ? Number(tracked.found_count)
+          : (row.found_count ?? 0),
       };
     });
+
+    // Add tracked-only sets (have pieces but no user_sets row)
+    for (const [setNum, tracked] of trackedMap) {
+      if (seenSetNums.has(setNum)) continue;
+      sets.push({
+        setNumber: setNum,
+        owned: false,
+        name: tracked.name ?? setNum,
+        year: tracked.year ?? 0,
+        numParts: tracked.num_parts ?? 0,
+        imageUrl: tracked.image_url ?? null,
+        themeId: tracked.theme_id ?? null,
+        updatedAt: null,
+        foundCount: Number(tracked.found_count),
+      });
+    }
 
     return NextResponse.json({ sets } satisfies UserSetsResponse, {
       headers: { 'Cache-Control': CACHE_CONTROL },

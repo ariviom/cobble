@@ -85,6 +85,7 @@ export type Database = {
       };
       billing_webhook_events: {
         Row: {
+          created_at: string | null;
           error: string | null;
           event_id: string;
           payload: Json | null;
@@ -93,6 +94,7 @@ export type Database = {
           type: string | null;
         };
         Insert: {
+          created_at?: string | null;
           error?: string | null;
           event_id: string;
           payload?: Json | null;
@@ -101,6 +103,7 @@ export type Database = {
           type?: string | null;
         };
         Update: {
+          created_at?: string | null;
           error?: string | null;
           event_id?: string;
           payload?: Json | null;
@@ -1172,6 +1175,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_parts_inventory: {
+        Row: {
+          color_id: number;
+          part_num: string;
+          quantity: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          color_id: number;
+          part_num: string;
+          quantity?: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          color_id?: number;
+          part_num?: string;
+          quantity?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'user_parts_inventory_color_id_fkey';
+            columns: ['color_id'];
+            isOneToOne: false;
+            referencedRelation: 'rb_colors';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'user_parts_inventory_part_num_fkey';
+            columns: ['part_num'];
+            isOneToOne: false;
+            referencedRelation: 'rb_parts';
+            referencedColumns: ['part_num'];
+          },
+        ];
+      };
       user_preferences: {
         Row: {
           created_at: string;
@@ -1337,6 +1379,22 @@ export type Database = {
       };
     };
     Views: {
+      mv_set_non_spare_count: {
+        Row: {
+          set_num: string | null;
+          total_entries: number | null;
+        };
+        Relationships: [];
+      };
+      mv_set_parts: {
+        Row: {
+          color_id: number | null;
+          part_num: string | null;
+          quantity: number | null;
+          set_num: string | null;
+        };
+        Relationships: [];
+      };
       public_user_list_items_view: {
         Row: {
           item_type: Database['public']['Enums']['collection_item_type'] | null;
@@ -1492,6 +1550,19 @@ export type Database = {
           retry_after_seconds: number;
         }[];
       };
+      get_missing_parts: {
+        Args: { p_set_num: string; p_user_id: string };
+        Returns: {
+          color_id: number;
+          color_name: string;
+          img_url: string;
+          missing_qty: number;
+          owned_qty: number;
+          part_name: string;
+          part_num: string;
+          required_qty: number;
+        }[];
+      };
       get_sets_with_minifigs: {
         Args: never;
         Returns: {
@@ -1502,6 +1573,19 @@ export type Database = {
         Args: { p_key: string; p_window_start: string };
         Returns: number;
       };
+      get_tracked_set_progress: {
+        Args: { p_user_id: string };
+        Returns: {
+          found_count: number;
+          image_url: string;
+          name: string;
+          num_parts: number;
+          set_num: string;
+          theme_id: number;
+          year: number;
+        }[];
+      };
+      get_user_total_pieces: { Args: { p_user_id: string }; Returns: number };
       increment_system_counter: {
         Args: { p_key: string; p_limit: number; p_window_start: string };
         Returns: {
