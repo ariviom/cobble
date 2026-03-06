@@ -1,12 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/supabase/types';
 
+export type MinifigSyncScope = 'collection' | 'owned';
+
 export type MinifigSyncPreferences = {
   /**
    * When true, automatically sync owned minifigures from owned sets whenever
    * user_sets changes. Wishlist minifigures are never created automatically.
    */
   syncOwnedFromSets: boolean;
+  /**
+   * Which sets feed the minifig sync:
+   * - 'collection' (default): owned sets + sets in any user list
+   * - 'owned': only sets marked as owned
+   */
+  syncScope: MinifigSyncScope;
 };
 
 export type SupabaseDbClient = SupabaseClient<Database>;
@@ -16,8 +24,14 @@ type UserPreferencesRow =
 
 type UserPreferencesSettings = UserPreferencesRow['settings'];
 
+const VALID_SYNC_SCOPES: ReadonlySet<MinifigSyncScope> = new Set([
+  'collection',
+  'owned',
+]);
+
 const DEFAULT_MINIFIG_SYNC_PREFERENCES: MinifigSyncPreferences = {
   syncOwnedFromSets: true,
+  syncScope: 'collection',
 };
 
 function extractMinifigSyncFromSettings(
@@ -26,11 +40,21 @@ function extractMinifigSyncFromSettings(
   if (!settings || typeof settings !== 'object') return null;
   const minifigSync = (settings as { minifigSync?: unknown }).minifigSync;
   if (!minifigSync || typeof minifigSync !== 'object') return null;
-  const obj = minifigSync as { syncOwnedFromSets?: unknown };
+  const obj = minifigSync as {
+    syncOwnedFromSets?: unknown;
+    syncScope?: unknown;
+  };
   const result: Partial<MinifigSyncPreferences> = {};
 
   if (typeof obj.syncOwnedFromSets === 'boolean') {
     result.syncOwnedFromSets = obj.syncOwnedFromSets;
+  }
+
+  if (
+    typeof obj.syncScope === 'string' &&
+    VALID_SYNC_SCOPES.has(obj.syncScope as MinifigSyncScope)
+  ) {
+    result.syncScope = obj.syncScope as MinifigSyncScope;
   }
 
   return result;
@@ -65,6 +89,7 @@ export async function loadUserMinifigSyncPreferences(
 
   return {
     syncOwnedFromSets: raw.syncOwnedFromSets,
+    syncScope: raw.syncScope ?? DEFAULT_MINIFIG_SYNC_PREFERENCES.syncScope,
   };
 }
 
@@ -106,6 +131,13 @@ export async function saveUserMinifigSyncPreferences(
         : typeof existingSync.syncOwnedFromSets === 'boolean'
           ? existingSync.syncOwnedFromSets
           : DEFAULT_MINIFIG_SYNC_PREFERENCES.syncOwnedFromSets,
+    syncScope:
+      patch.syncScope && VALID_SYNC_SCOPES.has(patch.syncScope)
+        ? patch.syncScope
+        : existingSync.syncScope &&
+            VALID_SYNC_SCOPES.has(existingSync.syncScope as MinifigSyncScope)
+          ? (existingSync.syncScope as MinifigSyncScope)
+          : DEFAULT_MINIFIG_SYNC_PREFERENCES.syncScope,
   };
 
   const nextSettings = {

@@ -23,6 +23,7 @@ export default async function AccountPage() {
   let initialPricingCurrency = DEFAULT_PRICING_PREFERENCES.currencyCode;
   let initialPricingCountry = DEFAULT_PRICING_PREFERENCES.countryCode;
   let initialSyncOwnedMinifigsFromSets = true;
+  let initialSyncScope: 'collection' | 'owned' = 'collection';
   let initialSubscription: Tables<'billing_subscriptions'> | null = null;
 
   try {
@@ -38,6 +39,7 @@ export default async function AccountPage() {
           initialPricingCurrency={initialPricingCurrency}
           initialPricingCountry={initialPricingCountry}
           initialSyncOwnedMinifigsFromSets={initialSyncOwnedMinifigsFromSets}
+          initialSyncScope={initialSyncScope}
           initialSubscription={null}
         />
       );
@@ -90,6 +92,7 @@ export default async function AccountPage() {
         user.id
       );
       initialSyncOwnedMinifigsFromSets = !!minifigPrefs.syncOwnedFromSets;
+      initialSyncScope = minifigPrefs.syncScope ?? 'collection';
     } catch {
       // Fall back to default sync behavior if preferences fail to load.
       initialSyncOwnedMinifigsFromSets = true;
@@ -119,6 +122,7 @@ export default async function AccountPage() {
       initialPricingCurrency={initialPricingCurrency}
       initialPricingCountry={initialPricingCountry}
       initialSyncOwnedMinifigsFromSets={initialSyncOwnedMinifigsFromSets}
+      initialSyncScope={initialSyncScope}
       initialSubscription={initialSubscription}
     />
   );

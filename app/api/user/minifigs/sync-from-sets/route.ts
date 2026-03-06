@@ -13,6 +13,7 @@ import type { Enums, Tables } from '@/supabase/types';
 type SyncResponse = {
   ok: boolean;
   updated: number;
+  listItemsSynced?: number;
 };
 
 export const POST = withCsrfProtection(async function POST(
@@ -55,12 +56,13 @@ export const POST = withCsrfProtection(async function POST(
     }
     const force = parsedQuery.data.force;
 
-    if (!force) {
-      const prefs = await loadUserMinifigSyncPreferences(supabase, user.id);
-      if (!prefs.syncOwnedFromSets) {
-        return NextResponse.json({ ok: true, updated: 0 });
-      }
+    const prefs = await loadUserMinifigSyncPreferences(supabase, user.id);
+
+    if (!force && !prefs.syncOwnedFromSets) {
+      return NextResponse.json({ ok: true, updated: 0 });
     }
+
+    const syncScope = prefs.syncScope ?? 'collection';
 
     const { data: userSets, error: setsError } = await supabase
       .from('user_sets')
@@ -80,13 +82,40 @@ export const POST = withCsrfProtection(async function POST(
       Pick<Tables<'user_sets'>, 'set_num' | 'owned'>
     >;
 
-    if (sets.length === 0) {
+    // Start with owned set_nums
+    const setNumsSet = new Set(
+      sets.filter(s => s.owned && s.set_num).map(s => s.set_num)
+    );
+
+    // When syncScope is 'collection', also include sets from user lists
+    if (syncScope === 'collection') {
+      const { data: listItems, error: listError } = await supabase
+        .from('user_list_items')
+        .select('set_num')
+        .eq('user_id', user.id)
+        .eq('item_type', 'set')
+        .not('set_num', 'is', null);
+
+      if (listError) {
+        logger.warn('user_minifigs.sync_from_sets.list_items_query_failed', {
+          userId: user.id,
+          error: listError.message,
+        });
+        // Continue with just owned sets — don't fail the whole sync
+      } else {
+        for (const row of listItems ?? []) {
+          if (row.set_num) setNumsSet.add(row.set_num);
+        }
+      }
+    }
+
+    if (setNumsSet.size === 0) {
       return NextResponse.json({ ok: true, updated: 0 });
     }
 
-    // Get minifigs for all owned sets from RB catalog
+    // Get minifigs for all sets from RB catalog
     const catalogClient = getCatalogWriteClient();
-    const setNums = sets.filter(s => s.owned && s.set_num).map(s => s.set_num);
+    const setNums = [...setNumsSet];
 
     // Get inventories for these sets (latest version per set only)
     const { data: inventories, error: invError } = await catalogClient
@@ -261,9 +290,124 @@ export const POST = withCsrfProtection(async function POST(
       return errorResponse('unknown_error');
     }
 
+    // --- Sync list memberships from parent sets to their minifigs ---
+    let listItemsSynced = 0;
+    try {
+      // Reverse map: inventory_id → set_num
+      const invIdToSetNum = new Map<number, string>();
+      for (const [setNum, inv] of latestBySet) {
+        invIdToSetNum.set(inv.id, setNum);
+      }
+
+      // Map: blMinifigId → set of set_nums it came from
+      const minifigToSets = new Map<string, Set<string>>();
+      for (const im of invMinifigs ?? []) {
+        const blMinifigNo = figToBlId.get(im.fig_num) ?? im.fig_num;
+        const setNum = invIdToSetNum.get(im.inventory_id);
+        if (!setNum) continue;
+        let setNums = minifigToSets.get(blMinifigNo);
+        if (!setNums) {
+          setNums = new Set();
+          minifigToSets.set(blMinifigNo, setNums);
+        }
+        setNums.add(setNum);
+      }
+
+      // Get all list memberships for these sets
+      const allSetNums = [
+        ...new Set([...minifigToSets.values()].flatMap(s => [...s])),
+      ];
+      if (allSetNums.length > 0) {
+        const CHUNK_SIZE = 200;
+        const setListMemberships = new Map<string, string[]>(); // set_num → list_ids
+
+        for (let i = 0; i < allSetNums.length; i += CHUNK_SIZE) {
+          const chunk = allSetNums.slice(i, i + CHUNK_SIZE);
+          const { data: listItems, error: listError } = await supabase
+            .from('user_list_items')
+            .select('set_num, list_id')
+            .eq('user_id', user.id)
+            .eq('item_type', 'set')
+            .in('set_num', chunk);
+
+          if (listError) {
+            logger.warn(
+              'user_minifigs.sync_from_sets.list_membership_query_failed',
+              { userId: user.id, error: listError.message }
+            );
+            break;
+          }
+
+          for (const row of listItems ?? []) {
+            if (!row.set_num || !row.list_id) continue;
+            const existing = setListMemberships.get(row.set_num) ?? [];
+            existing.push(row.list_id);
+            setListMemberships.set(row.set_num, existing);
+          }
+        }
+
+        // Build minifig list items to insert
+        const minifigListRows: Array<{
+          user_id: string;
+          list_id: string;
+          item_type: 'minifig';
+          minifig_id: string;
+        }> = [];
+
+        for (const [blMinifigId, parentSets] of minifigToSets) {
+          const listIds = new Set<string>();
+          for (const setNum of parentSets) {
+            for (const listId of setListMemberships.get(setNum) ?? []) {
+              listIds.add(listId);
+            }
+          }
+          for (const listId of listIds) {
+            minifigListRows.push({
+              user_id: user.id,
+              list_id: listId,
+              item_type: 'minifig',
+              minifig_id: blMinifigId,
+            });
+          }
+        }
+
+        if (minifigListRows.length > 0) {
+          // Batch upsert in chunks — ignoreDuplicates avoids overwriting
+          for (let i = 0; i < minifigListRows.length; i += CHUNK_SIZE) {
+            const chunk = minifigListRows.slice(i, i + CHUNK_SIZE);
+            const { error: listUpsertError } = await supabase
+              .from('user_list_items')
+              .upsert(chunk, {
+                onConflict: 'user_id,list_id,item_type,minifig_id',
+                ignoreDuplicates: true,
+              });
+
+            if (listUpsertError) {
+              logger.warn(
+                'user_minifigs.sync_from_sets.list_items_upsert_failed',
+                { userId: user.id, error: listUpsertError.message }
+              );
+            } else {
+              listItemsSynced += chunk.length;
+            }
+          }
+        }
+      }
+    } catch (listSyncErr) {
+      // List sync is best-effort — don't fail the whole operation
+      logger.warn('user_minifigs.sync_from_sets.list_sync_error', {
+        userId: user.id,
+        error:
+          listSyncErr instanceof Error
+            ? listSyncErr.message
+            : String(listSyncErr),
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       updated: upserts.length,
+      listItemsSynced,
     });
   } catch (err) {
     logger.error('user_minifigs.sync_from_sets.unexpected_error', {

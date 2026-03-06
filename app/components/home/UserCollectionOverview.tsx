@@ -142,9 +142,8 @@ function extractListId(value: ListFilter): string | null {
   return value.replace('list:', '');
 }
 
-function getPrimaryStatusLabel(status: { owned: boolean }): string {
-  if (status.owned) return 'Owned';
-  return 'Uncategorized';
+function getPrimaryStatusLabel(): string {
+  return 'All Sets';
 }
 
 function getRootThemeId(themeId: number, themeMap: ThemeMap): number {
@@ -544,7 +543,7 @@ export function UserCollectionOverview({
         if (activeListName) {
           key = activeListName;
         } else {
-          key = getPrimaryStatusLabel(set.status);
+          key = getPrimaryStatusLabel();
         }
       } else if (sortField === 'year') {
         key = set.year && set.year > 0 ? String(set.year) : 'Unknown Year';

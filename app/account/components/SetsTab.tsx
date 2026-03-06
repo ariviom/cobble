@@ -13,6 +13,7 @@ import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import {
   saveUserMinifigSyncPreferences,
   type MinifigSyncPreferences,
+  type MinifigSyncScope,
 } from '@/app/lib/userMinifigSyncPreferences';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import type { User } from '@supabase/supabase-js';
@@ -21,11 +22,13 @@ import { useMemo, useState } from 'react';
 type SetsTabProps = {
   user: User | null;
   initialSyncOwnedMinifigsFromSets: boolean;
+  initialSyncScope: MinifigSyncScope;
 };
 
 export function SetsTab({
   user,
   initialSyncOwnedMinifigsFromSets,
+  initialSyncScope,
 }: SetsTabProps) {
   const isLoggedIn = !!user;
 
@@ -44,6 +47,9 @@ export function SetsTab({
   // Minifig sync state
   const [syncOwnedMinifigsFromSets, setSyncOwnedMinifigsFromSets] =
     useState<boolean>(initialSyncOwnedMinifigsFromSets ?? true);
+  const [syncScope, setSyncScope] = useState<MinifigSyncScope>(
+    initialSyncScope ?? 'collection'
+  );
   const [isSavingMinifigSync, setIsSavingMinifigSync] = useState(false);
   const [isRunningMinifigSyncNow, setIsRunningMinifigSyncNow] = useState(false);
   const [minifigSyncError, setMinifigSyncError] = useState<string | null>(null);
@@ -78,6 +84,36 @@ export function SetsTab({
         } catch {}
       }
       setMinifigSyncError('Failed to save minifigure sync preference.');
+    } finally {
+      setIsSavingMinifigSync(false);
+    }
+  };
+
+  const handleSaveSyncScope = async (next: MinifigSyncScope) => {
+    if (!user) {
+      setMinifigSyncError('Sign in to change minifigure sync settings.');
+      return;
+    }
+
+    setIsSavingMinifigSync(true);
+    setMinifigSyncError(null);
+    setMinifigSyncMessage(null);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const patch: Partial<MinifigSyncPreferences> = { syncScope: next };
+      await saveUserMinifigSyncPreferences(supabase, user.id, patch);
+      setSyncScope(next);
+      setMinifigSyncMessage('Minifigure sync scope saved.');
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          console.error('AccountPage: failed to save sync scope', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        } catch {}
+      }
+      setMinifigSyncError('Failed to save minifigure sync scope.');
     } finally {
       setIsSavingMinifigSync(false);
     }
@@ -198,6 +234,42 @@ export function SetsTab({
                 </span>
               )}
             </label>
+
+            {syncOwnedMinifigsFromSets && (
+              <fieldset className="ml-7 space-y-2">
+                <legend className="text-body-sm font-medium text-foreground-muted">
+                  Sync minifigs from
+                </legend>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="syncScope"
+                    value="collection"
+                    checked={syncScope === 'collection'}
+                    onChange={() => void handleSaveSyncScope('collection')}
+                    disabled={!isLoggedIn || isSavingMinifigSync}
+                    className="accent-theme-primary"
+                  />
+                  <span className="text-body-sm text-foreground">
+                    Collection
+                  </span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="syncScope"
+                    value="owned"
+                    checked={syncScope === 'owned'}
+                    onChange={() => void handleSaveSyncScope('owned')}
+                    disabled={!isLoggedIn || isSavingMinifigSync}
+                    className="accent-theme-primary"
+                  />
+                  <span className="text-body-sm text-foreground">
+                    Owned Only
+                  </span>
+                </label>
+              </fieldset>
+            )}
 
             {minifigSyncError && (
               <p className="text-body-sm font-medium text-danger">
