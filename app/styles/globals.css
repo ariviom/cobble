@@ -573,7 +573,6 @@ body {
     padding-inline: 1rem;
   }
 }
-
 /* Top positioning utility for tab bar height */
 
 @utility h-tab-bar-height {
