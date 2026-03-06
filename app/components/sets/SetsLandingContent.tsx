@@ -13,7 +13,7 @@ import {
   type UnifiedSet,
 } from '@/app/hooks/useUnifiedSets';
 import type { SetTab } from '@/app/store/open-tabs';
-import { Camera, Search, Trophy, Users, Puzzle } from 'lucide-react';
+import { Camera, Puzzle, Search, Trophy, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback } from 'react';
 
@@ -88,7 +88,7 @@ export function SetsLandingContent({
       </section>
 
       {/* Sticky CTA buttons */}
-      <div className="sticky top-11 z-50 bg-card px-4 py-4 lg:top-0">
+      <div className="sticky top-11 z-50 border-b border-subtle bg-card px-4 py-4 lg:top-0">
         <div className="flex flex-wrap justify-center gap-4">
           <Button href="/search" variant="primary" size="md" className="gap-2">
             <Search className="h-4 w-4" />
