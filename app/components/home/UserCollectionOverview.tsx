@@ -419,13 +419,21 @@ export function UserCollectionOverview({
 
   useEffect(() => {
     let cancelled = false;
-    getLoosePartsCount().then(count => {
-      if (!cancelled) setLoosePartsCount(count);
-    });
+    const refresh = () => {
+      getLoosePartsCount().then(count => {
+        if (!cancelled) setLoosePartsCount(count);
+      });
+    };
+    refresh();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [setsRecord]); // Re-check when collection changes
+  }, [setsRecord]);
 
   useEffect(() => {
     setMounted(true);
