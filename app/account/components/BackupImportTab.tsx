@@ -107,23 +107,16 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
           status: 'owned' as const,
         }));
 
-      // Gather owned parts from IndexedDB
-      const ownedRows = await getLocalDb().localOwned.toArray();
-      const ownedParts = ownedRows.map(r => ({
-        setNumber: r.setNumber,
-        inventoryKey: r.inventoryKey,
-        quantity: r.quantity,
-      }));
-
-      // Gather loose parts from IndexedDB
-      const looseRows = await getAllLooseParts();
-      const looseParts = looseRows.map(r => ({
-        partNum: r.partNum,
-        colorId: r.colorId,
-        quantity: r.quantity,
-      }));
-
-      // Gather Supabase data (lists, minifigs, preferences) if logged in
+      let ownedParts: Array<{
+        setNumber: string;
+        inventoryKey: string;
+        quantity: number;
+      }> = [];
+      let looseParts: Array<{
+        partNum: string;
+        colorId: number;
+        quantity: number;
+      }> = [];
       let lists: Array<{
         id: string;
         name: string;
@@ -135,19 +128,58 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
       if (user) {
         const supabase = getSupabaseBrowserClient();
 
-        // Fetch lists, minifigs, and preferences in parallel
-        const [listsRes, minifigsRes, prefsRes] = await Promise.all([
-          supabase.from('user_lists').select('id, name').eq('user_id', user.id),
-          supabase
-            .from('user_minifigs')
-            .select('fig_num, status')
-            .eq('user_id', user.id),
-          supabase
-            .from('user_preferences')
-            .select('theme, theme_color, settings')
-            .eq('user_id', user.id)
-            .single(),
-        ]);
+        // Fetch all data from Supabase in parallel
+        const [ownedPartsRes, loosePartsRes, listsRes, minifigsRes, prefsRes] =
+          await Promise.all([
+            supabase
+              .from('user_set_parts')
+              .select('set_num, part_num, color_id, owned_quantity')
+              .eq('user_id', user.id)
+              .gt('owned_quantity', 0),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- loose_quantity types stale (C1)
+            (supabase as any)
+              .from('user_parts_inventory')
+              .select('part_num, color_id, loose_quantity')
+              .eq('user_id', user.id)
+              .gt('loose_quantity', 0),
+            supabase
+              .from('user_lists')
+              .select('id, name')
+              .eq('user_id', user.id),
+            supabase
+              .from('user_minifigs')
+              .select('fig_num, status')
+              .eq('user_id', user.id),
+            supabase
+              .from('user_preferences')
+              .select('theme, theme_color, settings')
+              .eq('user_id', user.id)
+              .single(),
+          ]);
+
+        // Process owned parts from Supabase
+        if (ownedPartsRes.data) {
+          ownedParts = ownedPartsRes.data.map(r => ({
+            setNumber: r.set_num as string,
+            inventoryKey: `${r.part_num}:${r.color_id}`,
+            quantity: r.owned_quantity as number,
+          }));
+        }
+
+        // Process loose parts from Supabase
+        // Note: loose_quantity column exists but types are stale until C1 regen
+        if (loosePartsRes.data) {
+          type LooseRow = {
+            part_num: string;
+            color_id: number;
+            loose_quantity: number;
+          };
+          looseParts = (loosePartsRes.data as unknown as LooseRow[]).map(r => ({
+            partNum: r.part_num,
+            colorId: r.color_id,
+            quantity: r.loose_quantity,
+          }));
+        }
 
         // Process lists + items
         if (listsRes.data && listsRes.data.length > 0) {
@@ -230,6 +262,21 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
             }
           }
         }
+      } else {
+        // Anonymous: read from local IndexedDB
+        const ownedRows = await getLocalDb().localOwned.toArray();
+        ownedParts = ownedRows.map(r => ({
+          setNumber: r.setNumber,
+          inventoryKey: r.inventoryKey,
+          quantity: r.quantity,
+        }));
+
+        const looseRows = await getAllLooseParts();
+        looseParts = looseRows.map(r => ({
+          partNum: r.partNum,
+          colorId: r.colorId,
+          quantity: r.quantity,
+        }));
       }
 
       const backup = assembleBackup({
@@ -315,9 +362,73 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
         );
       }
 
-      // 4. Restore lists, minifigs, preferences via Supabase (requires auth)
+      // 4. Restore all Supabase data (requires auth)
       if (user) {
         const supabase = getSupabaseBrowserClient();
+
+        // Restore sets to Supabase
+        await supabase.from('user_sets').delete().eq('user_id', user.id);
+        if (backup.data.sets.length > 0) {
+          const setRows = backup.data.sets
+            .filter(s => s.status === 'owned')
+            .map(s => ({
+              user_id: user.id,
+              set_num: s.setNumber,
+              owned: true,
+            }));
+          for (let i = 0; i < setRows.length; i += 200) {
+            await supabase.from('user_sets').insert(setRows.slice(i, i + 200));
+          }
+        }
+
+        // Restore owned parts to Supabase
+        await supabase.from('user_set_parts').delete().eq('user_id', user.id);
+        if (backup.data.ownedParts.length > 0) {
+          const ownedRows = backup.data.ownedParts.map(p => {
+            const lastColon = p.inventoryKey.lastIndexOf(':');
+            const partNum = p.inventoryKey.slice(0, lastColon);
+            const colorId = Number(p.inventoryKey.slice(lastColon + 1));
+            return {
+              user_id: user.id,
+              set_num: p.setNumber,
+              part_num: partNum,
+              color_id: colorId,
+              owned_quantity: p.quantity,
+            };
+          });
+          for (let i = 0; i < ownedRows.length; i += 200) {
+            await supabase
+              .from('user_set_parts')
+              .upsert(ownedRows.slice(i, i + 200), {
+                onConflict: 'user_id,set_num,part_num,color_id,is_spare',
+              });
+          }
+        }
+
+        // Restore loose parts to Supabase
+        await supabase
+          .from('user_parts_inventory')
+          .update({
+            loose_quantity: 0,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', user.id)
+          .gt('loose_quantity', 0);
+        if (backup.data.looseParts.length > 0) {
+          const looseRows = backup.data.looseParts.map(p => ({
+            user_id: user.id,
+            part_num: p.partNum,
+            color_id: p.colorId,
+            loose_quantity: p.quantity,
+          }));
+          for (let i = 0; i < looseRows.length; i += 200) {
+            await supabase
+              .from('user_parts_inventory')
+              .upsert(looseRows.slice(i, i + 200), {
+                onConflict: 'user_id,part_num,color_id',
+              });
+          }
+        }
 
         // Restore lists: delete existing, then insert from backup
         await supabase.from('user_list_items').delete().eq('user_id', user.id);
@@ -745,6 +856,12 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
             previous backup. Backups include your sets, owned parts, loose
             parts, lists, minifigs, and preferences.
           </p>
+          {isLoggedIn && (
+            <p className="text-body-sm mt-2 text-foreground-muted">
+              Your collection syncs automatically between devices. Backups are
+              useful for safekeeping or transferring to another account.
+            </p>
+          )}
 
           <div className="mt-6 space-y-4">
             {/* Download Backup */}
