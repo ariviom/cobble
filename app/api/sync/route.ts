@@ -38,12 +38,28 @@ const userSetPartsPayloadSchema = z.object({
     .optional(),
 });
 
-const syncOperationSchema = z.object({
-  id: z.number().int(),
-  table: z.literal('user_set_parts'),
-  operation: z.union([z.literal('upsert'), z.literal('delete')]),
-  payload: userSetPartsPayloadSchema,
+const userLoosePartsPayloadSchema = z.object({
+  part_num: z.string().min(1).max(VALIDATION.PART_NUM_MAX),
+  color_id: z.number().int().min(0).max(VALIDATION.COLOR_ID_MAX),
+  loose_quantity: z.number().int().min(0).max(VALIDATION.OWNED_QTY_MAX),
 });
+
+const operationField = z.union([z.literal('upsert'), z.literal('delete')]);
+
+const syncOperationSchema = z.discriminatedUnion('table', [
+  z.object({
+    id: z.number().int(),
+    table: z.literal('user_set_parts'),
+    operation: operationField,
+    payload: userSetPartsPayloadSchema,
+  }),
+  z.object({
+    id: z.number().int(),
+    table: z.literal('user_loose_parts'),
+    operation: operationField,
+    payload: userLoosePartsPayloadSchema,
+  }),
+]);
 
 const syncRequestSchema = z.object({
   operations: z
@@ -121,34 +137,78 @@ export const POST = withCsrfProtection(
         };
       }> = [];
 
+      const userLoosePartsUpserts: Array<{
+        id: number;
+        payload: {
+          user_id: string;
+          part_num: string;
+          color_id: number;
+          loose_quantity: number;
+        };
+      }> = [];
+
+      const userLoosePartsDeletes: Array<{
+        id: number;
+        payload: {
+          part_num: string;
+          color_id: number;
+        };
+      }> = [];
+
       // Validate and categorize operations (table already constrained by schema)
       for (const op of operations) {
-        const payload = op.payload;
-        const isSpare = payload.is_spare ?? false;
+        if (op.table === 'user_set_parts') {
+          const payload = op.payload;
+          const isSpare = payload.is_spare ?? false;
 
-        if (op.operation === 'upsert') {
-          const quantity = payload.owned_quantity ?? 0;
-          userSetPartsUpserts.push({
-            id: op.id,
-            payload: {
-              user_id: user.id,
-              set_num: payload.set_num,
-              part_num: payload.part_num,
-              color_id: payload.color_id,
-              is_spare: isSpare,
-              owned_quantity: Math.max(0, Math.floor(quantity)),
-            },
-          });
+          if (op.operation === 'upsert') {
+            const quantity = payload.owned_quantity ?? 0;
+            userSetPartsUpserts.push({
+              id: op.id,
+              payload: {
+                user_id: user.id,
+                set_num: payload.set_num,
+                part_num: payload.part_num,
+                color_id: payload.color_id,
+                is_spare: isSpare,
+                owned_quantity: Math.max(0, Math.floor(quantity)),
+              },
+            });
+          } else {
+            userSetPartsDeletes.push({
+              id: op.id,
+              payload: {
+                set_num: payload.set_num,
+                part_num: payload.part_num,
+                color_id: payload.color_id,
+                is_spare: isSpare,
+              },
+            });
+          }
         } else {
-          userSetPartsDeletes.push({
-            id: op.id,
-            payload: {
-              set_num: payload.set_num,
-              part_num: payload.part_num,
-              color_id: payload.color_id,
-              is_spare: isSpare,
-            },
-          });
+          // user_loose_parts
+          const payload = op.payload;
+          const looseQty = Math.max(0, Math.floor(payload.loose_quantity));
+
+          if (op.operation === 'upsert') {
+            userLoosePartsUpserts.push({
+              id: op.id,
+              payload: {
+                user_id: user.id,
+                part_num: payload.part_num,
+                color_id: payload.color_id,
+                loose_quantity: looseQty,
+              },
+            });
+          } else {
+            userLoosePartsDeletes.push({
+              id: op.id,
+              payload: {
+                part_num: payload.part_num,
+                color_id: payload.color_id,
+              },
+            });
+          }
         }
       }
 
@@ -195,6 +255,72 @@ export const POST = withCsrfProtection(
           .eq('part_num', d.payload.part_num)
           .eq('color_id', d.payload.color_id)
           .eq('is_spare', d.payload.is_spare);
+
+        if (deleteError) {
+          failed.push({
+            id: d.id,
+            error: `delete_failed:${deleteError.message}`,
+          });
+        } else {
+          processed++;
+        }
+      }
+
+      // Execute batched upserts for user_loose_parts
+      // Omit `quantity` so existing set-derived values are preserved;
+      // new rows get the DB default (0).
+      if (userLoosePartsUpserts.length > 0) {
+        const rows = userLoosePartsUpserts.map(u => ({
+          user_id: u.payload.user_id,
+          part_num: u.payload.part_num,
+          color_id: u.payload.color_id,
+          loose_quantity: u.payload.loose_quantity,
+        }));
+        const { error: upsertError } = await supabase
+          .from('user_parts_inventory')
+          .upsert(rows, {
+            onConflict: 'user_id,part_num,color_id',
+          });
+
+        if (upsertError) {
+          // Batch failed — retry each row individually
+          for (const u of userLoosePartsUpserts) {
+            const { error: rowError } = await supabase
+              .from('user_parts_inventory')
+              .upsert(
+                [
+                  {
+                    user_id: u.payload.user_id,
+                    part_num: u.payload.part_num,
+                    color_id: u.payload.color_id,
+                    loose_quantity: u.payload.loose_quantity,
+                  },
+                ],
+                { onConflict: 'user_id,part_num,color_id' }
+              );
+
+            if (rowError) {
+              failed.push({
+                id: u.id,
+                error: `upsert_failed:${rowError.message}`,
+              });
+            } else {
+              processed++;
+            }
+          }
+        } else {
+          processed += userLoosePartsUpserts.length;
+        }
+      }
+
+      // Execute deletes for user_loose_parts (set loose_quantity = 0)
+      for (const d of userLoosePartsDeletes) {
+        const { error: deleteError } = await supabase
+          .from('user_parts_inventory')
+          .update({ loose_quantity: 0, updated_at: new Date().toISOString() })
+          .eq('user_id', user.id)
+          .eq('part_num', d.payload.part_num)
+          .eq('color_id', d.payload.color_id);
 
         if (deleteError) {
           failed.push({
