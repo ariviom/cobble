@@ -46,6 +46,7 @@ const backupDataSchema = z.object({
 const backupPreferencesSchema = z
   .object({
     theme: z.string().optional(),
+    themeColor: z.string().optional(),
     pricing: z
       .object({
         currencyCode: z.string().optional(),

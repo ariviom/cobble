@@ -34,6 +34,7 @@ import {
 } from '@/app/lib/localDb/loosePartsStore';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useUserSetsStore } from '@/app/store/user-sets';
+import type { Json } from '@/supabase/types';
 import type { User } from '@supabase/supabase-js';
 import { useCallback, useRef, useState } from 'react';
 
@@ -312,8 +313,85 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
           'replace'
         );
       }
+
+      // 4. Restore lists, minifigs, preferences via Supabase (requires auth)
+      if (user) {
+        const supabase = getSupabaseBrowserClient();
+
+        // Restore lists: delete existing, then insert from backup
+        await supabase.from('user_list_items').delete().eq('user_id', user.id);
+        await supabase.from('user_lists').delete().eq('user_id', user.id);
+
+        if (backup.data.lists.length > 0) {
+          const listRows = backup.data.lists.map(l => ({
+            id: l.id,
+            user_id: user.id,
+            name: l.name,
+          }));
+          await supabase.from('user_lists').insert(listRows);
+
+          const itemRows = backup.data.lists.flatMap(l =>
+            l.items.map(item => ({
+              user_id: user.id,
+              list_id: l.id,
+              item_type: item.itemType,
+              set_num: item.itemType === 'set' ? item.itemId : null,
+              minifig_id: item.itemType === 'minifig' ? item.itemId : null,
+            }))
+          );
+          if (itemRows.length > 0) {
+            for (let i = 0; i < itemRows.length; i += 200) {
+              await supabase
+                .from('user_list_items')
+                .insert(itemRows.slice(i, i + 200));
+            }
+          }
+        }
+
+        // Restore minifigs
+        await supabase.from('user_minifigs').delete().eq('user_id', user.id);
+        if (backup.data.minifigs.length > 0) {
+          const minifigRows = backup.data.minifigs.map(m => ({
+            user_id: user.id,
+            fig_num: m.figNum,
+            status: m.status as 'owned' | 'want',
+          }));
+          for (let i = 0; i < minifigRows.length; i += 200) {
+            await supabase
+              .from('user_minifigs')
+              .insert(minifigRows.slice(i, i + 200));
+          }
+        }
+
+        // Restore preferences
+        if (backup.preferences) {
+          const prefs = backup.preferences;
+          const settingsPayload: Record<string, unknown> = {};
+          if (prefs.pricing) settingsPayload.pricing = prefs.pricing;
+          if (prefs.minifigSync)
+            settingsPayload.minifigSync = prefs.minifigSync;
+
+          const upsertData: {
+            user_id: string;
+            theme?: string | null;
+            theme_color?: string | null;
+            settings?: { [key: string]: Json | undefined };
+          } = { user_id: user.id };
+          if (prefs.theme) upsertData.theme = prefs.theme;
+          if (prefs.themeColor) upsertData.theme_color = prefs.themeColor;
+          if (Object.keys(settingsPayload).length > 0) {
+            upsertData.settings = settingsPayload as {
+              [key: string]: Json | undefined;
+            };
+          }
+
+          await supabase
+            .from('user_preferences')
+            .upsert(upsertData, { onConflict: 'user_id' });
+        }
+      }
     },
-    [replaceAllSets]
+    [replaceAllSets, user]
   );
 
   const handleRestoreFile = useCallback(
