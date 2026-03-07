@@ -81,6 +81,7 @@ export {
   bulkUpsertLooseParts,
   clearAllLooseParts,
   enqueueLoosePartChange,
+  bulkEnqueueLoosePartChanges,
 } from './loosePartsStore';
 
 export {

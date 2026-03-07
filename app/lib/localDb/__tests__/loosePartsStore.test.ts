@@ -18,8 +18,10 @@ const mockPut = vi.fn();
 const mockClear = vi.fn();
 const mockTransaction = vi.fn();
 
+const mockEach = vi.fn();
 const mockLocalLooseParts = {
   toArray: mockToArray,
+  each: mockEach,
   where: mockWhere,
   put: mockPut,
   clear: mockClear,
@@ -125,7 +127,7 @@ describe('loosePartsStore', () => {
 
   describe('getLoosePartsCount', () => {
     it('returns 0 when empty', async () => {
-      mockToArray.mockResolvedValue([]);
+      mockEach.mockImplementation(async () => {});
 
       const result = await getLoosePartsCount();
 
@@ -133,11 +135,16 @@ describe('loosePartsStore', () => {
     });
 
     it('returns sum of quantities', async () => {
-      mockToArray.mockResolvedValue([
+      const rows = [
         { partNum: '3001', colorId: 1, quantity: 5, updatedAt: 1000 },
         { partNum: '3002', colorId: 0, quantity: 10, updatedAt: 2000 },
         { partNum: '3003', colorId: 2, quantity: 3, updatedAt: 3000 },
-      ]);
+      ];
+      mockEach.mockImplementation(
+        async (cb: (row: (typeof rows)[0]) => void) => {
+          rows.forEach(cb);
+        }
+      );
 
       const result = await getLoosePartsCount();
 

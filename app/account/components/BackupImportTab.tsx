@@ -31,7 +31,7 @@ import {
   getAllLooseParts,
   clearAllLooseParts,
   bulkUpsertLooseParts,
-  enqueueLoosePartChange,
+  bulkEnqueueLoosePartChanges,
 } from '@/app/lib/localDb/loosePartsStore';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useUserSetsStore } from '@/app/store/user-sets';
@@ -111,6 +111,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
         setNumber: string;
         inventoryKey: string;
         quantity: number;
+        isSpare?: boolean;
       }> = [];
       let looseParts: Array<{
         partNum: string;
@@ -133,7 +134,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
           await Promise.all([
             supabase
               .from('user_set_parts')
-              .select('set_num, part_num, color_id, owned_quantity')
+              .select('set_num, part_num, color_id, is_spare, owned_quantity')
               .eq('user_id', user.id)
               .gt('owned_quantity', 0),
             // eslint-disable-next-line @typescript-eslint/no-explicit-any -- loose_quantity types stale (C1)
@@ -163,6 +164,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
             setNumber: r.set_num as string,
             inventoryKey: `${r.part_num}:${r.color_id}`,
             quantity: r.owned_quantity as number,
+            ...(r.is_spare ? { isSpare: true } : {}),
           }));
         }
 
@@ -400,8 +402,6 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
         }
 
         // Restore owned parts to Supabase
-        // Note: backup v1 does not track is_spare, so spare parts are restored
-        // as non-spare. This is a known v1 limitation.
         await checked(
           'clear owned parts',
           supabase.from('user_set_parts').delete().eq('user_id', user.id)
@@ -416,7 +416,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
               set_num: p.setNumber,
               part_num: partNum,
               color_id: colorId,
-              is_spare: false,
+              is_spare: p.isSpare ?? false,
               owned_quantity: p.quantity,
             };
           });
@@ -802,17 +802,12 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
 
           await bulkUpsertLooseParts(partsToWrite, importMode);
 
-          // Enqueue sync for each part (Plus users need this pushed to Supabase)
-          const clientId = crypto.randomUUID();
-          for (const part of partsToWrite) {
-            await enqueueLoosePartChange(
-              user!.id,
-              clientId,
-              part.partNum,
-              part.colorId,
-              part.quantity
-            );
-          }
+          // Enqueue sync for all parts in one transaction
+          await bulkEnqueueLoosePartChanges(
+            user!.id,
+            crypto.randomUUID(),
+            partsToWrite
+          );
         }
 
         // Write mapped minifigs to Supabase
@@ -1014,32 +1009,18 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
                 </p>
 
                 {/* Warnings */}
-                {importPreview.format !== 'rebrickable-sets' &&
-                  importPreview.data.warnings.length > 0 && (
-                    <div className="space-y-1">
-                      {importPreview.data.warnings.map((w, i) => (
-                        <p
-                          key={i}
-                          className="text-body-sm text-warning-foreground"
-                        >
-                          {w}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                {importPreview.format === 'rebrickable-sets' &&
-                  importPreview.data.warnings.length > 0 && (
-                    <div className="space-y-1">
-                      {importPreview.data.warnings.map((w, i) => (
-                        <p
-                          key={i}
-                          className="text-body-sm text-warning-foreground"
-                        >
-                          {w}
-                        </p>
-                      ))}
-                    </div>
-                  )}
+                {importPreview.data.warnings.length > 0 && (
+                  <div className="space-y-1">
+                    {importPreview.data.warnings.map((w, i) => (
+                      <p
+                        key={i}
+                        className="text-body-sm text-warning-foreground"
+                      >
+                        {w}
+                      </p>
+                    ))}
+                  </div>
+                )}
 
                 {/* Merge / Replace */}
                 {importPreview.format !== 'rebrickable-sets' && (

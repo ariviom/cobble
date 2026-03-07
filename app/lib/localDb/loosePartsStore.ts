@@ -47,11 +47,10 @@ export async function getLoosePartsCount(): Promise<number> {
 
   try {
     const db = getLocalDb();
-    const rows = await db.localLooseParts.toArray();
     let total = 0;
-    for (const row of rows) {
+    await db.localLooseParts.each(row => {
       total += row.quantity;
-    }
+    });
     return total;
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
@@ -143,6 +142,88 @@ export async function clearAllLooseParts(): Promise<void> {
 // ============================================================================
 // Sync Enqueue
 // ============================================================================
+
+/**
+ * Enqueue multiple loose part changes in a single IndexedDB transaction.
+ * More efficient than calling enqueueLoosePartChange in a loop for bulk imports.
+ */
+export async function bulkEnqueueLoosePartChanges(
+  userId: string,
+  clientId: string,
+  parts: Array<{ partNum: string; colorId: number; quantity: number }>
+): Promise<void> {
+  if (!isIndexedDBAvailable() || parts.length === 0) return;
+
+  try {
+    const db = getLocalDb();
+    const now = Date.now();
+
+    await db.transaction('rw', db.syncQueue, async () => {
+      // Load all pending loose part ops for this user in one query
+      const allPending = await db.syncQueue
+        .where('table')
+        .equals('user_loose_parts')
+        .filter(op => op.retryCount < MAX_RETRY_COUNT && op.userId === userId)
+        .toArray();
+
+      // Index by part_num:color_id for fast lookup
+      const pendingByKey = new Map<string, (typeof allPending)[number]>();
+      for (const op of allPending) {
+        const p = op.payload as Record<string, unknown>;
+        pendingByKey.set(`${p.part_num}:${p.color_id}`, op);
+      }
+
+      for (const part of parts) {
+        const key = `${part.partNum}:${part.colorId}`;
+        const payload = {
+          part_num: part.partNum,
+          color_id: part.colorId,
+          loose_quantity: part.quantity,
+        };
+        const operation = part.quantity > 0 ? 'upsert' : 'delete';
+        const existing = pendingByKey.get(key);
+
+        if (existing) {
+          await db.syncQueue.update(existing.id!, {
+            payload,
+            operation,
+            userId,
+            createdAt: now,
+            retryCount: 0,
+            lastError: null,
+          });
+        } else {
+          const id = await db.syncQueue.add({
+            table: 'user_loose_parts',
+            operation,
+            payload,
+            clientId,
+            userId,
+            createdAt: now,
+            retryCount: 0,
+            lastError: null,
+          });
+          // Track newly added op so subsequent parts in this batch can consolidate
+          pendingByKey.set(key, {
+            id: id as number,
+            table: 'user_loose_parts',
+            operation,
+            payload,
+            clientId,
+            userId,
+            createdAt: now,
+            retryCount: 0,
+            lastError: null,
+          });
+        }
+      }
+    });
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to bulk enqueue loose part changes:', error);
+    }
+  }
+}
 
 /**
  * Enqueue a loose part quantity change for sync to Supabase.

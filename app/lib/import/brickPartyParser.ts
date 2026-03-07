@@ -11,6 +11,7 @@ const backupOwnedPartSchema = z.object({
   setNumber: z.string().min(1),
   inventoryKey: z.string().min(1),
   quantity: z.number().int().min(0),
+  isSpare: z.boolean().optional(),
 });
 
 const backupLoosePartSchema = z.object({
