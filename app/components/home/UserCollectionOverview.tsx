@@ -402,6 +402,18 @@ export function UserCollectionOverview({
     [setsRecord]
   );
 
+  const { ownedSetCount, totalParts } = useMemo(() => {
+    let count = 0;
+    let parts = 0;
+    for (const s of Object.values(setsRecord)) {
+      if (s.status.owned) {
+        count++;
+        parts += s.numParts;
+      }
+    }
+    return { ownedSetCount: count, totalParts: parts };
+  }, [setsRecord]);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -752,6 +764,15 @@ export function UserCollectionOverview({
         minifigSortDir={minifigSortDir}
         onMinifigSortDirChange={setMinifigSortDir}
       />
+
+      {ownedSetCount > 0 && (
+        <div className="mx-auto mt-3 w-full max-w-7xl px-4">
+          <p className="text-sm text-foreground-muted">
+            {totalParts.toLocaleString()} parts from {ownedSetCount} set
+            {ownedSetCount !== 1 ? 's' : ''}
+          </p>
+        </div>
+      )}
 
       <div className="mx-auto w-full max-w-7xl px-4">
         {!hasAnySets && collectionType === 'sets' && (
