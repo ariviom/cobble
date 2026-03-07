@@ -12,6 +12,7 @@ import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useUserLists } from '@/app/hooks/useUserLists';
 import { useUserMinifigs } from '@/app/hooks/useUserMinifigs';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { getLoosePartsCount } from '@/app/lib/localDb/loosePartsStore';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import type { Tables } from '@/supabase/types';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -414,6 +415,18 @@ export function UserCollectionOverview({
     return { ownedSetCount: count, totalParts: parts };
   }, [setsRecord]);
 
+  const [loosePartsCount, setLoosePartsCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    getLoosePartsCount().then(count => {
+      if (!cancelled) setLoosePartsCount(count);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [setsRecord]); // Re-check when collection changes
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -765,11 +778,22 @@ export function UserCollectionOverview({
         onMinifigSortDirChange={setMinifigSortDir}
       />
 
-      {ownedSetCount > 0 && (
+      {(ownedSetCount > 0 || loosePartsCount > 0) && (
         <div className="mx-auto mt-3 w-full max-w-7xl px-4">
           <p className="text-sm text-foreground-muted">
-            {totalParts.toLocaleString()} parts from {ownedSetCount} set
-            {ownedSetCount !== 1 ? 's' : ''}
+            {ownedSetCount > 0 && (
+              <>
+                {totalParts.toLocaleString()} parts from {ownedSetCount} set
+                {ownedSetCount !== 1 ? 's' : ''}
+              </>
+            )}
+            {ownedSetCount > 0 && loosePartsCount > 0 && ' · '}
+            {loosePartsCount > 0 && (
+              <>
+                {loosePartsCount.toLocaleString()} loose part
+                {loosePartsCount !== 1 ? 's' : ''}
+              </>
+            )}
           </p>
         </div>
       )}
