@@ -197,6 +197,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
             const itemsRes = await supabase
               .from('user_list_items')
               .select('list_id, item_type, set_num, minifig_id')
+              .eq('user_id', user.id)
               .in('list_id', batch);
             if (itemsRes.data) {
               allItems.push(
@@ -366,8 +367,22 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
       if (user) {
         const supabase = getSupabaseBrowserClient();
 
+        // Helper: throw on Supabase errors so partial restores surface clearly
+        const checked = async <T,>(
+          label: string,
+          op: PromiseLike<{ error: { message: string } | null; data: T }>
+        ): Promise<T> => {
+          const { error, data } = await op;
+          if (error)
+            throw new Error(`Restore failed (${label}): ${error.message}`);
+          return data;
+        };
+
         // Restore sets to Supabase
-        await supabase.from('user_sets').delete().eq('user_id', user.id);
+        await checked(
+          'clear sets',
+          supabase.from('user_sets').delete().eq('user_id', user.id)
+        );
         if (backup.data.sets.length > 0) {
           const setRows = backup.data.sets
             .filter(s => s.status === 'owned')
@@ -377,12 +392,20 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
               owned: true,
             }));
           for (let i = 0; i < setRows.length; i += 200) {
-            await supabase.from('user_sets').insert(setRows.slice(i, i + 200));
+            await checked(
+              'insert sets',
+              supabase.from('user_sets').insert(setRows.slice(i, i + 200))
+            );
           }
         }
 
         // Restore owned parts to Supabase
-        await supabase.from('user_set_parts').delete().eq('user_id', user.id);
+        // Note: backup v1 does not track is_spare, so spare parts are restored
+        // as non-spare. This is a known v1 limitation.
+        await checked(
+          'clear owned parts',
+          supabase.from('user_set_parts').delete().eq('user_id', user.id)
+        );
         if (backup.data.ownedParts.length > 0) {
           const ownedRows = backup.data.ownedParts.map(p => {
             const lastColon = p.inventoryKey.lastIndexOf(':');
@@ -393,27 +416,34 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
               set_num: p.setNumber,
               part_num: partNum,
               color_id: colorId,
+              is_spare: false,
               owned_quantity: p.quantity,
             };
           });
           for (let i = 0; i < ownedRows.length; i += 200) {
-            await supabase
-              .from('user_set_parts')
-              .upsert(ownedRows.slice(i, i + 200), {
-                onConflict: 'user_id,set_num,part_num,color_id,is_spare',
-              });
+            await checked(
+              'upsert owned parts',
+              supabase
+                .from('user_set_parts')
+                .upsert(ownedRows.slice(i, i + 200), {
+                  onConflict: 'user_id,set_num,part_num,color_id,is_spare',
+                })
+            );
           }
         }
 
         // Restore loose parts to Supabase
-        await supabase
-          .from('user_parts_inventory')
-          .update({
-            loose_quantity: 0,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('user_id', user.id)
-          .gt('loose_quantity', 0);
+        await checked(
+          'clear loose parts',
+          supabase
+            .from('user_parts_inventory')
+            .update({
+              loose_quantity: 0,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', user.id)
+            .gt('loose_quantity', 0)
+        );
         if (backup.data.looseParts.length > 0) {
           const looseRows = backup.data.looseParts.map(p => ({
             user_id: user.id,
@@ -422,17 +452,26 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
             loose_quantity: p.quantity,
           }));
           for (let i = 0; i < looseRows.length; i += 200) {
-            await supabase
-              .from('user_parts_inventory')
-              .upsert(looseRows.slice(i, i + 200), {
-                onConflict: 'user_id,part_num,color_id',
-              });
+            await checked(
+              'upsert loose parts',
+              supabase
+                .from('user_parts_inventory')
+                .upsert(looseRows.slice(i, i + 200), {
+                  onConflict: 'user_id,part_num,color_id',
+                })
+            );
           }
         }
 
         // Restore lists: delete existing, then insert from backup
-        await supabase.from('user_list_items').delete().eq('user_id', user.id);
-        await supabase.from('user_lists').delete().eq('user_id', user.id);
+        await checked(
+          'clear list items',
+          supabase.from('user_list_items').delete().eq('user_id', user.id)
+        );
+        await checked(
+          'clear lists',
+          supabase.from('user_lists').delete().eq('user_id', user.id)
+        );
 
         if (backup.data.lists.length > 0) {
           const listRows = backup.data.lists.map(l => ({
@@ -440,7 +479,10 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
             user_id: user.id,
             name: l.name,
           }));
-          await supabase.from('user_lists').insert(listRows);
+          await checked(
+            'insert lists',
+            supabase.from('user_lists').insert(listRows)
+          );
 
           const itemRows = backup.data.lists.flatMap(l =>
             l.items.map(item => ({
@@ -453,15 +495,21 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
           );
           if (itemRows.length > 0) {
             for (let i = 0; i < itemRows.length; i += 200) {
-              await supabase
-                .from('user_list_items')
-                .insert(itemRows.slice(i, i + 200));
+              await checked(
+                'insert list items',
+                supabase
+                  .from('user_list_items')
+                  .insert(itemRows.slice(i, i + 200))
+              );
             }
           }
         }
 
         // Restore minifigs
-        await supabase.from('user_minifigs').delete().eq('user_id', user.id);
+        await checked(
+          'clear minifigs',
+          supabase.from('user_minifigs').delete().eq('user_id', user.id)
+        );
         if (backup.data.minifigs.length > 0) {
           const minifigRows = backup.data.minifigs.map(m => ({
             user_id: user.id,
@@ -469,9 +517,12 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
             status: m.status as 'owned' | 'want',
           }));
           for (let i = 0; i < minifigRows.length; i += 200) {
-            await supabase
-              .from('user_minifigs')
-              .insert(minifigRows.slice(i, i + 200));
+            await checked(
+              'insert minifigs',
+              supabase
+                .from('user_minifigs')
+                .insert(minifigRows.slice(i, i + 200))
+            );
           }
         }
 
@@ -497,9 +548,12 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
             };
           }
 
-          await supabase
-            .from('user_preferences')
-            .upsert(upsertData, { onConflict: 'user_id' });
+          await checked(
+            'upsert preferences',
+            supabase
+              .from('user_preferences')
+              .upsert(upsertData, { onConflict: 'user_id' })
+          );
         }
       }
     },
