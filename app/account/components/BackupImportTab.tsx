@@ -26,6 +26,9 @@ import {
   parseRebrickableSetList,
   type RebrickableSetParseResult,
 } from '@/app/lib/import/rebrickableSetParser';
+import { getLocalDb } from '@/app/lib/localDb/schema';
+import { getAllLooseParts } from '@/app/lib/localDb/loosePartsStore';
+import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import type { User } from '@supabase/supabase-js';
 import { useCallback, useRef, useState } from 'react';
@@ -86,7 +89,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
   );
 
   // ─── Backup / Download ────────────────────────────────────────────
-  const handleDownloadBackup = useCallback(() => {
+  const handleDownloadBackup = useCallback(async () => {
     setBackupError(null);
     setBackupSuccess(null);
     setIsExporting(true);
@@ -100,18 +103,165 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
           status: 'owned' as const,
         }));
 
+      // Gather owned parts from IndexedDB
+      const ownedRows = await getLocalDb().localOwned.toArray();
+      const ownedParts = ownedRows.map(r => ({
+        setNumber: r.setNumber,
+        inventoryKey: r.inventoryKey,
+        quantity: r.quantity,
+      }));
+
+      // Gather loose parts from IndexedDB
+      const looseRows = await getAllLooseParts();
+      const looseParts = looseRows.map(r => ({
+        partNum: r.partNum,
+        colorId: r.colorId,
+        quantity: r.quantity,
+      }));
+
+      // Gather Supabase data (lists, minifigs, preferences) if logged in
+      let lists: Array<{
+        id: string;
+        name: string;
+        items: Array<{ itemType: 'set' | 'minifig'; itemId: string }>;
+      }> = [];
+      let minifigs: Array<{ figNum: string; status: string }> = [];
+      let preferences: Record<string, unknown> = {};
+
+      if (user) {
+        const supabase = getSupabaseBrowserClient();
+
+        // Fetch lists, minifigs, and preferences in parallel
+        const [listsRes, minifigsRes, prefsRes] = await Promise.all([
+          supabase.from('user_lists').select('id, name').eq('user_id', user.id),
+          supabase
+            .from('user_minifigs')
+            .select('fig_num, status')
+            .eq('user_id', user.id),
+          supabase
+            .from('user_preferences')
+            .select('theme, theme_color, settings')
+            .eq('user_id', user.id)
+            .single(),
+        ]);
+
+        // Process lists + items
+        if (listsRes.data && listsRes.data.length > 0) {
+          const listIds = listsRes.data.map(l => l.id as string);
+
+          // Batch list item queries at 200 IDs max
+          const allItems: Array<{
+            list_id: string;
+            item_type: string;
+            set_num: string | null;
+            minifig_id: string | null;
+          }> = [];
+          for (let i = 0; i < listIds.length; i += 200) {
+            const batch = listIds.slice(i, i + 200);
+            const itemsRes = await supabase
+              .from('user_list_items')
+              .select('list_id, item_type, set_num, minifig_id')
+              .in('list_id', batch);
+            if (itemsRes.data) {
+              allItems.push(
+                ...itemsRes.data.map(item => ({
+                  list_id: item.list_id as string,
+                  item_type: item.item_type as string,
+                  set_num: item.set_num as string | null,
+                  minifig_id: item.minifig_id as string | null,
+                }))
+              );
+            }
+          }
+
+          // Group items by list
+          const itemsByList = new Map<
+            string,
+            Array<{ itemType: 'set' | 'minifig'; itemId: string }>
+          >();
+          for (const item of allItems) {
+            const listItems = itemsByList.get(item.list_id) ?? [];
+            const itemId =
+              item.item_type === 'set' ? item.set_num : item.minifig_id;
+            if (itemId) {
+              listItems.push({
+                itemType: item.item_type as 'set' | 'minifig',
+                itemId,
+              });
+            }
+            itemsByList.set(item.list_id, listItems);
+          }
+
+          lists = listsRes.data.map(l => ({
+            id: l.id as string,
+            name: l.name as string,
+            items: itemsByList.get(l.id as string) ?? [],
+          }));
+        }
+
+        // Process minifigs
+        if (minifigsRes.data) {
+          minifigs = minifigsRes.data.map(m => ({
+            figNum: m.fig_num as string,
+            status: (m.status as string) ?? 'owned',
+          }));
+        }
+
+        // Process preferences
+        if (prefsRes.data) {
+          const settings = (prefsRes.data.settings ?? {}) as Record<
+            string,
+            unknown
+          >;
+          preferences = {
+            theme: prefsRes.data.theme ?? undefined,
+            themeColor: prefsRes.data.theme_color ?? undefined,
+            pricing: settings.pricing ?? undefined,
+            minifigSync: settings.minifigSync ?? undefined,
+          };
+          // Strip undefined keys
+          for (const key of Object.keys(preferences)) {
+            if (preferences[key] === undefined) {
+              delete preferences[key];
+            }
+          }
+        }
+      }
+
       const backup = assembleBackup({
         sets,
-        ownedParts: [],
-        looseParts: [],
-        lists: [],
-        minifigs: [],
-        preferences: {},
+        ownedParts,
+        looseParts,
+        lists,
+        minifigs,
+        preferences,
       });
 
       downloadBackup(backup);
+
+      // Build a detailed success message
+      const parts: string[] = [];
+      if (sets.length > 0)
+        parts.push(`${sets.length} set${sets.length !== 1 ? 's' : ''}`);
+      if (ownedParts.length > 0)
+        parts.push(
+          `${ownedParts.length} owned part entr${ownedParts.length !== 1 ? 'ies' : 'y'}`
+        );
+      if (looseParts.length > 0)
+        parts.push(
+          `${looseParts.length} loose part${looseParts.length !== 1 ? 's' : ''}`
+        );
+      if (lists.length > 0)
+        parts.push(`${lists.length} list${lists.length !== 1 ? 's' : ''}`);
+      if (minifigs.length > 0)
+        parts.push(
+          `${minifigs.length} minifig${minifigs.length !== 1 ? 's' : ''}`
+        );
+
       setBackupSuccess(
-        `Backup downloaded with ${sets.length} set${sets.length !== 1 ? 's' : ''}.`
+        parts.length > 0
+          ? `Backup downloaded with ${parts.join(', ')}.`
+          : 'Backup downloaded (empty — no data found).'
       );
     } catch (err) {
       setBackupError(
@@ -120,7 +270,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
     } finally {
       setIsExporting(false);
     }
-  }, [userSets]);
+  }, [userSets, user]);
 
   // ─── Restore from Backup ──────────────────────────────────────────
   const handleRestoreFile = useCallback(
@@ -439,7 +589,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
                 type="button"
                 size="sm"
                 variant="primary"
-                onClick={handleDownloadBackup}
+                onClick={() => void handleDownloadBackup()}
                 disabled={isExporting}
               >
                 {isExporting ? 'Exporting...' : 'Download Backup'}
