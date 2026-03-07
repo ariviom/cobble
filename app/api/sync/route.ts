@@ -275,6 +275,7 @@ export const POST = withCsrfProtection(
           part_num: u.payload.part_num,
           color_id: u.payload.color_id,
           loose_quantity: u.payload.loose_quantity,
+          updated_at: new Date().toISOString(),
         }));
         const { error: upsertError } = await supabase
           .from('user_parts_inventory')
@@ -294,6 +295,7 @@ export const POST = withCsrfProtection(
                     part_num: u.payload.part_num,
                     color_id: u.payload.color_id,
                     loose_quantity: u.payload.loose_quantity,
+                    updated_at: new Date().toISOString(),
                   },
                 ],
                 { onConflict: 'user_id,part_num,color_id' }
@@ -329,6 +331,15 @@ export const POST = withCsrfProtection(
           });
         } else {
           processed++;
+          // Clean up orphan rows where both quantity and loose_quantity are 0
+          await supabase
+            .from('user_parts_inventory')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('part_num', d.payload.part_num)
+            .eq('color_id', d.payload.color_id)
+            .eq('quantity', 0)
+            .eq('loose_quantity', 0);
         }
       }
 
