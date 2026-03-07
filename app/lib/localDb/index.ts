@@ -20,6 +20,7 @@ export {
   type LocalOwned,
   type LocalCollection,
   type LocalCollectionItem,
+  type LocalLoosePart,
   type SyncQueueItem,
   type MetaEntry,
   type UIState,
@@ -73,6 +74,14 @@ export {
   isMigrationComplete,
   setMigrationComplete,
 } from './metaStore';
+
+export {
+  getAllLooseParts,
+  getLoosePartsCount,
+  bulkUpsertLooseParts,
+  clearAllLooseParts,
+  enqueueLoosePartChange,
+} from './loosePartsStore';
 
 export {
   getPartiallyCompleteSets,
