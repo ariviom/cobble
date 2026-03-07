@@ -7,7 +7,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Mock localLooseParts table
 const mockToArray = vi.fn();
 const mockFirst = vi.fn();
-const mockEquals = vi.fn(() => ({ first: mockFirst, toArray: mockToArray }));
+const mockDelete = vi.fn();
+const mockEquals = vi.fn(() => ({
+  first: mockFirst,
+  toArray: mockToArray,
+  delete: mockDelete,
+}));
 const mockWhere = vi.fn(() => ({ equals: mockEquals }));
 const mockPut = vi.fn();
 const mockClear = vi.fn();
@@ -238,12 +243,50 @@ describe('loosePartsStore', () => {
       );
     });
 
-    it('skips parts with zero quantity', async () => {
+    it('skips parts with zero quantity when no existing entry', async () => {
+      mockFirst.mockResolvedValue(undefined);
+
       await bulkUpsertLooseParts(
         [{ partNum: '3001', colorId: 1, quantity: 0 }],
         'replace'
       );
 
+      expect(mockPut).not.toHaveBeenCalled();
+      expect(mockDelete).not.toHaveBeenCalled();
+    });
+
+    it('deletes existing entry when zero quantity in replace mode', async () => {
+      mockFirst.mockResolvedValue({
+        partNum: '3001',
+        colorId: 1,
+        quantity: 5,
+        updatedAt: 1000,
+      });
+      mockDelete.mockResolvedValue(1);
+
+      await bulkUpsertLooseParts(
+        [{ partNum: '3001', colorId: 1, quantity: 0 }],
+        'replace'
+      );
+
+      expect(mockDelete).toHaveBeenCalled();
+      expect(mockPut).not.toHaveBeenCalled();
+    });
+
+    it('skips zero quantity in merge mode even with existing entry', async () => {
+      mockFirst.mockResolvedValue({
+        partNum: '3001',
+        colorId: 1,
+        quantity: 5,
+        updatedAt: 1000,
+      });
+
+      await bulkUpsertLooseParts(
+        [{ partNum: '3001', colorId: 1, quantity: 0 }],
+        'merge'
+      );
+
+      expect(mockDelete).not.toHaveBeenCalled();
       expect(mockPut).not.toHaveBeenCalled();
     });
 
@@ -360,6 +403,40 @@ describe('loosePartsStore', () => {
           color_id: 1,
           loose_quantity: 10,
         },
+        operation: 'upsert',
+        userId: 'user1',
+        createdAt: expect.any(Number),
+        retryCount: 0,
+        lastError: null,
+      });
+      expect(mockSyncQueueAdd).not.toHaveBeenCalled();
+    });
+
+    it('updates operation to delete when consolidating with quantity 0', async () => {
+      const existingOp = {
+        id: 42,
+        table: 'user_loose_parts' as const,
+        operation: 'upsert' as const,
+        payload: { part_num: '3001', color_id: 1, loose_quantity: 5 },
+        clientId: 'client1',
+        userId: 'user1',
+        createdAt: 1000,
+        retryCount: 0,
+        lastError: null,
+      };
+      mockSyncFilter.mockReturnValue({
+        toArray: vi.fn().mockResolvedValue([existingOp]),
+      });
+
+      await enqueueLoosePartChange('user1', 'client1', '3001', 1, 0);
+
+      expect(mockSyncQueueUpdate).toHaveBeenCalledWith(42, {
+        payload: {
+          part_num: '3001',
+          color_id: 1,
+          loose_quantity: 0,
+        },
+        operation: 'delete',
         userId: 'user1',
         createdAt: expect.any(Number),
         retryCount: 0,

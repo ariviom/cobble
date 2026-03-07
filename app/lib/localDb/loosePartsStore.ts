@@ -86,12 +86,22 @@ export async function bulkUpsertLooseParts(
     await db.transaction('rw', db.localLooseParts, async () => {
       for (const part of parts) {
         const normalizedQty = Math.max(0, Math.floor(part.quantity || 0));
-        if (normalizedQty === 0) continue;
 
         const existing = await db.localLooseParts
           .where('[partNum+colorId]')
           .equals([part.partNum, part.colorId])
           .first();
+
+        if (normalizedQty === 0) {
+          // In replace mode, remove existing entries for explicitly-zeroed parts
+          if (mode === 'replace' && existing) {
+            await db.localLooseParts
+              .where('[partNum+colorId]')
+              .equals([part.partNum, part.colorId])
+              .delete();
+          }
+          continue;
+        }
 
         const newQty =
           existing && mode === 'merge'
@@ -175,6 +185,7 @@ export async function enqueueLoosePartChange(
       const mostRecent = existingOps[existingOps.length - 1]!;
       await db.syncQueue.update(mostRecent.id!, {
         payload,
+        operation: quantity > 0 ? 'upsert' : 'delete',
         userId,
         createdAt: now,
         retryCount: 0,

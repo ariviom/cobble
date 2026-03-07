@@ -11,7 +11,7 @@
  * - Global user inventory
  */
 
-import Dexie, { type EntityTable } from 'dexie';
+import Dexie, { type EntityTable, type Table } from 'dexie';
 
 // ============================================================================
 // Catalog Types (read-only mirror of Supabase/Rebrickable)
@@ -239,7 +239,7 @@ export class BrickPartyDB extends Dexie {
   localOwned!: EntityTable<LocalOwned, 'id'>;
   localCollections!: EntityTable<LocalCollection, 'id'>;
   localCollectionItems!: EntityTable<LocalCollectionItem, 'id'>;
-  localLooseParts!: EntityTable<LocalLoosePart, 'partNum'>;
+  localLooseParts!: Table<LocalLoosePart, [string, number]>;
 
   // Sync infrastructure
   syncQueue!: EntityTable<SyncQueueItem, 'id'>;
