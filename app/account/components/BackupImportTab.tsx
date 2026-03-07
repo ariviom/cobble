@@ -31,6 +31,7 @@ import {
   getAllLooseParts,
   clearAllLooseParts,
   bulkUpsertLooseParts,
+  enqueueLoosePartChange,
 } from '@/app/lib/localDb/loosePartsStore';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useUserSetsStore } from '@/app/store/user-sets';
@@ -616,15 +617,75 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
         const mappedMinifigs = mapped.minifigs.filter(m => m.rbFigNum);
         const unmappedMinifigs = mapped.minifigs.filter(m => !m.rbFigNum);
 
+        // Write mapped parts to IndexedDB loose parts
+        if (mappedParts.length > 0) {
+          const partsToWrite = mappedParts.map(p => {
+            const original = parts.find(
+              orig =>
+                orig.blPartId === p.blPartId && orig.blColorId === p.blColorId
+            );
+            return {
+              partNum: p.rbPartNum!,
+              colorId: p.rbColorId!,
+              quantity: original?.quantity ?? 1,
+            };
+          });
+
+          if (importMode === 'replace') {
+            await clearAllLooseParts();
+          }
+
+          await bulkUpsertLooseParts(partsToWrite, importMode);
+
+          // Enqueue sync for each part (Plus users need this pushed to Supabase)
+          const clientId = crypto.randomUUID();
+          for (const part of partsToWrite) {
+            await enqueueLoosePartChange(
+              user!.id,
+              clientId,
+              part.partNum,
+              part.colorId,
+              part.quantity
+            );
+          }
+        }
+
+        // Write mapped minifigs to Supabase
+        if (mappedMinifigs.length > 0) {
+          const supabase = getSupabaseBrowserClient();
+
+          if (importMode === 'replace') {
+            await supabase
+              .from('user_minifigs')
+              .delete()
+              .eq('user_id', user!.id);
+          }
+
+          const minifigRows = mappedMinifigs.map(m => ({
+            user_id: user!.id,
+            fig_num: m.rbFigNum!,
+            status: 'owned' as const,
+          }));
+
+          for (let i = 0; i < minifigRows.length; i += 200) {
+            await supabase
+              .from('user_minifigs')
+              .upsert(minifigRows.slice(i, i + 200), {
+                onConflict: 'user_id,fig_num',
+              });
+          }
+        }
+
+        // Build result message
         const summaryParts: string[] = [];
         if (mappedParts.length > 0) {
           summaryParts.push(
-            `${mappedParts.length} part${mappedParts.length !== 1 ? 's' : ''} resolved`
+            `${mappedParts.length} part${mappedParts.length !== 1 ? 's' : ''} imported`
           );
         }
         if (mappedMinifigs.length > 0) {
           summaryParts.push(
-            `${mappedMinifigs.length} minifig${mappedMinifigs.length !== 1 ? 's' : ''} resolved`
+            `${mappedMinifigs.length} minifig${mappedMinifigs.length !== 1 ? 's' : ''} imported`
           );
         }
 
@@ -640,9 +701,6 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
           );
         }
 
-        // For now, show the mapping result as success.
-        // Writing to local DB (loose parts + minifigs) will be wired up when
-        // the localLooseParts table and minifig write path are available.
         const resultMsg =
           summaryParts.length > 0
             ? `Import complete: ${summaryParts.join(', ')}.` +
@@ -664,7 +722,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
 
       if (importInputRef.current) importInputRef.current.value = '';
     }
-  }, [importPreview, setOwned, isLoggedIn]);
+  }, [importPreview, setOwned, isLoggedIn, importMode, user]);
 
   const clearImport = useCallback(() => {
     setImportPreview(null);
