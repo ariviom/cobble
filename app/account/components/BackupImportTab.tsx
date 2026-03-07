@@ -42,6 +42,8 @@ const FORMAT_LABELS: Record<ImportFormat, string> = {
   'rebrickable-sets': 'Rebrickable Sets',
 };
 
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 // Parsed import preview state
 type ImportPreview =
   | {
@@ -128,6 +130,12 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
 
       const file = event.target.files?.[0];
       if (!file) return;
+
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        setRestoreError('File is too large (max 10 MB).');
+        if (restoreInputRef.current) restoreInputRef.current.value = '';
+        return;
+      }
 
       const reader = new FileReader();
       reader.onload = () => {
@@ -216,6 +224,12 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
 
       const file = event.target.files?.[0];
       if (!file) return;
+
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        setImportError('File is too large (max 10 MB).');
+        if (importInputRef.current) importInputRef.current.value = '';
+        return;
+      }
 
       setImportFileName(file.name);
 
