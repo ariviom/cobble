@@ -61,6 +61,10 @@ type UserSetsState = {
    * Merge a batch of Supabase-hydrated sets into the local store.
    */
   hydrateFromSupabase: (entries: HydratedSetInput[]) => void;
+  /**
+   * Replace all sets with the given entries (full clear + replace, not merge).
+   */
+  replaceAllSets: (entries: HydratedSetInput[]) => void;
 };
 
 const STORAGE_KEY = 'brick_party_user_sets_v1';
@@ -339,6 +343,43 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
 
       if (!mutated) {
         return prevState;
+      }
+
+      const nextState: UserSetsState = {
+        ...prevState,
+        sets: nextSets,
+      };
+      persistState(nextState);
+      return nextState;
+    });
+  },
+  replaceAllSets: (entries: HydratedSetInput[]) => {
+    set(prevState => {
+      const nextSets: Record<string, UserSet> = {};
+      const now = Date.now();
+
+      for (const entry of entries) {
+        if (!entry || typeof entry.setNumber !== 'string') {
+          continue;
+        }
+        const normKey = normalizeKey(entry.setNumber);
+
+        nextSets[normKey] = {
+          setNumber: entry.setNumber,
+          name: entry.name ?? entry.setNumber,
+          year: typeof entry.year === 'number' ? entry.year : 0,
+          imageUrl: typeof entry.imageUrl === 'string' ? entry.imageUrl : null,
+          numParts: typeof entry.numParts === 'number' ? entry.numParts : 0,
+          themeId: typeof entry.themeId === 'number' ? entry.themeId : null,
+          status: entry.status ?? EMPTY_SET_STATUS,
+          lastUpdatedAt:
+            typeof entry.updatedAt === 'number' &&
+            Number.isFinite(entry.updatedAt)
+              ? entry.updatedAt
+              : now,
+          foundCount:
+            typeof entry.foundCount === 'number' ? entry.foundCount : 0,
+        };
       }
 
       const nextState: UserSetsState = {

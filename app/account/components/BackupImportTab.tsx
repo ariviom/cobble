@@ -27,7 +27,11 @@ import {
   type RebrickableSetParseResult,
 } from '@/app/lib/import/rebrickableSetParser';
 import { getLocalDb } from '@/app/lib/localDb/schema';
-import { getAllLooseParts } from '@/app/lib/localDb/loosePartsStore';
+import {
+  getAllLooseParts,
+  clearAllLooseParts,
+  bulkUpsertLooseParts,
+} from '@/app/lib/localDb/loosePartsStore';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import type { User } from '@supabase/supabase-js';
@@ -84,9 +88,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
 
   const userSets = useUserSetsStore(state => state.sets);
   const setOwned = useUserSetsStore(state => state.setOwned);
-  const hydrateFromSupabase = useUserSetsStore(
-    state => state.hydrateFromSupabase
-  );
+  const replaceAllSets = useUserSetsStore(state => state.replaceAllSets);
 
   // ─── Backup / Download ────────────────────────────────────────────
   const handleDownloadBackup = useCallback(async () => {
@@ -273,6 +275,47 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
   }, [userSets, user]);
 
   // ─── Restore from Backup ──────────────────────────────────────────
+  const restoreFromBackup = useCallback(
+    async (backup: BrickPartyBackup) => {
+      // 1. Clear and restore sets (full replace, not merge)
+      const setEntries = backup.data.sets.map(s => ({
+        setNumber: s.setNumber,
+        status: { owned: s.status === 'owned' },
+      }));
+      replaceAllSets(setEntries);
+
+      // 2. Clear and restore owned parts
+      const db = getLocalDb();
+      await db.localOwned.clear();
+      if (backup.data.ownedParts.length > 0) {
+        const now = Date.now();
+        const ownedEntries = backup.data.ownedParts.map(p => ({
+          setNumber: p.setNumber,
+          inventoryKey: p.inventoryKey,
+          quantity: p.quantity,
+          updatedAt: now,
+        }));
+        await db.transaction('rw', db.localOwned, async () => {
+          await db.localOwned.bulkAdd(ownedEntries);
+        });
+      }
+
+      // 3. Clear and restore loose parts
+      await clearAllLooseParts();
+      if (backup.data.looseParts.length > 0) {
+        await bulkUpsertLooseParts(
+          backup.data.looseParts.map(p => ({
+            partNum: p.partNum,
+            colorId: p.colorId,
+            quantity: p.quantity,
+          })),
+          'replace'
+        );
+      }
+    },
+    [replaceAllSets]
+  );
+
   const handleRestoreFile = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       setRestoreError(null);
@@ -288,7 +331,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
       }
 
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         const content = reader.result as string;
         const result = parseBrickPartyBackup(content);
 
@@ -322,7 +365,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
         setIsRestoring(true);
 
         try {
-          restoreFromBackup(backup);
+          await restoreFromBackup(backup);
           setRestoreSuccess(
             `Restored ${setCount} set${setCount !== 1 ? 's' : ''}, ` +
               `${partsCount} owned part entr${partsCount !== 1 ? 'ies' : 'y'}, ` +
@@ -346,22 +389,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
 
       reader.readAsText(file);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
-  const restoreFromBackup = useCallback(
-    (backup: BrickPartyBackup) => {
-      // Restore sets to user-sets store
-      const entries = backup.data.sets.map(s => ({
-        setNumber: s.setNumber,
-        status: { owned: s.status === 'owned' },
-      }));
-      if (entries.length > 0) {
-        hydrateFromSupabase(entries);
-      }
-    },
-    [hydrateFromSupabase]
+    [restoreFromBackup]
   );
 
   // ─── Import: File Select ──────────────────────────────────────────
