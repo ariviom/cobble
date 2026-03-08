@@ -161,8 +161,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
               .select('set_num, part_num, color_id, is_spare, owned_quantity')
               .eq('user_id', user.id)
               .gt('owned_quantity', 0),
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- loose_quantity types stale (C1)
-            (supabase as any)
+            supabase
               .from('user_parts_inventory')
               .select('part_num, color_id, loose_quantity')
               .eq('user_id', user.id)
