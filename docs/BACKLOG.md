@@ -225,6 +225,24 @@ Technical debt and improvements to pull from when ready.
 
 Deferred features requiring research or significant scope.
 
+### Expo Native App (iOS & Android)
+
+**Plan:** [`docs/dev/EXPO_APP_PLAN.md`](dev/EXPO_APP_PLAN.md)
+
+Separate Expo/React Native app sharing ~60% of the codebase (domain types, business logic, validation, state contracts) with the existing Next.js web app. Mobile calls the same API routes over HTTP. Monorepo via Turborepo + pnpm. UniWind for Tailwind v4 on native. No shared JSX components (tooling not ready).
+
+- [ ] Monorepo scaffold (move web to `apps/web/`, create `packages/shared/`)
+- [ ] Extract Tier 1 shared code (domain, types, config, utils — ~650 lines, pure TS)
+- [ ] Move `InventoryRow` type to shared package (unblocks localDb extraction)
+- [ ] Extract Tier 2 shared code (store types, pure service functions, adapter interfaces)
+- [ ] Expo app: auth + navigation shell
+- [ ] Expo app: search, set detail, inventory + owned tracking
+- [ ] Expo app: identify (expo-camera), Search Party, pricing
+- [ ] Expo app: account/billing (in-app purchase)
+- [ ] TestFlight / Play Store submission
+
+Estimated: ~2 weeks refactoring + ~7-8 weeks Expo development.
+
 - Price history (addressed by derived pricing plan — observation log provides historical data; derived averages are independently computed and not subject to BL's 6hr display rule)
 - Marketplace scanner / store finder — **Researched Feb 2026:**
   - Rebrickable's store finder uses a **privileged BrickLink partnership API** (not public) for cross-store inventory search
@@ -283,4 +301,5 @@ Major completed initiatives - see `docs/dev/archive/` for detailed plans:
 - `docs/dev/CURRENT_IMPROVEMENT_PLAN.md` - Service role audit details
 - `docs/billing/stripe-subscriptions.md` - Full Stripe implementation spec
 - `memory/system-patterns.md` - Caching strategy and architecture patterns
+- `docs/dev/EXPO_APP_PLAN.md` - Expo native app plan (monorepo, shared code extraction, mobile architecture)
 - `docs/dev/archive/` - Completed plans for historical reference
