@@ -12,6 +12,7 @@ import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useUserLists } from '@/app/hooks/useUserLists';
 import { useUserMinifigs } from '@/app/hooks/useUserMinifigs';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { getLoosePartsCount } from '@/app/lib/localDb/loosePartsStore';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import type { Tables } from '@/supabase/types';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -402,6 +403,39 @@ export function UserCollectionOverview({
     [setsRecord]
   );
 
+  const { ownedSetCount, totalParts } = useMemo(() => {
+    let count = 0;
+    let parts = 0;
+    for (const s of Object.values(setsRecord)) {
+      if (s.status.owned) {
+        count++;
+        parts += s.numParts;
+      }
+    }
+    return { ownedSetCount: count, totalParts: parts };
+  }, [setsRecord]);
+
+  const [loosePartsCount, setLoosePartsCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      getLoosePartsCount().then(count => {
+        if (!cancelled) setLoosePartsCount(count);
+      });
+    };
+    refresh();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+     
+  }, []);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -752,6 +786,26 @@ export function UserCollectionOverview({
         minifigSortDir={minifigSortDir}
         onMinifigSortDirChange={setMinifigSortDir}
       />
+
+      {(ownedSetCount > 0 || loosePartsCount > 0) && (
+        <div className="mx-auto mt-3 w-full max-w-7xl px-4">
+          <p className="text-sm text-foreground-muted">
+            {ownedSetCount > 0 && (
+              <>
+                {totalParts.toLocaleString()} parts from {ownedSetCount} set
+                {ownedSetCount !== 1 ? 's' : ''}
+              </>
+            )}
+            {ownedSetCount > 0 && loosePartsCount > 0 && ' · '}
+            {loosePartsCount > 0 && (
+              <>
+                {loosePartsCount.toLocaleString()} loose part
+                {loosePartsCount !== 1 ? 's' : ''}
+              </>
+            )}
+          </p>
+        </div>
+      )}
 
       <div className="mx-auto w-full max-w-7xl px-4">
         {!hasAnySets && collectionType === 'sets' && (

@@ -11,7 +11,7 @@
  * - Global user inventory
  */
 
-import Dexie, { type EntityTable } from 'dexie';
+import Dexie, { type EntityTable, type Table } from 'dexie';
 
 // ============================================================================
 // Catalog Types (read-only mirror of Supabase/Rebrickable)
@@ -150,6 +150,17 @@ export type LocalCollectionItem = {
   addedAt: number;
 };
 
+/**
+ * Loose parts not tied to any set (imported or manually added).
+ * Mirrors user_parts_inventory.loose_quantity for offline use.
+ */
+export type LocalLoosePart = {
+  partNum: string;
+  colorId: number;
+  quantity: number;
+  updatedAt: number;
+};
+
 // ============================================================================
 // Sync Infrastructure Types
 // ============================================================================
@@ -160,7 +171,12 @@ export type LocalCollectionItem = {
  */
 export type SyncQueueItem = {
   id?: number; // Auto-increment primary key
-  table: 'user_set_parts' | 'user_lists' | 'user_list_items' | 'user_minifigs'; // Extensible
+  table:
+    | 'user_set_parts'
+    | 'user_lists'
+    | 'user_list_items'
+    | 'user_minifigs'
+    | 'user_loose_parts'; // Extensible
   operation: 'upsert' | 'delete';
   payload: Record<string, unknown>;
   clientId: string;
@@ -223,6 +239,7 @@ export class BrickPartyDB extends Dexie {
   localOwned!: EntityTable<LocalOwned, 'id'>;
   localCollections!: EntityTable<LocalCollection, 'id'>;
   localCollectionItems!: EntityTable<LocalCollectionItem, 'id'>;
+  localLooseParts!: Table<LocalLoosePart, [string, number]>;
 
   // Sync infrastructure
   syncQueue!: EntityTable<SyncQueueItem, 'id'>;
@@ -388,6 +405,29 @@ export class BrickPartyDB extends Dexie {
           tx.table('catalogSetMeta').clear(),
         ]);
       });
+
+    // Version 9: Add localLooseParts table for loose parts not tied to any set.
+    this.version(9).stores({
+      catalogSets: 'setNumber, themeId, year, cachedAt',
+      catalogParts: 'partNum, categoryId, parentCategory, cachedAt',
+      catalogColors: 'id, cachedAt',
+      catalogSetParts:
+        '++id, setNumber, partNum, colorId, inventoryKey, [setNumber+inventoryKey], [setNumber+colorId]',
+      catalogSetMeta: 'setNumber, inventoryCachedAt, inventoryVersion',
+      catalogMinifigs: 'figNum, cachedAt',
+
+      localOwned:
+        '++id, setNumber, inventoryKey, [setNumber+inventoryKey], updatedAt',
+      localCollections: 'id, userId, type, updatedAt',
+      localCollectionItems: '++id, collectionId, itemType, itemId, addedAt',
+      localLooseParts: '[partNum+colorId], partNum, colorId, updatedAt',
+
+      syncQueue: '++id, userId, table, createdAt, retryCount',
+      meta: 'key',
+
+      uiState: 'key',
+      recentSets: 'setNumber, visitedAt',
+    });
   }
 }
 

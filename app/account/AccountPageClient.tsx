@@ -16,6 +16,7 @@ import Link from 'next/link';
 
 import {
   AccountTab,
+  BackupImportTab,
   BillingTab,
   DisplayTab,
   FeedbackTab,
@@ -104,6 +105,7 @@ export default function AccountPageClient({
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="sets">Your sets</TabsTrigger>
           <TabsTrigger value="feedback">Feedback</TabsTrigger>
+          <TabsTrigger value="backup">Backup & Import</TabsTrigger>
         </TabsList>
 
         <TabsContent value="account">
@@ -143,6 +145,10 @@ export default function AccountPageClient({
 
         <TabsContent value="feedback">
           <FeedbackTab user={user} />
+        </TabsContent>
+
+        <TabsContent value="backup">
+          <BackupImportTab user={user} />
         </TabsContent>
       </Tabs>
     </div>

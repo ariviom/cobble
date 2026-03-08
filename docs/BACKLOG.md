@@ -73,6 +73,7 @@ See `docs/billing/stripe-subscriptions.md` for full spec.
 - [ ] Import from Brick Party JSON export
 - [ ] Import from BrickScan format
 - [ ] Free tier (manual workaround for cross-device sync)
+- [ ] BrickScan CSV dedup: multiple rows for same part+color are not aggregated during import — merge mode keeps max quantity per row instead of summing. Low priority; only affects users with duplicate entries in their BrickScan export
 
 ### Group F: UI Polish & Testing (finishing touches)
 
