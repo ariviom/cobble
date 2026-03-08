@@ -433,7 +433,8 @@ export function UserCollectionOverview({
       cancelled = true;
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [setsRecord]);
+     
+  }, []);
 
   useEffect(() => {
     setMounted(true);

@@ -53,6 +53,30 @@ const FORMAT_LABELS: Record<ImportFormat, string> = {
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
+function plural(count: number, singular: string, pluralForm?: string): string {
+  if (count === 1) return `1 ${singular}`;
+  return `${count} ${pluralForm ?? singular + 's'}`;
+}
+
+function summarizeCounts(data: {
+  sets?: number;
+  ownedParts?: number;
+  looseParts?: number;
+  minifigs?: number;
+  lists?: number;
+}): string {
+  const parts: string[] = [];
+  if (data.sets) parts.push(plural(data.sets, 'set'));
+  if (data.ownedParts)
+    parts.push(
+      plural(data.ownedParts, 'owned part entry', 'owned part entries')
+    );
+  if (data.looseParts) parts.push(plural(data.looseParts, 'loose part'));
+  if (data.minifigs) parts.push(plural(data.minifigs, 'minifig'));
+  if (data.lists) parts.push(plural(data.lists, 'list'));
+  return parts.join(', ');
+}
+
 // Parsed import preview state
 type ImportPreview =
   | {
@@ -293,28 +317,16 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
 
       downloadBackup(backup);
 
-      // Build a detailed success message
-      const parts: string[] = [];
-      if (sets.length > 0)
-        parts.push(`${sets.length} set${sets.length !== 1 ? 's' : ''}`);
-      if (ownedParts.length > 0)
-        parts.push(
-          `${ownedParts.length} owned part entr${ownedParts.length !== 1 ? 'ies' : 'y'}`
-        );
-      if (looseParts.length > 0)
-        parts.push(
-          `${looseParts.length} loose part${looseParts.length !== 1 ? 's' : ''}`
-        );
-      if (lists.length > 0)
-        parts.push(`${lists.length} list${lists.length !== 1 ? 's' : ''}`);
-      if (minifigs.length > 0)
-        parts.push(
-          `${minifigs.length} minifig${minifigs.length !== 1 ? 's' : ''}`
-        );
-
+      const summary = summarizeCounts({
+        sets: sets.length,
+        ownedParts: ownedParts.length,
+        looseParts: looseParts.length,
+        minifigs: minifigs.length,
+        lists: lists.length,
+      });
       setBackupSuccess(
-        parts.length > 0
-          ? `Backup downloaded with ${parts.join(', ')}.`
+        summary
+          ? `Backup downloaded with ${summary}.`
           : 'Backup downloaded (empty — no data found).'
       );
     } catch (err) {
@@ -366,6 +378,9 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
       }
 
       // 4. Restore all Supabase data (requires auth)
+      // N.B. Supabase REST has no cross-table transactions — if a later step
+      // fails, earlier clears/inserts have already been applied. The checked()
+      // helper throws immediately on error to limit further damage.
       if (user) {
         const supabase = getSupabaseBrowserClient();
 
@@ -408,6 +423,8 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
         );
         if (backup.data.ownedParts.length > 0) {
           const ownedRows = backup.data.ownedParts.map(p => {
+            // inventoryKey format: "partNum:colorId" or "bl:partNum:colorId"
+            // lastIndexOf handles the bl: prefix correctly
             const lastColon = p.inventoryKey.lastIndexOf(':');
             const partNum = p.inventoryKey.slice(0, lastColon);
             const colorId = Number(p.inventoryKey.slice(lastColon + 1));
@@ -433,6 +450,8 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
         }
 
         // Restore loose parts to Supabase
+        // Note: loose_quantity not in generated types yet — .update()/.upsert()
+        // accept extra properties silently. Regen types after migration deploy.
         await checked(
           'clear loose parts',
           supabase
@@ -593,11 +612,11 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
 
         const confirmed = window.confirm(
           `This will replace all your current data with:\n` +
-            `- ${setCount} set${setCount !== 1 ? 's' : ''}\n` +
-            `- ${partsCount} owned part entr${partsCount !== 1 ? 'ies' : 'y'}\n` +
-            `- ${looseCount} loose part${looseCount !== 1 ? 's' : ''}\n` +
-            `- ${minifigCount} minifig${minifigCount !== 1 ? 's' : ''}\n` +
-            `- ${listCount} list${listCount !== 1 ? 's' : ''}\n\n` +
+            `- ${plural(setCount, 'set')}\n` +
+            `- ${plural(partsCount, 'owned part entry', 'owned part entries')}\n` +
+            `- ${plural(looseCount, 'loose part')}\n` +
+            `- ${plural(minifigCount, 'minifig')}\n` +
+            `- ${plural(listCount, 'list')}\n\n` +
             `Continue?`
         );
 
@@ -611,11 +630,13 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
         try {
           await restoreFromBackup(backup);
           setRestoreSuccess(
-            `Restored ${setCount} set${setCount !== 1 ? 's' : ''}, ` +
-              `${partsCount} owned part entr${partsCount !== 1 ? 'ies' : 'y'}, ` +
-              `${looseCount} loose part${looseCount !== 1 ? 's' : ''}, ` +
-              `${minifigCount} minifig${minifigCount !== 1 ? 's' : ''}, ` +
-              `${listCount} list${listCount !== 1 ? 's' : ''}.`
+            `Restored ${summarizeCounts({
+              sets: setCount,
+              ownedParts: partsCount,
+              looseParts: looseCount,
+              minifigs: minifigCount,
+              lists: listCount,
+            })}.`
           );
         } catch (err) {
           setRestoreError(
@@ -717,9 +738,7 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
           importedCount++;
         }
 
-        setImportSuccess(
-          `Imported ${importedCount} set${importedCount !== 1 ? 's' : ''} as owned.`
-        );
+        setImportSuccess(`Imported ${plural(importedCount, 'set')} as owned.`);
       } else {
         // BrickScan CSV or XML
         const { parts, minifigs, warnings } = importPreview.data;
@@ -784,17 +803,15 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
 
         // Write mapped parts to IndexedDB loose parts
         if (mappedParts.length > 0) {
-          const partsToWrite = mappedParts.map(p => {
-            const original = parts.find(
-              orig =>
-                orig.blPartId === p.blPartId && orig.blColorId === p.blColorId
-            );
-            return {
-              partNum: p.rbPartNum!,
-              colorId: p.rbColorId!,
-              quantity: original?.quantity ?? 1,
-            };
-          });
+          const partsByBlKey = new Map(
+            parts.map(p => [`${p.blPartId}:${p.blColorId}`, p])
+          );
+          const partsToWrite = mappedParts.map(p => ({
+            partNum: p.rbPartNum!,
+            colorId: p.rbColorId!,
+            quantity:
+              partsByBlKey.get(`${p.blPartId}:${p.blColorId}`)?.quantity ?? 1,
+          }));
 
           if (importMode === 'replace') {
             await clearAllLooseParts();
@@ -828,42 +845,39 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
           }));
 
           for (let i = 0; i < minifigRows.length; i += 200) {
-            await supabase
+            const { error } = await supabase
               .from('user_minifigs')
               .upsert(minifigRows.slice(i, i + 200), {
                 onConflict: 'user_id,fig_num',
               });
+            if (error) {
+              throw new Error(`Failed to import minifigs: ${error.message}`);
+            }
           }
         }
 
         // Build result message
-        const summaryParts: string[] = [];
-        if (mappedParts.length > 0) {
-          summaryParts.push(
-            `${mappedParts.length} part${mappedParts.length !== 1 ? 's' : ''} imported`
+        const importedItems: string[] = [];
+        if (mappedParts.length > 0)
+          importedItems.push(`${plural(mappedParts.length, 'part')} imported`);
+        if (mappedMinifigs.length > 0)
+          importedItems.push(
+            `${plural(mappedMinifigs.length, 'minifig')} imported`
           );
-        }
-        if (mappedMinifigs.length > 0) {
-          summaryParts.push(
-            `${mappedMinifigs.length} minifig${mappedMinifigs.length !== 1 ? 's' : ''} imported`
-          );
-        }
 
         const warningParts: string[] = [...warnings];
-        if (unmappedParts.length > 0) {
+        if (unmappedParts.length > 0)
           warningParts.push(
-            `${unmappedParts.length} part${unmappedParts.length !== 1 ? 's' : ''} could not be mapped to catalog IDs`
+            `${plural(unmappedParts.length, 'part')} could not be mapped to catalog IDs`
           );
-        }
-        if (unmappedMinifigs.length > 0) {
+        if (unmappedMinifigs.length > 0)
           warningParts.push(
-            `${unmappedMinifigs.length} minifig${unmappedMinifigs.length !== 1 ? 's' : ''} could not be mapped to catalog IDs`
+            `${plural(unmappedMinifigs.length, 'minifig')} could not be mapped to catalog IDs`
           );
-        }
 
         const resultMsg =
-          summaryParts.length > 0
-            ? `Import complete: ${summaryParts.join(', ')}.` +
+          importedItems.length > 0
+            ? `Import complete: ${importedItems.join(', ')}.` +
               (warningParts.length > 0
                 ? ` Warnings: ${warningParts.join('; ')}.`
                 : '')
@@ -1004,8 +1018,8 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
                 {/* Summary */}
                 <p className="text-body-sm font-medium text-foreground">
                   {importPreview.format === 'rebrickable-sets'
-                    ? `Found ${importPreview.data.sets.length} set${importPreview.data.sets.length !== 1 ? 's' : ''}`
-                    : `Found ${importPreview.data.parts.length} part${importPreview.data.parts.length !== 1 ? 's' : ''}, ${importPreview.data.minifigs.length} minifig${importPreview.data.minifigs.length !== 1 ? 's' : ''}`}
+                    ? `Found ${plural(importPreview.data.sets.length, 'set')}`
+                    : `Found ${plural(importPreview.data.parts.length, 'part')}, ${plural(importPreview.data.minifigs.length, 'minifig')}`}
                 </p>
 
                 {/* Warnings */}
