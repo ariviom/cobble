@@ -57,25 +57,38 @@ export function SegmentedControl({
           aria-hidden="true"
         />
       )}
-      {segments.map(seg => (
-        <button
-          key={seg.key}
-          data-key={seg.key}
-          type="button"
-          role="tab"
-          aria-selected={seg.key === value}
-          className={cx(
-            'relative z-10 flex-1 rounded-sm px-3 text-center font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card-muted',
-            size === 'sm' ? 'py-1' : 'py-1.5',
-            seg.key === value
-              ? 'text-theme-primary-contrast'
-              : 'text-foreground-muted hover:text-foreground'
-          )}
-          onClick={() => onChange(seg.key)}
-        >
-          {seg.label}
-        </button>
-      ))}
+      {segments.map((seg, i) => {
+        const isSelected = seg.key === value;
+        const selectedIdx = segments.findIndex(s => s.key === value);
+        // Show divider before this button unless it or the previous button is selected
+        const showDivider = i > 0 && !isSelected && selectedIdx !== i - 1;
+
+        return (
+          <button
+            key={seg.key}
+            data-key={seg.key}
+            type="button"
+            role="tab"
+            aria-selected={isSelected}
+            className={cx(
+              'relative z-10 flex-1 rounded-sm px-3 text-center font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card-muted',
+              size === 'sm' ? 'py-1' : 'py-1.5',
+              isSelected
+                ? 'text-theme-primary-contrast'
+                : 'text-foreground-muted hover:text-foreground'
+            )}
+            onClick={() => onChange(seg.key)}
+          >
+            {showDivider && (
+              <span
+                className="absolute top-1/2 left-0 h-4 w-px -translate-y-1/2 bg-subtle"
+                aria-hidden="true"
+              />
+            )}
+            {seg.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
