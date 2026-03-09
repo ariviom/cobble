@@ -87,10 +87,13 @@ function extractInitialView(
   return 'all';
 }
 
-function extractInitialType(params: SearchParams): 'sets' | 'minifigs' {
+function extractInitialType(
+  params: SearchParams
+): 'sets' | 'minifigs' | 'parts' {
   const raw = params.type;
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (value === 'minifigs') return 'minifigs';
+  if (value === 'parts') return 'parts';
   return 'sets';
 }
 

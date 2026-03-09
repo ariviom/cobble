@@ -7,6 +7,7 @@ import {
 } from '@/app/components/search/SearchControlBar';
 import { SetDisplayCardWithControls } from '@/app/components/set/SetDisplayCardWithControls';
 import { CollectionGroupHeading } from '@/app/components/ui/CollectionGroupHeading';
+import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useUserLists } from '@/app/hooks/useUserLists';
@@ -192,6 +193,7 @@ export function UserCollectionOverview({
   useHydrateUserSets();
   const { user } = useSupabaseUser();
   const setsRecord = useUserSetsStore(state => state.sets);
+  const setsHydrated = useUserSetsStore(state => state.setsHydrated);
   const {
     lists,
     wishlist,
@@ -433,7 +435,6 @@ export function UserCollectionOverview({
       cancelled = true;
       document.removeEventListener('visibilitychange', onVisibility);
     };
-     
   }, []);
 
   useEffect(() => {
@@ -706,8 +707,10 @@ export function UserCollectionOverview({
 
     if (next === 'sets') {
       params.delete('type');
-    } else {
+    } else if (next === 'minifigs' || next === 'parts') {
       params.set('type', next);
+    } else {
+      params.delete('type');
     }
 
     const query = params.toString();
@@ -763,53 +766,62 @@ export function UserCollectionOverview({
         collectionType={collectionType}
         onCollectionTypeChange={handleCollectionTypeChange}
       />
-      <CollectionControlBar
-        collectionType={collectionType}
-        listFilter={listFilter}
-        onListFilterChange={handleListFilterChange}
-        lists={lists}
-        listsLoading={listsLoading}
-        hasAnySets={hasAnySets}
-        themeFilter={themeFilter}
-        onThemeFilterChange={setThemeFilter}
-        themeOptions={themeOptions}
-        sortField={sortField}
-        onSortFieldChange={setSortField}
-        sortDir={sortDir}
-        onSortDirChange={setSortDir}
-        hasAnyMinifigs={hasAnyMinifigs}
-        categoryFilter={categoryFilter}
-        onCategoryFilterChange={setCategoryFilter}
-        categoryOptions={categoryOptions}
-        minifigSortField={minifigSortField}
-        onMinifigSortFieldChange={setMinifigSortField}
-        minifigSortDir={minifigSortDir}
-        onMinifigSortDirChange={setMinifigSortDir}
-      />
-
-      {(ownedSetCount > 0 || loosePartsCount > 0) && (
-        <div className="mx-auto mt-3 w-full max-w-7xl px-4">
-          <p className="text-sm text-foreground-muted">
-            {ownedSetCount > 0 && (
-              <>
-                {totalParts.toLocaleString()} parts from {ownedSetCount} set
-                {ownedSetCount !== 1 ? 's' : ''}
-              </>
-            )}
-            {ownedSetCount > 0 && loosePartsCount > 0 && ' · '}
-            {loosePartsCount > 0 && (
-              <>
-                {loosePartsCount.toLocaleString()} loose part
-                {loosePartsCount !== 1 ? 's' : ''}
-              </>
-            )}
-          </p>
-        </div>
+      {collectionType !== 'parts' && (
+        <CollectionControlBar
+          collectionType={collectionType}
+          listFilter={listFilter}
+          onListFilterChange={handleListFilterChange}
+          lists={lists}
+          listsLoading={listsLoading}
+          hasAnySets={hasAnySets}
+          themeFilter={themeFilter}
+          onThemeFilterChange={setThemeFilter}
+          themeOptions={themeOptions}
+          sortField={sortField}
+          onSortFieldChange={setSortField}
+          sortDir={sortDir}
+          onSortDirChange={setSortDir}
+          hasAnyMinifigs={hasAnyMinifigs}
+          categoryFilter={categoryFilter}
+          onCategoryFilterChange={setCategoryFilter}
+          categoryOptions={categoryOptions}
+          minifigSortField={minifigSortField}
+          onMinifigSortFieldChange={setMinifigSortField}
+          minifigSortDir={minifigSortDir}
+          onMinifigSortDirChange={setMinifigSortDir}
+        />
       )}
 
+      {collectionType === 'parts' &&
+        (ownedSetCount > 0 || loosePartsCount > 0) && (
+          <div className="mx-auto mt-3 w-full max-w-7xl px-4">
+            <p className="text-center text-sm text-foreground-muted">
+              {ownedSetCount > 0 && (
+                <>
+                  {totalParts.toLocaleString()} parts from {ownedSetCount} set
+                  {ownedSetCount !== 1 ? 's' : ''}
+                </>
+              )}
+              {ownedSetCount > 0 && loosePartsCount > 0 && ' · '}
+              {loosePartsCount > 0 && (
+                <>
+                  {loosePartsCount.toLocaleString()} loose part
+                  {loosePartsCount !== 1 ? 's' : ''}
+                </>
+              )}
+            </p>
+          </div>
+        )}
+
       <div className="mx-auto w-full max-w-7xl px-4">
-        {!hasAnySets && collectionType === 'sets' && (
-          <div className="mt-2 text-sm text-foreground-muted">
+        {collectionType === 'sets' && !setsHydrated && (
+          <div className="mt-8 flex justify-center">
+            <BrickLoader size="sm" label="Loading sets…" />
+          </div>
+        )}
+
+        {collectionType === 'sets' && setsHydrated && !hasAnySets && (
+          <div className="mt-2 text-center text-sm text-foreground-muted">
             You have no tracked sets yet. Use the status menu on search results
             or set pages to mark sets as{' '}
             <span className="font-medium">Owned</span> or add them to your{' '}
@@ -817,14 +829,40 @@ export function UserCollectionOverview({
           </div>
         )}
 
-        {!hasAnyMinifigs && collectionType === 'minifigs' && (
-          <div className="mt-2 text-sm text-foreground-muted">
-            You have no tracked minifigures yet. Once you mark minifigs as{' '}
-            <span className="font-medium">Owned</span> or add them to your{' '}
-            <span className="font-medium">Wishlist</span>, they will appear
-            here.
+        {collectionType === 'minifigs' && minifigsLoading && (
+          <div className="mt-8 flex justify-center">
+            <BrickLoader size="sm" label="Loading minifigures…" />
           </div>
         )}
+
+        {collectionType === 'minifigs' &&
+          !minifigsLoading &&
+          !hasAnyMinifigs && (
+            <div className="mt-2 text-center text-sm text-foreground-muted">
+              You have no tracked minifigures yet. Once you mark minifigs as{' '}
+              <span className="font-medium">Owned</span> or add them to your{' '}
+              <span className="font-medium">Wishlist</span>, they will appear
+              here.
+            </div>
+          )}
+
+        {collectionType === 'parts' && !setsHydrated && (
+          <div className="mt-8 flex justify-center">
+            <BrickLoader size="sm" label="Loading parts…" />
+          </div>
+        )}
+
+        {collectionType === 'parts' &&
+          setsHydrated &&
+          ownedSetCount === 0 &&
+          loosePartsCount === 0 && (
+            <div className="mt-2 text-center text-sm text-foreground-muted">
+              You have no parts yet. Add sets to your collection or import loose
+              parts from the{' '}
+              <span className="font-medium">Backup &amp; Import</span> tab in
+              account settings.
+            </div>
+          )}
 
         {listsError && (
           <div className="mt-2 text-xs text-danger">
@@ -930,12 +968,6 @@ export function UserCollectionOverview({
         {collectionType === 'sets' && themesLoading && hasAnySets && (
           <div className="mt-2 text-xs text-foreground-muted">
             Loading themes…
-          </div>
-        )}
-
-        {collectionType === 'minifigs' && minifigsLoading && hasAnyMinifigs && (
-          <div className="mt-2 text-xs text-foreground-muted">
-            Loading minifigures…
           </div>
         )}
       </div>

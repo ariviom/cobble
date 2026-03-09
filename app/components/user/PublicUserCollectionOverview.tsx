@@ -48,7 +48,7 @@ type CustomListFilter = `list:${string}`;
 type CollectionFilter = 'all' | 'owned' | 'wishlist' | CustomListFilter;
 type GroupBy = 'status' | 'theme';
 type MinifigGroupBy = 'status' | 'category';
-type CollectionType = 'sets' | 'minifigs';
+type CollectionType = 'sets' | 'minifigs' | 'parts';
 type PublicSetsView = 'all' | 'owned' | 'wishlist';
 
 function makeCustomListFilter(id: string): CustomListFilter {
@@ -154,6 +154,8 @@ export function PublicUserCollectionOverview({
     const typeParam = searchParams?.get('type');
     if (typeParam === 'minifigs') {
       setCollectionType('minifigs');
+    } else if (typeParam === 'parts') {
+      setCollectionType('parts');
     } else if (typeParam === 'sets') {
       setCollectionType('sets');
     }
@@ -507,6 +509,7 @@ export function PublicUserCollectionOverview({
                 segments={[
                   { key: 'sets', label: 'Sets' },
                   { key: 'minifigs', label: 'Minifigs' },
+                  { key: 'parts', label: 'Parts' },
                 ]}
                 value={collectionType}
                 onChange={key => handleTypeChange(key as CollectionType)}

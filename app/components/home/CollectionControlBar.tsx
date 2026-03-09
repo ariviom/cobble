@@ -19,7 +19,7 @@ export type ListFilter = 'all' | 'owned' | 'wishlist' | CustomListFilter;
 export type CollectionSortField = 'collection' | 'theme' | 'year' | 'pieces';
 export type MinifigSortField = 'collection' | 'category';
 export type SortDir = 'asc' | 'desc';
-export type CollectionType = 'sets' | 'minifigs';
+export type CollectionType = 'sets' | 'minifigs' | 'parts';
 
 type ListInfo = { id: string; name: string };
 type ThemeOption = { id: number; name: string };

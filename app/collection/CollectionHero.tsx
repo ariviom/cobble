@@ -12,6 +12,7 @@ type CollectionHeroProps = {
 const typeSegments = [
   { key: 'sets', label: 'Sets' },
   { key: 'minifigs', label: 'Minifigs' },
+  { key: 'parts', label: 'Parts' },
 ];
 
 export function CollectionHero({
