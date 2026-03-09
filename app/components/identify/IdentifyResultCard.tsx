@@ -2,14 +2,14 @@
 
 import { RarityBadge } from '@/app/components/set/items/RarityBadge';
 import { getRarityTier } from '@/app/components/set/types';
+import { Card } from '@/app/components/ui/Card';
+import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
+import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
+import { Select } from '@/app/components/ui/Select';
+import { cn } from '@/app/components/ui/utils';
 import { useMinifigMeta } from '@/app/hooks/useMinifigMeta';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import type { IdentifyCandidate, IdentifyPart } from './types';
-import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
-import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
-import { Card } from '@/app/components/ui/Card';
-import { Select } from '@/app/components/ui/Select';
-import { cn } from '@/app/components/ui/utils';
 
 export function IdentifyResultCard({
   part,
@@ -77,7 +77,7 @@ export function IdentifyResultCard({
               src={displayImageUrl}
               alt={displayName}
               variant="identifyResult"
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
             />
           ) : (
             <ImagePlaceholder variant="fill" />
