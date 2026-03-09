@@ -105,6 +105,19 @@ F (polish & testing) ───────────────────�
 
 Larger features and improvements for after launch.
 
+### SEO & Discoverability
+
+Make set/minifig/part pages discoverable via search engines. Target action-oriented queries ("track LEGO pieces", "LEGO missing parts checker") where we differentiate from Brickset/BrickLink.
+
+- [ ] `app/sitemap.ts` — dynamic sitemap from catalog tables (sets, minifigs, parts)
+- [ ] `app/robots.ts` — sitemap reference, block auth/account/billing paths
+- [ ] `metadataBase` in root layout for canonical URLs
+- [ ] JSON-LD structured data on set detail pages (`Product` schema: name, image, piece count)
+- [ ] JSON-LD `BreadcrumbList` schema on set/minifig pages
+- [ ] Enhanced metadata: include theme, year, and piece count in page titles/descriptions
+- [ ] Open Graph / Twitter card meta with set images for social sharing
+- [ ] Evaluate indexable part pages (`/parts/[partNum]`) for additional search surface
+
 ### Derived Pricing System
 
 **Plan:** [`docs/dev/DERIVED_PRICING_PLAN.md`](dev/DERIVED_PRICING_PLAN.md)
