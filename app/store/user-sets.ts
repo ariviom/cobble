@@ -45,6 +45,10 @@ type UserSetsState = {
    */
   sets: Record<string, UserSet>;
   /**
+   * True once the initial Supabase hydration has completed (even if empty).
+   */
+  setsHydrated: boolean;
+  /**
    * Set or unset the owned flag for a set.
    * When owned becomes false, the set is removed from the store.
    */
@@ -61,6 +65,10 @@ type UserSetsState = {
    * Merge a batch of Supabase-hydrated sets into the local store.
    */
   hydrateFromSupabase: (entries: HydratedSetInput[]) => void;
+  /**
+   * Mark hydration as complete (called even when the user has no sets).
+   */
+  markHydrated: () => void;
   /**
    * Replace all sets with the given entries (full clear + replace, not merge).
    */
@@ -85,8 +93,8 @@ type PersistedShape = {
   sets: Record<string, PersistedUserSet>;
 };
 
-function createEmptyState(): Pick<UserSetsState, 'sets'> {
-  return { sets: {} };
+function createEmptyState(): Pick<UserSetsState, 'sets' | 'setsHydrated'> {
+  return { sets: {}, setsHydrated: false };
 }
 
 function normalizeKey(setNumber: string): string {
@@ -104,7 +112,9 @@ function coerceStatus(raw: unknown): SetStatus {
   return { owned: !!obj.owned };
 }
 
-function parsePersisted(raw: string | null): Pick<UserSetsState, 'sets'> {
+function parsePersisted(
+  raw: string | null
+): Pick<UserSetsState, 'sets' | 'setsHydrated'> {
   if (!raw) return createEmptyState();
   try {
     const parsed = JSON.parse(raw) as Partial<PersistedShape>;
@@ -168,7 +178,7 @@ function parsePersisted(raw: string | null): Pick<UserSetsState, 'sets'> {
       }
     }
 
-    return { sets };
+    return { sets, setsHydrated: false };
   } catch {
     return createEmptyState();
   }
@@ -197,7 +207,7 @@ function persistState(state: UserSetsState): void {
   }
 }
 
-function loadInitialState(): Pick<UserSetsState, 'sets'> {
+function loadInitialState(): Pick<UserSetsState, 'sets' | 'setsHydrated'> {
   try {
     const raw = readStorage(STORAGE_KEY);
     return parsePersisted(raw);
@@ -291,6 +301,7 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
   },
   hydrateFromSupabase: (entries: HydratedSetInput[]) => {
     if (!Array.isArray(entries) || entries.length === 0) {
+      set(prev => (prev.setsHydrated ? prev : { ...prev, setsHydrated: true }));
       return;
     }
     set(prevState => {
@@ -342,16 +353,22 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
       }
 
       if (!mutated) {
-        return prevState;
+        return prevState.setsHydrated
+          ? prevState
+          : { ...prevState, setsHydrated: true };
       }
 
       const nextState: UserSetsState = {
         ...prevState,
         sets: nextSets,
+        setsHydrated: true,
       };
       persistState(nextState);
       return nextState;
     });
+  },
+  markHydrated: () => {
+    set(prev => (prev.setsHydrated ? prev : { ...prev, setsHydrated: true }));
   },
   replaceAllSets: (entries: HydratedSetInput[]) => {
     set(prevState => {

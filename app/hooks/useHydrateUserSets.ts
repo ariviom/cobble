@@ -67,6 +67,7 @@ function mapDbOwnedToLocal(owned: boolean): SetStatus {
 export function useHydrateUserSets() {
   const { user } = useSupabaseUser();
   const hydrate = useUserSetsStore(state => state.hydrateFromSupabase);
+  const markHydrated = useUserSetsStore(state => state.markHydrated);
   // Use ref to track per-instance cancellation (safe for Concurrent Mode)
   const cancelledRef = useRef(false);
   const prevUserIdRef = useRef<string | null>(null);
@@ -112,6 +113,7 @@ export function useHydrateUserSets() {
             // Server considers the user unauthenticated; treat this as a
             // no-op for hydration and rely on client-side Supabase hooks
             // to eventually clear any stale cached user state.
+            markHydrated();
             return;
           }
           console.error(
@@ -130,6 +132,7 @@ export function useHydrateUserSets() {
         if (!data.sets || data.sets.length === 0) {
           // No remote sets - sync local sets to Supabase
           await syncLocalSetsToSupabase(userId, supabase);
+          markHydrated();
           // Mark as completed
           const entry = hydrationByUser.get(userId);
           if (entry) entry.completed = true;
@@ -179,5 +182,5 @@ export function useHydrateUserSets() {
     return () => {
       cancelledRef.current = true;
     };
-  }, [user, hydrate]);
+  }, [user, hydrate, markHydrated]);
 }
