@@ -47,6 +47,7 @@
 | `app/components/home/UserCollectionOverview.tsx`       | Wire parts tab to `CollectionPartsView` |
 | `app/components/user/PublicUserCollectionOverview.tsx` | Wire public parts view                  |
 | `app/account/components/SetsTab.tsx`                   | Add "Sync parts from sets" toggle       |
+| `app/account/AccountPageClient.tsx`                    | Thread `initialSyncPartsFromSets` prop  |
 | `app/account/page.tsx`                                 | Load parts sync preferences server-side |
 
 ---
@@ -2171,6 +2172,7 @@ git commit -m "feat(parts): add /parts/[partNum] detail page with server-side me
 
 - Create: `app/lib/userPartsSyncPreferences.ts`
 - Modify: `app/account/components/SetsTab.tsx`
+- Modify: `app/account/AccountPageClient.tsx` (thread `initialSyncPartsFromSets` prop through to `SetsTab`)
 - Modify: `app/account/page.tsx`
 
 - [ ] **Step 1: Create preferences module**
@@ -2197,9 +2199,9 @@ Read `app/account/components/SetsTab.tsx`. Add a new `Card` section after the mi
 
 Wire to `saveUserPartsSyncPreferences` on change, same pattern as minifig sync toggle.
 
-- [ ] **Step 3: Load preferences server-side in account page**
+- [ ] **Step 3: Load preferences server-side and thread through AccountPageClient**
 
-Read `app/account/page.tsx`. Add `loadUserPartsSyncPreferences` call alongside the existing `loadUserMinifigSyncPreferences`. Pass the initial value as a prop to `SetsTab`.
+Read `app/account/page.tsx`. Add `loadUserPartsSyncPreferences` call alongside the existing `loadUserMinifigSyncPreferences`. The prop chain is: `page.tsx` → `AccountPageClient` → `SetsTab`. You must also modify `app/account/AccountPageClient.tsx` to accept and forward the new `initialSyncPartsFromSets` prop (add to `AccountPageClientProps` type).
 
 - [ ] **Step 4: Wire preference into CollectionPartsView**
 
@@ -2208,7 +2210,7 @@ In `UserCollectionOverview.tsx`, load the parts sync preference (via a client-si
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/lib/userPartsSyncPreferences.ts app/account/components/SetsTab.tsx app/account/page.tsx app/components/home/UserCollectionOverview.tsx
+git add app/lib/userPartsSyncPreferences.ts app/account/components/SetsTab.tsx app/account/AccountPageClient.tsx app/account/page.tsx app/components/home/UserCollectionOverview.tsx
 git commit -m "feat(parts): add 'Sync parts from sets' toggle in account settings"
 ```
 
