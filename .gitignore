@@ -66,3 +66,6 @@ node_modules
 .playwright-mcp/
 ui_ref/
 rotating_stud/frames/
+
+# Superpowers brainstorm mockups
+.superpowers/
