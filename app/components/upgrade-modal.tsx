@@ -11,7 +11,8 @@ export type FeatureGateKey =
   | 'identify.unlimited'
   | 'search_party.unlimited'
   | 'rarity.enabled'
-  | 'sync.cloud';
+  | 'sync.cloud'
+  | 'list_builder.enabled';
 
 const GATE_MESSAGES: Record<FeatureGateKey, string> = {
   'tabs.unlimited': "You've reached the free limit of 3 open tabs.",
@@ -21,6 +22,8 @@ const GATE_MESSAGES: Record<FeatureGateKey, string> = {
     "You've used your free Search Party sessions for this month.",
   'rarity.enabled': 'Part rarity insights are a Plus feature.',
   'sync.cloud': 'Cloud sync is a Plus feature.',
+  'list_builder.enabled':
+    'Build custom parts lists for targeted purchasing across your collection.',
 };
 
 const PLUS_BENEFITS = [
@@ -28,6 +31,7 @@ const PLUS_BENEFITS = [
   'Part rarity insights',
   'Cloud sync across devices',
   'Unlimited Search Party sessions',
+  'Custom parts list builder',
 ];
 
 type Props = {

@@ -1,6 +1,8 @@
 'use client';
 
+import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
+import { UpgradeModal } from '@/app/components/upgrade-modal';
 import { useCollectionParts } from '@/app/hooks/useCollectionParts';
 import { useCollectionPartsControls } from '@/app/hooks/useCollectionPartsControls';
 import { useCollectionPartsSelection } from '@/app/hooks/useCollectionPartsSelection';
@@ -145,6 +147,10 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
     return groupParts(pagedParts, groupBy);
   }, [groupBy, sourceFilter, pagedParts]);
 
+  const { hasFeature } = useEntitlements();
+  const listBuilderEnabled = hasFeature('list_builder.enabled');
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+
   const [exportOpen, setExportOpen] = useState(false);
 
   const partsLookup = useMemo(() => {
@@ -154,6 +160,10 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
   }, [parts]);
 
   const handleExport = () => {
+    if (!listBuilderEnabled) {
+      setUpgradeOpen(true);
+      return;
+    }
     setExportOpen(true);
   };
 
@@ -196,6 +206,7 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
         onExport={handleExport}
         onClearSelections={clearAll}
         isExportDisabled={false}
+        // Export button is always clickable; entitlement check happens in handleExport
         categoryOptions={categoryOptions}
         colorOptions={colorOptions}
         filter={filter}
@@ -242,7 +253,8 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
                 onShowModal={handleShowModal}
                 view={view}
                 itemSize={itemSize}
-                isCheckboxDisabled={false}
+                isCheckboxDisabled={!listBuilderEnabled}
+                onCheckboxDisabledClick={() => setUpgradeOpen(true)}
               />
             )
           )}
@@ -267,6 +279,13 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
           partsLookup={partsLookup}
         />
       )}
+
+      {/* Upgrade modal for list builder entitlement */}
+      <UpgradeModal
+        open={upgradeOpen}
+        feature="list_builder.enabled"
+        onClose={() => setUpgradeOpen(false)}
+      />
 
       {/* Flat / grouped view */}
       {sourceFilter !== 'missing' && (
@@ -298,7 +317,8 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
                           onToggleSelection={() =>
                             toggleSelection(part.canonicalKey, part.totalOwned)
                           }
-                          isCheckboxDisabled={false}
+                          isCheckboxDisabled={!listBuilderEnabled}
+                          onCheckboxDisabledClick={() => setUpgradeOpen(true)}
                           view={view}
                           itemSize={itemSize}
                         />
@@ -322,7 +342,8 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
                   onToggleSelection={() =>
                     toggleSelection(part.canonicalKey, part.totalOwned)
                   }
-                  isCheckboxDisabled={false}
+                  isCheckboxDisabled={!listBuilderEnabled}
+                  onCheckboxDisabledClick={() => setUpgradeOpen(true)}
                   view={view}
                   itemSize={itemSize}
                 />

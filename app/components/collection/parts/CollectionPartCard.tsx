@@ -17,6 +17,7 @@ type Props = {
   isSelected: boolean;
   onToggleSelection: () => void;
   isCheckboxDisabled: boolean;
+  onCheckboxDisabledClick?: () => void;
   isMissingView?: boolean;
   missingQuantity?: number;
   view: 'list' | 'grid' | 'micro';
@@ -29,6 +30,7 @@ function CollectionPartCardComponent({
   isSelected,
   onToggleSelection,
   isCheckboxDisabled,
+  onCheckboxDisabledClick,
   isMissingView = false,
   missingQuantity,
   view: _view,
@@ -43,7 +45,9 @@ function CollectionPartCardComponent({
 
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isCheckboxDisabled) {
+    if (isCheckboxDisabled) {
+      onCheckboxDisabledClick?.();
+    } else {
       onToggleSelection();
     }
   };
@@ -52,7 +56,9 @@ function CollectionPartCardComponent({
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       e.stopPropagation();
-      if (!isCheckboxDisabled) {
+      if (isCheckboxDisabled) {
+        onCheckboxDisabledClick?.();
+      } else {
         onToggleSelection();
       }
     }
@@ -107,7 +113,6 @@ function CollectionPartCardComponent({
         )}
         onClick={handleCheckboxClick}
         onKeyDown={handleCheckboxKeyDown}
-        disabled={isCheckboxDisabled}
         tabIndex={0}
       >
         {isSelected ? (
@@ -177,6 +182,7 @@ function areEqual(prev: Props, next: Props) {
     prev.part === next.part &&
     prev.isSelected === next.isSelected &&
     prev.isCheckboxDisabled === next.isCheckboxDisabled &&
+    prev.onCheckboxDisabledClick === next.onCheckboxDisabledClick &&
     prev.isMissingView === next.isMissingView &&
     prev.missingQuantity === next.missingQuantity &&
     prev.view === next.view &&

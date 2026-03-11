@@ -21,6 +21,7 @@ type Props = {
   view: 'list' | 'grid' | 'micro';
   itemSize: 'sm' | 'md' | 'lg';
   isCheckboxDisabled: boolean;
+  onCheckboxDisabledClick?: () => void;
 };
 
 function getSetImageUrl(setNumber: string): string {
@@ -39,6 +40,7 @@ export function MissingPartsSetGroup({
   view,
   itemSize,
   isCheckboxDisabled,
+  onCheckboxDisabledClick,
 }: Props) {
   const [expanded, setExpanded] = useState(true);
   const triStateRef = useRef<HTMLInputElement>(null);
@@ -58,7 +60,10 @@ export function MissingPartsSetGroup({
   }, [someSelected]);
 
   const handleTriStateChange = () => {
-    if (isCheckboxDisabled) return;
+    if (isCheckboxDisabled) {
+      onCheckboxDisabledClick?.();
+      return;
+    }
     if (allSelected || someSelected) {
       // Deselect all
       const keys = missingParts.map(p => `${p.canonicalKey}:${setNumber}`);
@@ -94,7 +99,6 @@ export function MissingPartsSetGroup({
           )}
           checked={allSelected}
           onChange={handleTriStateChange}
-          disabled={isCheckboxDisabled}
           aria-label={`Select all missing parts for ${setName}`}
         />
 
@@ -151,6 +155,9 @@ export function MissingPartsSetGroup({
                   onToggleSelection(part.canonicalKey, qty, setNumber);
                 }}
                 isCheckboxDisabled={isCheckboxDisabled}
+                {...(onCheckboxDisabledClick !== undefined && {
+                  onCheckboxDisabledClick,
+                })}
                 isMissingView
                 missingQuantity={entry?.quantityMissing ?? 0}
                 view={view}
