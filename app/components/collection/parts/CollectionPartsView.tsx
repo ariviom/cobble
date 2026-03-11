@@ -21,7 +21,7 @@ import {
 } from './sorting';
 import type { CollectionPart, PartsSourceFilter } from './types';
 
-// TODO: Task 15 — import PartsExportModal once created
+import { CollectionPartsExportModal } from './CollectionPartsExportModal';
 
 type Props = {
   syncPartsFromSets: boolean;
@@ -145,9 +145,16 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
     return groupParts(pagedParts, groupBy);
   }, [groupBy, sourceFilter, pagedParts]);
 
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const partsLookup = useMemo(() => {
+    const map = new Map<string, CollectionPart>();
+    for (const p of parts) map.set(p.canonicalKey, p);
+    return map;
+  }, [parts]);
+
   const handleExport = () => {
-    // TODO: Task 15 — open PartsExportModal with selections
-    void selections;
+    setExportOpen(true);
   };
 
   const [modalPart, setModalPart] = useState<CollectionPart | null>(null);
@@ -248,6 +255,16 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
           part={modalPart}
           onClose={() => setModalPart(null)}
           onLooseQuantityChange={reload}
+        />
+      )}
+
+      {/* Export modal */}
+      {exportOpen && (
+        <CollectionPartsExportModal
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          selections={selections}
+          partsLookup={partsLookup}
         />
       )}
 
