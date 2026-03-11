@@ -106,7 +106,7 @@ Follows existing collection tab pattern (`UserCollectionOverview`):
 
 Adapted from `InventoryItem` pattern:
 
-- Part image with color ring (reuse `OptimizedImage` + ring styling)
+- Part image with neutral ring (reuse `OptimizedImage` + `ring-1 ring-foreground-accent` styling). No green "complete" ring — that pattern is specific to set inventory where parts are marked found against a required count. The collection parts tab is an inventory view, not a completion tracker.
 - Part name (truncated)
 - Part ID + color name metadata line
 - **Quantity metadata**: `Owned: X | Loose: Y` displayed below part name (replaces the `owned/required` ratio from set inventory)
@@ -141,7 +141,7 @@ No `OwnedQuantityControl` on the card itself — quantity editing happens in the
 
 - **Filter/sort/view state**: Persisted to localStorage. Returning to the parts tab restores the user's last filter, sort, view mode, and page number.
 - **Selection state**: Persisted to localStorage. Selections survive navigation to part detail pages and back. Key: per-user, keyed by canonical part key.
-- **Clear Selections**: Button in control bar (visible when selections exist). Triggers confirmation modal before clearing.
+- **Clear Selections**: Button always visible in control bar, disabled when no selections. Triggers confirmation modal before clearing.
 
 ## Missing Parts View
 
@@ -152,6 +152,8 @@ Activated when the user selects "Missing" from the source filter. This is a spec
 Missing parts come from ANY set where the user has `localOwned` data — not just owned sets, not just collection sets. If a user searched for a set, opened its inventory, and marked some parts, those missing parts appear here.
 
 **Enumeration strategy**: Uses Path B from the aggregation hook (see Data Model section). `db.localOwned.orderBy('setNumber').uniqueKeys()` returns all set numbers with any owned data — an efficient index scan on the existing `setNumber` index. For each set number, load catalog parts and compute missing = required - owned.
+
+**Sync prerequisite**: For Plus users with cloud sync enabled, the Missing view should ensure `localOwned` is up-to-date before computing missing parts. Trigger a sync pull (via `SyncWorker.performSync()`) on initial load of the Missing filter to reconcile any pending cloud changes before displaying results. This prevents stale local data from showing incorrect missing counts.
 
 ### Grouped by Set
 
@@ -185,7 +187,7 @@ Pagination applies across all set groups. A page break can occur mid-set-group. 
 - Checkboxes appear on all part cards (all filter modes, not just Missing)
 - Selection is independent from filtering — selecting parts in one filter, switching filters, and selecting more parts accumulates selections
 - **Export button** in control bar shows running count badge (e.g., "Export (12)")
-- **Clear Selections** button appears when count > 0, triggers confirmation modal
+- **Clear Selections** button always visible in control bar, disabled when no selections. Triggers confirmation modal before clearing.
 
 ### Export Quantity
 
@@ -244,7 +246,8 @@ New route: `/parts/[partNum]`
   - Per-set breakdown with links to each set's inventory page
   - Loose quantity editor
 - **For all users**:
-  - Sets containing this part (query `catalogSetParts` or `mv_set_parts`)
+  - **Set count**: "Appears in X sets" — sourced from `rb_part_rarity.set_count` (already precomputed per `part_num + color_id` during catalog ingestion, also cached in `catalogSetParts.setCount` in IndexedDB). This is an O(1) lookup, no additional query needed.
+  - Sets containing this part (query `mv_set_parts` by `part_num + color_id`, which has an index on `(part_num, color_id)`)
   - BrickLink + Rebrickable external links
   - Price guide (if available)
 
