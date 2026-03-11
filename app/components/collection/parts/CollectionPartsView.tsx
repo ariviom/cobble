@@ -4,8 +4,9 @@ import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { useCollectionParts } from '@/app/hooks/useCollectionParts';
 import { useCollectionPartsControls } from '@/app/hooks/useCollectionPartsControls';
 import { useCollectionPartsSelection } from '@/app/hooks/useCollectionPartsSelection';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { CollectionPartCard } from './CollectionPartCard';
+import { CollectionPartModal } from './CollectionPartModal';
 import { CollectionPartsControlBar } from './CollectionPartsControlBar';
 import { MissingPartsSetGroup } from './MissingPartsSetGroup';
 import { Pagination } from './Pagination';
@@ -71,7 +72,7 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
 
   const sourceFilter = filter.source as PartsSourceFilter;
 
-  const { parts, isLoading } = useCollectionParts(
+  const { parts, isLoading, reload } = useCollectionParts(
     sourceFilter,
     syncPartsFromSets
   );
@@ -149,8 +150,8 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
     void selections;
   };
 
-  // TODO: Task 14 — open PartModal
-  const handleShowModal = (_part: CollectionPart) => {};
+  const [modalPart, setModalPart] = useState<CollectionPart | null>(null);
+  const handleShowModal = (part: CollectionPart) => setModalPart(part);
 
   if (isLoading) {
     return (
@@ -239,6 +240,15 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
             )
           )}
         </div>
+      )}
+
+      {/* Part detail modal */}
+      {modalPart && (
+        <CollectionPartModal
+          part={modalPart}
+          onClose={() => setModalPart(null)}
+          onLooseQuantityChange={reload}
+        />
       )}
 
       {/* Flat / grouped view */}
