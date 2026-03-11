@@ -1,13 +1,8 @@
 'use client';
 
-import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
-import {
-  MoreDropdown,
-  MoreDropdownButton,
-} from '@/app/components/ui/MoreDropdown';
-import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
+import { MoreDropdownButton } from '@/app/components/ui/MoreDropdown';
+import { PartCard } from '@/app/components/ui/PartCard';
 import { SignInPrompt } from '@/app/components/ui/SignInPrompt';
-import { cn } from '@/app/components/ui/utils';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import { Check, ExternalLink, Info, Pin, Search } from 'lucide-react';
 import { memo } from 'react';
@@ -93,123 +88,73 @@ function InventoryItemComponent({
   };
 
   return (
-    <div className="grid-collision-container relative flex h-full w-full justify-start gap-6 rounded-lg border border-subtle bg-card p-3 grid:flex-col grid:justify-between micro:flex-col micro:justify-between micro:gap-1 micro:rounded-md micro:p-1.5">
-      <MoreDropdown
-        ariaLabel="More actions"
-        className="absolute top-3 right-3 rounded-full grid:top-4 grid:right-4 grid:z-10 grid:border grid:border-subtle grid:bg-card grid:text-foreground grid:shadow grid:hero-input-light micro:hidden"
-      >
-        {() => (
-          <div className="min-w-min rounded-lg border border-subtle bg-card p-2 text-xs shadow-lg">
-            {onTogglePinned && (
-              <MoreDropdownButton
-                icon={<Pin className="size-4" />}
-                label={isPinned ? 'Unpin' : 'Pin'}
-                onClick={onTogglePinned}
-              />
-            )}
-            <MoreDropdownButton
-              icon={<Search className="size-4" />}
-              label="Show sets"
-              href={identifyHref}
-              onClick={() => {
-                // Keep dropdown row click from triggering when following the link
-              }}
-            />
-            <MoreDropdownButton
-              icon={<ExternalLink className="size-4" />}
-              label="BrickLink"
-              href={bricklinkUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-            />
-            <MoreDropdownButton
-              icon={<ExternalLink className="size-4" />}
-              label="Rebrickable"
-              href={
-                isFigId
-                  ? `https://rebrickable.com/minifigs/${encodeURIComponent(row.identity?.rbFigNum ?? rebrickableFigId ?? row.partId.replace(/^fig:/, ''))}/`
-                  : `https://rebrickable.com/parts/${encodeURIComponent(row.partId)}/${row.colorId != null ? `${row.colorId}/` : ''}`
-              }
-              target="_blank"
-              rel="noreferrer noopener"
-            />
-            <MoreDropdownButton
-              icon={<Info className="size-4" />}
-              label="More info"
-              onClick={handleOpenMoreInfo}
-            />
-          </div>
-        )}
-      </MoreDropdown>
-      <button
-        className="grid-collision-btn relative cursor-pointer list:grow-0 list:items-center grid:aspect-square grid:w-full list:item-sm:size-16 list:item-md:size-20 list:item-lg:size-32 micro:aspect-square micro:w-full"
-        role="button"
-        tabIndex={0}
-        onClick={handleOpenMoreInfo}
-        onKeyDown={event => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            handleOpenMoreInfo();
-          }
-        }}
-      >
-        <div
-          className={cn(
-            'grid-collision-img aspect-square h-full w-full overflow-hidden rounded-sm',
-            owned === row.quantityRequired
-              ? 'ring-2 ring-success'
-              : 'ring-1 ring-foreground-accent'
-          )}
-        >
-          {row.imageUrl ? (
-            <OptimizedImage
-              src={row.imageUrl}
-              alt={row.partName}
-              variant="inventoryThumb"
-              className="mx-auto aspect-square h-full w-full object-contain"
-              data-knockout="true"
-            />
-          ) : (
-            <ImagePlaceholder variant="inventory" />
-          )}
-        </div>
-        <div
-          className={cn(
-            'absolute right-0 bottom-0 flex h-6 min-w-6 translate-x-3 translate-y-1/2 items-center justify-center rounded-full grid:h-8 grid:min-w-8 micro:h-5 micro:min-w-5 micro:translate-x-1',
-            owned === row.quantityRequired &&
-              'border-2 border-success bg-background text-success'
-          )}
-        >
-          {owned === row.quantityRequired ? (
+    <PartCard
+      partName={row.partName}
+      imageUrl={row.imageUrl}
+      imageAlt={row.partName}
+      onImageClick={handleOpenMoreInfo}
+      imageRing={owned === row.quantityRequired ? 'complete' : 'incomplete'}
+      imageBadge={
+        owned === row.quantityRequired ? (
+          <div className="absolute right-0 bottom-0 flex h-6 min-w-6 translate-x-3 translate-y-1/2 items-center justify-center rounded-full border-2 border-success bg-background text-success grid:h-8 grid:min-w-8 micro:h-5 micro:min-w-5 micro:translate-x-1">
             <Check size={16} strokeWidth={3} />
-          ) : (
-            <span className="hidden border-danger bg-background px-2 text-sm text-danger">
-              Need {row.quantityRequired - owned}
-            </span>
-          )}
-        </div>
-      </button>
-      <div className="flex h-full max-h-min w-full flex-1 flex-col justify-between gap-x-6 gap-y-3 sm:flex-row grid:max-h-full grid:flex-col sm:grid:items-center micro:max-h-full micro:flex-col micro:gap-y-0">
-        <div className="h-full w-full list:pr-12 lg:list:pr-0 micro:hidden">
-          <p className="line-clamp-1 w-full overflow-hidden font-medium lg:line-clamp-2">
-            {row.partName}
-          </p>
-          <div className="mt-1 w-full text-sm text-foreground-muted">
-            {isMinifig ? (
-              <p>Minifigure {minifigIdDisplay.label}</p>
-            ) : (
-              <p>
-                Part {displayId}
-                {row.colorName ? ` in ${row.colorName}` : ''}
-              </p>
-            )}
-            {rarityTier && (
-              <div className="mt-1">
-                <RarityBadge tier={rarityTier} />
-              </div>
-            )}
           </div>
-        </div>
+        ) : null
+      }
+      dropdownItems={
+        <>
+          {onTogglePinned && (
+            <MoreDropdownButton
+              icon={<Pin className="size-4" />}
+              label={isPinned ? 'Unpin' : 'Pin'}
+              onClick={onTogglePinned}
+            />
+          )}
+          <MoreDropdownButton
+            icon={<Search className="size-4" />}
+            label="Show sets"
+            href={identifyHref}
+            onClick={() => {
+              // Keep dropdown row click from triggering when following the link
+            }}
+          />
+          <MoreDropdownButton
+            icon={<ExternalLink className="size-4" />}
+            label="BrickLink"
+            href={bricklinkUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+          />
+          <MoreDropdownButton
+            icon={<ExternalLink className="size-4" />}
+            label="Rebrickable"
+            href={
+              isFigId
+                ? `https://rebrickable.com/minifigs/${encodeURIComponent(row.identity?.rbFigNum ?? rebrickableFigId ?? row.partId.replace(/^fig:/, ''))}/`
+                : `https://rebrickable.com/parts/${encodeURIComponent(row.partId)}/${row.colorId != null ? `${row.colorId}/` : ''}`
+            }
+            target="_blank"
+            rel="noreferrer noopener"
+          />
+          <MoreDropdownButton
+            icon={<Info className="size-4" />}
+            label="More info"
+            onClick={handleOpenMoreInfo}
+          />
+        </>
+      }
+      subtitleLine={
+        isMinifig ? (
+          <p>Minifigure {minifigIdDisplay.label}</p>
+        ) : (
+          <p>
+            Part {displayId}
+            {row.colorName ? ` in ${row.colorName}` : ''}
+          </p>
+        )
+      }
+      rarityBadge={rarityTier ? <RarityBadge tier={rarityTier} /> : undefined}
+      quantityArea={
         <div className="w-full sm:list:w-auto">
           <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36 sm:list:pt-7 micro:mt-1 micro:mb-0.5 micro:gap-1 micro:text-2xs">
             <p className="text-foreground-muted">
@@ -235,8 +180,8 @@ function InventoryItemComponent({
             <SignInPrompt variant="inline" />
           )}
         </div>
-      </div>
-    </div>
+      }
+    />
   );
 }
 
