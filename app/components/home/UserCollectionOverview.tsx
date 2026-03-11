@@ -19,6 +19,7 @@ import type { Tables } from '@/supabase/types';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CollectionHero } from '@/app/collection/CollectionHero';
+import { CollectionPartsView } from '@/app/components/collection/parts/CollectionPartsView';
 import {
   CollectionControlBar,
   type CollectionSortField,
@@ -846,23 +847,9 @@ export function UserCollectionOverview({
             </div>
           )}
 
-        {collectionType === 'parts' && !setsHydrated && (
-          <div className="mt-8 flex justify-center">
-            <BrickLoader size="sm" label="Loading parts…" />
-          </div>
+        {collectionType === 'parts' && (
+          <CollectionPartsView syncPartsFromSets={true} />
         )}
-
-        {collectionType === 'parts' &&
-          setsHydrated &&
-          ownedSetCount === 0 &&
-          loosePartsCount === 0 && (
-            <div className="mt-2 text-center text-sm text-foreground-muted">
-              You have no parts yet. Add sets to your collection or import loose
-              parts from the{' '}
-              <span className="font-medium">Backup &amp; Import</span> tab in
-              account settings.
-            </div>
-          )}
 
         {listsError && (
           <div className="mt-2 text-xs text-danger">
