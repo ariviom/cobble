@@ -31,6 +31,16 @@ type PublicMinifigSummary = {
   categoryName?: string | null;
 };
 
+type PublicPartSummary = {
+  partNum: string;
+  colorId: number;
+  quantity: number;
+  partName: string;
+  colorName: string;
+  imageUrl: string | null;
+  parentCategory: string | null;
+};
+
 type PublicListSummary = {
   id: string;
   name: string;
@@ -102,6 +112,7 @@ function getMinifigStatusLabel(status: PublicMinifigSummary['status']): string {
 type PublicUserCollectionOverviewProps = {
   allSets: PublicSetSummary[];
   allMinifigs: PublicMinifigSummary[];
+  allParts?: PublicPartSummary[];
   lists: PublicListSummary[];
   initialThemes?: ThemeInfo[];
   initialView?: PublicSetsView;
@@ -111,6 +122,7 @@ type PublicUserCollectionOverviewProps = {
 export function PublicUserCollectionOverview({
   allSets,
   allMinifigs,
+  allParts,
   lists,
   initialThemes = [],
   initialView = 'all',
@@ -308,9 +320,20 @@ export function PublicUserCollectionOverview({
 
   const hasAnySets = allSets.length > 0;
   const hasAnyMinifigs = allMinifigs.length > 0;
-  const hasAnyItems = collectionType === 'sets' ? hasAnySets : hasAnyMinifigs;
+  const hasAnyParts = (allParts?.length ?? 0) > 0;
+  const hasAnyItems =
+    collectionType === 'sets'
+      ? hasAnySets
+      : collectionType === 'minifigs'
+        ? hasAnyMinifigs
+        : hasAnyParts;
 
-  const heading = collectionType === 'sets' ? 'Sets' : 'Minifigures';
+  const heading =
+    collectionType === 'sets'
+      ? 'Sets'
+      : collectionType === 'minifigs'
+        ? 'Minifigures'
+        : 'Parts';
 
   const handleFilterChange = (next: CollectionFilter) => {
     setCollectionFilter(next);
@@ -597,6 +620,41 @@ export function PublicUserCollectionOverview({
               ))}
             </div>
           )}
+
+        {collectionType === 'parts' && hasAnyParts && (
+          <div className="mt-4">
+            <div
+              data-item-size="md"
+              className="grid grid-cols-1 gap-x-2 gap-y-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+            >
+              {allParts!.map(part => (
+                <div
+                  key={`${part.partNum}:${part.colorId}`}
+                  className="rounded-lg border border-subtle bg-card p-3"
+                >
+                  <p className="line-clamp-1 font-medium">{part.partName}</p>
+                  <p className="mt-1 text-sm text-foreground-muted">
+                    Part {part.partNum} in {part.colorName}
+                  </p>
+                  {part.parentCategory && (
+                    <p className="mt-0.5 text-xs text-foreground-muted">
+                      {part.parentCategory}
+                    </p>
+                  )}
+                  <p className="mt-2 text-sm font-medium text-foreground-muted">
+                    Qty: {part.quantity}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {collectionType === 'parts' && !hasAnyParts && (
+          <div className="mt-2 text-sm text-foreground-muted">
+            No parts in this collection yet.
+          </div>
+        )}
       </div>
     </section>
   );

@@ -70,6 +70,16 @@ type PublicMinifigSummary = {
   categoryName: string | null;
 };
 
+type PublicPartSummary = {
+  partNum: string;
+  colorId: number;
+  quantity: number;
+  partName: string;
+  colorName: string;
+  imageUrl: string | null;
+  parentCategory: string | null;
+};
+
 type PublicList = {
   id: string;
   name: string;
@@ -519,6 +529,58 @@ export default async function CollectionHandlePage({
     };
   });
 
+  // Fetch public parts inventory
+  const { data: userParts } = await supabase
+    .from('user_parts_inventory')
+    .select('part_num, color_id, quantity')
+    .eq('user_id', publicProfile.user_id);
+
+  const partNums = [...new Set((userParts ?? []).map(p => p.part_num))];
+  const colorIds = [...new Set((userParts ?? []).map(p => p.color_id))];
+
+  const partsMetaMap: Map<
+    string,
+    { name: string; parentCategory: string | null }
+  > = new Map();
+  const colorNameMap: Map<number, string> = new Map();
+
+  if (partNums.length > 0) {
+    const catalogClient = getCatalogReadClient();
+
+    // Fetch part names (batch if needed)
+    const { data: partsMeta } = await catalogClient
+      .from('rb_parts')
+      .select('part_num, name')
+      .in('part_num', partNums.slice(0, 200));
+
+    for (const p of partsMeta ?? []) {
+      partsMetaMap.set(p.part_num, { name: p.name, parentCategory: null });
+    }
+
+    // Fetch color names
+    const { data: colors } = await catalogClient
+      .from('rb_colors')
+      .select('id, name')
+      .in('id', colorIds.slice(0, 200));
+
+    for (const c of colors ?? []) {
+      colorNameMap.set(c.id, c.name);
+    }
+  }
+
+  const allPublicParts: PublicPartSummary[] = (userParts ?? []).map(p => {
+    const meta = partsMetaMap.get(p.part_num);
+    return {
+      partNum: p.part_num,
+      colorId: p.color_id,
+      quantity: p.quantity,
+      partName: meta?.name ?? p.part_num,
+      colorName: colorNameMap.get(p.color_id) ?? `Color ${p.color_id}`,
+      imageUrl: null,
+      parentCategory: meta?.parentCategory ?? null,
+    };
+  });
+
   const themes = await fetchThemes().catch(() => []);
   const title = publicProfile.username || 'Brick Party - User Collection';
 
@@ -534,6 +596,7 @@ export default async function CollectionHandlePage({
       <PublicUserCollectionOverview
         allSets={allSets}
         allMinifigs={allMinifigs}
+        allParts={allPublicParts}
         lists={publicLists}
         initialThemes={themes}
         initialView={initialView}
