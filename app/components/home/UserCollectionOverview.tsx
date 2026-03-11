@@ -14,6 +14,7 @@ import { useUserLists } from '@/app/hooks/useUserLists';
 import { useUserMinifigs } from '@/app/hooks/useUserMinifigs';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { getLoosePartsCount } from '@/app/lib/localDb/loosePartsStore';
+import { loadUserPartsSyncPreferences } from '@/app/lib/userPartsSyncPreferences';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import type { Tables } from '@/supabase/types';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -179,6 +180,24 @@ function getMinifigStatusLabel(
   }
 }
 
+function usePartSyncPreference(
+  user: ReturnType<typeof useSupabaseUser>['user']
+): boolean {
+  const [syncFromSets, setSyncFromSets] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    const supabase = getSupabaseBrowserClient();
+    loadUserPartsSyncPreferences(supabase, user.id)
+      .then(prefs => {
+        setSyncFromSets(prefs.syncFromSets);
+      })
+      .catch(() => {});
+  }, [user]);
+
+  return syncFromSets;
+}
+
 type UserCollectionOverviewProps = {
   initialThemes?: ThemeInfo[];
   initialView?: UserSetsView;
@@ -193,6 +212,7 @@ export function UserCollectionOverview({
   const [mounted, setMounted] = useState(false);
   useHydrateUserSets();
   const { user } = useSupabaseUser();
+  const syncPartsFromSets = usePartSyncPreference(user);
   const setsRecord = useUserSetsStore(state => state.sets);
   const setsHydrated = useUserSetsStore(state => state.setsHydrated);
   const {
@@ -848,7 +868,7 @@ export function UserCollectionOverview({
           )}
 
         {collectionType === 'parts' && (
-          <CollectionPartsView syncPartsFromSets={true} />
+          <CollectionPartsView syncPartsFromSets={syncPartsFromSets} />
         )}
 
         {listsError && (

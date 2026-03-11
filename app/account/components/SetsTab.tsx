@@ -15,6 +15,10 @@ import {
   type MinifigSyncPreferences,
   type MinifigSyncScope,
 } from '@/app/lib/userMinifigSyncPreferences';
+import {
+  saveUserPartsSyncPreferences,
+  type PartSyncPreferences,
+} from '@/app/lib/userPartsSyncPreferences';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import type { User } from '@supabase/supabase-js';
 import { useMemo, useState } from 'react';
@@ -23,12 +27,14 @@ type SetsTabProps = {
   user: User | null;
   initialSyncOwnedMinifigsFromSets: boolean;
   initialSyncScope: MinifigSyncScope;
+  initialSyncPartsFromSets: boolean;
 };
 
 export function SetsTab({
   user,
   initialSyncOwnedMinifigsFromSets,
   initialSyncScope,
+  initialSyncPartsFromSets,
 }: SetsTabProps) {
   const isLoggedIn = !!user;
 
@@ -56,6 +62,42 @@ export function SetsTab({
   const [minifigSyncMessage, setMinifigSyncMessage] = useState<string | null>(
     null
   );
+
+  // Part sync state
+  const [syncPartsFromSets, setSyncPartsFromSets] = useState<boolean>(
+    initialSyncPartsFromSets ?? true
+  );
+  const [isSavingPartSync, setIsSavingPartSync] = useState(false);
+  const [partSyncError, setPartSyncError] = useState<string | null>(null);
+  const [partSyncMessage, setPartSyncMessage] = useState<string | null>(null);
+
+  const handleSavePartSyncPreference = async (next: boolean) => {
+    if (!user) {
+      setPartSyncError('Sign in to change part sync settings.');
+      return;
+    }
+    setIsSavingPartSync(true);
+    setPartSyncError(null);
+    setPartSyncMessage(null);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const patch: Partial<PartSyncPreferences> = { syncFromSets: next };
+      await saveUserPartsSyncPreferences(supabase, user.id, patch);
+      setSyncPartsFromSets(next);
+      setPartSyncMessage('Part sync preference saved.');
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          console.error('AccountPage: failed to save part sync prefs', {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        } catch {}
+      }
+      setPartSyncError('Failed to save part sync preference.');
+    } finally {
+      setIsSavingPartSync(false);
+    }
+  };
 
   const handleSaveMinifigSyncPreference = async (next: boolean) => {
     if (!user) {
@@ -279,6 +321,48 @@ export function SetsTab({
             {minifigSyncMessage && !minifigSyncError && (
               <p className="text-body-sm font-medium text-success">
                 {minifigSyncMessage}
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Part Sync Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Part sync from owned sets</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-body text-foreground-muted">
+            When enabled, parts from sets you mark as owned appear in your
+            collection&apos;s Parts tab.
+          </p>
+          <div className="mt-6 space-y-4">
+            <label className="flex items-center gap-3">
+              <Checkbox
+                checked={syncPartsFromSets}
+                onChange={event =>
+                  void handleSavePartSyncPreference(event.target.checked)
+                }
+                disabled={!isLoggedIn || isSavingPartSync}
+              />
+              <span className="text-body font-medium text-foreground">
+                Automatically include parts from owned sets in collection
+              </span>
+              {isSavingPartSync && (
+                <span className="text-body-sm text-foreground-muted">
+                  Saving…
+                </span>
+              )}
+            </label>
+            {partSyncError && (
+              <p className="text-body-sm font-medium text-danger">
+                {partSyncError}
+              </p>
+            )}
+            {partSyncMessage && !partSyncError && (
+              <p className="text-body-sm font-medium text-success">
+                {partSyncMessage}
               </p>
             )}
           </div>

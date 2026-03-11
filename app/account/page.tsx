@@ -3,6 +3,7 @@ import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient'
 import { DEFAULT_PRICING_PREFERENCES } from '@/app/lib/pricing';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
 import { loadUserMinifigSyncPreferences } from '@/app/lib/userMinifigSyncPreferences';
+import { loadUserPartsSyncPreferences } from '@/app/lib/userPartsSyncPreferences';
 import type { Metadata } from 'next';
 import type { Tables } from '@/supabase/types';
 import type { User } from '@supabase/supabase-js';
@@ -24,6 +25,7 @@ export default async function AccountPage() {
   let initialPricingCountry = DEFAULT_PRICING_PREFERENCES.countryCode;
   let initialSyncOwnedMinifigsFromSets = true;
   let initialSyncScope: 'collection' | 'owned' = 'collection';
+  let initialSyncPartsFromSets = true;
   let initialSubscription: Tables<'billing_subscriptions'> | null = null;
 
   try {
@@ -40,6 +42,7 @@ export default async function AccountPage() {
           initialPricingCountry={initialPricingCountry}
           initialSyncOwnedMinifigsFromSets={initialSyncOwnedMinifigsFromSets}
           initialSyncScope={initialSyncScope}
+          initialSyncPartsFromSets={initialSyncPartsFromSets}
           initialSubscription={null}
         />
       );
@@ -99,6 +102,13 @@ export default async function AccountPage() {
     }
 
     try {
+      const partPrefs = await loadUserPartsSyncPreferences(supabase, user.id);
+      initialSyncPartsFromSets = !!partPrefs.syncFromSets;
+    } catch {
+      initialSyncPartsFromSets = true;
+    }
+
+    try {
       const { data: sub } = await supabase
         .from('billing_subscriptions')
         .select('*')
@@ -123,6 +133,7 @@ export default async function AccountPage() {
       initialPricingCountry={initialPricingCountry}
       initialSyncOwnedMinifigsFromSets={initialSyncOwnedMinifigsFromSets}
       initialSyncScope={initialSyncScope}
+      initialSyncPartsFromSets={initialSyncPartsFromSets}
       initialSubscription={initialSubscription}
     />
   );

@@ -33,6 +33,7 @@ type AccountPageClientProps = {
   initialPricingCountry: string | null;
   initialSyncOwnedMinifigsFromSets: boolean;
   initialSyncScope: 'collection' | 'owned';
+  initialSyncPartsFromSets: boolean;
   initialSubscription: Tables<'billing_subscriptions'> | null;
 };
 
@@ -43,6 +44,7 @@ export default function AccountPageClient({
   initialPricingCountry,
   initialSyncOwnedMinifigsFromSets,
   initialSyncScope,
+  initialSyncPartsFromSets,
   initialSubscription,
 }: AccountPageClientProps) {
   useHydrateUserSets();
@@ -140,6 +142,7 @@ export default function AccountPageClient({
             user={user}
             initialSyncOwnedMinifigsFromSets={initialSyncOwnedMinifigsFromSets}
             initialSyncScope={initialSyncScope}
+            initialSyncPartsFromSets={initialSyncPartsFromSets}
           />
         </TabsContent>
 
