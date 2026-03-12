@@ -169,7 +169,7 @@ export function MissingPartsSetGroup({
             aria-checked={allSelected}
             role="checkbox"
             className={cn(
-              'absolute top-1 left-1 z-10 flex items-center justify-center rounded-sm bg-background',
+              'absolute top-0.5 left-1 z-10 flex items-center justify-center rounded-sm bg-background',
               isCheckboxDisabled
                 ? 'cursor-not-allowed opacity-40'
                 : 'cursor-pointer'
