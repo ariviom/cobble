@@ -22,6 +22,7 @@ export type CollectionPart = {
   colorName: string;
   imageUrl: string | null;
   parentCategory: string | null;
+  categoryName: string | null;
   elementId: string | null;
   setCount: number | null;
   ownedFromSets: number;
@@ -37,7 +38,8 @@ export type PartsSortKey = 'name' | 'color' | 'category' | 'quantity';
 
 export type PartsFilter = {
   source: PartsSourceFilter;
-  categories: string[];
+  parents: string[];
+  subcategoriesByParent: Record<string, string[]>;
   colors: string[];
 };
 
@@ -59,7 +61,7 @@ export type PartSelection = {
 };
 
 export const DEFAULT_PARTS_CONTROLS: PartsControlsState = {
-  filter: { source: 'all', categories: [], colors: [] },
+  filter: { source: 'all', parents: [], subcategoriesByParent: {}, colors: [] },
   sortKey: 'name',
   sortDir: 'asc',
   groupBy: 'none',
