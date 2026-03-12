@@ -15,7 +15,12 @@ function loadFromStorage(): PartsControlsState {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return DEFAULT_PARTS_CONTROLS;
-    return { ...DEFAULT_PARTS_CONTROLS, ...JSON.parse(stored) };
+    const parsed = JSON.parse(stored) as Partial<PartsControlsState>;
+    return {
+      ...DEFAULT_PARTS_CONTROLS,
+      ...parsed,
+      filter: { ...DEFAULT_PARTS_CONTROLS.filter, ...parsed.filter },
+    };
   } catch {
     return DEFAULT_PARTS_CONTROLS;
   }
