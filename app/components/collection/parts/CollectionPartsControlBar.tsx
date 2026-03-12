@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/app/components/ui/Button';
+import { ClearAllButton } from '@/app/components/ui/ClearAllButton';
 import { ControlBar } from '@/app/components/ui/ControlBar';
 import {
   DropdownPanelFrame,
@@ -10,9 +11,12 @@ import {
   SingleSelectList,
   type DropdownOption,
 } from '@/app/components/ui/GroupedDropdown';
+import { Modal } from '@/app/components/ui/Modal';
+import { RowButton } from '@/app/components/ui/RowButton';
+import { RowCheckbox } from '@/app/components/ui/RowCheckbox';
 import { useControlBarDropdown } from '@/app/hooks/useControlBarDropdown';
+import { CollectionCategoryPanel } from './CollectionCategoryPanel';
 import {
-  ArrowDownUp,
   Download,
   Filter,
   Grid,
@@ -23,6 +27,7 @@ import {
   Tag,
   X,
 } from 'lucide-react';
+import { useState } from 'react';
 import type { PartsFilter, PartsSourceFilter, PartsSortKey } from './types';
 
 // ---------------------------------------------------------------------------
@@ -93,7 +98,8 @@ type Props = {
   onExport: () => void;
   onClearSelections: () => void;
   isExportDisabled: boolean;
-  categoryOptions: string[];
+  parentOptions: string[];
+  subcategoriesByParent: Record<string, string[]>;
   colorOptions: string[];
   filter: PartsFilter;
   onFilterChange: (f: PartsFilter) => void;
@@ -118,7 +124,8 @@ export function CollectionPartsControlBar({
   onExport,
   onClearSelections,
   isExportDisabled,
-  categoryOptions,
+  parentOptions,
+  subcategoriesByParent,
   colorOptions,
   filter,
   onFilterChange,
@@ -126,27 +133,14 @@ export function CollectionPartsControlBar({
   const { openDropdownId, toggleDropdown, closeDropdown, containerRef } =
     useControlBarDropdown();
 
-  const categoryOptionsWithAll: DropdownOption[] = [
-    { key: 'all', text: 'All Categories' },
-    ...categoryOptions.map(c => ({ key: c, text: c })),
-  ];
-
-  const colorOptionsWithAll: DropdownOption[] = [
-    { key: 'all', text: 'All Colors' },
-    ...colorOptions.map(c => ({ key: c, text: c })),
-  ];
-
-  // Derive single selected category / color for display (first selected or 'all')
-  const selectedCategory =
-    filter.categories.length === 1 ? filter.categories[0]! : 'all';
-  const selectedColor = filter.colors.length === 1 ? filter.colors[0]! : 'all';
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
 
   const categoryLabel =
-    filter.categories.length === 0
+    filter.parents.length === 0
       ? 'Category'
-      : filter.categories.length === 1
-        ? filter.categories[0]!
-        : `Category (${filter.categories.length})`;
+      : filter.parents.length === 1
+        ? filter.parents[0]!
+        : `Category (${filter.parents.length})`;
 
   const colorLabel =
     filter.colors.length === 0
@@ -155,10 +149,20 @@ export function CollectionPartsControlBar({
         ? filter.colors[0]!
         : `Color (${filter.colors.length})`;
 
+  function toggleColor(color: string) {
+    const exists = filter.colors.includes(color);
+    onFilterChange({
+      ...filter,
+      colors: exists
+        ? filter.colors.filter(c => c !== color)
+        : [...filter.colors, color],
+    });
+  }
+
   return (
     <ControlBar containerRef={containerRef}>
       {/* Source filter */}
-      <div className="relative shrink-0">
+      <div className="shrink-0 lg:relative">
         <DropdownTrigger
           id="parts-source-trigger"
           panelId="parts-source-panel"
@@ -184,8 +188,8 @@ export function CollectionPartsControlBar({
       </div>
 
       {/* Category filter */}
-      {categoryOptions.length > 0 && (
-        <div className="relative shrink-0">
+      {parentOptions.length > 0 && (
+        <div className="shrink-0 lg:relative">
           <DropdownTrigger
             id="parts-category-trigger"
             panelId="parts-category-panel"
@@ -199,17 +203,11 @@ export function CollectionPartsControlBar({
             labelledBy="parts-category-trigger"
             isOpen={openDropdownId === 'category'}
           >
-            <SingleSelectList
-              options={categoryOptionsWithAll}
-              selectedKey={selectedCategory}
-              onChange={key => {
-                if (key === 'all') {
-                  onFilterChange({ ...filter, categories: [] });
-                } else {
-                  onFilterChange({ ...filter, categories: [key] });
-                }
-                closeDropdown();
-              }}
+            <CollectionCategoryPanel
+              filter={filter}
+              onFilterChange={onFilterChange}
+              parentOptions={parentOptions}
+              subcategoriesByParent={subcategoriesByParent}
             />
           </DropdownPanelFrame>
         </div>
@@ -217,7 +215,7 @@ export function CollectionPartsControlBar({
 
       {/* Color filter */}
       {colorOptions.length > 0 && (
-        <div className="relative shrink-0">
+        <div className="shrink-0 lg:relative">
           <DropdownTrigger
             id="parts-color-trigger"
             panelId="parts-color-panel"
@@ -231,24 +229,35 @@ export function CollectionPartsControlBar({
             labelledBy="parts-color-trigger"
             isOpen={openDropdownId === 'color'}
           >
-            <SingleSelectList
-              options={colorOptionsWithAll}
-              selectedKey={selectedColor}
-              onChange={key => {
-                if (key === 'all') {
-                  onFilterChange({ ...filter, colors: [] });
-                } else {
-                  onFilterChange({ ...filter, colors: [key] });
-                }
-                closeDropdown();
-              }}
-            />
+            <DropdownSection>
+              <div>
+                {colorOptions.map(color => {
+                  const selected = filter.colors.includes(color);
+                  return (
+                    <RowButton
+                      key={color}
+                      selected={selected}
+                      onClick={() => toggleColor(color)}
+                      className="border-b border-foreground-accent"
+                    >
+                      <RowCheckbox checked={selected} />
+                      <span>{color}</span>
+                    </RowButton>
+                  );
+                })}
+              </div>
+            </DropdownSection>
+            {filter.colors.length > 0 && (
+              <ClearAllButton
+                onClick={() => onFilterChange({ ...filter, colors: [] })}
+              />
+            )}
           </DropdownPanelFrame>
         </div>
       )}
 
       {/* Sort + Group By */}
-      <div className="relative shrink-0">
+      <div className="shrink-0 lg:relative">
         <DropdownTrigger
           id="parts-sort-trigger"
           panelId="parts-sort-panel"
@@ -299,34 +308,8 @@ export function CollectionPartsControlBar({
         </DropdownPanelFrame>
       </div>
 
-      {/* Sort direction toggle */}
-      <div className="relative shrink-0">
-        <DropdownTrigger
-          id="parts-sortdir-trigger"
-          panelId="parts-sortdir-panel"
-          label={labelFor(sortDirOptions, sortDir)}
-          labelIcon={<ArrowDownUp size={16} />}
-          isOpen={openDropdownId === 'sortdir'}
-          onToggle={() => toggleDropdown('sortdir')}
-        />
-        <DropdownPanelFrame
-          id="parts-sortdir-panel"
-          labelledBy="parts-sortdir-trigger"
-          isOpen={openDropdownId === 'sortdir'}
-        >
-          <SingleSelectList
-            options={sortDirOptions}
-            selectedKey={sortDir}
-            onChange={key => {
-              if (key !== sortDir) onToggleSortDir();
-              closeDropdown();
-            }}
-          />
-        </DropdownPanelFrame>
-      </div>
-
       {/* View */}
-      <div className="relative shrink-0">
+      <div className="shrink-0 lg:relative">
         <DropdownTrigger
           id="parts-view-trigger"
           panelId="parts-view-panel"
@@ -353,39 +336,66 @@ export function CollectionPartsControlBar({
         </DropdownPanelFrame>
       </div>
 
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* Clear Selections */}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onClearSelections}
-        disabled={selectionCount === 0}
-        className="shrink-0"
-      >
-        <X size={14} />
-        <span>
-          {selectionCount > 0 ? `Clear (${selectionCount})` : 'Clear'}
-        </span>
-      </Button>
-
       {/* Export */}
-      <Button
-        variant="secondary"
-        size="sm"
+      <button
+        type="button"
         onClick={onExport}
         disabled={isExportDisabled || selectionCount === 0}
-        className="relative shrink-0"
+        className="min-w-max shrink-0 cursor-pointer rounded-md border-2 border-subtle bg-card px-4 py-2 text-sm font-semibold transition-all duration-150 hover:border-theme-primary/30 hover:bg-theme-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Download size={14} />
-        <span>Export</span>
-        {selectionCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-theme-primary px-1 text-2xs font-bold text-theme-primary-contrast">
-            {selectionCount}
+        <span className="inline-flex items-center gap-2">
+          <Download size={16} />
+          <span>
+            {selectionCount > 0 ? `Export (${selectionCount})` : 'Export'}
           </span>
-        )}
-      </Button>
+        </span>
+      </button>
+
+      {/* Clear Selections */}
+      <button
+        type="button"
+        onClick={() => setConfirmClearOpen(true)}
+        disabled={selectionCount === 0}
+        className="min-w-max shrink-0 cursor-pointer rounded-md border-2 border-subtle bg-card px-4 py-2 text-sm font-semibold transition-all duration-150 hover:border-theme-primary/30 hover:bg-theme-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <span className="inline-flex items-center gap-2">
+          <X size={16} />
+          <span>
+            {selectionCount > 0 ? `Clear (${selectionCount})` : 'Clear'}
+          </span>
+        </span>
+      </button>
+
+      {/* Clear confirmation modal */}
+      <Modal
+        open={confirmClearOpen}
+        title="Clear selections"
+        onClose={() => setConfirmClearOpen(false)}
+      >
+        <p className="text-sm text-foreground-muted">
+          Clear all {selectionCount} selected part
+          {selectionCount !== 1 ? 's' : ''}? This cannot be undone.
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setConfirmClearOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => {
+              onClearSelections();
+              setConfirmClearOpen(false);
+            }}
+          >
+            Clear all
+          </Button>
+        </div>
+      </Modal>
     </ControlBar>
   );
 }
