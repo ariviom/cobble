@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { DropdownPortalProvider } from './GroupedDropdown';
 import { cn } from './utils';
 
 type ControlBarProps = {
@@ -24,6 +25,16 @@ export function ControlBar({
   containerRef,
 }: ControlBarProps) {
   const outerRef = useRef<HTMLDivElement>(null);
+  const portalRef = useRef<HTMLDivElement>(null);
+
+  // Callback ref: sets both containerRef (click-outside) and portalRef (portal target)
+  const middleRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      portalRef.current = el;
+      if (containerRef) containerRef.current = el;
+    },
+    [containerRef]
+  );
 
   // Measure sticky header bottom so DropdownPanelFrame positions correctly.
   // Uses getBoundingClientRect for the actual visual position (accounts for
@@ -62,13 +73,18 @@ export function ControlBar({
         className
       )}
     >
-      <div className="h-controls-height border-b border-subtle bg-card-muted">
-        <div
-          ref={containerRef}
-          className="relative container-wide flex h-full w-full flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar"
-        >
-          {children}
-        </div>
+      <div
+        ref={middleRef}
+        className="relative h-controls-height border-b border-subtle bg-card-muted"
+      >
+        <DropdownPortalProvider portalRef={portalRef}>
+          <div
+            data-dropdown-scrollable
+            className="container-wide flex h-full w-full flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar"
+          >
+            {children}
+          </div>
+        </DropdownPortalProvider>
       </div>
     </div>
   );

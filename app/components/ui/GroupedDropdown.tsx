@@ -3,7 +3,16 @@
 import { cn } from '@/app/components/ui/utils';
 import { cva, cx, type VariantProps } from 'class-variance-authority';
 import { Check } from 'lucide-react';
-import { forwardRef, useCallback, useEffect, useState } from 'react';
+import {
+  createContext,
+  forwardRef,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { useIsDesktop } from '@/app/hooks/useMediaQuery';
 import { Checkbox } from './Checkbox';
@@ -102,6 +111,30 @@ export const DropdownTrigger = forwardRef<
 
 // Legacy DropdownPanel removed in favor of DropdownPanelFrame + composition
 
+// --- Portal context: allows DropdownPanelFrame to render outside overflow-x-auto ---
+
+type DropdownPortalContextValue = {
+  portalRef: React.RefObject<HTMLElement | null>;
+};
+
+const DropdownPortalContext = createContext<DropdownPortalContextValue | null>(
+  null
+);
+
+export function DropdownPortalProvider({
+  portalRef,
+  children,
+}: {
+  portalRef: React.RefObject<HTMLElement | null>;
+  children: React.ReactNode;
+}) {
+  return (
+    <DropdownPortalContext.Provider value={{ portalRef }}>
+      {children}
+    </DropdownPortalContext.Provider>
+  );
+}
+
 // Generic dropdown frame that accepts arbitrary children
 const panelVariants = cva(
   'min-w-64 overflow-hidden rounded-t-lg border border-subtle bg-card shadow-none fixed inset-x-0 top-[var(--sticky-header-bottom,calc(var(--spacing-topnav-height)+var(--spacing-controls-height)+var(--grid-row-tabs,0px)))] bottom-[var(--spacing-nav-height)] z-50 overflow-y-auto lg:rounded-lg lg:shadow-lg lg:absolute lg:top-full lg:right-0 lg:bottom-auto lg:left-0 lg:z-40 lg:max-h-[var(--spacing-dropdown-max-h)]',
@@ -126,6 +159,8 @@ export type DropdownPanelFrameProps = {
   className?: string;
   hiddenWhenClosed?: boolean;
   variant?: 'default' | 'sidebar';
+  /** When false, portals but skips inline left/maxHeight (className handles positioning). */
+  autoPosition?: boolean;
   children: React.ReactNode;
 };
 
@@ -136,47 +171,96 @@ export function DropdownPanelFrame({
   className,
   hiddenWhenClosed = true,
   variant = 'default',
+  autoPosition = true,
   children,
 }: DropdownPanelFrameProps) {
   const isDesktop = useIsDesktop();
-  const shouldPortal = variant === 'default' && isDesktop;
-  const [pos, setPos] = useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
+  const portalCtx = useContext(DropdownPortalContext);
+  // Portal to the container ref on desktop (default variant) so the panel
+  // escapes ancestor overflow-x:auto while scrolling naturally with the page.
+  const usePortal =
+    variant === 'default' && isDesktop && !!portalCtx?.portalRef.current;
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; maxHeight: number } | null>(
+    null
+  );
+
+  const EDGE_THRESHOLD = 16; // 1rem
 
   const updatePos = useCallback(() => {
+    if (!autoPosition) return;
     const trigger = document.getElementById(labelledBy);
-    if (!trigger) return;
-    const rect = trigger.getBoundingClientRect();
-    setPos({ top: rect.bottom, left: rect.left, width: rect.width });
-  }, [labelledBy]);
+    const container = portalCtx?.portalRef.current;
+    if (!trigger || !container) return;
+    const triggerRect = trigger.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    const panelWidth = panelRef.current?.offsetWidth ?? 384;
 
-  useEffect(() => {
-    if (!shouldPortal || !isOpen) {
+    // left relative to portal container
+    const triggerLeft = triggerRect.left - containerRect.left;
+    const containerWidth = containerRect.width;
+
+    // If left-aligned panel would come within 1rem of the container's right
+    // edge, right-align the panel to the trigger's right edge instead.
+    const wouldOverflow =
+      triggerLeft + panelWidth > containerWidth - EDGE_THRESHOLD;
+    const left = Math.max(
+      0,
+      wouldOverflow
+        ? triggerRect.right - containerRect.left - panelWidth
+        : triggerLeft
+    );
+    // Compute max height once: viewport bottom minus container bottom minus padding
+    const maxHeight = Math.max(
+      200,
+      window.innerHeight - containerRect.bottom - 32
+    );
+    setPos({ left, maxHeight });
+  }, [labelledBy, autoPosition, portalCtx]);
+
+  // Compute position synchronously before paint to avoid flicker
+  useLayoutEffect(() => {
+    if (!usePortal || !isOpen) {
       setPos(null);
       return;
     }
     updatePos();
+  }, [usePortal, isOpen, updatePos]);
 
-    window.addEventListener('scroll', updatePos, true);
+  // Reposition on horizontal scroll within the scrollable area or window resize
+  useEffect(() => {
+    if (!usePortal || !isOpen) return;
+
+    const container = portalCtx?.portalRef.current;
+    if (!container) return;
+
+    const scrollable = container.querySelector('[data-dropdown-scrollable]');
+    if (scrollable) {
+      scrollable.addEventListener('scroll', updatePos);
+    }
     window.addEventListener('resize', updatePos);
+
     return () => {
-      window.removeEventListener('scroll', updatePos, true);
+      if (scrollable) {
+        scrollable.removeEventListener('scroll', updatePos);
+      }
       window.removeEventListener('resize', updatePos);
     };
-  }, [shouldPortal, isOpen, updatePos]);
+  }, [usePortal, isOpen, updatePos, portalCtx]);
 
-  const panelContent = (
+  const panel = (
     <div
+      ref={panelRef}
       id={id}
       role="menu"
       aria-labelledby={labelledBy}
       aria-hidden={isOpen ? undefined : 'true'}
       className={cn(
-        shouldPortal
-          ? 'fixed z-50 min-w-64 overflow-hidden overflow-y-auto rounded-lg border border-subtle bg-card shadow-lg'
+        usePortal
+          ? cn(
+              'absolute top-full z-40 w-96 overflow-hidden overflow-y-auto rounded-lg border border-subtle bg-card shadow-lg',
+              autoPosition && 'mt-1'
+            )
           : panelVariants({ variant }),
         isOpen
           ? 'block'
@@ -186,12 +270,10 @@ export function DropdownPanelFrame({
         className
       )}
       style={
-        shouldPortal && pos
+        usePortal && pos && autoPosition
           ? {
-              top: pos.top,
               left: pos.left,
-              minWidth: pos.width,
-              maxHeight: 'var(--spacing-dropdown-max-h)',
+              maxHeight: pos.maxHeight,
             }
           : undefined
       }
@@ -202,11 +284,10 @@ export function DropdownPanelFrame({
     </div>
   );
 
-  if (shouldPortal && isOpen && typeof document !== 'undefined') {
-    return createPortal(panelContent, document.body);
+  if (usePortal && portalCtx?.portalRef.current) {
+    return createPortal(panel, portalCtx.portalRef.current);
   }
-
-  return panelContent;
+  return panel;
 }
 
 // Section wrapper with a label header

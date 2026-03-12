@@ -396,9 +396,7 @@ export async function exportOwnedToRecord(
 /**
  * Export owned quantities with per-key timestamps (for LWW reconciliation).
  */
-export async function exportOwnedWithTimestamps(
-  setNumber: string
-): Promise<{
+export async function exportOwnedWithTimestamps(setNumber: string): Promise<{
   entries: Array<{ key: string; quantity: number; updatedAt: number }>;
 }> {
   if (!isIndexedDBAvailable()) return { entries: [] };

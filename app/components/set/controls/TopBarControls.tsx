@@ -139,9 +139,6 @@ export function TopBarControls({
             id="display-panel"
             labelledBy="display-trigger"
             isOpen={true}
-            className={
-              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
-            }
             variant={isDesktop ? 'default' : 'sidebar'}
           >
             <DropdownSection label="Filter By">
@@ -287,9 +284,6 @@ export function TopBarControls({
             id="rarity-panel"
             labelledBy="rarity-trigger"
             isOpen={true}
-            className={
-              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
-            }
             variant={isDesktop ? 'default' : 'sidebar'}
           >
             <DropdownSection>
@@ -355,9 +349,6 @@ export function TopBarControls({
             id="sort-panel"
             labelledBy="sort-trigger"
             isOpen={true}
-            className={
-              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
-            }
             variant={isDesktop ? 'default' : 'sidebar'}
           >
             <GroupedList
@@ -453,9 +444,6 @@ export function TopBarControls({
             id="view-panel"
             labelledBy="view-trigger"
             isOpen={true}
-            className={
-              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
-            }
             variant={isDesktop ? 'default' : 'sidebar'}
           >
             <DropdownSection label="View">
@@ -513,9 +501,6 @@ export function TopBarControls({
             id="markall-panel"
             labelledBy="markall-trigger"
             isOpen={true}
-            className={
-              isDesktop ? 'lg:top-[calc(100%+0.25rem)] lg:right-0' : ''
-            }
             variant={isDesktop ? 'default' : 'sidebar'}
           >
             <DropdownSection label="Mark All">
@@ -566,7 +551,8 @@ export function TopBarControls({
             id="pinned-panel"
             labelledBy="pinned-trigger"
             isOpen={true}
-            className="max-h-pinned-panel-height w-full lg:top-[calc(100%+0.5rem)] lg:left-4 lg:max-h-[75dvh] lg:w-[calc(100%-22rem)] lg:shadow-lg"
+            autoPosition={false}
+            className="max-h-pinned-panel-height w-full lg:top-[calc(100%+0.5rem)] lg:left-4 lg:max-h-[75dvh] lg:w-[calc(100%-2rem)] lg:shadow-lg"
             variant={isDesktop ? 'default' : 'sidebar'}
           >
             <PinnedPanelContent

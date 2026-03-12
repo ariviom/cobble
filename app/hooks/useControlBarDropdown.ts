@@ -40,18 +40,17 @@ export function useControlBarDropdown(options?: { keepOpenIds?: string[] }): {
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target as Node)) {
-        // Keep sidebar panels open on desktop
-        if (
-          isDesktop &&
-          keepOpenIds &&
-          openDropdownId &&
-          keepOpenIds.includes(openDropdownId)
-        ) {
-          return;
-        }
-        setOpenDropdownId(null);
+      if (containerRef.current.contains(e.target as Node)) return;
+      // Keep sidebar panels open on desktop
+      if (
+        isDesktop &&
+        keepOpenIds &&
+        openDropdownId &&
+        keepOpenIds.includes(openDropdownId)
+      ) {
+        return;
       }
+      setOpenDropdownId(null);
     }
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);

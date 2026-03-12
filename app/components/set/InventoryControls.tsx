@@ -1,7 +1,8 @@
 'use client';
 
+import { DropdownPortalProvider } from '@/app/components/ui/GroupedDropdown';
 import { useControlBarDropdown } from '@/app/hooks/useControlBarDropdown';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { TopBarControls } from './controls/TopBarControls';
 import {
   useInventoryData,
@@ -47,6 +48,17 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
     containerRef,
     isDesktop,
   } = useControlBarDropdown({ keepOpenIds: ['parent', 'color'] });
+
+  const portalRef = useRef<HTMLDivElement>(null);
+
+  // Callback ref: sets both containerRef (click-outside) and portalRef (portal target)
+  const outerRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      portalRef.current = el;
+      if (containerRef) containerRef.current = el;
+    },
+    [containerRef]
+  );
 
   const [isParentOpen, setIsParentOpen] = useState(false);
   const [isColorOpen, setIsColorOpen] = useState(false);
@@ -131,48 +143,57 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
 
   return (
     <div
-      ref={containerRef}
-      className="flex h-controls-height w-full max-w-full flex-nowrap items-center gap-2 overflow-x-auto border-b border-subtle bg-card-muted px-2 no-scrollbar lg:col-start-2 lg:overflow-visible"
+      ref={outerRef}
+      className="relative border-b border-subtle bg-card-muted lg:col-start-2"
     >
-      <TopBarControls
-        setNumber={setNumber}
-        {...(setName ? { setName } : {})}
-        view={view}
-        onChangeView={setView}
-        itemSize={itemSize}
-        onChangeItemSize={setItemSize}
-        sortKey={sortKey}
-        onChangeSortKey={setSortKey}
-        sortDir={sortDir}
-        onToggleSortDir={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-        groupBy={groupBy}
-        onChangeGroupBy={setGroupBy}
-        displayKey={filter.display}
-        onChangeDisplay={(next: 'all' | 'missing' | 'owned') =>
-          handleDropdownChange('display', 'display', next)
-        }
-        openDropdownId={openDropdownId}
-        onToggleDropdown={handleDropdownToggle}
-        onCloseDropdown={id => {
-          if (openDropdownId === id) closeDropdown();
-        }}
-        pinnedCount={getPinnedCount()}
-        onMarkAllMissing={markAllMissing}
-        onMarkAllComplete={markAllComplete}
-        filter={filter}
-        onChangeFilter={setFilter}
-        parentOptions={parentOptions}
-        parentCounts={countsByParent}
-        subcategoriesByParent={subcategoriesByParent}
-        colorOptions={colorOptions}
-        availableColors={availableColors}
-        onToggleColor={handleToggleColor}
-        isDesktop={isDesktop}
-        isParentOpen={isParentOpen}
-        isColorOpen={isColorOpen}
-        onOpenExportModal={openExportModal}
-        isLoading={isLoading}
-      />
+      <DropdownPortalProvider portalRef={portalRef}>
+        <div
+          data-dropdown-scrollable
+          className="flex h-controls-height w-full max-w-full flex-nowrap items-center gap-2 overflow-x-auto px-2 no-scrollbar"
+        >
+          <TopBarControls
+            setNumber={setNumber}
+            {...(setName ? { setName } : {})}
+            view={view}
+            onChangeView={setView}
+            itemSize={itemSize}
+            onChangeItemSize={setItemSize}
+            sortKey={sortKey}
+            onChangeSortKey={setSortKey}
+            sortDir={sortDir}
+            onToggleSortDir={() =>
+              setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+            }
+            groupBy={groupBy}
+            onChangeGroupBy={setGroupBy}
+            displayKey={filter.display}
+            onChangeDisplay={(next: 'all' | 'missing' | 'owned') =>
+              handleDropdownChange('display', 'display', next)
+            }
+            openDropdownId={openDropdownId}
+            onToggleDropdown={handleDropdownToggle}
+            onCloseDropdown={id => {
+              if (openDropdownId === id) closeDropdown();
+            }}
+            pinnedCount={getPinnedCount()}
+            onMarkAllMissing={markAllMissing}
+            onMarkAllComplete={markAllComplete}
+            filter={filter}
+            onChangeFilter={setFilter}
+            parentOptions={parentOptions}
+            parentCounts={countsByParent}
+            subcategoriesByParent={subcategoriesByParent}
+            colorOptions={colorOptions}
+            availableColors={availableColors}
+            onToggleColor={handleToggleColor}
+            isDesktop={isDesktop}
+            isParentOpen={isParentOpen}
+            isColorOpen={isColorOpen}
+            onOpenExportModal={openExportModal}
+            isLoading={isLoading}
+          />
+        </div>
+      </DropdownPortalProvider>
     </div>
   );
 }
