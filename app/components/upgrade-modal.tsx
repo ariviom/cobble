@@ -4,6 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 
 import { Modal } from '@/app/components/ui/Modal';
+import { useOpenTabsStore, isSetTab } from '@/app/store/open-tabs';
+import { FREE_TAB_LIMIT } from '@/app/lib/domain/limits';
 
 export type FeatureGateKey =
   | 'tabs.unlimited'
@@ -41,10 +43,43 @@ type Props = {
 };
 
 export function UpgradeModal({ open, feature, onClose }: Props) {
+  const tabs = useOpenTabsStore(s => s.tabs);
+  const closeTab = useOpenTabsStore(s => s.closeTab);
+  const setTabs = feature === 'tabs.unlimited' ? tabs.filter(isSetTab) : [];
+
   return (
     <Modal open={open} title="Upgrade to Plus" onClose={onClose}>
       <div className="flex flex-col gap-4">
         <p className="text-foreground-muted">{GATE_MESSAGES[feature]}</p>
+        {feature === 'tabs.unlimited' && setTabs.length > 0 && (
+          <div className="rounded-lg border border-subtle p-3">
+            <p className="mb-2 text-xs font-semibold text-foreground-muted uppercase">
+              Open Tabs
+            </p>
+            <ul className="space-y-1">
+              {setTabs.map(tab => (
+                <li
+                  key={tab.id}
+                  className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm"
+                >
+                  <span className="truncate text-foreground-muted">
+                    <span className="font-medium text-foreground">
+                      {tab.setNumber}
+                    </span>{' '}
+                    {tab.name}
+                  </span>
+                  <button
+                    onClick={() => closeTab(tab.id)}
+                    className="shrink-0 rounded p-1 text-foreground-muted hover:bg-foreground/10 hover:text-foreground"
+                    aria-label={`Close ${tab.name}`}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="rounded-lg border border-subtle bg-card-muted p-4">
           <p className="mb-2 text-sm font-semibold text-foreground">
             Plus includes:
@@ -65,12 +100,22 @@ export function UpgradeModal({ open, feature, onClose }: Props) {
           >
             View Plans
           </Link>
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-lg border border-subtle px-4 py-2 text-center text-sm font-medium text-foreground-muted hover:bg-card-muted"
-          >
-            Maybe Later
-          </button>
+          {feature === 'tabs.unlimited' ? (
+            <button
+              onClick={onClose}
+              disabled={setTabs.length >= FREE_TAB_LIMIT}
+              className="flex-1 rounded-lg border border-subtle px-4 py-2 text-center text-sm font-medium text-foreground-muted hover:bg-card-muted disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Continue
+            </button>
+          ) : (
+            <button
+              onClick={onClose}
+              className="flex-1 rounded-lg border border-subtle px-4 py-2 text-center text-sm font-medium text-foreground-muted hover:bg-card-muted"
+            >
+              Maybe Later
+            </button>
+          )}
         </div>
       </div>
     </Modal>
