@@ -1,9 +1,12 @@
-import type { InventoryFilter } from '../types';
+export type CategoryFilterFields = {
+  parents: string[];
+  subcategoriesByParent: Record<string, string[]>;
+};
 
 export type ParentSelectionState = 'none' | 'some' | 'all';
 
-export function getParentState(
-  filter: InventoryFilter,
+export function getParentState<T extends CategoryFilterFields>(
+  filter: T,
   allSubcategoriesByParent: Record<string, string[]>,
   parent: string
 ): ParentSelectionState {
@@ -11,7 +14,6 @@ export function getParentState(
   if (!hasParent) return 'none';
   const all = allSubcategoriesByParent[parent] ?? [];
   const explicit = filter.subcategoriesByParent?.[parent];
-  // Absence of an explicit list implies "all selected"
   if (!explicit || explicit.length === 0) {
     return 'all';
   }
@@ -19,16 +21,15 @@ export function getParentState(
   return 'some';
 }
 
-export function toggleParent(
-  filter: InventoryFilter,
+export function toggleParent<T extends CategoryFilterFields>(
+  filter: T,
   parent: string
-): InventoryFilter {
+): T {
   if (parent === '__all__') {
     return { ...filter, parents: [], subcategoriesByParent: {} };
   }
   const parents = new Set(filter.parents || []);
   if (!parents.has(parent)) {
-    // Select parent; default to "all subcategories" by clearing explicit list
     return {
       ...filter,
       parents: [...parents.add(parent)],
@@ -39,7 +40,6 @@ export function toggleParent(
       ),
     };
   } else {
-    // Deselect parent; remove explicit subcategory list
     parents.delete(parent);
     const nextSubs = { ...(filter.subcategoriesByParent || {}) };
     delete nextSubs[parent];
@@ -51,12 +51,12 @@ export function toggleParent(
   }
 }
 
-export function toggleSubcategory(
-  filter: InventoryFilter,
+export function toggleSubcategory<T extends CategoryFilterFields>(
+  filter: T,
   allSubcategoriesByParent: Record<string, string[]>,
   parent: string,
   sub: string
-): InventoryFilter {
+): T {
   const allSubs = allSubcategoriesByParent[parent] ?? [];
   const parents = new Set(filter.parents || []);
   const wasParentSelected = parents.has(parent);
@@ -69,13 +69,10 @@ export function toggleSubcategory(
   let nextForParent: string[];
 
   if (!wasParentSelected) {
-    // Parent wasn't selected. Clicking a child selects ONLY that child.
     nextForParent = [sub];
   } else if (!currentExplicit || currentExplicit.length === 0) {
-    // Parent was selected with implicit "all". Toggle off the clicked one.
     nextForParent = allSubs.filter(s => s !== sub);
   } else {
-    // Explicit list exists. Toggle the clicked item.
     const set = new Set(currentExplicit);
     if (set.has(sub)) set.delete(sub);
     else set.add(sub);
@@ -85,10 +82,8 @@ export function toggleSubcategory(
   const nextSubs = { ...(filter.subcategoriesByParent || {}) };
 
   if (nextForParent.length === allSubs.length) {
-    // All selected - collapse to implicit "all"
     delete nextSubs[parent];
   } else if (nextForParent.length === 0) {
-    // None selected - deselect the parent entirely
     parents.delete(parent);
     delete nextSubs[parent];
   } else {
@@ -102,10 +97,10 @@ export function toggleSubcategory(
   };
 }
 
-export function clearParentSubcategories(
-  filter: InventoryFilter,
+export function clearParentSubcategories<T extends CategoryFilterFields>(
+  filter: T,
   parent: string
-): InventoryFilter {
+): T {
   if (!(filter.parents || []).includes(parent)) return filter;
   const nextSubs = { ...(filter.subcategoriesByParent || {}) };
   delete nextSubs[parent];

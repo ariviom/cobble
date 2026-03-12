@@ -12,7 +12,7 @@ import {
   getParentState,
   toggleParent,
   toggleSubcategory,
-} from './categoryFilterHelpers';
+} from '@/app/components/ui/categoryFilterHelpers';
 
 type Props = {
   filter: InventoryFilter;
