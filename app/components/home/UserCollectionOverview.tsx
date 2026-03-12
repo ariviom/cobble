@@ -813,26 +813,14 @@ export function UserCollectionOverview({
         />
       )}
 
-      {collectionType === 'parts' &&
-        (ownedSetCount > 0 || loosePartsCount > 0) && (
-          <div className="mx-auto mt-3 w-full max-w-7xl px-4">
-            <p className="text-center text-sm text-foreground-muted">
-              {ownedSetCount > 0 && (
-                <>
-                  {totalParts.toLocaleString()} parts from {ownedSetCount} set
-                  {ownedSetCount !== 1 ? 's' : ''}
-                </>
-              )}
-              {ownedSetCount > 0 && loosePartsCount > 0 && ' · '}
-              {loosePartsCount > 0 && (
-                <>
-                  {loosePartsCount.toLocaleString()} loose part
-                  {loosePartsCount !== 1 ? 's' : ''}
-                </>
-              )}
-            </p>
-          </div>
-        )}
+      {collectionType === 'parts' && (
+        <CollectionPartsView
+          syncPartsFromSets={syncPartsFromSets}
+          ownedSetCount={ownedSetCount}
+          loosePartsCount={loosePartsCount}
+          totalPartsFromSets={totalParts}
+        />
+      )}
 
       <div className="mx-auto w-full max-w-7xl px-4">
         {collectionType === 'sets' && !setsHydrated && (
@@ -866,10 +854,6 @@ export function UserCollectionOverview({
               here.
             </div>
           )}
-
-        {collectionType === 'parts' && (
-          <CollectionPartsView syncPartsFromSets={syncPartsFromSets} />
-        )}
 
         {listsError && (
           <div className="mt-2 text-xs text-danger">
