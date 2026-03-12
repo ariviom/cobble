@@ -9,6 +9,7 @@ import {
   getJoinerOwnedState,
   clearJoinerOwnedState,
 } from '@/app/store/group-sessions';
+import { useOwnedStore } from '@/app/store/owned';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -85,6 +86,10 @@ export function useSearchPartyChannel(
     Boolean(groupParticipantId) &&
     Boolean(groupClientId);
 
+  const pendingSnapshotBroadcastRef = useRef(false);
+  const hydratedSets = useOwnedStore(state => state._hydratedSets);
+  const isSetHydrated = hydratedSets.has(setNumber);
+
   // -------------------------------------------------------------------------
   // Joiner owned state (seeded from localStorage for refresh resilience)
   // -------------------------------------------------------------------------
@@ -141,7 +146,12 @@ export function useSearchPartyChannel(
 
   const handleSnapshotRequested = useCallback(() => {
     if (!enableCloudSync || !isInGroupSession) return;
-    broadcastOwnedSnapshotRef.current(ownedByKeyRef.current);
+    const snapshot = ownedByKeyRef.current;
+    if (Object.keys(snapshot).length > 0) {
+      broadcastOwnedSnapshotRef.current(snapshot);
+    } else {
+      pendingSnapshotBroadcastRef.current = true;
+    }
   }, [enableCloudSync, isInGroupSession]);
 
   // Use a ref for colorSlot so handleReconnected stays stable
@@ -159,8 +169,12 @@ export function useSearchPartyChannel(
     }
 
     if (enableCloudSync) {
-      // Host: proactively broadcast snapshot on reconnect
-      broadcastOwnedSnapshotRef.current(ownedByKeyRef.current);
+      const snapshot = ownedByKeyRef.current;
+      if (Object.keys(snapshot).length > 0) {
+        broadcastOwnedSnapshotRef.current(snapshot);
+      } else {
+        pendingSnapshotBroadcastRef.current = true;
+      }
     } else {
       // Joiner: ask host for current state
       snapshotReceivedRef.current = false;
@@ -197,6 +211,16 @@ export function useSearchPartyChannel(
       storeJoinerOwnedState(groupSessionId, joinerOwnedRef.current);
     };
   }, [isJoiner, groupSessionId]);
+
+  // Fire deferred snapshot broadcast once hydration completes
+  useEffect(() => {
+    if (!isSetHydrated || !pendingSnapshotBroadcastRef.current) return;
+    pendingSnapshotBroadcastRef.current = false;
+    const snapshot = ownedByKeyRef.current;
+    if (Object.keys(snapshot).length > 0) {
+      broadcastOwnedSnapshotRef.current(snapshot);
+    }
+  }, [isSetHydrated]);
 
   // Keep a ref to the ownedOverride for use in channel callbacks
   const ownedOverrideRef = useRef(ownedOverride);

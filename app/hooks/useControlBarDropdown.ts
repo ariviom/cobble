@@ -1,6 +1,7 @@
 'use client';
 
 import { useIsDesktop } from '@/app/hooks/useMediaQuery';
+import { useScrollLock } from '@/app/hooks/useScrollLock';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
@@ -67,19 +68,7 @@ export function useControlBarDropdown(options?: { keepOpenIds?: string[] }): {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // When a bottom sheet is open on mobile, prevent document scrolling
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    if (isDesktop) return;
-    const root = document.documentElement;
-    const prevOverflow = root.style.overflow;
-    if (openDropdownId !== null) {
-      root.style.overflow = 'hidden';
-    }
-    return () => {
-      root.style.overflow = prevOverflow;
-    };
-  }, [openDropdownId, isDesktop]);
+  useScrollLock(!isDesktop && openDropdownId !== null);
 
   return {
     openDropdownId,

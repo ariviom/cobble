@@ -2,6 +2,7 @@
 
 import React, { ReactNode, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
+import { useScrollLock } from '@/app/hooks/useScrollLock';
 
 type Props = {
   open: boolean;
@@ -22,16 +23,7 @@ export function Modal({ open, title, onClose, children }: Props) {
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  // Prevent document scroll while modal is open
-  useEffect(() => {
-    if (!open) return;
-    const root = document.documentElement;
-    const prevOverflow = root.style.overflow;
-    root.style.overflow = 'hidden';
-    return () => {
-      root.style.overflow = prevOverflow;
-    };
-  }, [open]);
+  useScrollLock(open);
 
   if (!open) return null;
   if (typeof document === 'undefined') return null;

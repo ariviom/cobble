@@ -65,7 +65,7 @@ export function ControlBar({
       <div className="h-controls-height border-b border-subtle bg-card-muted">
         <div
           ref={containerRef}
-          className="relative container-wide flex h-full w-full flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar lg:overflow-visible"
+          className="relative container-wide flex h-full w-full flex-nowrap items-center gap-2 overflow-x-auto no-scrollbar"
         >
           {children}
         </div>
