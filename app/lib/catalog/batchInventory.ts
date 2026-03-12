@@ -197,16 +197,21 @@ export async function getSetInventoriesLocalBatch(
   // Collect deduplicated part_nums and color_ids across all sets
   const allPartNums = new Set<string>();
   const allColorIds = new Set<number>();
+  const seenPairs = new Set<string>();
   const allPartColorPairs: Array<{ partNum: string; colorId: number }> = [];
 
   for (const rows of partsBySet.values()) {
     for (const row of rows) {
       allPartNums.add(row.part_num);
       if (row.color_id != null) allColorIds.add(row.color_id);
-      allPartColorPairs.push({
-        partNum: row.part_num,
-        colorId: row.color_id,
-      });
+      const pairKey = `${row.part_num}:${row.color_id}`;
+      if (!seenPairs.has(pairKey)) {
+        seenPairs.add(pairKey);
+        allPartColorPairs.push({
+          partNum: row.part_num,
+          colorId: row.color_id,
+        });
+      }
     }
   }
 

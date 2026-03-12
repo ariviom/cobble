@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { logger } from '@/lib/metrics';
 
@@ -5,13 +7,11 @@ export const VERSION_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 let cache: { at: number; version: string | null } | null = null;
 
-export function getVersionCache() {
+function getVersionCache() {
   return cache;
 }
 
-export function setVersionCache(
-  value: { at: number; version: string | null } | null
-) {
+function setVersionCache(value: { at: number; version: string | null } | null) {
   cache = value;
 }
 

@@ -8,6 +8,7 @@ import type {
   CollectionPart,
   PartsSourceFilter,
 } from '@/app/components/collection/parts/types';
+import type { InventoryRow } from '@/app/components/set/types';
 import { setCachedInventory } from '@/app/lib/localDb/catalogCache';
 import { getAllLooseParts } from '@/app/lib/localDb/loosePartsStore';
 import { getOwnedForSet } from '@/app/lib/localDb/ownedStore';
@@ -28,7 +29,7 @@ async function fetchInventoriesBatch(setNumbers: string[]): Promise<
   Map<
     string,
     {
-      rows: import('@/app/components/set/types').InventoryRow[];
+      rows: InventoryRow[];
       inventoryVersion?: string | null;
     }
   >
@@ -36,7 +37,7 @@ async function fetchInventoriesBatch(setNumbers: string[]): Promise<
   const result = new Map<
     string,
     {
-      rows: import('@/app/components/set/types').InventoryRow[];
+      rows: InventoryRow[];
       inventoryVersion?: string | null;
     }
   >();
@@ -56,15 +57,12 @@ async function fetchInventoriesBatch(setNumbers: string[]): Promise<
         });
         if (!res.ok) return;
         const data = (await res.json()) as {
-          inventories: Record<
-            string,
-            { rows: import('@/app/components/set/types').InventoryRow[] }
-          >;
+          inventories: Record<string, { rows: InventoryRow[] }>;
           inventoryVersion?: string | null;
         };
         for (const [setNum, entry] of Object.entries(data.inventories)) {
           const val: {
-            rows: import('@/app/components/set/types').InventoryRow[];
+            rows: InventoryRow[];
             inventoryVersion?: string | null;
           } = { rows: entry.rows };
           if (data.inventoryVersion !== undefined) {
@@ -116,7 +114,7 @@ async function loadCatalogPartsForSets(
       );
       if (res.ok) {
         const data = (await res.json()) as {
-          rows: import('@/app/components/set/types').InventoryRow[];
+          rows: InventoryRow[];
           inventoryVersion?: string | null;
         };
         if (data.rows.length > 0) {

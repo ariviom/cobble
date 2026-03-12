@@ -16,7 +16,7 @@ const mockRarityRows: Array<{
 }> = [];
 
 const mockSupabase = {
-  from: (_table: string) => ({
+  from: () => ({
     select: () => ({
       or: (filter: string) => {
         orCalls.push(filter);

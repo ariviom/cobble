@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
+import { logger } from '@/lib/metrics';
 
 // ---------------------------------------------------------------------------
 // Rarity query helper — fires all batches in parallel
@@ -40,11 +41,16 @@ export async function queryPartRarityBatch(
         .select('part_num, color_id, set_count')
         .or(orFilter) as unknown as Promise<{
         data: PartRarityRow[] | null;
+        error: { message: string } | null;
       }>;
     })
   );
 
-  for (const { data } of results) {
+  for (const { data, error } of results) {
+    if (error) {
+      logger.warn('rarity.query_batch_failed', { error: error.message });
+      continue;
+    }
     for (const r of data ?? []) {
       map.set(`${r.part_num}:${r.color_id}`, r.set_count);
     }
