@@ -8,6 +8,7 @@ import type {
   CollectionPart,
   PartsSourceFilter,
 } from '@/app/components/collection/parts/types';
+import { setCachedInventory } from '@/app/lib/localDb/catalogCache';
 import { getAllLooseParts } from '@/app/lib/localDb/loosePartsStore';
 import { getOwnedForSet } from '@/app/lib/localDb/ownedStore';
 import type { CatalogPart, CatalogSetPart } from '@/app/lib/localDb/schema';
@@ -17,6 +18,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 type SetInfo = { setNumber: string; setName: string };
 
+/**
+ * Load catalog parts from IndexedDB for the given sets.
+ * For any sets missing from cache, fetch from API and cache the result.
+ */
 async function loadCatalogPartsForSets(
   setNumbers: string[]
 ): Promise<Map<string, CatalogSetPart[]>> {
@@ -24,13 +29,49 @@ async function loadCatalogPartsForSets(
 
   const db = getLocalDb();
   const result = new Map<string, CatalogSetPart[]>();
+  const uncached: string[] = [];
 
   for (const setNum of setNumbers) {
     const parts = await db.catalogSetParts
       .where('setNumber')
       .equals(setNum)
       .toArray();
-    if (parts.length > 0) result.set(setNum, parts);
+    if (parts.length > 0) {
+      result.set(setNum, parts);
+    } else {
+      uncached.push(setNum);
+    }
+  }
+
+  // Fetch uncached inventories from API (which also populates IndexedDB)
+  if (uncached.length > 0) {
+    await Promise.all(
+      uncached.map(async setNum => {
+        try {
+          const res = await fetch(
+            `/api/inventory?set=${encodeURIComponent(setNum)}`
+          );
+          if (!res.ok) return;
+          const data = (await res.json()) as {
+            rows: import('@/app/components/set/types').InventoryRow[];
+            inventoryVersion?: string | null;
+          };
+          if (data.rows.length > 0) {
+            await setCachedInventory(setNum, data.rows, {
+              inventoryVersion: data.inventoryVersion ?? null,
+            });
+            // Re-read from IndexedDB now that it's cached
+            const parts = await db.catalogSetParts
+              .where('setNumber')
+              .equals(setNum)
+              .toArray();
+            if (parts.length > 0) result.set(setNum, parts);
+          }
+        } catch {
+          // Graceful degradation — skip sets we can't fetch
+        }
+      })
+    );
   }
 
   return result;
