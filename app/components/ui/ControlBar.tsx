@@ -25,21 +25,30 @@ export function ControlBar({
 }: ControlBarProps) {
   const outerRef = useRef<HTMLDivElement>(null);
 
-  // Measure sticky header bottom so DropdownPanelFrame positions correctly
+  // Measure sticky header bottom so DropdownPanelFrame positions correctly.
+  // Uses getBoundingClientRect for the actual visual position (accounts for
+  // the bar not yet being stuck at the top before scrolling).
   useEffect(() => {
     if (!sticky) return;
     const el = outerRef.current;
     if (!el) return;
-    const observer = new ResizeObserver(() => {
-      const top = parseFloat(getComputedStyle(el).top) || 0;
+
+    const update = () => {
+      const bottom = el.getBoundingClientRect().bottom;
       document.documentElement.style.setProperty(
         '--sticky-header-bottom',
-        `${top + el.offsetHeight}px`
+        `${bottom}px`
       );
-    });
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
     observer.observe(el);
+    window.addEventListener('scroll', update, { passive: true });
+
     return () => {
       observer.disconnect();
+      window.removeEventListener('scroll', update);
       document.documentElement.style.removeProperty('--sticky-header-bottom');
     };
   }, [sticky]);
