@@ -6,7 +6,12 @@ import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { cn } from '@/app/components/ui/utils';
 import type { ReactNode } from 'react';
 
-export type ImageRing = 'complete' | 'incomplete' | 'missing' | 'neutral';
+export type ImageRing =
+  | 'complete'
+  | 'incomplete'
+  | 'missing'
+  | 'neutral'
+  | 'selected';
 
 type PartCardProps = {
   // Display
@@ -31,6 +36,7 @@ const RING_CLASSES: Record<ImageRing, string> = {
   complete: 'ring-2 ring-success',
   incomplete: 'ring-1 ring-foreground-accent',
   neutral: 'ring-1 ring-foreground-accent',
+  selected: 'ring-2 ring-theme-text',
   missing: 'ring-1 ring-danger',
 };
 

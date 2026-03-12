@@ -207,6 +207,9 @@
 .ring-theme-primary {
   --tw-ring-color: var(--color-theme-primary);
 }
+.ring-theme-text {
+  --tw-ring-color: var(--color-theme-text);
+}
 
 /* Semantic color utilities - these stay fixed regardless of theme */
 .text-danger {
