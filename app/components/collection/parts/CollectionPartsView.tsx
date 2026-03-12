@@ -293,6 +293,7 @@ export function CollectionPartsView({
                   onShowModal={handleShowModal}
                   view={view}
                   itemSize={itemSize}
+                  groupBy={groupBy}
                   isCheckboxDisabled={!listBuilderEnabled}
                   onCheckboxDisabledClick={() => setUpgradeOpen(true)}
                 />

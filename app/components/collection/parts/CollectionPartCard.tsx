@@ -1,5 +1,6 @@
 'use client';
 
+import MobileButtonHitArea from '@/app/components/ui/MobileButtonHitArea';
 import { MoreDropdownButton } from '@/app/components/ui/MoreDropdown';
 import { PartCard } from '@/app/components/ui/PartCard';
 import { cn } from '@/app/components/ui/utils';
@@ -14,8 +15,6 @@ type Props = {
   onToggleSelection: () => void;
   isCheckboxDisabled: boolean;
   onCheckboxDisabledClick?: () => void;
-  isMissingView?: boolean;
-  missingQuantity?: number;
   view: 'list' | 'grid' | 'micro';
   itemSize: 'sm' | 'md' | 'lg';
 };
@@ -27,8 +26,6 @@ function CollectionPartCardComponent({
   onToggleSelection,
   isCheckboxDisabled,
   onCheckboxDisabledClick,
-  isMissingView = false,
-  missingQuantity,
 }: Props) {
   const bricklinkUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(part.partNum)}`;
   const rebrickableUrl = `https://rebrickable.com/parts/${encodeURIComponent(part.partNum)}/${part.colorId}/`;
@@ -54,9 +51,7 @@ function CollectionPartCardComponent({
     }
   };
 
-  const quantityLabel = isMissingView
-    ? `Need ${missingQuantity ?? 0}`
-    : `Owned: ${part.totalOwned} | Loose: ${part.looseQuantity}`;
+  const quantityLabel = `Owned: ${part.totalOwned}`;
 
   return (
     <PartCard
@@ -64,7 +59,7 @@ function CollectionPartCardComponent({
       imageUrl={part.imageUrl}
       imageAlt={part.partName}
       onImageClick={() => onShowModal(part)}
-      imageRing={isMissingView ? 'missing' : 'neutral'}
+      imageRing={isSelected ? 'selected' : 'neutral'}
       topLeftOverlay={
         <button
           type="button"
@@ -72,7 +67,7 @@ function CollectionPartCardComponent({
           aria-checked={isSelected}
           role="checkbox"
           className={cn(
-            'absolute top-3 left-3 z-10 flex items-center justify-center rounded grid:top-4 grid:left-4 micro:hidden',
+            'absolute top-3 left-3 z-10 flex items-center justify-center rounded-sm bg-background grid:top-4 grid:left-4 micro:top-1 micro:left-1',
             isCheckboxDisabled
               ? 'cursor-not-allowed opacity-40'
               : 'cursor-pointer'
@@ -81,10 +76,11 @@ function CollectionPartCardComponent({
           onKeyDown={handleCheckboxKeyDown}
           tabIndex={0}
         >
+          <MobileButtonHitArea />
           {isSelected ? (
-            <SquareCheck className="size-5 text-theme-primary" />
+            <SquareCheck className="size-7 text-theme-text pointer-fine:size-5" />
           ) : (
-            <Square className="size-5 text-foreground-muted" />
+            <Square className="size-7 text-foreground-muted pointer-fine:size-5" />
           )}
         </button>
       }
@@ -125,7 +121,18 @@ function CollectionPartCardComponent({
       quantityArea={
         <div className="w-full sm:list:w-auto">
           <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36 sm:list:pt-7 micro:mt-1 micro:mb-0.5 micro:gap-1 micro:text-2xs">
-            <p className="text-sm text-foreground-muted">{quantityLabel}</p>
+            <p className="text-sm text-foreground-muted micro:text-2xs">
+              {quantityLabel}
+              {part.looseQuantity > 0 && (
+                <>
+                  <span className="micro:hidden"> · </span>
+                  <span className="hidden micro:inline">
+                    <br />
+                  </span>
+                  Loose: {part.looseQuantity}
+                </>
+              )}
+            </p>
           </div>
         </div>
       }
@@ -139,8 +146,6 @@ function areEqual(prev: Props, next: Props) {
     prev.isSelected === next.isSelected &&
     prev.isCheckboxDisabled === next.isCheckboxDisabled &&
     prev.onCheckboxDisabledClick === next.onCheckboxDisabledClick &&
-    prev.isMissingView === next.isMissingView &&
-    prev.missingQuantity === next.missingQuantity &&
     prev.view === next.view &&
     prev.itemSize === next.itemSize &&
     prev.onShowModal === next.onShowModal &&
