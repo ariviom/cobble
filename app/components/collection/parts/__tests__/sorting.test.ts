@@ -8,6 +8,7 @@ import {
   groupParts,
   paginateParts,
   extractCategoryOptions,
+  extractSubcategoriesByParent,
 } from '../sorting';
 
 function makePart(overrides: Partial<CollectionPart>): CollectionPart {
@@ -19,6 +20,7 @@ function makePart(overrides: Partial<CollectionPart>): CollectionPart {
     colorName: 'Red',
     imageUrl: null,
     parentCategory: 'Brick',
+    categoryName: null,
     elementId: null,
     setCount: null,
     ownedFromSets: 0,
@@ -153,39 +155,117 @@ describe('extractCategoryOptions', () => {
 });
 
 describe('filterByCriteria', () => {
-  it('returns all parts when no categories or colors are specified', () => {
+  it('returns all parts when no parents or colors are specified', () => {
     const parts = [
       makePart({ parentCategory: 'Brick' }),
       makePart({ parentCategory: 'Plate' }),
     ];
     expect(
-      filterByCriteria(parts, { source: 'all', categories: [], colors: [] })
+      filterByCriteria(parts, {
+        source: 'all',
+        parents: [],
+        subcategoriesByParent: {},
+        colors: [],
+      })
     ).toHaveLength(2);
   });
 
-  it('filters by category', () => {
+  it('filters by parent category', () => {
     const parts = [
       makePart({ canonicalKey: 'a', parentCategory: 'Brick' }),
       makePart({ canonicalKey: 'b', parentCategory: 'Plate' }),
     ];
     const result = filterByCriteria(parts, {
       source: 'all',
-      categories: ['Brick'],
+      parents: ['Brick'],
+      subcategoriesByParent: {},
       colors: [],
     });
     expect(result.map(p => p.canonicalKey)).toEqual(['a']);
   });
 
-  it('filters by color', () => {
+  it('filters by explicit subcategory when specified', () => {
     const parts = [
-      makePart({ canonicalKey: 'a', colorId: 5 }),
-      makePart({ canonicalKey: 'b', colorId: 11 }),
+      makePart({
+        canonicalKey: 'a',
+        parentCategory: 'Brick',
+        categoryName: 'Brick Standard',
+      }),
+      makePart({
+        canonicalKey: 'b',
+        parentCategory: 'Brick',
+        categoryName: 'Brick Round',
+      }),
+      makePart({
+        canonicalKey: 'c',
+        parentCategory: 'Plate',
+        categoryName: 'Plate Standard',
+      }),
     ];
     const result = filterByCriteria(parts, {
       source: 'all',
-      categories: [],
-      colors: ['5'],
+      parents: ['Brick'],
+      subcategoriesByParent: { Brick: ['Brick Standard'] },
+      colors: [],
     });
     expect(result.map(p => p.canonicalKey)).toEqual(['a']);
+  });
+
+  it('includes all subcategories when parent selected with no explicit subs', () => {
+    const parts = [
+      makePart({
+        canonicalKey: 'a',
+        parentCategory: 'Brick',
+        categoryName: 'Brick Standard',
+      }),
+      makePart({
+        canonicalKey: 'b',
+        parentCategory: 'Brick',
+        categoryName: 'Brick Round',
+      }),
+    ];
+    const result = filterByCriteria(parts, {
+      source: 'all',
+      parents: ['Brick'],
+      subcategoriesByParent: {},
+      colors: [],
+    });
+    expect(result.map(p => p.canonicalKey)).toEqual(['a', 'b']);
+  });
+
+  it('filters by color name', () => {
+    const parts = [
+      makePart({ canonicalKey: 'a', colorName: 'Red' }),
+      makePart({ canonicalKey: 'b', colorName: 'Blue' }),
+    ];
+    const result = filterByCriteria(parts, {
+      source: 'all',
+      parents: [],
+      subcategoriesByParent: {},
+      colors: ['Red'],
+    });
+    expect(result.map(p => p.canonicalKey)).toEqual(['a']);
+  });
+});
+
+describe('extractSubcategoriesByParent', () => {
+  it('groups categoryName under parentCategory', () => {
+    const parts = [
+      makePart({ parentCategory: 'Brick', categoryName: 'Brick Standard' }),
+      makePart({ parentCategory: 'Brick', categoryName: 'Brick Round' }),
+      makePart({ parentCategory: 'Plate', categoryName: 'Plate Standard' }),
+      makePart({ parentCategory: 'Brick', categoryName: 'Brick Standard' }),
+    ];
+    const result = extractSubcategoriesByParent(parts);
+    expect(result).toEqual({
+      Brick: ['Brick Round', 'Brick Standard'],
+      Plate: ['Plate Standard'],
+    });
+  });
+
+  it('uses parentCategory as fallback when categoryName is null', () => {
+    const parts = [makePart({ parentCategory: 'Brick', categoryName: null })];
+    const result = extractSubcategoriesByParent(parts);
+    expect(result).toEqual({ Brick: ['Brick'] });
   });
 });

@@ -25,16 +25,21 @@ export function filterByCriteria(
 ): CollectionPart[] {
   let result = parts;
 
-  if (filter.categories.length > 0) {
-    const cats = new Set(filter.categories);
-    result = result.filter(
-      p => p.parentCategory != null && cats.has(p.parentCategory)
-    );
+  if (filter.parents.length > 0) {
+    const parentSet = new Set(filter.parents);
+    result = result.filter(p => {
+      if (p.parentCategory == null || !parentSet.has(p.parentCategory))
+        return false;
+      const explicit = filter.subcategoriesByParent[p.parentCategory];
+      if (!explicit || explicit.length === 0) return true;
+      const subcategory = p.categoryName ?? p.parentCategory;
+      return explicit.includes(subcategory);
+    });
   }
 
   if (filter.colors.length > 0) {
     const cols = new Set(filter.colors);
-    result = result.filter(p => cols.has(String(p.colorId)));
+    result = result.filter(p => p.colorName != null && cols.has(p.colorName));
   }
 
   return result;
@@ -116,10 +121,28 @@ export function extractCategoryOptions(parts: CollectionPart[]): string[] {
   return Array.from(cats).sort();
 }
 
+export function extractSubcategoriesByParent(
+  parts: CollectionPart[]
+): Record<string, string[]> {
+  const map = new Map<string, Set<string>>();
+  for (const p of parts) {
+    if (!p.parentCategory) continue;
+    if (!map.has(p.parentCategory)) {
+      map.set(p.parentCategory, new Set());
+    }
+    map.get(p.parentCategory)!.add(p.categoryName ?? p.parentCategory);
+  }
+  const result: Record<string, string[]> = {};
+  for (const [parent, subs] of map.entries()) {
+    result[parent] = Array.from(subs).sort();
+  }
+  return result;
+}
+
 export function extractColorOptions(parts: CollectionPart[]): string[] {
   const colors = new Set<string>();
   for (const p of parts) {
-    colors.add(String(p.colorId));
+    if (p.colorName) colors.add(p.colorName);
   }
   return Array.from(colors).sort();
 }
