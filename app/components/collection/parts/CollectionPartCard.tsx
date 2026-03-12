@@ -67,7 +67,7 @@ function CollectionPartCardComponent({
           aria-checked={isSelected}
           role="checkbox"
           className={cn(
-            'absolute top-1 left-1 z-10 flex items-center justify-center rounded-sm bg-background micro:top-0.5 micro:left-0.5',
+            'absolute top-1.5 left-1 z-10 flex items-center justify-center rounded-sm bg-background micro:top-0.5 micro:left-0.5',
             isCheckboxDisabled
               ? 'cursor-not-allowed opacity-40'
               : 'cursor-pointer'
