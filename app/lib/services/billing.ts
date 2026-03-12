@@ -248,33 +248,97 @@ export async function upsertSubscriptionFromStripe(
   return { userId, tier: effectiveTier, status: subscription.status };
 }
 
+/**
+ * Check if the user's email has an entitlement override.
+ * Returns the override tier or null if no override exists.
+ *
+ * Note: Results are cached by the upstream entitlements LRU cache (5-min TTL).
+ * Override changes take effect within 5 minutes without manual cache invalidation.
+ */
+async function getEmailTierOverride(
+  userId: string,
+  supabase: SupabaseClient<Database>
+): Promise<BillingTier | null> {
+  // Look up the user's email. Try billing_customers first (cheap), fall back to auth.
+  const { data: customer } = await supabase
+    .from('billing_customers')
+    .select('email')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  let email: string | null = customer?.email ?? null;
+
+  if (!email) {
+    // User may not have a billing_customers row yet (never started checkout).
+    // Fall back to auth.users via service role.
+    const { data: authData, error: authError } =
+      await supabase.auth.admin.getUserById(userId);
+    if (authError || !authData?.user?.email) {
+      if (authError) {
+        logger.error('billing.override_email_lookup_failed', {
+          error: authError.message,
+        });
+      }
+      return null;
+    }
+    email = authData.user.email;
+  }
+
+  const { data: override, error: overrideError } = await supabase
+    .from('billing_entitlement_overrides')
+    .select('tier')
+    .eq('email', email.toLowerCase())
+    .maybeSingle();
+
+  if (overrideError) {
+    logger.error('billing.override_lookup_failed', {
+      error: overrideError.message,
+    });
+    return null;
+  }
+
+  return (override?.tier as BillingTier) ?? null;
+}
+
 export async function getUserEntitlements(
   userId: string,
   options?: { supabase?: SupabaseClient<Database> }
 ): Promise<{ tier: BillingTier }> {
   const supabase = options?.supabase ?? getSupabaseServiceRoleClient();
 
-  const { data, error } = await supabase
-    .from('billing_subscriptions')
-    .select('tier,status')
-    .eq('user_id', userId);
-
-  if (error) {
-    logger.error('billing.entitlements_query_failed', { error: error.message });
-    return { tier: 'free' };
-  }
-
   const tierRank: Record<BillingTier, number> = { free: 0, plus: 1, pro: 2 };
+
+  // Fetch subscription tier and override tier in parallel
+  const [subscriptionResult, overrideTier] = await Promise.all([
+    supabase
+      .from('billing_subscriptions')
+      .select('tier,status')
+      .eq('user_id', userId),
+    getEmailTierOverride(userId, supabase),
+  ]);
+
+  // Resolve best subscription tier
   let bestTier: BillingTier = 'free';
 
-  for (const row of data ?? []) {
-    if (!row.tier || !row.status) continue;
-    if (!ACTIVE_STATUSES.includes(row.status as Stripe.Subscription.Status)) {
-      continue;
+  if (subscriptionResult.error) {
+    logger.error('billing.entitlements_query_failed', {
+      error: subscriptionResult.error.message,
+    });
+  } else {
+    for (const row of subscriptionResult.data ?? []) {
+      if (!row.tier || !row.status) continue;
+      if (!ACTIVE_STATUSES.includes(row.status as Stripe.Subscription.Status)) {
+        continue;
+      }
+      if (tierRank[row.tier as BillingTier] > tierRank[bestTier]) {
+        bestTier = row.tier as BillingTier;
+      }
     }
-    if (tierRank[row.tier as BillingTier] > tierRank[bestTier]) {
-      bestTier = row.tier as BillingTier;
-    }
+  }
+
+  // Apply override as floor (highest wins)
+  if (overrideTier && tierRank[overrideTier] > tierRank[bestTier]) {
+    bestTier = overrideTier;
   }
 
   return { tier: bestTier };

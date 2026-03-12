@@ -35,6 +35,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      billing_entitlement_overrides: {
+        Row: {
+          created_at: string | null;
+          email: string;
+          id: string;
+          reason: string | null;
+          tier: string;
+        };
+        Insert: {
+          created_at?: string | null;
+          email: string;
+          id?: string;
+          reason?: string | null;
+          tier?: string;
+        };
+        Update: {
+          created_at?: string | null;
+          email?: string;
+          id?: string;
+          reason?: string | null;
+          tier?: string;
+        };
+        Relationships: [];
+      };
       billing_subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null;
