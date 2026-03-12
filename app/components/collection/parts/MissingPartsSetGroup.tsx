@@ -1,9 +1,10 @@
 'use client';
 
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
+import MobileButtonHitArea from '@/app/components/ui/MobileButtonHitArea';
 import { cn } from '@/app/components/ui/utils';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronUp, Square, SquareCheck } from 'lucide-react';
+import { useState } from 'react';
 import { CollectionPartCard } from './CollectionPartCard';
 import { getGridClassName } from './gridClassName';
 import { groupParts } from './sorting';
@@ -47,7 +48,6 @@ export function MissingPartsSetGroup({
   onCheckboxDisabledClick,
 }: Props) {
   const [expanded, setExpanded] = useState(true);
-  const triStateRef = useRef<HTMLInputElement>(null);
 
   // Compute tri-state selection
   const selectedCount = missingParts.filter(p =>
@@ -56,12 +56,6 @@ export function MissingPartsSetGroup({
   const allSelected =
     selectedCount === missingParts.length && missingParts.length > 0;
   const someSelected = selectedCount > 0 && !allSelected;
-
-  useEffect(() => {
-    if (triStateRef.current) {
-      triStateRef.current.indeterminate = someSelected;
-    }
-  }, [someSelected]);
 
   const handleTriStateChange = () => {
     if (isCheckboxDisabled) {
@@ -144,27 +138,57 @@ export function MissingPartsSetGroup({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Set header */}
-      <div className="flex items-center gap-3 rounded-lg border border-subtle bg-card px-3 py-2">
+      {/* Set header — entire card toggles expand/collapse */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setExpanded(prev => !prev)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setExpanded(prev => !prev);
+          }
+        }}
+        className="flex cursor-pointer items-center gap-3 rounded-lg border border-subtle bg-card px-3 py-2 transition-colors hover:bg-card-muted"
+      >
         {/* Set thumbnail with checkbox overlay */}
-        <div className="relative size-14 shrink-0 overflow-hidden rounded-sm ring-1 ring-foreground-accent">
+        <div className="relative size-20 shrink-0 overflow-hidden rounded-sm ring-1 ring-foreground-accent">
           <OptimizedImage
             src={getSetImageUrl(setNumber)}
             alt={setName}
             variant="exclusiveSetThumb"
             className="h-full w-full object-contain"
           />
-          <input
-            ref={triStateRef}
-            type="checkbox"
+          <button
+            type="button"
+            aria-label={
+              allSelected
+                ? `Deselect all missing parts for ${setName}`
+                : `Select all missing parts for ${setName}`
+            }
+            aria-checked={allSelected}
+            role="checkbox"
             className={cn(
-              'absolute top-1 left-1 h-4 w-4 cursor-pointer rounded accent-theme-primary',
-              isCheckboxDisabled && 'cursor-not-allowed opacity-40'
+              'absolute top-3 left-3 z-10 flex items-center justify-center rounded-sm bg-background',
+              isCheckboxDisabled
+                ? 'cursor-not-allowed opacity-40'
+                : 'cursor-pointer'
             )}
-            checked={allSelected}
-            onChange={handleTriStateChange}
-            aria-label={`Select all missing parts for ${setName}`}
-          />
+            onClick={e => {
+              e.stopPropagation();
+              handleTriStateChange();
+            }}
+            tabIndex={0}
+          >
+            <MobileButtonHitArea />
+            {allSelected ? (
+              <SquareCheck className="size-7 text-theme-text pointer-fine:size-5" />
+            ) : someSelected ? (
+              <SquareCheck className="size-7 text-foreground-muted pointer-fine:size-5" />
+            ) : (
+              <Square className="size-7 text-foreground-muted pointer-fine:size-5" />
+            )}
+          </button>
         </div>
 
         {/* Set name/number */}
@@ -179,14 +203,9 @@ export function MissingPartsSetGroup({
         </span>
 
         {/* Expand/collapse chevron */}
-        <button
-          type="button"
-          onClick={() => setExpanded(prev => !prev)}
-          className="shrink-0 rounded p-0.5 text-foreground-muted hover:text-foreground"
-          aria-label={expanded ? 'Collapse section' : 'Expand section'}
-        >
+        <span className="shrink-0 text-foreground-muted">
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </button>
+        </span>
       </div>
 
       {/* Parts grid */}
