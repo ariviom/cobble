@@ -92,7 +92,9 @@ export function SearchBar({
             value={q}
             onChange={e => setQ(e.target.value)}
             placeholder={
-              type === 'minifig' ? 'Search minifigures...' : 'Search sets...'
+              type === 'minifig'
+                ? 'Name or figure number'
+                : 'Name or set number'
             }
             aria-label={
               type === 'minifig' ? 'Search minifigures' : 'Search sets'
