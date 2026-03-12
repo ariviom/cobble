@@ -128,13 +128,13 @@ export function SetDetailModal({
     <Modal open={open} onClose={onClose} title={setName}>
       <div className="-mx-5 -my-5">
         {/* Hero: full-width set image */}
-        <div className="aspect-square w-full bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+        <div className="aspect-4/3 w-full bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
           {imageUrl ? (
             <Image
               src={imageUrl}
               alt={setName}
               width={400}
-              height={400}
+              height={300}
               className="size-full object-contain p-4 drop-shadow-sm"
             />
           ) : (
