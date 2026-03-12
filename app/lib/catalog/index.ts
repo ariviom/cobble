@@ -1,5 +1,6 @@
 import 'server-only';
 
+export { getSetInventoriesLocalBatch } from './batchInventory';
 export {
   getSetMinifigsLocal,
   searchMinifigsLocal,
