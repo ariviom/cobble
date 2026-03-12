@@ -3,7 +3,9 @@
 import { cn } from '@/app/components/ui/utils';
 import { cva, cx, type VariantProps } from 'class-variance-authority';
 import { Check } from 'lucide-react';
-import { forwardRef } from 'react';
+import { forwardRef, useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useIsDesktop } from '@/app/hooks/useMediaQuery';
 import { Checkbox } from './Checkbox';
 import { RowButton } from './RowButton';
 
@@ -136,14 +138,46 @@ export function DropdownPanelFrame({
   variant = 'default',
   children,
 }: DropdownPanelFrameProps) {
-  return (
+  const isDesktop = useIsDesktop();
+  const shouldPortal = variant === 'default' && isDesktop;
+  const [pos, setPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  const updatePos = useCallback(() => {
+    const trigger = document.getElementById(labelledBy);
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    setPos({ top: rect.bottom, left: rect.left, width: rect.width });
+  }, [labelledBy]);
+
+  useEffect(() => {
+    if (!shouldPortal || !isOpen) {
+      setPos(null);
+      return;
+    }
+    updatePos();
+
+    window.addEventListener('scroll', updatePos, true);
+    window.addEventListener('resize', updatePos);
+    return () => {
+      window.removeEventListener('scroll', updatePos, true);
+      window.removeEventListener('resize', updatePos);
+    };
+  }, [shouldPortal, isOpen, updatePos]);
+
+  const panelContent = (
     <div
       id={id}
       role="menu"
       aria-labelledby={labelledBy}
       aria-hidden={isOpen ? undefined : 'true'}
       className={cn(
-        panelVariants({ variant }),
+        shouldPortal
+          ? 'fixed z-50 min-w-64 overflow-hidden overflow-y-auto rounded-lg border border-subtle bg-card shadow-lg'
+          : panelVariants({ variant }),
         isOpen
           ? 'block'
           : hiddenWhenClosed
@@ -151,12 +185,28 @@ export function DropdownPanelFrame({
             : 'pointer-events-none opacity-0',
         className
       )}
+      style={
+        shouldPortal && pos
+          ? {
+              top: pos.top,
+              left: pos.left,
+              minWidth: pos.width,
+              maxHeight: 'var(--spacing-dropdown-max-h)',
+            }
+          : undefined
+      }
       data-open={isOpen ? 'true' : undefined}
       data-dropdown-panel
     >
       {children}
     </div>
   );
+
+  if (shouldPortal && isOpen && typeof document !== 'undefined') {
+    return createPortal(panelContent, document.body);
+  }
+
+  return panelContent;
 }
 
 // Section wrapper with a label header
