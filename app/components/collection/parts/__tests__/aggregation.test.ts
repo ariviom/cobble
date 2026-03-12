@@ -26,14 +26,15 @@ function makeCatalogSetPart(
 function makePartMeta(
   partNum: string,
   name: string,
-  parentCategory: string | null = 'Brick'
+  parentCategory: string | null = 'Brick',
+  categoryName: string | null = null
 ): CatalogPart {
   return {
     partNum,
     name,
     imageUrl: null,
     categoryId: null,
-    categoryName: null,
+    categoryName,
     parentCategory,
     bricklinkPartId: null,
     cachedAt: Date.now(),
@@ -81,7 +82,7 @@ describe('aggregateOwnedParts', () => {
     const result = aggregateOwnedParts(catalog, ownedData, [], defaultPartMeta);
     expect(result).toHaveLength(1);
     expect(result[0].canonicalKey).toBe('3001:5');
-    expect(result[0].ownedFromSets).toBe(5);
+    expect(result[0].ownedFromSets).toBe(6);
     expect(result[0].partName).toBe('Brick 2x4');
     expect(result[0].setSources).toHaveLength(2);
   });
@@ -178,9 +179,9 @@ describe('aggregateOwnedParts', () => {
       defaultPartMeta
     );
     expect(result).toHaveLength(1);
-    expect(result[0].ownedFromSets).toBe(3);
+    expect(result[0].ownedFromSets).toBe(4);
     expect(result[0].looseQuantity).toBe(7);
-    expect(result[0].totalOwned).toBe(10);
+    expect(result[0].totalOwned).toBe(11);
   });
 
   it('includes loose-only parts not in any set', () => {
@@ -198,6 +199,69 @@ describe('aggregateOwnedParts', () => {
     expect(result[0].partName).toBe('Mystery Part');
     expect(result[0].looseQuantity).toBe(5);
     expect(result[0].ownedFromSets).toBe(0);
+  });
+
+  it('includes parts with no piece-picker progress from owned sets', () => {
+    const catalog = new Map([
+      [
+        'set-1',
+        [
+          makeCatalogSetPart({
+            setNumber: 'set-1',
+            partNum: '3001',
+            colorId: 5,
+            inventoryKey: '3001:5',
+            quantityRequired: 4,
+          }),
+          makeCatalogSetPart({
+            setNumber: 'set-1',
+            partNum: '3002',
+            colorId: 5,
+            inventoryKey: '3002:5',
+            quantityRequired: 2,
+          }),
+        ],
+      ],
+    ]);
+    // User has not individually marked any pieces — ownedByKey is empty
+    const ownedData = [
+      { setNumber: 'set-1', setName: 'Set One', ownedByKey: {} },
+    ];
+    const result = aggregateOwnedParts(catalog, ownedData, [], defaultPartMeta);
+    expect(result).toHaveLength(2);
+    expect(result[0].ownedFromSets).toBe(4);
+    expect(result[1].ownedFromSets).toBe(2);
+  });
+
+  it('populates categoryName from part metadata', () => {
+    const metaWithCategory = new Map<string, CatalogPart>([
+      ['3001', makePartMeta('3001', 'Brick 2x4', 'Brick', 'Brick Standard')],
+    ]);
+    const catalog = new Map([
+      [
+        'set-1',
+        [
+          makeCatalogSetPart({
+            setNumber: 'set-1',
+            partNum: '3001',
+            colorId: 5,
+            inventoryKey: '3001:5',
+            quantityRequired: 2,
+          }),
+        ],
+      ],
+    ]);
+    const ownedData = [
+      { setNumber: 'set-1', setName: 'Set One', ownedByKey: {} },
+    ];
+    const result = aggregateOwnedParts(
+      catalog,
+      ownedData,
+      [],
+      metaWithCategory
+    );
+    expect(result[0].categoryName).toBe('Brick Standard');
+    expect(result[0].parentCategory).toBe('Brick');
   });
 
   it('returns empty array when no data', () => {

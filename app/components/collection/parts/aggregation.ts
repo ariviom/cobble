@@ -29,6 +29,7 @@ function buildCollectionPart(
     colorName: cp.colorName,
     imageUrl: cp.imageUrl ?? partMeta?.imageUrl ?? null,
     parentCategory: partMeta?.parentCategory ?? null,
+    categoryName: partMeta?.categoryName ?? null,
     elementId: cp.elementId ?? null,
     setCount: cp.setCount ?? null,
     ownedFromSets: 0,
@@ -47,13 +48,12 @@ export function aggregateOwnedParts(
 ): CollectionPart[] {
   const partMap = new Map<string, CollectionPart>();
 
-  for (const { setNumber, setName, ownedByKey } of ownedDataBySet) {
+  for (const { setNumber, setName } of ownedDataBySet) {
     const catalogParts = catalogPartsBySet.get(setNumber) ?? [];
     for (const cp of catalogParts) {
       if (!isRegularPartKey(cp.inventoryKey)) continue;
 
       const key = cp.inventoryKey;
-      const owned = ownedByKey[key] ?? 0;
 
       let part = partMap.get(key);
       if (!part) {
@@ -61,12 +61,12 @@ export function aggregateOwnedParts(
         partMap.set(key, part);
       }
 
-      part.ownedFromSets += owned;
+      part.ownedFromSets += cp.quantityRequired;
       part.setSources.push({
         setNumber,
         setName,
         quantityInSet: cp.quantityRequired,
-        quantityOwned: owned,
+        quantityOwned: cp.quantityRequired,
       });
     }
   }
@@ -86,6 +86,7 @@ export function aggregateOwnedParts(
         colorName: '',
         imageUrl: meta?.imageUrl ?? null,
         parentCategory: meta?.parentCategory ?? null,
+        categoryName: meta?.categoryName ?? null,
         elementId: null,
         setCount: null,
         ownedFromSets: 0,
