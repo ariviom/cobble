@@ -1,14 +1,9 @@
 import { errorResponse } from '@/app/lib/api/responses';
-import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { getSetInventoryRowsWithMeta } from '@/app/lib/services/inventory';
 import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import {
-  VERSION_CACHE_TTL_MS,
-  getVersionCache,
-  setVersionCache,
-} from './versionCache';
+import { getInventoryVersion } from './versionCache';
 
 // Ensure Next.js treats this route as dynamic (no server-side caching)
 export const dynamic = 'force-dynamic';
@@ -21,35 +16,6 @@ const querySchema = z.object({
   // Optional: include minifig mapping metadata in response
   includeMeta: z.enum(['true', 'false']).optional(),
 });
-
-async function getInventoryVersion(): Promise<string | null> {
-  const now = Date.now();
-  const cached = getVersionCache();
-  if (cached && now - cached.at < VERSION_CACHE_TTL_MS) {
-    return cached.version;
-  }
-
-  try {
-    const supabase = getCatalogReadClient();
-    const { data, error } = await supabase
-      .from('rb_download_versions')
-      .select('version')
-      .eq('source', 'inventory_parts')
-      .maybeSingle();
-    if (error) {
-      logger.warn('inventory.version.read_failed', { error: error.message });
-      return null;
-    }
-    const version = (data?.version as string | null | undefined) ?? null;
-    setVersionCache({ at: now, version });
-    return version;
-  } catch (err) {
-    logger.warn('inventory.version.error', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return null;
-  }
-}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
