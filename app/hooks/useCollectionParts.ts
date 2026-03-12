@@ -18,6 +18,69 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 type SetInfo = { setNumber: string; setName: string };
 
+const BATCH_ENDPOINT_MAX_SETS = 50;
+
+/**
+ * Fetch inventories for multiple sets via the batch endpoint.
+ * Chunks into groups of BATCH_ENDPOINT_MAX_SETS.
+ */
+async function fetchInventoriesBatch(setNumbers: string[]): Promise<
+  Map<
+    string,
+    {
+      rows: import('@/app/components/set/types').InventoryRow[];
+      inventoryVersion?: string | null;
+    }
+  >
+> {
+  const result = new Map<
+    string,
+    {
+      rows: import('@/app/components/set/types').InventoryRow[];
+      inventoryVersion?: string | null;
+    }
+  >();
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < setNumbers.length; i += BATCH_ENDPOINT_MAX_SETS) {
+    chunks.push(setNumbers.slice(i, i + BATCH_ENDPOINT_MAX_SETS));
+  }
+
+  await Promise.all(
+    chunks.map(async chunk => {
+      try {
+        const res = await fetch('/api/inventory/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sets: chunk }),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          inventories: Record<
+            string,
+            { rows: import('@/app/components/set/types').InventoryRow[] }
+          >;
+          inventoryVersion?: string | null;
+        };
+        for (const [setNum, entry] of Object.entries(data.inventories)) {
+          const val: {
+            rows: import('@/app/components/set/types').InventoryRow[];
+            inventoryVersion?: string | null;
+          } = { rows: entry.rows };
+          if (data.inventoryVersion !== undefined) {
+            val.inventoryVersion = data.inventoryVersion;
+          }
+          result.set(setNum, val);
+        }
+      } catch {
+        // Graceful — skip this chunk
+      }
+    })
+  );
+
+  return result;
+}
+
 /**
  * Load catalog parts from IndexedDB for the given sets.
  * For any sets missing from cache, fetch from API and cache the result.
@@ -43,24 +106,43 @@ async function loadCatalogPartsForSets(
     }
   }
 
-  // Fetch uncached inventories from API (which also populates IndexedDB)
-  if (uncached.length > 0) {
+  // Fetch uncached inventories
+  if (uncached.length === 1) {
+    // Single set — use existing endpoint
+    const setNum = uncached[0]!;
+    try {
+      const res = await fetch(
+        `/api/inventory?set=${encodeURIComponent(setNum)}`
+      );
+      if (res.ok) {
+        const data = (await res.json()) as {
+          rows: import('@/app/components/set/types').InventoryRow[];
+          inventoryVersion?: string | null;
+        };
+        if (data.rows.length > 0) {
+          await setCachedInventory(setNum, data.rows, {
+            inventoryVersion: data.inventoryVersion ?? null,
+          });
+          const parts = await db.catalogSetParts
+            .where('setNumber')
+            .equals(setNum)
+            .toArray();
+          if (parts.length > 0) result.set(setNum, parts);
+        }
+      }
+    } catch {
+      // Graceful degradation
+    }
+  } else if (uncached.length > 1) {
+    // Multiple sets — use batch endpoint
+    const batchResults = await fetchInventoriesBatch(uncached);
     await Promise.all(
-      uncached.map(async setNum => {
+      Array.from(batchResults.entries()).map(async ([setNum, data]) => {
         try {
-          const res = await fetch(
-            `/api/inventory?set=${encodeURIComponent(setNum)}`
-          );
-          if (!res.ok) return;
-          const data = (await res.json()) as {
-            rows: import('@/app/components/set/types').InventoryRow[];
-            inventoryVersion?: string | null;
-          };
           if (data.rows.length > 0) {
             await setCachedInventory(setNum, data.rows, {
               inventoryVersion: data.inventoryVersion ?? null,
             });
-            // Re-read from IndexedDB now that it's cached
             const parts = await db.catalogSetParts
               .where('setNumber')
               .equals(setNum)
@@ -68,7 +150,7 @@ async function loadCatalogPartsForSets(
             if (parts.length > 0) result.set(setNum, parts);
           }
         } catch {
-          // Graceful degradation — skip sets we can't fetch
+          // Graceful — skip individual cache failures
         }
       })
     );
