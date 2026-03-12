@@ -6,8 +6,9 @@ import { UpgradeModal } from '@/app/components/upgrade-modal';
 import { useCollectionParts } from '@/app/hooks/useCollectionParts';
 import { useCollectionPartsControls } from '@/app/hooks/useCollectionPartsControls';
 import { useCollectionPartsSelection } from '@/app/hooks/useCollectionPartsSelection';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { CollectionPartCard } from './CollectionPartCard';
+import { getGridClassName } from './gridClassName';
 import { CollectionPartModal } from './CollectionPartModal';
 import { CollectionPartsControlBar } from './CollectionPartsControlBar';
 import { MissingPartsSetGroup } from './MissingPartsSetGroup';
@@ -15,6 +16,7 @@ import { Pagination } from './Pagination';
 import {
   extractCategoryOptions,
   extractColorOptions,
+  extractSubcategoriesByParent,
   filterByCriteria,
   filterBySource,
   groupParts,
@@ -27,6 +29,9 @@ import { CollectionPartsExportModal } from './CollectionPartsExportModal';
 
 type Props = {
   syncPartsFromSets: boolean;
+  ownedSetCount: number;
+  loosePartsCount: number;
+  totalPartsFromSets: number;
 };
 
 /** Invert missing data to get a map of setNumber → parts with that set missing */
@@ -52,7 +57,12 @@ function groupMissingBySet(
   return result;
 }
 
-export function CollectionPartsView({ syncPartsFromSets }: Props) {
+export function CollectionPartsView({
+  syncPartsFromSets,
+  ownedSetCount,
+  loosePartsCount,
+  totalPartsFromSets,
+}: Props) {
   const controls = useCollectionPartsControls();
   const {
     filter,
@@ -97,6 +107,10 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
 
   const categoryOptions = useMemo(
     () => extractCategoryOptions(sourceFiltered),
+    [sourceFiltered]
+  );
+  const subcategoriesByParent = useMemo(
+    () => extractSubcategoriesByParent(sourceFiltered),
     [sourceFiltered]
   );
   const colorOptions = useMemo(
@@ -167,8 +181,13 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
     setExportOpen(true);
   };
 
+  const gridClassName = getGridClassName(view, itemSize);
+
   const [modalPart, setModalPart] = useState<CollectionPart | null>(null);
-  const handleShowModal = (part: CollectionPart) => setModalPart(part);
+  const handleShowModal = useCallback(
+    (part: CollectionPart) => setModalPart(part),
+    []
+  );
 
   if (isLoading) {
     return (
@@ -190,7 +209,7 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Control bar */}
+      {/* Control bar — edge-to-edge, no horizontal padding */}
       <CollectionPartsControlBar
         sourceFilter={sourceFilter}
         onSourceFilterChange={setSourceFilter}
@@ -207,157 +226,178 @@ export function CollectionPartsView({ syncPartsFromSets }: Props) {
         onClearSelections={clearAll}
         isExportDisabled={false}
         // Export button is always clickable; entitlement check happens in handleExport
-        categoryOptions={categoryOptions}
+        parentOptions={categoryOptions}
+        subcategoriesByParent={subcategoriesByParent}
         colorOptions={colorOptions}
         filter={filter}
         onFilterChange={setFilter}
       />
 
-      {/* Summary line */}
-      {processedParts.length > 0 && (
-        <p className="text-center text-sm text-foreground-muted">
-          {totalUnique.toLocaleString()} unique part
-          {totalUnique !== 1 ? 's' : ''}
-          {sourceFilter !== 'missing' && (
-            <>
-              {' '}
-              &middot; {totalPieces.toLocaleString()} total piece
-              {totalPieces !== 1 ? 's' : ''}
-            </>
-          )}
-        </p>
-      )}
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4">
+        {/* Total inventory summary */}
+        {(ownedSetCount > 0 || loosePartsCount > 0) && (
+          <p className="text-center text-sm text-foreground-muted">
+            {ownedSetCount > 0 && (
+              <>
+                {totalPartsFromSets.toLocaleString()} parts from {ownedSetCount}{' '}
+                set{ownedSetCount !== 1 ? 's' : ''}
+              </>
+            )}
+            {ownedSetCount > 0 && loosePartsCount > 0 && ' · '}
+            {loosePartsCount > 0 && (
+              <>
+                {loosePartsCount.toLocaleString()} loose part
+                {loosePartsCount !== 1 ? 's' : ''}
+              </>
+            )}
+          </p>
+        )}
 
-      {processedParts.length === 0 && (
-        <p className="mt-2 text-center text-sm text-foreground-muted">
-          No parts match the current filters.
-        </p>
-      )}
+        {/* Filtered summary */}
+        {processedParts.length > 0 && (
+          <p className="text-center text-sm text-foreground-muted">
+            {totalUnique.toLocaleString()} unique part
+            {totalUnique !== 1 ? 's' : ''}
+            {sourceFilter !== 'missing' && (
+              <>
+                {' '}
+                &middot; {totalPieces.toLocaleString()} total piece
+                {totalPieces !== 1 ? 's' : ''}
+              </>
+            )}
+          </p>
+        )}
 
-      {/* Missing view: grouped by set */}
-      {sourceFilter === 'missing' && missingBySet && (
-        <div className="flex flex-col gap-4">
-          {Array.from(missingBySet.entries()).map(
-            ([setNumber, { setName, parts: setParts }]) => (
-              <MissingPartsSetGroup
-                key={setNumber}
-                setNumber={setNumber}
-                setName={setName}
-                missingParts={setParts}
-                isSelected={(key, sn) => isSelected(key, sn)}
-                onToggleSelection={(key, qty, sn) =>
-                  toggleSelection(key, qty, sn)
-                }
-                onSelectAll={selectAll}
-                onDeselectAll={deselectAll}
-                onShowModal={handleShowModal}
-                view={view}
-                itemSize={itemSize}
-                isCheckboxDisabled={!listBuilderEnabled}
-                onCheckboxDisabledClick={() => setUpgradeOpen(true)}
-              />
-            )
-          )}
-        </div>
-      )}
+        {processedParts.length === 0 && (
+          <p className="mt-2 text-center text-sm text-foreground-muted">
+            No parts match the current filters.
+          </p>
+        )}
 
-      {/* Part detail modal */}
-      {modalPart && (
-        <CollectionPartModal
-          part={modalPart}
-          onClose={() => setModalPart(null)}
-          onLooseQuantityChange={reload}
-        />
-      )}
-
-      {/* Export modal */}
-      {exportOpen && (
-        <CollectionPartsExportModal
-          open={exportOpen}
-          onClose={() => setExportOpen(false)}
-          selections={selections}
-          partsLookup={partsLookup}
-        />
-      )}
-
-      {/* Upgrade modal for list builder entitlement */}
-      <UpgradeModal
-        open={upgradeOpen}
-        feature="list_builder.enabled"
-        onClose={() => setUpgradeOpen(false)}
-      />
-
-      {/* Flat / grouped view */}
-      {sourceFilter !== 'missing' && (
-        <>
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setPage}
-          />
-
-          {groupBy !== 'none' && groupedParts ? (
-            <div className="flex flex-col gap-6">
-              {Array.from(groupedParts.entries()).map(
-                ([groupLabel, groupItems]) => (
-                  <div key={groupLabel} className="flex flex-col gap-2">
-                    <div className="px-1 py-2 text-lg font-semibold tracking-wide text-foreground uppercase">
-                      {groupLabel}
-                    </div>
-                    <div
-                      data-item-size={itemSize}
-                      className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-                    >
-                      {groupItems.map(part => (
-                        <CollectionPartCard
-                          key={part.canonicalKey}
-                          part={part}
-                          onShowModal={handleShowModal}
-                          isSelected={isSelected(part.canonicalKey)}
-                          onToggleSelection={() =>
-                            toggleSelection(part.canonicalKey, part.totalOwned)
-                          }
-                          isCheckboxDisabled={!listBuilderEnabled}
-                          onCheckboxDisabledClick={() => setUpgradeOpen(true)}
-                          view={view}
-                          itemSize={itemSize}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
-          ) : (
-            <div
-              data-item-size={itemSize}
-              className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-            >
-              {pagedParts.map(part => (
-                <CollectionPartCard
-                  key={part.canonicalKey}
-                  part={part}
-                  onShowModal={handleShowModal}
-                  isSelected={isSelected(part.canonicalKey)}
-                  onToggleSelection={() =>
-                    toggleSelection(part.canonicalKey, part.totalOwned)
+        {/* Missing view: grouped by set */}
+        {sourceFilter === 'missing' && missingBySet && (
+          <div className="flex flex-col gap-4">
+            {Array.from(missingBySet.entries()).map(
+              ([setNumber, { setName, parts: setParts }]) => (
+                <MissingPartsSetGroup
+                  key={setNumber}
+                  setNumber={setNumber}
+                  setName={setName}
+                  missingParts={setParts}
+                  isSelected={(key, sn) => isSelected(key, sn)}
+                  onToggleSelection={(key, qty, sn) =>
+                    toggleSelection(key, qty, sn)
                   }
-                  isCheckboxDisabled={!listBuilderEnabled}
-                  onCheckboxDisabledClick={() => setUpgradeOpen(true)}
+                  onSelectAll={selectAll}
+                  onDeselectAll={deselectAll}
+                  onShowModal={handleShowModal}
                   view={view}
                   itemSize={itemSize}
+                  isCheckboxDisabled={!listBuilderEnabled}
+                  onCheckboxDisabledClick={() => setUpgradeOpen(true)}
                 />
-              ))}
-            </div>
-          )}
+              )
+            )}
+          </div>
+        )}
 
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setPage}
+        {/* Part detail modal */}
+        {modalPart && (
+          <CollectionPartModal
+            part={modalPart}
+            onClose={() => setModalPart(null)}
+            onLooseQuantityChange={reload}
           />
-        </>
-      )}
+        )}
+
+        {/* Export modal */}
+        {exportOpen && (
+          <CollectionPartsExportModal
+            open={exportOpen}
+            onClose={() => setExportOpen(false)}
+            selections={selections}
+            partsLookup={partsLookup}
+          />
+        )}
+
+        {/* Upgrade modal for list builder entitlement */}
+        <UpgradeModal
+          open={upgradeOpen}
+          feature="list_builder.enabled"
+          onClose={() => setUpgradeOpen(false)}
+        />
+
+        {/* Flat / grouped view */}
+        {sourceFilter !== 'missing' && (
+          <>
+            {groupBy !== 'none' && groupedParts ? (
+              <div className="flex flex-col gap-6">
+                {Array.from(groupedParts.entries()).map(
+                  ([groupLabel, groupItems]) => (
+                    <div key={groupLabel} className="flex flex-col gap-2">
+                      <div className="px-1 py-2 text-lg font-semibold tracking-wide text-foreground uppercase">
+                        {groupLabel}
+                      </div>
+                      <div
+                        data-view={view}
+                        data-item-size={itemSize}
+                        className={gridClassName}
+                      >
+                        {groupItems.map(part => (
+                          <CollectionPartCard
+                            key={part.canonicalKey}
+                            part={part}
+                            onShowModal={handleShowModal}
+                            isSelected={isSelected(part.canonicalKey)}
+                            onToggleSelection={() =>
+                              toggleSelection(
+                                part.canonicalKey,
+                                part.totalOwned
+                              )
+                            }
+                            isCheckboxDisabled={!listBuilderEnabled}
+                            onCheckboxDisabledClick={() => setUpgradeOpen(true)}
+                            view={view}
+                            itemSize={itemSize}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            ) : (
+              <div
+                data-view={view}
+                data-item-size={itemSize}
+                className={gridClassName}
+              >
+                {pagedParts.map(part => (
+                  <CollectionPartCard
+                    key={part.canonicalKey}
+                    part={part}
+                    onShowModal={handleShowModal}
+                    isSelected={isSelected(part.canonicalKey)}
+                    onToggleSelection={() =>
+                      toggleSelection(part.canonicalKey, part.totalOwned)
+                    }
+                    isCheckboxDisabled={!listBuilderEnabled}
+                    onCheckboxDisabledClick={() => setUpgradeOpen(true)}
+                    view={view}
+                    itemSize={itemSize}
+                  />
+                ))}
+              </div>
+            )}
+
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
+          </>
+        )}
+      </div>
     </div>
   );
 }
