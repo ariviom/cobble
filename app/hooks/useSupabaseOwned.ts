@@ -4,11 +4,8 @@ import { isMinifigParentRow } from '@/app/components/set/inventory-utils';
 import type { InventoryRow } from '@/app/components/set/types';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import { exportOwnedToRecord } from '@/app/lib/localDb/ownedStore';
-import {
-  enqueueOwnedChangeIfPossible,
-  parseInventoryKey,
-} from '@/app/lib/ownedSync';
+import { exportOwnedWithTimestamps } from '@/app/lib/localDb/ownedStore';
+import { enqueueOwnedChangeIfPossible } from '@/app/lib/ownedSync';
 import { useOwnedStore, type OwnedState } from '@/app/store/owned';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -61,18 +58,13 @@ export function useSupabaseOwned({
   const { user } = useSupabaseUser();
 
   const [migration, setMigration] = useState<MigrationState | null>(null);
-  const [isMigrating, setIsMigrating] = useState(false);
+  const [isMigrating] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   // Client ID for sync queue operations (stable per browser session)
   const clientIdRef = useRef<string | null>(null);
 
   const userId = user?.id ?? null;
-
-  const migrationDecisionKey = useMemo(() => {
-    if (!userId) return null;
-    return `brick_party_owned_migration_${userId}_${setNumber}`;
-  }, [userId, setNumber]);
 
   const getOwned = useOwnedStore((state: OwnedState) => state.getOwned);
   const setOwned = useOwnedStore((state: OwnedState) => state.setOwned);
@@ -260,9 +252,9 @@ export function useSupabaseOwned({
     ]
   );
 
-  // Initial hydration + migration prompt detection.
+  // Initial hydration: per-key LWW reconciliation with cloud data.
   useEffect(() => {
-    if (!enableCloudSync || !userId || !migrationDecisionKey) return;
+    if (!enableCloudSync || !userId) return;
     if (rows.length === 0 || keys.length === 0) return;
     if (!isOwnedHydrated) return;
     if (hydrated) return;
@@ -277,8 +269,10 @@ export function useSupabaseOwned({
 
     async function run() {
       const supabase = getSupabaseBrowserClient();
-      const supabaseByKey = new Map<string, number>();
-      let maxCloudUpdatedAt = 0;
+      const supabaseByKey = new Map<
+        string,
+        { qty: number; updatedAt: number }
+      >();
       let offset = 0;
       let error: { message: string } | null = null;
 
@@ -300,11 +294,11 @@ export function useSupabaseOwned({
         for (const row of data ?? []) {
           if (row.is_spare) continue;
           const key = `${row.part_num}:${row.color_id}`;
-          supabaseByKey.set(key, row.owned_quantity ?? 0);
-          if (row.updated_at) {
-            const ts = new Date(row.updated_at).getTime();
-            if (ts > maxCloudUpdatedAt) maxCloudUpdatedAt = ts;
-          }
+          const ts = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+          supabaseByKey.set(key, {
+            qty: row.owned_quantity ?? 0,
+            updatedAt: ts,
+          });
         }
 
         if (!data || data.length < PAGE_SIZE) {
@@ -323,10 +317,7 @@ export function useSupabaseOwned({
         return;
       }
 
-      // Filter out cloud entries whose keys don't match any current inventory
-      // key. Orphaned RB-keyed rows (from before the BrickLink migration)
-      // would otherwise inflate supabaseTotal and trigger false migration
-      // prompts.
+      // Filter out cloud entries whose keys don't match any current inventory key.
       const inventoryKeySet = new Set(keys);
       for (const k of supabaseByKey.keys()) {
         if (!inventoryKeySet.has(k)) {
@@ -334,147 +325,36 @@ export function useSupabaseOwned({
         }
       }
 
-      const localByKey = new Map<string, number>();
-      for (const key of keys) {
-        const owned = getOwned(setNumber, key);
-        if (owned > 0) {
-          localByKey.set(key, owned);
-        }
-      }
+      // Per-key last-write-wins reconciliation
+      const { entries: localEntries } =
+        await exportOwnedWithTimestamps(setNumber);
+      if (cancelled) return;
 
-      const supabaseTotal = Array.from(supabaseByKey.values()).reduce(
-        (sum, n) => sum + n,
-        0
-      );
-      const localTotal = Array.from(localByKey.values()).reduce(
-        (sum, n) => sum + n,
-        0
+      const localByKeyWithTs = new Map(
+        localEntries.map(e => [
+          e.key,
+          { qty: e.quantity, updatedAt: e.updatedAt },
+        ])
       );
 
-      const supabaseHash = Array.from(supabaseByKey.entries())
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([k, v]) => `${k}:${v}`)
-        .join('|');
-      const localHash = Array.from(localByKey.entries())
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([k, v]) => `${k}:${v}`)
-        .join('|');
+      // Reconcile: per-key, newer timestamp wins (cloud wins ties)
+      for (const [key, cloud] of supabaseByKey) {
+        const local = localByKeyWithTs.get(key);
+        if (!local || cloud.updatedAt >= local.updatedAt) {
+          // Cloud is newer or equal (tie-break) or key only in cloud → apply cloud
+          setOwned(setNumber, key, cloud.qty);
+        }
+        // If local is newer, keep local value (already in store)
+      }
 
-      // Determine whether data is materially different.
-      const differInTotals = supabaseTotal !== localTotal;
-      let differInKeys = false;
-      if (!differInTotals) {
-        if (supabaseByKey.size !== localByKey.size) {
-          differInKeys = true;
-        } else {
-          for (const [k, v] of supabaseByKey.entries()) {
-            if ((localByKey.get(k) ?? 0) !== v) {
-              differInKeys = true;
-              break;
-            }
-          }
+      // Keys only in local but not cloud → enqueue for cloud sync
+      for (const [key] of localByKeyWithTs) {
+        if (!supabaseByKey.has(key)) {
+          const localEntry = localByKeyWithTs.get(key)!;
+          enqueueChange(key, localEntry.qty);
         }
       }
 
-      const mapsDiffer =
-        differInTotals || differInKeys || supabaseHash !== localHash;
-
-      let existingDecision: string | null = null;
-      try {
-        existingDecision = window.localStorage.getItem(
-          migrationDecisionKey as string
-        );
-      } catch {
-        existingDecision = null;
-      }
-
-      if (!mapsDiffer) {
-        // In sync; nothing to prompt about. Ensure future sessions skip the prompt.
-        if (!existingDecision) {
-          try {
-            window.localStorage.setItem(
-              migrationDecisionKey as string,
-              'synced'
-            );
-          } catch {
-            // ignore
-          }
-        }
-        setHydrated(true);
-        return;
-      }
-
-      if (existingDecision === 'local_to_supabase') {
-        // User previously chose to push local data; regular debounced writes will
-        // converge things, so we don't re-prompt.
-        setHydrated(true);
-        return;
-      }
-
-      if (existingDecision === 'supabase_kept') {
-        // Only re-apply cloud data if the cloud is actually newer than
-        // local edits. This prevents overwriting local changes made after
-        // the user initially chose "keep cloud".
-        const { maxUpdatedAt: localMaxUpdatedAt } =
-          await exportOwnedToRecord(setNumber);
-        if (cancelled) return;
-
-        if (localMaxUpdatedAt === 0 || maxCloudUpdatedAt > localMaxUpdatedAt) {
-          // No local timestamps (first load) or cloud is newer — apply cloud.
-          for (const [key, qty] of supabaseByKey) {
-            setOwned(setNumber, key, qty);
-          }
-        }
-        // Otherwise local edits are newer — skip re-apply.
-        setHydrated(true);
-        return;
-      }
-
-      // Auto-resolve when one side is empty: keep the side with data.
-      if (localTotal === 0 && supabaseTotal > 0) {
-        // Cloud has data, local is empty — pull cloud data down.
-        for (const [key, qty] of supabaseByKey) {
-          setOwned(setNumber, key, qty);
-        }
-        try {
-          window.localStorage.setItem(
-            migrationDecisionKey as string,
-            'supabase_kept'
-          );
-        } catch {
-          // ignore
-        }
-        setHydrated(true);
-        return;
-      }
-
-      if (supabaseTotal === 0 && localTotal > 0) {
-        // Local has data, cloud is empty — push local data up.
-        for (const key of keys) {
-          const owned = getOwned(setNumber, key);
-          const qty = Math.max(0, Math.floor(owned || 0));
-          if (qty > 0) {
-            enqueueChange(key, qty);
-          }
-        }
-        try {
-          window.localStorage.setItem(
-            migrationDecisionKey as string,
-            'local_to_supabase'
-          );
-        } catch {
-          // ignore
-        }
-        setHydrated(true);
-        return;
-      }
-
-      // Both sides have data and differ: show prompt with simple totals.
-      setMigration({
-        open: true,
-        localTotal,
-        supabaseTotal,
-      });
       setHydrated(true);
     }
 
@@ -490,10 +370,8 @@ export function useSupabaseOwned({
   }, [
     enableCloudSync,
     userId,
-    migrationDecisionKey,
     rows.length,
     keys,
-    getOwned,
     setOwned,
     setNumber,
     hydrated,
@@ -502,96 +380,13 @@ export function useSupabaseOwned({
   ]);
 
   const confirmMigration = useCallback(async () => {
-    if (!enableCloudSync || !userId || !migrationDecisionKey) return;
-    setIsMigrating(true);
-    try {
-      // Enqueue all local owned data to sync queue
-      // The sync worker will batch and send these to Supabase
-      for (const key of keys) {
-        const parsed = parseInventoryKey(key);
-        if (!parsed) continue;
-        const owned = getOwned(setNumber, key);
-        const qty = Math.max(0, Math.floor(owned || 0));
-        if (qty > 0) {
-          enqueueChange(key, qty);
-        }
-      }
-
-      try {
-        window.localStorage.setItem(
-          migrationDecisionKey as string,
-          'local_to_supabase'
-        );
-      } catch {
-        // ignore
-      }
-
-      setMigration(null);
-    } catch (err) {
-      console.error('Owned migration (local → Supabase) failed', {
-        setNumber,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    } finally {
-      setIsMigrating(false);
-    }
-  }, [
-    enableCloudSync,
-    keys,
-    migrationDecisionKey,
-    getOwned,
-    setNumber,
-    userId,
-    enqueueChange,
-  ]);
+    // No-op: per-key LWW reconciliation handles sync automatically
+  }, []);
 
   const keepCloudData = useCallback(async () => {
-    if (!enableCloudSync || !userId || !migrationDecisionKey) {
-      setMigration(null);
-      return;
-    }
-
-    try {
-      const supabase = getSupabaseBrowserClient();
-      const { data, error } = await supabase
-        .from('user_set_parts')
-        .select('part_num, color_id, is_spare, owned_quantity')
-        .eq('user_id', userId as string)
-        .eq('set_num', setNumber);
-
-      if (error) {
-        throw error;
-      }
-
-      const supabaseByKey = new Map<string, number>();
-      for (const row of data ?? []) {
-        if (row.is_spare) continue;
-        const key = `${row.part_num}:${row.color_id}`;
-        supabaseByKey.set(key, row.owned_quantity ?? 0);
-      }
-
-      // Merge cloud data — only overwrite keys cloud has, leave others.
-      for (const [key, qty] of supabaseByKey) {
-        setOwned(setNumber, key, qty);
-      }
-
-      try {
-        window.localStorage.setItem(
-          migrationDecisionKey as string,
-          'supabase_kept'
-        );
-      } catch {
-        // ignore
-      }
-    } catch (err) {
-      console.error('Owned migration keepCloudData failed', {
-        setNumber,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    } finally {
-      setMigration(null);
-    }
-  }, [enableCloudSync, migrationDecisionKey, setOwned, setNumber, userId]);
+    // No-op: per-key LWW reconciliation handles sync automatically
+    setMigration(null);
+  }, []);
 
   // -------------------------------------------------------------------------
   // Bulk actions — update local store efficiently + enqueue sync for each key
