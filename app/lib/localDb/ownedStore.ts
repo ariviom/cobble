@@ -85,25 +85,27 @@ export async function setOwnedForSet(
     const now = Date.now();
 
     await db.transaction('rw', db.localOwned, async () => {
-      // Delete existing entries for this set
+      const existing = await db.localOwned
+        .where('setNumber')
+        .equals(setNumber)
+        .toArray();
+      const existingByKey = new Map(existing.map(r => [r.inventoryKey, r]));
       await db.localOwned.where('setNumber').equals(setNumber).delete();
 
-      // Insert new entries (only for non-zero quantities)
       const entries: Omit<LocalOwned, 'id'>[] = [];
       for (const [inventoryKey, quantity] of Object.entries(quantities)) {
         if (quantity > 0) {
+          const prev = existingByKey.get(inventoryKey);
           entries.push({
             setNumber,
             inventoryKey,
             quantity,
-            updatedAt: now,
+            updatedAt:
+              prev && prev.quantity === quantity ? prev.updatedAt : now,
           });
         }
       }
-
-      if (entries.length > 0) {
-        await db.localOwned.bulkAdd(entries);
-      }
+      if (entries.length > 0) await db.localOwned.bulkAdd(entries);
     });
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
@@ -388,5 +390,34 @@ export async function exportOwnedToRecord(
       console.warn('Failed to export owned quantities from IndexedDB:', error);
     }
     return { data: {}, maxUpdatedAt: 0 };
+  }
+}
+
+/**
+ * Export owned quantities with per-key timestamps (for LWW reconciliation).
+ */
+export async function exportOwnedWithTimestamps(
+  setNumber: string
+): Promise<{
+  entries: Array<{ key: string; quantity: number; updatedAt: number }>;
+}> {
+  if (!isIndexedDBAvailable()) return { entries: [] };
+  try {
+    const db = getLocalDb();
+    const rows = await db.localOwned
+      .where('setNumber')
+      .equals(setNumber)
+      .toArray();
+    return {
+      entries: rows
+        .filter(r => r.quantity > 0)
+        .map(r => ({
+          key: r.inventoryKey,
+          quantity: r.quantity,
+          updatedAt: r.updatedAt,
+        })),
+    };
+  } catch {
+    return { entries: [] };
   }
 }
