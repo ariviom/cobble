@@ -29,6 +29,7 @@ vi.mock('@/app/lib/localDb', () => ({
   getStoredUserId: vi.fn().mockResolvedValue(null),
   setStoredUserId: vi.fn().mockResolvedValue(undefined),
   setMeta: vi.fn().mockResolvedValue(undefined),
+  updateWatermarks: (...args: unknown[]) => mockUpdateWatermarks(...args),
 }));
 
 const mockShouldSync = vi.fn(() => true);
@@ -39,6 +40,11 @@ const mockOnLeaderChange = vi.fn(
     return vi.fn();
   }
 );
+const mockUpdateWatermarks = vi.fn().mockResolvedValue(undefined);
+const mockBroadcastPullRequest = vi.fn();
+const mockOnSyncRequested = vi.fn((_cb: () => void): (() => void) => {
+  return vi.fn();
+});
 
 vi.mock('@/app/store/owned', () => ({
   resetOwnedCache: vi.fn().mockResolvedValue(undefined),
@@ -47,10 +53,12 @@ vi.mock('@/app/store/owned', () => ({
 vi.mock('@/app/lib/sync/tabCoordinator', () => ({
   getTabCoordinator: vi.fn(() => ({
     onLeaderChange: mockOnLeaderChange,
+    onSyncRequested: mockOnSyncRequested,
     shouldSync: mockShouldSync,
   })),
   shouldSync: () => mockShouldSync(),
   notifySyncComplete: (success: boolean) => mockNotifySyncComplete(success),
+  broadcastPullRequest: () => mockBroadcastPullRequest(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -803,6 +811,93 @@ describe('SyncWorker', () => {
       await worker.performSync({ keepalive: true, force: true });
       expect(navigator.sendBeacon).not.toHaveBeenCalled();
       expect(fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // Watermark updates after sync
+  // =========================================================================
+
+  describe('watermark updates after sync', () => {
+    it('updates watermarks when API returns versions', async () => {
+      worker = new SyncWorker();
+      const initPromise = worker.init();
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      localDb.getPendingSyncOperations.mockResolvedValue([
+        {
+          id: 1,
+          table: 'user_set_parts',
+          operation: 'upsert',
+          payload: {
+            set_num: '75192-1',
+            part_num: '3001',
+            color_id: 11,
+            is_spare: false,
+            owned_quantity: 3,
+          },
+          clientId: 'c1',
+          userId: 'user-1',
+          createdAt: Date.now(),
+          retryCount: 0,
+          lastError: null,
+        },
+      ]);
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            success: true,
+            processed: 1,
+            versions: { '75192-1': 42 },
+          }),
+      });
+
+      await worker.setUserId('user-1');
+      await flushPromises();
+
+      expect(mockUpdateWatermarks).toHaveBeenCalledWith('user-1', {
+        '75192-1': 42,
+      });
+    });
+
+    it('broadcasts pull_request after confirmed sync', async () => {
+      worker = new SyncWorker();
+      const initPromise = worker.init();
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      localDb.getPendingSyncOperations.mockResolvedValue([
+        {
+          id: 1,
+          table: 'user_set_parts',
+          operation: 'upsert',
+          payload: {
+            set_num: '75192-1',
+            part_num: '3001',
+            color_id: 11,
+            is_spare: false,
+            owned_quantity: 3,
+          },
+          clientId: 'c1',
+          userId: 'user-1',
+          createdAt: Date.now(),
+          retryCount: 0,
+          lastError: null,
+        },
+      ]);
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ success: true, processed: 1 }),
+      });
+
+      await worker.setUserId('user-1');
+      await flushPromises();
+
+      expect(mockBroadcastPullRequest).toHaveBeenCalled();
     });
   });
 

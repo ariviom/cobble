@@ -11,8 +11,10 @@ import {
   removeSyncOperations,
   setMigrationComplete,
   setStoredUserId,
+  updateWatermarks,
 } from '@/app/lib/localDb';
 import {
+  broadcastPullRequest,
   getTabCoordinator,
   notifySyncComplete,
   shouldSync,
@@ -46,6 +48,7 @@ export class SyncWorker {
   private userId: string | null = null;
   private syncInterval: ReturnType<typeof setInterval> | null = null;
   private leaderUnsubscribe: (() => void) | null = null;
+  private syncRequestUnsubscribe: (() => void) | null = null;
   private listeners = new Set<StatusListener>();
 
   // Bound handlers for add/removeEventListener
@@ -118,6 +121,11 @@ export class SyncWorker {
     if (this.leaderUnsubscribe) {
       this.leaderUnsubscribe();
       this.leaderUnsubscribe = null;
+    }
+
+    if (this.syncRequestUnsubscribe) {
+      this.syncRequestUnsubscribe();
+      this.syncRequestUnsubscribe = null;
     }
 
     this.listeners.clear();
@@ -236,6 +244,7 @@ export class SyncWorker {
           success: boolean;
           processed: number;
           failed?: Array<{ id: number; error: string }>;
+          versions?: Record<string, number>;
         };
 
         const successIds = operations
@@ -252,6 +261,11 @@ export class SyncWorker {
             await markSyncOperationFailed(failure.id, failure.error);
           }
         }
+
+        // Update local watermarks from server response
+        if (result.versions && this.userId) {
+          await updateWatermarks(this.userId, result.versions);
+        }
       }
 
       await this.updatePendingCount();
@@ -259,6 +273,8 @@ export class SyncWorker {
       // Only notify other tabs if we got confirmed delivery (not beacon fire-and-forget)
       if (!beaconUsed) {
         notifySyncComplete(true);
+        // Notify all tabs to pull updated data
+        broadcastPullRequest();
       }
     } catch (error) {
       const errorMessage =
@@ -470,6 +486,9 @@ export class SyncWorker {
 
     if (document.visibilityState === 'visible') {
       void this.performSync();
+      // Always broadcast pull_request on focus — even if nothing to push,
+      // other devices may have made changes we need to pull.
+      broadcastPullRequest();
     } else if (document.visibilityState === 'hidden') {
       void this.performSync({ keepalive: true });
     }
@@ -498,6 +517,12 @@ export class SyncWorker {
         this.notify();
       }
     );
+
+    this.syncRequestUnsubscribe = coordinator.onSyncRequested(() => {
+      if (!this.isDestroyed && this.userId) {
+        void this.performSync();
+      }
+    });
   }
 
   // ===========================================================================
