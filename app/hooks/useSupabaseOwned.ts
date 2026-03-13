@@ -257,7 +257,57 @@ export function useSupabaseOwned({
     ]
   );
 
-  // Delta pull: fetch only rows changed since our last watermark
+  // Shared delta-pull: fetch rows changed since watermark, apply to store,
+  // advance watermark.  Returns the fetched data (for first-pull upload logic)
+  // or null on error/abort.
+  const deltaPull = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!userId) return null;
+
+      const supabase = getSupabaseBrowserClient();
+      const watermark = await getWatermark(userId, setNumber);
+
+      let query = supabase
+        .from('user_set_parts')
+        .select('part_num, color_id, is_spare, owned_quantity, sync_version')
+        .eq('user_id', userId)
+        .eq('set_num', setNumber)
+        .eq('is_spare', false)
+        .gt('sync_version', watermark)
+        .limit(10000);
+
+      if (signal) {
+        query = query.abortSignal(signal);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Delta pull failed', { setNumber, error: error.message });
+        return null;
+      }
+
+      const inventoryKeySet = new Set(keys);
+      let maxVersion = watermark;
+
+      for (const row of data ?? []) {
+        const key = `${row.part_num}:${row.color_id}`;
+        if (!inventoryKeySet.has(key)) continue;
+        setOwned(setNumber, key, row.owned_quantity ?? 0);
+        const version = Number(row.sync_version);
+        if (version > maxVersion) maxVersion = version;
+      }
+
+      if (maxVersion > watermark) {
+        await setWatermarkFn(userId, setNumber, maxVersion);
+      }
+
+      return { data: data ?? [], watermark };
+    },
+    [userId, setNumber, keys, setOwned]
+  );
+
+  // Initial delta pull on hydration
   useEffect(() => {
     if (
       !enableCloudSync ||
@@ -274,55 +324,16 @@ export function useSupabaseOwned({
     const timeoutId = window.setTimeout(() => abortController.abort(), 10_000);
 
     async function run() {
-      const supabase = getSupabaseBrowserClient();
-      const watermark = await getWatermark(userId as string, setNumber);
-      if (cancelled) return;
-
-      // Fetch rows with sync_version > watermark
-      const { data, error } = await supabase
-        .from('user_set_parts')
-        .select('part_num, color_id, is_spare, owned_quantity, sync_version')
-        .eq('user_id', userId as string)
-        .eq('set_num', setNumber)
-        .eq('is_spare', false)
-        .gt('sync_version', watermark)
-        .limit(10000)
-        .abortSignal(abortController.signal);
-
-      if (cancelled) return;
-
-      if (error) {
-        console.error('Delta pull failed', { setNumber, error: error.message });
-        return;
-      }
-
-      const inventoryKeySet = new Set(keys);
-      let maxVersion = watermark;
-
-      for (const row of data ?? []) {
-        const key = `${row.part_num}:${row.color_id}`;
-        if (!inventoryKeySet.has(key)) continue;
-
-        setOwned(setNumber, key, row.owned_quantity ?? 0);
-
-        const version = Number(row.sync_version);
-        if (version > maxVersion) {
-          maxVersion = version;
-        }
-      }
-
-      // Update watermark
-      if (maxVersion > watermark) {
-        await setWatermarkFn(userId as string, setNumber, maxVersion);
-      }
+      const result = await deltaPull(abortController.signal);
+      if (cancelled || !result) return;
 
       // First pull (watermark === 0): enqueue local-only keys for upload
-      if (watermark === 0) {
+      if (result.watermark === 0) {
         const localData = await getOwnedForSet(setNumber);
         if (cancelled) return;
 
         const cloudKeys = new Set(
-          (data ?? []).map(r => `${r.part_num}:${r.color_id}`)
+          result.data.map(r => `${r.part_num}:${r.color_id}`)
         );
         for (const [key, qty] of Object.entries(localData)) {
           if (!cloudKeys.has(key) && qty > 0) {
@@ -345,12 +356,11 @@ export function useSupabaseOwned({
     enableCloudSync,
     userId,
     rows.length,
-    keys,
-    setOwned,
     setNumber,
     hydrated,
     isOwnedHydrated,
     enqueueChange,
+    deltaPull,
   ]);
 
   // Re-pull on focus / sync_complete / pull_request
@@ -360,44 +370,12 @@ export function useSupabaseOwned({
     const coordinator = getTabCoordinator();
     if (!coordinator) return;
 
-    const doPull = async () => {
-      const supabase = getSupabaseBrowserClient();
-      const watermark = await getWatermark(userId, setNumber);
-      const { data } = await supabase
-        .from('user_set_parts')
-        .select('part_num, color_id, is_spare, owned_quantity, sync_version')
-        .eq('user_id', userId)
-        .eq('set_num', setNumber)
-        .eq('is_spare', false)
-        .gt('sync_version', watermark)
-        .limit(10000);
-
-      if (!data || data.length === 0) return;
-
-      const inventoryKeySet = new Set(keys);
-      let maxVersion = watermark;
-
-      for (const row of data) {
-        const key = `${row.part_num}:${row.color_id}`;
-        if (!inventoryKeySet.has(key)) continue;
-
-        setOwned(setNumber, key, row.owned_quantity ?? 0);
-
-        const version = Number(row.sync_version);
-        if (version > maxVersion) maxVersion = version;
-      }
-
-      if (maxVersion > watermark) {
-        await setWatermarkFn(userId, setNumber, maxVersion);
-      }
-    };
-
     const unsub = coordinator.onPullRequested(() => {
-      void doPull();
+      void deltaPull();
     });
 
     return unsub;
-  }, [enableCloudSync, userId, rows.length, keys, setOwned, setNumber]);
+  }, [enableCloudSync, userId, rows.length, deltaPull]);
 
   const confirmMigration = useCallback(async () => {
     // No-op: per-key LWW reconciliation handles sync automatically
