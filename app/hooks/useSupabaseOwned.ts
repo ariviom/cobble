@@ -257,7 +257,7 @@ export function useSupabaseOwned({
 
       let query = supabase
         .from('user_set_parts')
-        .select('part_num, color_id, is_spare, owned_quantity, sync_version')
+        .select('part_num, color_id, owned_quantity, sync_version')
         .eq('user_id', userId)
         .eq('set_num', setNumber)
         .eq('is_spare', false)

@@ -30,6 +30,7 @@ vi.mock('@/app/lib/localDb', () => ({
   setStoredUserId: vi.fn().mockResolvedValue(undefined),
   setMeta: vi.fn().mockResolvedValue(undefined),
   updateWatermarks: (...args: unknown[]) => mockUpdateWatermarks(...args),
+  pruneStaleInventoryCache: vi.fn().mockResolvedValue(undefined),
 }));
 
 const mockShouldSync = vi.fn(() => true);
