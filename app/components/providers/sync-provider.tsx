@@ -2,6 +2,7 @@
 
 import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import { SyncIndicator } from '@/app/components/ui/SyncIndicator';
 import { SyncWorker } from '@/app/lib/sync/SyncWorker';
 import type { SyncWorkerStatus } from '@/app/lib/sync/types';
 import {
@@ -62,6 +63,7 @@ export function SyncProvider({ children }: PropsWithChildren) {
   return (
     <SyncContext.Provider value={{ ...status, syncNow }}>
       {children}
+      <SyncIndicator />
     </SyncContext.Provider>
   );
 }
