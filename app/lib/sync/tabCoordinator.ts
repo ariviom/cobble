@@ -337,14 +337,28 @@ class TabCoordinator {
   }
 
   /**
-   * Broadcast a pull request to all tabs.
+   * Broadcast a pull request to all tabs (including this one).
+   * BroadcastChannel doesn't deliver to the sender, so we also
+   * fire local callbacks directly.
    */
   broadcastPullRequest(): void {
-    if (this.isDestroyed || !this.channel) return;
-    this.channel.postMessage({
-      type: 'pull_request',
-      tabId: this.tabId,
-    } satisfies SyncMessage);
+    if (this.isDestroyed) return;
+
+    // Fire local callbacks (BroadcastChannel won't deliver to self)
+    for (const cb of this.onPullRequestedCallbacks) {
+      try {
+        cb();
+      } catch {
+        /* ignore */
+      }
+    }
+
+    if (this.channel) {
+      this.channel.postMessage({
+        type: 'pull_request',
+        tabId: this.tabId,
+      } satisfies SyncMessage);
+    }
   }
 
   /**
