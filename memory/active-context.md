@@ -2,13 +2,18 @@
 
 ## Current Focus
 
+- **Sync Overhaul** — Replaced timestamp-based LWW with server-versioned delta sync. Feature branch `feature/sync-overhaul`. Spec: `docs/superpowers/specs/2026-03-12-sync-overhaul-design.md`. Plan: `docs/superpowers/plans/2026-03-12-sync-overhaul.md`.
 - **Stripe UI/UX Enforcement** — Wire up billing UI (Account page, upgrade CTAs, inline upsells) and feature gating (SSR preload, API guards, usage counters). **Two tiers at launch: Free + Plus only** (Pro deferred).
 - **BrickLink API Compliance** — Code changes complete. Contact `apisupport@bricklink.com` pre-launch to confirm commercial use case.
 - **Derived Pricing System** — Plan at `docs/dev/DERIVED_PRICING_PLAN.md`. Post-launch priority.
 - Keep MVP flows (search, inventory, owned vs missing, CSV exports, pricing) stable.
 - Preserve anonymous/local-only experience while signed-in users sync to Supabase.
 
-## Recently Completed (Feb 2026)
+## Recently Completed (Mar 2026)
+
+- **Sync Overhaul**: Replaced broken timestamp-based LWW with server-versioned delta sync using Postgres sequence + BEFORE trigger. Per-set watermarks in IndexedDB. Refresh-on-focus pulling via TabCoordinator callbacks. Cross-tab sync_request handling (debounced 500ms). Floating SyncIndicator pill for Plus users. Dead LWW code removed.
+
+## Previously Completed (Feb 2026)
 
 - **Search Party**: color slots, progress strip, host-only join UI, session resume persistence (heartbeat flush, joiner localStorage cache, host beforeunload guard), fixed N^2 fanout + found pieces reset + host refresh ending session
 - **UI Polish**: redesign cycle (soft shadows → reverted 3D buttons), set cards overhaul, SignInPrompt modal, collection hero, badge sizing, card color strips
@@ -28,7 +33,7 @@ See `docs/BACKLOG.md` for full backlog.
 
 - **Target test sets**: 1788, 6781, 6989, 40597, 21322
 - **Pricing**: USD + `country_code=US` default; currency/country preference is future work.
-- 362 tests passing, clean tsc.
+- 556 tests passing (66 test files), clean tsc.
 
 ## Active Decisions
 

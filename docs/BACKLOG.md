@@ -203,8 +203,12 @@ Technical debt and improvements to pull from when ready.
 
 ### Multi-Device Sync
 
-- [ ] Pull-on-login for multi-device sync (fetch user data from Supabase on new device)
+- [x] Server-versioned delta sync (sync_version column, sequence, trigger, watermarks)
+- [x] Delta pull replacing LWW (watermark-based, refresh-on-focus)
+- [x] Cross-tab sync_request handling via TabCoordinator callbacks
+- [x] Floating SyncIndicator pill for sync status visibility
 - [ ] Recently viewed sync (store in Supabase)
+- [ ] Batch pull optimization for many open tabs (future: single query with `set_num = ANY(...)`)
 
 ### Collection Page Enhancements
 
@@ -216,7 +220,7 @@ Technical debt and improvements to pull from when ready.
 
 ### Architecture Refinement
 
-- [ ] Refactor Supabase-owned state into lower-level owned-persistence service + higher-level migration coordinator hook
+- [x] Refactor Supabase-owned state into lower-level owned-persistence service + higher-level migration coordinator hook — _Addressed by sync overhaul: delta pull replaces LWW, watermark store separates sync tracking from owned state_
 
 ### Testing
 
