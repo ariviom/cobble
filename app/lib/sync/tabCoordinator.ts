@@ -23,7 +23,8 @@ type SyncMessage =
   | { type: 'claim_leader'; tabId: string; timestamp: number }
   | { type: 'leader_ack'; tabId: string }
   | { type: 'sync_request'; tabId: string }
-  | { type: 'sync_complete'; tabId: string; success: boolean };
+  | { type: 'sync_complete'; tabId: string; success: boolean }
+  | { type: 'pull_request'; tabId: string };
 
 type LeaderChangeCallback = (isLeader: boolean) => void;
 
@@ -39,6 +40,9 @@ class TabCoordinator {
   private isDestroyed = false;
   private isClaiming = false;
   private rivalClaimTabId: string | null = null;
+  private onSyncRequestedCallbacks: Set<() => void> = new Set();
+  private onPullRequestedCallbacks: Set<() => void> = new Set();
+  private syncRequestDebounce: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     // Generate unique tab ID
@@ -113,15 +117,35 @@ class TabCoordinator {
         break;
 
       case 'sync_request':
-        // If we're the leader, trigger a sync
         if (this.isLeader) {
-          // The DataProvider will handle this via shouldSync() returning true
-          // We just acknowledge the request was received
+          if (this.syncRequestDebounce) {
+            clearTimeout(this.syncRequestDebounce);
+          }
+          this.syncRequestDebounce = setTimeout(() => {
+            this.syncRequestDebounce = null;
+            for (const cb of this.onSyncRequestedCallbacks) {
+              try {
+                cb();
+              } catch {
+                /* ignore */
+              }
+            }
+          }, 500);
         }
         break;
 
       case 'sync_complete':
         // Sync completed by leader - other tabs can update their UI
+        break;
+
+      case 'pull_request':
+        for (const cb of this.onPullRequestedCallbacks) {
+          try {
+            cb();
+          } catch {
+            /* ignore */
+          }
+        }
         break;
     }
   }
@@ -291,6 +315,39 @@ class TabCoordinator {
   }
 
   /**
+   * Register a callback for when a non-leader tab requests a sync.
+   * Only fires on the leader tab (debounced 500ms).
+   */
+  onSyncRequested(callback: () => void): () => void {
+    this.onSyncRequestedCallbacks.add(callback);
+    return () => {
+      this.onSyncRequestedCallbacks.delete(callback);
+    };
+  }
+
+  /**
+   * Register a callback for when a pull is requested (after push completes).
+   * Fires on all tabs.
+   */
+  onPullRequested(callback: () => void): () => void {
+    this.onPullRequestedCallbacks.add(callback);
+    return () => {
+      this.onPullRequestedCallbacks.delete(callback);
+    };
+  }
+
+  /**
+   * Broadcast a pull request to all tabs.
+   */
+  broadcastPullRequest(): void {
+    if (this.isDestroyed || !this.channel) return;
+    this.channel.postMessage({
+      type: 'pull_request',
+      tabId: this.tabId,
+    } satisfies SyncMessage);
+  }
+
+  /**
    * Get the current tab's ID.
    */
   getTabId(): string {
@@ -320,6 +377,12 @@ class TabCoordinator {
       this.leaderCheckInterval = null;
     }
 
+    this.onSyncRequestedCallbacks.clear();
+    this.onPullRequestedCallbacks.clear();
+    if (this.syncRequestDebounce) {
+      clearTimeout(this.syncRequestDebounce);
+      this.syncRequestDebounce = null;
+    }
     this.onLeaderChangeCallbacks.clear();
 
     if (this.channel) {
@@ -371,4 +434,11 @@ export function requestSync(): void {
  */
 export function notifySyncComplete(success: boolean): void {
   getTabCoordinator()?.notifySyncComplete(success);
+}
+
+/**
+ * Broadcast a pull request to all tabs.
+ */
+export function broadcastPullRequest(): void {
+  getTabCoordinator()?.broadcastPullRequest();
 }
