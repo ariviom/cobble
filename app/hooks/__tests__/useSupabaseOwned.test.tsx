@@ -13,21 +13,49 @@ vi.mock('@/app/hooks/useSupabaseUser', () => ({
   useSupabaseUser: () => mockUseSupabaseUser(),
 }));
 
-// Mock supabase client
+// Mock supabase client — build a chainable query object that returns
+// an empty result for any terminal method (.abortSignal or awaited directly).
+const makeQueryChain = (
+  result = Promise.resolve({ data: [], error: null })
+) => {
+  const chain: Record<string, unknown> = {};
+  const self = () => chain;
+  chain.eq = self;
+  chain.gt = self;
+  chain.limit = self;
+  chain.abortSignal = () => result;
+  // Allow the chain to be awaited directly (pull listener uses no abortSignal)
+  chain.then = (resolve: (v: { data: never[]; error: null }) => unknown) =>
+    result.then(resolve);
+  chain.catch = (reject: (e: unknown) => unknown) => result.catch(reject);
+  return chain;
+};
+
 vi.mock('@/app/lib/supabaseClient', () => ({
   getSupabaseBrowserClient: () => ({
     from: () => ({
-      select: () => ({
-        eq: () => ({
-          eq: () => ({
-            range: () => ({
-              abortSignal: () => Promise.resolve({ data: [], error: null }),
-            }),
-          }),
-        }),
-      }),
+      select: () => makeQueryChain(),
     }),
   }),
+}));
+
+// Mock watermark store
+vi.mock('@/app/lib/localDb/watermarkStore', () => ({
+  getWatermark: vi.fn(() => Promise.resolve(0)),
+  setWatermark: vi.fn(() => Promise.resolve()),
+}));
+
+// Mock getOwnedForSet
+vi.mock('@/app/lib/localDb/ownedStore', () => ({
+  getOwnedForSet: vi.fn(() => Promise.resolve({})),
+  exportOwnedWithTimestamps: vi.fn(() => Promise.resolve({ entries: [] })),
+}));
+
+// Mock tabCoordinator
+vi.mock('@/app/lib/sync/tabCoordinator', () => ({
+  getTabCoordinator: vi.fn(() => ({
+    onPullRequested: vi.fn(() => () => {}),
+  })),
 }));
 
 // Mock ownedSync

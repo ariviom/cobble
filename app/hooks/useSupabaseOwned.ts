@@ -4,7 +4,12 @@ import { isMinifigParentRow } from '@/app/components/set/inventory-utils';
 import type { InventoryRow } from '@/app/components/set/types';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import { exportOwnedWithTimestamps } from '@/app/lib/localDb/ownedStore';
+import {
+  getWatermark,
+  setWatermark as setWatermarkFn,
+} from '@/app/lib/localDb/watermarkStore';
+import { getOwnedForSet } from '@/app/lib/localDb/ownedStore';
+import { getTabCoordinator } from '@/app/lib/sync/tabCoordinator';
 import { enqueueOwnedChangeIfPossible } from '@/app/lib/ownedSync';
 import { useOwnedStore, type OwnedState } from '@/app/store/owned';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -252,106 +257,77 @@ export function useSupabaseOwned({
     ]
   );
 
-  // Initial hydration: per-key LWW reconciliation with cloud data.
+  // Delta pull: fetch only rows changed since our last watermark
   useEffect(() => {
-    if (!enableCloudSync || !userId) return;
-    if (rows.length === 0 || keys.length === 0) return;
-    if (!isOwnedHydrated) return;
-    if (hydrated) return;
+    if (
+      !enableCloudSync ||
+      !userId ||
+      rows.length === 0 ||
+      !isOwnedHydrated ||
+      hydrated
+    ) {
+      return;
+    }
 
     let cancelled = false;
-    const PAGE_SIZE = 500;
     const abortController = new AbortController();
-    const timeoutId =
-      typeof window !== 'undefined'
-        ? window.setTimeout(() => abortController.abort(), 10_000)
-        : undefined;
+    const timeoutId = window.setTimeout(() => abortController.abort(), 10_000);
 
     async function run() {
       const supabase = getSupabaseBrowserClient();
-      const supabaseByKey = new Map<
-        string,
-        { qty: number; updatedAt: number }
-      >();
-      let offset = 0;
-      let error: { message: string } | null = null;
+      const watermark = await getWatermark(userId as string, setNumber);
+      if (cancelled) return;
 
-      while (true) {
-        const { data, error: pageError } = await supabase
-          .from('user_set_parts')
-          .select('part_num, color_id, is_spare, owned_quantity, updated_at')
-          .eq('user_id', userId as string)
-          .eq('set_num', setNumber)
-          .range(offset, offset + PAGE_SIZE - 1)
-          // Abort if the request overruns the timeout or the effect cleans up.
-          .abortSignal(abortController.signal);
-
-        if (pageError) {
-          error = pageError;
-          break;
-        }
-
-        for (const row of data ?? []) {
-          if (row.is_spare) continue;
-          const key = `${row.part_num}:${row.color_id}`;
-          const ts = row.updated_at ? new Date(row.updated_at).getTime() : 0;
-          supabaseByKey.set(key, {
-            qty: row.owned_quantity ?? 0,
-            updatedAt: ts,
-          });
-        }
-
-        if (!data || data.length < PAGE_SIZE) {
-          break;
-        }
-        offset += PAGE_SIZE;
-      }
+      // Fetch rows with sync_version > watermark
+      const { data, error } = await supabase
+        .from('user_set_parts')
+        .select('part_num, color_id, is_spare, owned_quantity, sync_version')
+        .eq('user_id', userId as string)
+        .eq('set_num', setNumber)
+        .eq('is_spare', false)
+        .gt('sync_version', watermark)
+        .limit(10000)
+        .abortSignal(abortController.signal);
 
       if (cancelled) return;
 
       if (error) {
-        console.error('Failed to load user_set_parts for hydration', {
-          setNumber,
-          error: error.message,
-        });
+        console.error('Delta pull failed', { setNumber, error: error.message });
         return;
       }
 
-      // Filter out cloud entries whose keys don't match any current inventory key.
       const inventoryKeySet = new Set(keys);
-      for (const k of supabaseByKey.keys()) {
-        if (!inventoryKeySet.has(k)) {
-          supabaseByKey.delete(k);
+      let maxVersion = watermark;
+
+      for (const row of data ?? []) {
+        const key = `${row.part_num}:${row.color_id}`;
+        if (!inventoryKeySet.has(key)) continue;
+
+        setOwned(setNumber, key, row.owned_quantity ?? 0);
+
+        const version = Number(row.sync_version);
+        if (version > maxVersion) {
+          maxVersion = version;
         }
       }
 
-      // Per-key last-write-wins reconciliation
-      const { entries: localEntries } =
-        await exportOwnedWithTimestamps(setNumber);
-      if (cancelled) return;
-
-      const localByKeyWithTs = new Map(
-        localEntries.map(e => [
-          e.key,
-          { qty: e.quantity, updatedAt: e.updatedAt },
-        ])
-      );
-
-      // Reconcile: per-key, newer timestamp wins (cloud wins ties)
-      for (const [key, cloud] of supabaseByKey) {
-        const local = localByKeyWithTs.get(key);
-        if (!local || cloud.updatedAt >= local.updatedAt) {
-          // Cloud is newer or equal (tie-break) or key only in cloud → apply cloud
-          setOwned(setNumber, key, cloud.qty);
-        }
-        // If local is newer, keep local value (already in store)
+      // Update watermark
+      if (maxVersion > watermark) {
+        await setWatermarkFn(userId as string, setNumber, maxVersion);
       }
 
-      // Keys only in local but not cloud → enqueue for cloud sync
-      for (const [key] of localByKeyWithTs) {
-        if (!supabaseByKey.has(key)) {
-          const localEntry = localByKeyWithTs.get(key)!;
-          enqueueChange(key, localEntry.qty);
+      // First pull (watermark === 0): enqueue local-only keys for upload
+      if (watermark === 0) {
+        const localData = await getOwnedForSet(setNumber);
+        if (cancelled) return;
+
+        const cloudKeys = new Set(
+          (data ?? []).map(r => `${r.part_num}:${r.color_id}`)
+        );
+        for (const [key, qty] of Object.entries(localData)) {
+          if (!cloudKeys.has(key) && qty > 0) {
+            enqueueChange(key, qty);
+          }
         }
       }
 
@@ -363,9 +339,7 @@ export function useSupabaseOwned({
     return () => {
       cancelled = true;
       abortController.abort();
-      if (typeof timeoutId === 'number') {
-        window.clearTimeout(timeoutId);
-      }
+      window.clearTimeout(timeoutId);
     };
   }, [
     enableCloudSync,
@@ -378,6 +352,52 @@ export function useSupabaseOwned({
     isOwnedHydrated,
     enqueueChange,
   ]);
+
+  // Re-pull on focus / sync_complete / pull_request
+  useEffect(() => {
+    if (!enableCloudSync || !userId || rows.length === 0) return;
+
+    const coordinator = getTabCoordinator();
+    if (!coordinator) return;
+
+    const doPull = async () => {
+      const supabase = getSupabaseBrowserClient();
+      const watermark = await getWatermark(userId, setNumber);
+      const { data } = await supabase
+        .from('user_set_parts')
+        .select('part_num, color_id, is_spare, owned_quantity, sync_version')
+        .eq('user_id', userId)
+        .eq('set_num', setNumber)
+        .eq('is_spare', false)
+        .gt('sync_version', watermark)
+        .limit(10000);
+
+      if (!data || data.length === 0) return;
+
+      const inventoryKeySet = new Set(keys);
+      let maxVersion = watermark;
+
+      for (const row of data) {
+        const key = `${row.part_num}:${row.color_id}`;
+        if (!inventoryKeySet.has(key)) continue;
+
+        setOwned(setNumber, key, row.owned_quantity ?? 0);
+
+        const version = Number(row.sync_version);
+        if (version > maxVersion) maxVersion = version;
+      }
+
+      if (maxVersion > watermark) {
+        await setWatermarkFn(userId, setNumber, maxVersion);
+      }
+    };
+
+    const unsub = coordinator.onPullRequested(() => {
+      void doPull();
+    });
+
+    return unsub;
+  }, [enableCloudSync, userId, rows.length, keys, setOwned, setNumber]);
 
   const confirmMigration = useCallback(async () => {
     // No-op: per-key LWW reconciliation handles sync automatically

@@ -1326,6 +1326,7 @@ export type Database = {
           owned_quantity: number;
           part_num: string;
           set_num: string;
+          sync_version: number;
           updated_at: string;
           user_id: string;
         };
@@ -1335,6 +1336,7 @@ export type Database = {
           owned_quantity?: number;
           part_num: string;
           set_num: string;
+          sync_version?: number;
           updated_at?: string;
           user_id: string;
         };
@@ -1344,6 +1346,7 @@ export type Database = {
           owned_quantity?: number;
           part_num?: string;
           set_num?: string;
+          sync_version?: number;
           updated_at?: string;
           user_id?: string;
         };
@@ -1572,6 +1575,13 @@ export type Database = {
         Returns: {
           allowed: boolean;
           retry_after_seconds: number;
+        }[];
+      };
+      get_max_sync_versions: {
+        Args: { p_user_id: string; p_set_nums: string[] };
+        Returns: {
+          max_version: number;
+          set_num: string;
         }[];
       };
       get_missing_parts: {
