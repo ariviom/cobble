@@ -31,7 +31,6 @@ type Props = {
   syncPartsFromSets: boolean;
   ownedSetCount: number;
   loosePartsCount: number;
-  totalPartsFromSets: number;
 };
 
 /** Invert missing data to get a map of setNumber → parts with that set missing */
@@ -61,7 +60,6 @@ export function CollectionPartsView({
   syncPartsFromSets,
   ownedSetCount,
   loosePartsCount,
-  totalPartsFromSets,
 }: Props) {
   const controls = useCollectionPartsControls();
   const {
@@ -234,26 +232,7 @@ export function CollectionPartsView({
       />
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4">
-        {/* Total inventory summary */}
-        {(ownedSetCount > 0 || loosePartsCount > 0) && (
-          <p className="text-center text-sm text-foreground-muted">
-            {ownedSetCount > 0 && (
-              <>
-                {totalPartsFromSets.toLocaleString()} parts from {ownedSetCount}{' '}
-                set{ownedSetCount !== 1 ? 's' : ''}
-              </>
-            )}
-            {ownedSetCount > 0 && loosePartsCount > 0 && ' · '}
-            {loosePartsCount > 0 && (
-              <>
-                {loosePartsCount.toLocaleString()} loose part
-                {loosePartsCount !== 1 ? 's' : ''}
-              </>
-            )}
-          </p>
-        )}
-
-        {/* Filtered summary */}
+        {/* Parts summary */}
         {processedParts.length > 0 && (
           <p className="text-center text-sm text-foreground-muted">
             {totalUnique.toLocaleString()} unique part
@@ -264,6 +243,15 @@ export function CollectionPartsView({
                 &middot; {totalPieces.toLocaleString()} total piece
                 {totalPieces !== 1 ? 's' : ''}
               </>
+            )}
+            {ownedSetCount > 0 && (
+              <>
+                {' '}
+                &middot; {ownedSetCount} set{ownedSetCount !== 1 ? 's' : ''}
+              </>
+            )}
+            {loosePartsCount > 0 && (
+              <> &middot; {loosePartsCount.toLocaleString()} loose</>
             )}
           </p>
         )}

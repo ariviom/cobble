@@ -426,16 +426,12 @@ export function UserCollectionOverview({
     [setsRecord]
   );
 
-  const { ownedSetCount, totalParts } = useMemo(() => {
+  const ownedSetCount = useMemo(() => {
     let count = 0;
-    let parts = 0;
     for (const s of Object.values(setsRecord)) {
-      if (s.status.owned) {
-        count++;
-        parts += s.numParts;
-      }
+      if (s.status.owned) count++;
     }
-    return { ownedSetCount: count, totalParts: parts };
+    return count;
   }, [setsRecord]);
 
   const [loosePartsCount, setLoosePartsCount] = useState(0);
@@ -818,7 +814,6 @@ export function UserCollectionOverview({
           syncPartsFromSets={syncPartsFromSets}
           ownedSetCount={ownedSetCount}
           loosePartsCount={loosePartsCount}
-          totalPartsFromSets={totalParts}
         />
       )}
 
