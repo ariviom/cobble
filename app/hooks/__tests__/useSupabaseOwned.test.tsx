@@ -48,7 +48,6 @@ vi.mock('@/app/lib/localDb/watermarkStore', () => ({
 // Mock getOwnedForSet
 vi.mock('@/app/lib/localDb/ownedStore', () => ({
   getOwnedForSet: vi.fn(() => Promise.resolve({})),
-  exportOwnedWithTimestamps: vi.fn(() => Promise.resolve({ entries: [] })),
 }));
 
 // Mock tabCoordinator

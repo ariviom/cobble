@@ -392,30 +392,3 @@ export async function exportOwnedToRecord(
     return { data: {}, maxUpdatedAt: 0 };
   }
 }
-
-/**
- * Export owned quantities with per-key timestamps (for LWW reconciliation).
- */
-export async function exportOwnedWithTimestamps(setNumber: string): Promise<{
-  entries: Array<{ key: string; quantity: number; updatedAt: number }>;
-}> {
-  if (!isIndexedDBAvailable()) return { entries: [] };
-  try {
-    const db = getLocalDb();
-    const rows = await db.localOwned
-      .where('setNumber')
-      .equals(setNumber)
-      .toArray();
-    return {
-      entries: rows
-        .filter(r => r.quantity > 0)
-        .map(r => ({
-          key: r.inventoryKey,
-          quantity: r.quantity,
-          updatedAt: r.updatedAt,
-        })),
-    };
-  } catch {
-    return { entries: [] };
-  }
-}
