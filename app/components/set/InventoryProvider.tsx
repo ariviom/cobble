@@ -79,15 +79,6 @@ export type InventoryDataContextValue = {
   ownedByKey: Record<string, number>;
   handleOwnedChange: (key: string, nextOwned: number) => void;
   isOwnedHydrated: boolean;
-  // Migration
-  migration: {
-    open: boolean;
-    localTotal: number;
-    supabaseTotal: number;
-  } | null;
-  isMigrating: boolean;
-  confirmMigration: () => Promise<void>;
-  keepCloudData: () => Promise<void>;
   // Bulk actions
   markAllMissing: () => void;
   markAllComplete: () => void;
@@ -378,10 +369,6 @@ export function InventoryProvider({
     handleOwnedChange: storeOwnedChange,
     markAllComplete: storeMarkAllComplete,
     markAllMissing: storeMarkAllMissing,
-    migration,
-    isMigrating,
-    confirmMigration,
-    keepCloudData,
   } = useSupabaseOwned({
     setNumber,
     rows,
@@ -511,10 +498,6 @@ export function InventoryProvider({
       ownedByKey,
       handleOwnedChange,
       isOwnedHydrated,
-      migration,
-      isMigrating,
-      confirmMigration,
-      keepCloudData,
       markAllMissing,
       markAllComplete,
       isActive,
@@ -534,10 +517,6 @@ export function InventoryProvider({
       ownedByKey,
       handleOwnedChange,
       isOwnedHydrated,
-      migration,
-      isMigrating,
-      confirmMigration,
-      keepCloudData,
       markAllMissing,
       markAllComplete,
       isActive,

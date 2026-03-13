@@ -233,59 +233,6 @@ export async function markAllOwnedForSet(
 // ============================================================================
 
 /**
- * Import owned quantities from a Record (for migration from localStorage).
- * Merges with existing data, preferring newer timestamps.
- */
-export async function importOwnedFromRecord(
-  setNumber: string,
-  data: Record<string, number>,
-  sourceTimestamp?: number
-): Promise<void> {
-  if (!isIndexedDBAvailable()) return;
-
-  try {
-    const db = getLocalDb();
-    const timestamp = sourceTimestamp ?? Date.now();
-
-    await db.transaction('rw', db.localOwned, async () => {
-      for (const [inventoryKey, quantity] of Object.entries(data)) {
-        const normalizedQty = Math.max(0, Math.floor(quantity || 0));
-
-        const existing = await db.localOwned
-          .where('[setNumber+inventoryKey]')
-          .equals([setNumber, inventoryKey])
-          .first();
-
-        // Only update if we have a newer timestamp or no existing entry
-        if (!existing || existing.updatedAt < timestamp) {
-          if (normalizedQty === 0 && existing?.id) {
-            await db.localOwned.delete(existing.id);
-          } else if (normalizedQty > 0) {
-            if (existing?.id) {
-              await db.localOwned.update(existing.id, {
-                quantity: normalizedQty,
-                updatedAt: timestamp,
-              });
-            } else {
-              await db.localOwned.add({
-                setNumber,
-                inventoryKey,
-                quantity: normalizedQty,
-                updatedAt: timestamp,
-              });
-            }
-          }
-        }
-      }
-    });
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to import owned quantities to IndexedDB:', error);
-    }
-  }
-}
-
-/**
  * Migrate owned data from legacy keys to canonical keys.
  *
  * For each migration: if canonical key has no owned data, check legacy keys,
@@ -352,43 +299,5 @@ export async function migrateOwnedKeys(
       console.warn('Failed to migrate owned keys:', error);
     }
     return 0;
-  }
-}
-
-/**
- * Export owned quantities to a Record (for sync to Supabase).
- */
-export async function exportOwnedToRecord(
-  setNumber: string
-): Promise<{ data: Record<string, number>; maxUpdatedAt: number }> {
-  if (!isIndexedDBAvailable()) {
-    return { data: {}, maxUpdatedAt: 0 };
-  }
-
-  try {
-    const db = getLocalDb();
-    const rows = await db.localOwned
-      .where('setNumber')
-      .equals(setNumber)
-      .toArray();
-
-    const data: Record<string, number> = {};
-    let maxUpdatedAt = 0;
-
-    for (const row of rows) {
-      if (row.quantity > 0) {
-        data[row.inventoryKey] = row.quantity;
-        if (row.updatedAt > maxUpdatedAt) {
-          maxUpdatedAt = row.updatedAt;
-        }
-      }
-    }
-
-    return { data, maxUpdatedAt };
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to export owned quantities from IndexedDB:', error);
-    }
-    return { data: {}, maxUpdatedAt: 0 };
   }
 }

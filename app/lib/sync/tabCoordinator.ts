@@ -12,6 +12,7 @@
  * - Heartbeat to detect dead leaders
  * - Graceful fallback when BroadcastChannel unavailable
  * - Sync request forwarding to leader
+ * - Pull request broadcasting (refresh-on-focus)
  */
 
 const CHANNEL_NAME = 'brick_party_sync_coordinator';
@@ -23,7 +24,6 @@ type SyncMessage =
   | { type: 'claim_leader'; tabId: string; timestamp: number }
   | { type: 'leader_ack'; tabId: string }
   | { type: 'sync_request'; tabId: string }
-  | { type: 'sync_complete'; tabId: string; success: boolean }
   | { type: 'pull_request'; tabId: string };
 
 type LeaderChangeCallback = (isLeader: boolean) => void;
@@ -132,10 +132,6 @@ class TabCoordinator {
             }
           }, 500);
         }
-        break;
-
-      case 'sync_complete':
-        // Sync completed by leader - other tabs can update their UI
         break;
 
       case 'pull_request':
@@ -287,19 +283,6 @@ class TabCoordinator {
   }
 
   /**
-   * Notify other tabs that a sync completed.
-   */
-  notifySyncComplete(success: boolean): void {
-    if (this.isDestroyed || !this.channel) return;
-
-    this.channel.postMessage({
-      type: 'sync_complete',
-      tabId: this.tabId,
-      success,
-    } satisfies SyncMessage);
-  }
-
-  /**
    * Register a callback for leader status changes.
    * Returns an unsubscribe function.
    */
@@ -441,13 +424,6 @@ export function shouldSync(): boolean {
  */
 export function requestSync(): void {
   getTabCoordinator()?.requestSync();
-}
-
-/**
- * Notify other tabs that a sync completed.
- */
-export function notifySyncComplete(success: boolean): void {
-  getTabCoordinator()?.notifySyncComplete(success);
 }
 
 /**

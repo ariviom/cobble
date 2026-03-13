@@ -71,18 +71,31 @@ export function SyncIndicator() {
   // Gate: only render for authenticated Plus users
   if (!shouldShow || !visible) return null;
 
+  const isClickable = state === 'error' || state === 'pending';
+
   const handleClick = () => {
-    if ((state === 'error' || state === 'pending') && syncNow) {
+    if (isClickable && syncNow) {
       void syncNow();
     }
   };
 
+  const Tag = isClickable ? 'button' : 'div';
+
   return (
-    <div
+    <Tag
       role="status"
       aria-live="polite"
+      aria-label={
+        state === 'error'
+          ? 'Sync failed — tap to retry'
+          : state === 'pending'
+            ? `${pendingSyncCount} pending — tap to sync now`
+            : state === 'synced'
+              ? 'Synced'
+              : 'Syncing'
+      }
       onClick={handleClick}
-      className={`fixed right-4 bottom-20 z-50 flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium shadow-lg transition-all duration-300 ease-out ${
+      className={`fixed right-4 bottom-20 z-50 flex items-center gap-2 rounded-full border-none px-3 py-1.5 text-sm font-medium shadow-lg transition-all duration-300 ease-out ${
         state === 'error'
           ? 'cursor-pointer bg-red-100 text-red-800 dark:bg-red-900/80 dark:text-red-200'
           : state === 'pending'
@@ -116,7 +129,7 @@ export function SyncIndicator() {
           <span>Sync failed</span>
         </>
       )}
-    </div>
+    </Tag>
   );
 }
 

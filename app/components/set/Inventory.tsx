@@ -2,10 +2,8 @@
 
 import { ExportModal } from '@/app/components/export/ExportModal';
 import { useAuth } from '@/app/components/providers/auth-provider';
-import { Button } from '@/app/components/ui/Button';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
-import { Modal } from '@/app/components/ui/Modal';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { clampOwned, computeMissing } from './inventory-utils';
@@ -43,51 +41,6 @@ function formatGroupLabel(groupKey: string): string {
   return groupKey;
 }
 
-function MigrationModalContent({
-  migration,
-  isMigrating,
-  totalPieces,
-  onPushLocal,
-  onKeepCloud,
-}: {
-  migration: { localTotal: number; supabaseTotal: number } | null;
-  isMigrating: boolean;
-  totalPieces: number;
-  onPushLocal: () => void;
-  onKeepCloud: () => void;
-}) {
-  const local = migration?.localTotal ?? 0;
-  const cloud = migration?.supabaseTotal ?? 0;
-  const localWins = local > cloud;
-  const cloudWins = cloud > local;
-
-  return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground text-sm">
-        Choose whether to keep your cloud data or push your local data.
-      </p>
-      <div className="flex flex-col gap-2">
-        <Button disabled={isMigrating} onClick={onPushLocal}>
-          Push local to cloud{' '}
-          <span className={localWins ? 'font-bold' : 'opacity-70'}>
-            ({local}/{totalPieces})
-          </span>
-        </Button>
-        <Button
-          variant="secondary"
-          disabled={isMigrating}
-          onClick={onKeepCloud}
-        >
-          Keep cloud data{' '}
-          <span className={cloudWins ? 'font-bold' : 'opacity-70'}>
-            ({cloud}/{totalPieces})
-          </span>
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 export function Inventory() {
   const {
     setNumber,
@@ -100,10 +53,6 @@ export function Inventory() {
     error,
     handleOwnedChange,
     scrollerKey,
-    migration,
-    isMigrating,
-    confirmMigration,
-    keepCloudData,
   } = useInventoryData();
   const sp = useOptionalSearchParty();
   const isInGroupSession = sp?.isInGroupSession ?? false;
@@ -319,23 +268,6 @@ export function Inventory() {
         getMissingRows={getMissingRows}
         getAllRows={getAllRows}
       />
-
-      {/* Migration Modal */}
-      <Modal
-        open={migration?.open ?? false}
-        onClose={() => {
-          // no-op: force a decision
-        }}
-        title="Sync your owned pieces"
-      >
-        <MigrationModalContent
-          migration={migration}
-          isMigrating={isMigrating}
-          totalPieces={rows.reduce((sum, r) => sum + r.quantityRequired, 0)}
-          onPushLocal={confirmMigration}
-          onKeepCloud={keepCloudData}
-        />
-      </Modal>
 
       {/* Item Details Modal - single instance for all items */}
       <InventoryItemModal

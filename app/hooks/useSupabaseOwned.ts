@@ -34,12 +34,6 @@ type HandleOwnedChangeOptions = {
   skipCascade?: boolean;
 };
 
-type MigrationState = {
-  open: boolean;
-  localTotal: number;
-  supabaseTotal: number;
-};
-
 type UseSupabaseOwnedResult = {
   handleOwnedChange: (
     key: string,
@@ -48,10 +42,6 @@ type UseSupabaseOwnedResult = {
   ) => void;
   markAllComplete: () => void;
   markAllMissing: () => void;
-  migration: MigrationState | null;
-  isMigrating: boolean;
-  confirmMigration: () => Promise<void>;
-  keepCloudData: () => Promise<void>;
 };
 
 export function useSupabaseOwned({
@@ -62,8 +52,6 @@ export function useSupabaseOwned({
 }: UseSupabaseOwnedArgs): UseSupabaseOwnedResult {
   const { user } = useSupabaseUser();
 
-  const [migration, setMigration] = useState<MigrationState | null>(null);
-  const [isMigrating] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   // Client ID for sync queue operations (stable per browser session)
@@ -363,7 +351,7 @@ export function useSupabaseOwned({
     deltaPull,
   ]);
 
-  // Re-pull on focus / sync_complete / pull_request
+  // Re-pull on focus / pull_request broadcast
   useEffect(() => {
     if (!enableCloudSync || !userId || rows.length === 0) return;
 
@@ -376,15 +364,6 @@ export function useSupabaseOwned({
 
     return unsub;
   }, [enableCloudSync, userId, rows.length, deltaPull]);
-
-  const confirmMigration = useCallback(async () => {
-    // No-op: per-key LWW reconciliation handles sync automatically
-  }, []);
-
-  const keepCloudData = useCallback(async () => {
-    // No-op: per-key LWW reconciliation handles sync automatically
-    setMigration(null);
-  }, []);
 
   // -------------------------------------------------------------------------
   // Bulk actions — update local store efficiently + enqueue sync for each key
@@ -425,9 +404,5 @@ export function useSupabaseOwned({
     handleOwnedChange,
     markAllComplete,
     markAllMissing,
-    migration,
-    isMigrating,
-    confirmMigration,
-    keepCloudData,
   };
 }

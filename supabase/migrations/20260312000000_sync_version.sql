@@ -33,8 +33,10 @@ CREATE OR REPLACE FUNCTION public.get_max_sync_versions(
   FROM public.user_set_parts usp
   WHERE usp.user_id = p_user_id AND usp.set_num = ANY(p_set_nums)
   GROUP BY usp.set_num;
-$$ LANGUAGE sql STABLE SECURITY DEFINER
+$$ LANGUAGE sql VOLATILE SECURITY DEFINER
 SET search_path = public;
+
+GRANT EXECUTE ON FUNCTION public.get_max_sync_versions(uuid, text[]) TO authenticated;
 
 -- 5. Index for delta pull: WHERE user_id = ? AND set_num = ? AND sync_version > ?
 CREATE INDEX user_set_parts_sync_version_idx

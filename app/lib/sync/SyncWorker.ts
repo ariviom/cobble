@@ -16,7 +16,6 @@ import {
 import {
   broadcastPullRequest,
   getTabCoordinator,
-  notifySyncComplete,
   shouldSync,
 } from '@/app/lib/sync/tabCoordinator';
 import { resetOwnedCache } from '@/app/store/owned';
@@ -272,8 +271,6 @@ export class SyncWorker {
 
       // Only notify other tabs if we got confirmed delivery (not beacon fire-and-forget)
       if (!beaconUsed) {
-        notifySyncComplete(true);
-        // Notify all tabs to pull updated data
         broadcastPullRequest();
       }
     } catch (error) {
@@ -282,7 +279,6 @@ export class SyncWorker {
       this.lastSyncError = errorMessage;
       this.notify();
       console.warn('Sync failed:', errorMessage);
-      notifySyncComplete(false);
     } finally {
       this.isSyncing = false;
       this.notify();

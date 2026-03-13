@@ -33,7 +33,6 @@ vi.mock('@/app/lib/localDb', () => ({
 }));
 
 const mockShouldSync = vi.fn(() => true);
-const mockNotifySyncComplete = vi.fn();
 const mockOnLeaderChange = vi.fn(
   (cb: (isLeader: boolean) => void): (() => void) => {
     cb(true);
@@ -57,7 +56,6 @@ vi.mock('@/app/lib/sync/tabCoordinator', () => ({
     shouldSync: mockShouldSync,
   })),
   shouldSync: () => mockShouldSync(),
-  notifySyncComplete: (success: boolean) => mockNotifySyncComplete(success),
   broadcastPullRequest: () => mockBroadcastPullRequest(),
 }));
 
@@ -306,7 +304,6 @@ describe('SyncWorker', () => {
         })
       );
       expect(localDb.removeSyncOperations).toHaveBeenCalledWith([1]);
-      expect(mockNotifySyncComplete).toHaveBeenCalledWith(true);
     });
 
     it('marks failed operations', async () => {
@@ -400,7 +397,6 @@ describe('SyncWorker', () => {
       await worker.performSync();
 
       expect(worker.getStatus().lastSyncError).toBe('Network error');
-      expect(mockNotifySyncComplete).toHaveBeenCalledWith(false);
     });
   });
 
