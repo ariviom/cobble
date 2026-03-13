@@ -17,6 +17,8 @@ type Props = {
   onCheckboxDisabledClick?: () => void;
   view: 'list' | 'grid' | 'micro';
   itemSize: 'sm' | 'md' | 'lg';
+  /** When set, renders "Need: X" instead of "Owned: X" */
+  needQuantity?: number | undefined;
 };
 
 function CollectionPartCardComponent({
@@ -26,6 +28,7 @@ function CollectionPartCardComponent({
   onToggleSelection,
   isCheckboxDisabled,
   onCheckboxDisabledClick,
+  needQuantity,
 }: Props) {
   const bricklinkUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(part.partNum)}`;
   const rebrickableUrl = `https://rebrickable.com/parts/${encodeURIComponent(part.partNum)}/${part.colorId}/`;
@@ -51,7 +54,10 @@ function CollectionPartCardComponent({
     }
   };
 
-  const quantityLabel = `Owned: ${part.totalOwned}`;
+  const quantityLabel =
+    needQuantity != null
+      ? `Need: ${needQuantity}`
+      : `Owned: ${part.totalOwned}`;
 
   return (
     <PartCard
@@ -149,7 +155,8 @@ function areEqual(prev: Props, next: Props) {
     prev.view === next.view &&
     prev.itemSize === next.itemSize &&
     prev.onShowModal === next.onShowModal &&
-    prev.onToggleSelection === next.onToggleSelection
+    prev.onToggleSelection === next.onToggleSelection &&
+    prev.needQuantity === next.needQuantity
   );
 }
 

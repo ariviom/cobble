@@ -103,6 +103,7 @@ export function MissingPartsSetGroup({
         })}
         view={view}
         itemSize={itemSize}
+        needQuantity={entry?.quantityMissing}
       />
     );
   }
