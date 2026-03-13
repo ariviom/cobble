@@ -195,6 +195,16 @@ export type MetaEntry = {
   updatedAt: number;
 };
 
+/**
+ * Per-(user, set) sync watermark for delta pulls.
+ * Tracks the highest sync_version seen from the server.
+ */
+export type SyncWatermark = {
+  userId: string;
+  setNumber: string;
+  lastSyncVersion: number;
+};
+
 // ============================================================================
 // UI State Types (local-only, no sync)
 // ============================================================================
@@ -243,6 +253,7 @@ export class BrickPartyDB extends Dexie {
 
   // Sync infrastructure
   syncQueue!: EntityTable<SyncQueueItem, 'id'>;
+  syncWatermarks!: Table<SyncWatermark, [string, string]>;
   meta!: EntityTable<MetaEntry, 'key'>;
 
   // UI state (local-only)
@@ -423,6 +434,30 @@ export class BrickPartyDB extends Dexie {
       localLooseParts: '[partNum+colorId], partNum, colorId, updatedAt',
 
       syncQueue: '++id, userId, table, createdAt, retryCount',
+      meta: 'key',
+
+      uiState: 'key',
+      recentSets: 'setNumber, visitedAt',
+    });
+
+    // Version 10: Add syncWatermarks table for delta sync.
+    this.version(10).stores({
+      catalogSets: 'setNumber, themeId, year, cachedAt',
+      catalogParts: 'partNum, categoryId, parentCategory, cachedAt',
+      catalogColors: 'id, cachedAt',
+      catalogSetParts:
+        '++id, setNumber, partNum, colorId, inventoryKey, [setNumber+inventoryKey], [setNumber+colorId]',
+      catalogSetMeta: 'setNumber, inventoryCachedAt, inventoryVersion',
+      catalogMinifigs: 'figNum, cachedAt',
+
+      localOwned:
+        '++id, setNumber, inventoryKey, [setNumber+inventoryKey], updatedAt',
+      localCollections: 'id, userId, type, updatedAt',
+      localCollectionItems: '++id, collectionId, itemType, itemId, addedAt',
+      localLooseParts: '[partNum+colorId], partNum, colorId, updatedAt',
+
+      syncQueue: '++id, userId, table, createdAt, retryCount',
+      syncWatermarks: '[userId+setNumber]',
       meta: 'key',
 
       uiState: 'key',
