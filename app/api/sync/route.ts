@@ -20,6 +20,7 @@ type SyncResponse = {
   success: boolean;
   processed: number;
   failed?: Array<{ id: number; error: string }>;
+  versions?: Record<string, number>;
 };
 
 // Maximum operations per request to prevent abuse
@@ -367,10 +368,33 @@ export const POST = withCsrfProtection(
         }
       }
 
+      // Query sync versions for affected user_set_parts sets
+      let versions: Record<string, number> | undefined;
+      if (affectedSetNums.size > 0) {
+        try {
+          const { data: versionRows } = await supabase.rpc(
+            'get_max_sync_versions',
+            {
+              p_user_id: user.id,
+              p_set_nums: Array.from(affectedSetNums),
+            }
+          );
+          if (versionRows && versionRows.length > 0) {
+            versions = {};
+            for (const row of versionRows) {
+              versions[row.set_num] = Number(row.max_version);
+            }
+          }
+        } catch {
+          // Non-critical — client will catch up on next pull
+        }
+      }
+
       const response: SyncResponse = {
         success: failed.length === 0,
         processed,
         ...(failed.length > 0 ? { failed } : {}),
+        ...(versions ? { versions } : {}),
       };
       if (failed.length === 0) {
         incrementCounter('sync_succeeded', { processed });
