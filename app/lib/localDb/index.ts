@@ -22,6 +22,7 @@ export {
   type LocalCollectionItem,
   type LocalLoosePart,
   type SyncQueueItem,
+  type SyncWatermark,
   type MetaEntry,
   type UIState,
   type RecentSet,
@@ -89,3 +90,5 @@ export {
   getTotalPartsForSets,
   type SetCompletionStats,
 } from './completionStats';
+
+export { getWatermark, setWatermark, updateWatermarks } from './watermarkStore';
