@@ -79,7 +79,7 @@ function buildCategoryOptions(categories: CategoryOption[]): DropdownOption[] {
 }
 
 function listFilterLabel(value: ListFilter, lists: ListInfo[]): string {
-  if (value === 'all') return 'All Collections';
+  if (value === 'all') return 'All';
   if (value === 'owned') return 'Owned';
   if (value === 'wishlist') return 'Wishlist';
   const id = value.replace('list:', '');

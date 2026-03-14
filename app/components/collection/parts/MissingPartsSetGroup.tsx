@@ -1,9 +1,17 @@
 'use client';
 
+import { SetDetailModal } from '@/app/components/set/SetDetailModal';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import MobileButtonHitArea from '@/app/components/ui/MobileButtonHitArea';
 import { cn } from '@/app/components/ui/utils';
-import { ChevronDown, ChevronUp, Square, SquareCheck } from 'lucide-react';
+import { useUserSetsStore } from '@/app/store/user-sets';
+import {
+  ChevronDown,
+  ChevronUp,
+  Square,
+  SquareCheck,
+  SquareMinus,
+} from 'lucide-react';
 import { useState } from 'react';
 import { CollectionPartCard } from './CollectionPartCard';
 import { getGridClassName } from './gridClassName';
@@ -48,6 +56,14 @@ export function MissingPartsSetGroup({
   onCheckboxDisabledClick,
 }: Props) {
   const [expanded, setExpanded] = useState(true);
+  const [setModalOpen, setSetModalOpen] = useState(false);
+
+  const userSet = useUserSetsStore(
+    state => state.sets[setNumber.toLowerCase()]
+  );
+  const metaSegments: string[] = [setNumber];
+  if (userSet?.year) metaSegments.push(String(userSet.year));
+  if (userSet?.numParts) metaSegments.push(`${userSet.numParts} pieces`);
 
   // Compute tri-state selection
   const selectedCount = missingParts.filter(p =>
@@ -138,79 +154,93 @@ export function MissingPartsSetGroup({
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      {/* Set header — entire card toggles expand/collapse */}
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => setExpanded(prev => !prev)}
-        onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setExpanded(prev => !prev);
+    <div className="overflow-hidden rounded-lg border border-subtle bg-card">
+      {/* Set header */}
+      <div className="flex items-start gap-3 px-3 py-3">
+        {/* Leading-edge checkbox */}
+        <button
+          type="button"
+          aria-label={
+            allSelected
+              ? `Deselect all missing parts for ${setName}`
+              : `Select all missing parts for ${setName}`
           }
-        }}
-        className="flex cursor-pointer items-center gap-3 rounded-lg border border-subtle bg-card px-3 py-2 transition-colors hover:bg-card-muted"
-      >
-        {/* Set thumbnail with checkbox overlay */}
-        <div className="relative size-20 shrink-0 overflow-hidden rounded-sm ring-1 ring-foreground-accent">
+          aria-checked={allSelected ? true : someSelected ? 'mixed' : false}
+          role="checkbox"
+          className={cn(
+            'relative mt-1 flex shrink-0 items-center justify-center rounded-sm',
+            isCheckboxDisabled
+              ? 'cursor-not-allowed opacity-40'
+              : 'cursor-pointer'
+          )}
+          onClick={handleTriStateChange}
+          tabIndex={0}
+        >
+          <MobileButtonHitArea />
+          {allSelected ? (
+            <SquareCheck className="size-8 text-theme-text pointer-fine:size-6" />
+          ) : someSelected ? (
+            <SquareMinus className="size-8 text-theme-text pointer-fine:size-6" />
+          ) : (
+            <Square className="size-8 text-foreground-muted pointer-fine:size-6" />
+          )}
+        </button>
+
+        {/* Set thumbnail — opens set detail modal */}
+        <button
+          type="button"
+          aria-label={`View details for ${setName}`}
+          className="size-20 shrink-0 cursor-pointer overflow-hidden rounded-sm ring-1 ring-foreground-accent transition-shadow hover:ring-2 hover:ring-theme-text"
+          onClick={() => setSetModalOpen(true)}
+        >
           <OptimizedImage
             src={getSetImageUrl(setNumber)}
             alt={setName}
             variant="exclusiveSetThumb"
             className="h-full w-full object-contain"
           />
-          <button
-            type="button"
-            aria-label={
-              allSelected
-                ? `Deselect all missing parts for ${setName}`
-                : `Select all missing parts for ${setName}`
-            }
-            aria-checked={allSelected}
-            role="checkbox"
-            className={cn(
-              'absolute top-0.5 left-1 z-10 flex items-center justify-center rounded-sm bg-background',
-              isCheckboxDisabled
-                ? 'cursor-not-allowed opacity-40'
-                : 'cursor-pointer'
-            )}
-            onClick={e => {
-              e.stopPropagation();
-              handleTriStateChange();
-            }}
-            tabIndex={0}
-          >
-            <MobileButtonHitArea />
-            {allSelected ? (
-              <SquareCheck className="size-7 text-theme-text pointer-fine:size-5" />
-            ) : someSelected ? (
-              <SquareCheck className="size-7 text-foreground-muted pointer-fine:size-5" />
-            ) : (
-              <Square className="size-7 text-foreground-muted pointer-fine:size-5" />
-            )}
-          </button>
-        </div>
+        </button>
 
-        {/* Set name/number */}
+        {/* Set name + metadata */}
         <div className="min-w-0 flex-1">
-          <p className="truncate leading-tight font-medium">{setName}</p>
-          <p className="text-xs text-foreground-muted">{setNumber}</p>
+          <p className="truncate font-bold lg:text-xl">{setName}</p>
+          <p className="mt-0.5 text-xs text-foreground-muted lg:text-sm">
+            {metaSegments.join(' | ')}
+          </p>
+          <span className="mt-2 inline-block rounded-full bg-danger/10 px-2 py-0.5 text-2xs font-medium text-danger">
+            {missingCount} missing
+          </span>
         </div>
 
-        {/* Missing count badge */}
-        <span className="shrink-0 rounded-full bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger">
-          {missingCount} missing
-        </span>
-
-        {/* Expand/collapse chevron */}
-        <span className="shrink-0 text-foreground-muted">
+        {/* Expand/collapse toggle */}
+        <button
+          type="button"
+          aria-label={expanded ? 'Collapse parts' : 'Expand parts'}
+          aria-expanded={expanded}
+          className="mt-1 shrink-0 cursor-pointer rounded-md p-1.5 text-foreground-muted transition-colors hover:bg-card-muted hover:text-foreground"
+          onClick={() => setExpanded(prev => !prev)}
+        >
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </span>
+        </button>
       </div>
 
       {/* Parts grid */}
-      {expanded && renderParts()}
+      {expanded && (
+        <div className="border-t border-subtle bg-card-muted p-3">
+          {renderParts()}
+        </div>
+      )}
+
+      {/* Set detail modal — conditional to avoid idle hook instances */}
+      {setModalOpen && (
+        <SetDetailModal
+          open
+          onClose={() => setSetModalOpen(false)}
+          setNumber={setNumber}
+          setName={setName}
+          imageUrl={getSetImageUrl(setNumber)}
+        />
+      )}
     </div>
   );
 }

@@ -84,9 +84,9 @@ function CollectionPartCardComponent({
         >
           <MobileButtonHitArea />
           {isSelected ? (
-            <SquareCheck className="size-7 text-theme-text pointer-fine:size-5" />
+            <SquareCheck className="size-8 text-theme-text pointer-fine:size-6" />
           ) : (
-            <Square className="size-7 text-foreground-muted pointer-fine:size-5" />
+            <Square className="size-8 text-foreground-muted pointer-fine:size-6" />
           )}
         </button>
       }
@@ -126,15 +126,12 @@ function CollectionPartCardComponent({
       }
       quantityArea={
         <div className="w-full sm:list:w-auto">
-          <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:sm:w-36 sm:list:pt-7 micro:mt-1 micro:mb-0.5 micro:gap-1 micro:text-2xs">
-            <p className="text-sm text-foreground-muted micro:text-2xs">
+          <div className="mt-3 mb-2 flex w-full justify-between gap-4 font-medium list:justify-end list:sm:w-36 list:sm:pt-10 micro:mt-1 micro:mb-0.5 micro:gap-1 micro:text-2xs">
+            <p className="text-sm text-foreground-muted list:mr-3 list:text-right micro:text-2xs">
               {quantityLabel}
               {part.looseQuantity > 0 && (
                 <>
-                  <span className="micro:hidden"> · </span>
-                  <span className="hidden micro:inline">
-                    <br />
-                  </span>
+                  <br />
                   Loose: {part.looseQuantity}
                 </>
               )}

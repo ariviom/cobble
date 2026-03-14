@@ -9,11 +9,14 @@ import type {
   PartsSourceFilter,
 } from '@/app/components/collection/parts/types';
 import type { InventoryRow } from '@/app/components/set/types';
+import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { setCachedInventory } from '@/app/lib/localDb/catalogCache';
 import { getAllLooseParts } from '@/app/lib/localDb/loosePartsStore';
-import { getOwnedForSet } from '@/app/lib/localDb/ownedStore';
+import { getOwnedForSet, setOwnedForSet } from '@/app/lib/localDb/ownedStore';
 import type { CatalogPart, CatalogSetPart } from '@/app/lib/localDb/schema';
 import { getLocalDb, isIndexedDBAvailable } from '@/app/lib/localDb/schema';
+import { getWatermark } from '@/app/lib/localDb/watermarkStore';
+import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -187,6 +190,62 @@ async function loadPartMetadata(
   return result;
 }
 
+/**
+ * Pull owned data from Supabase into IndexedDB for sets that haven't been
+ * synced yet on this device (watermark === 0). This ensures the "missing"
+ * filter works on fresh devices before the user opens individual set pages.
+ *
+ * Watermarks are NOT advanced here — the per-set delta pull in
+ * useSupabaseOwned handles that when the user opens individual sets.
+ */
+let _cloudSyncDoneForUser: string | null = null;
+
+async function syncOwnedFromCloud(userId: string): Promise<void> {
+  if (_cloudSyncDoneForUser === userId) return;
+
+  const supabase = getSupabaseBrowserClient();
+
+  const { data, error } = await supabase
+    .from('user_set_parts')
+    .select('set_num, part_num, color_id, owned_quantity')
+    .eq('user_id', userId)
+    .eq('is_spare', false)
+    .gt('owned_quantity', 0)
+    .limit(10000);
+
+  if (error) return;
+
+  _cloudSyncDoneForUser = userId;
+
+  if (!data || data.length === 0) return;
+
+  // Group by set
+  const bySet = new Map<string, { key: string; qty: number }[]>();
+  for (const row of data) {
+    let arr = bySet.get(row.set_num);
+    if (!arr) {
+      arr = [];
+      bySet.set(row.set_num, arr);
+    }
+    arr.push({
+      key: `${row.part_num}:${row.color_id}`,
+      qty: row.owned_quantity,
+    });
+  }
+
+  // Write to IndexedDB only for sets that haven't been synced yet
+  for (const [setNum, entries] of bySet) {
+    const watermark = await getWatermark(userId, setNum);
+    if (watermark > 0) continue; // already synced on this device
+
+    const quantities: Record<string, number> = {};
+    for (const e of entries) {
+      quantities[e.key] = e.qty;
+    }
+    await setOwnedForSet(setNum, quantities);
+  }
+}
+
 async function getAllSetNumbersWithOwnedData(): Promise<string[]> {
   if (!isIndexedDBAvailable()) return [];
   const db = getLocalDb();
@@ -200,6 +259,8 @@ export function useCollectionParts(
   const [parts, setParts] = useState<CollectionPart[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const { user } = useSupabaseUser();
+  const userId = user?.id ?? null;
   const userSets = useUserSetsStore(state => state.sets);
   const setsHydrated = useUserSetsStore(state => state.setsHydrated);
 
@@ -214,7 +275,8 @@ export function useCollectionParts(
     setIsLoading(true);
     try {
       if (sourceFilter === 'missing') {
-        // Path B: all sets with owned data
+        // Path B: only sets where the user has marked ≥1 piece owned
+        if (userId) await syncOwnedFromCloud(userId);
         const allSetNums = await getAllSetNumbersWithOwnedData();
         const catalog = await loadCatalogPartsForSets(allSetNums);
         const partMeta = await loadPartMetadata(catalog);
@@ -222,7 +284,6 @@ export function useCollectionParts(
         const ownedData = await Promise.all(
           allSetNums.map(async setNum => {
             const ownedByKey = await getOwnedForSet(setNum);
-            // useUserSetsStore normalizes keys to lowercase
             const userSet = userSets[setNum.toLowerCase()];
             return {
               setNumber: setNum,
@@ -260,7 +321,7 @@ export function useCollectionParts(
     } finally {
       setIsLoading(false);
     }
-  }, [sourceFilter, syncPartsFromSets, ownedSetInfos, userSets]);
+  }, [sourceFilter, syncPartsFromSets, ownedSetInfos, userSets, userId]);
 
   useEffect(() => {
     if (!setsHydrated) return;

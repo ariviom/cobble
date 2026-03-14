@@ -195,16 +195,6 @@ export function CollectionPartsView({
     );
   }
 
-  if (parts.length === 0) {
-    return (
-      <div className="mt-2 text-center text-sm text-foreground-muted">
-        No parts found.{' '}
-        {sourceFilter !== 'all' &&
-          'Try changing the source filter to "All Parts".'}
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-col gap-3">
       {/* Control bar — edge-to-edge, no horizontal padding */}
@@ -232,6 +222,15 @@ export function CollectionPartsView({
       />
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4">
+        {/* Empty state when no parts at all for this source */}
+        {parts.length === 0 && (
+          <p className="mt-2 text-center text-sm text-foreground-muted">
+            No parts found.{' '}
+            {sourceFilter !== 'all' &&
+              'Try changing the source filter to "All Parts".'}
+          </p>
+        )}
+
         {/* Parts summary */}
         {processedParts.length > 0 && (
           <p className="text-center text-sm text-foreground-muted">
@@ -264,7 +263,7 @@ export function CollectionPartsView({
 
         {/* Missing view: grouped by set */}
         {sourceFilter === 'missing' && missingBySet && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-6">
             {Array.from(missingBySet.entries()).map(
               ([setNumber, { setName, parts: setParts }]) => (
                 <MissingPartsSetGroup
