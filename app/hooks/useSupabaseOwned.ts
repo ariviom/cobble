@@ -271,7 +271,9 @@ export function useSupabaseOwned({
       const { data, error } = await query;
 
       if (error) {
-        console.error('Delta pull failed', { setNumber, error: error.message });
+        // Abort errors are expected during cleanup — don't log them
+        if (signal?.aborted) return null;
+        console.error('Delta pull failed', { setNumber, error });
         return null;
       }
 
