@@ -2,7 +2,7 @@
 
 import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import { SyncIndicator } from '@/app/components/ui/SyncIndicator';
+import { Toast } from '@/app/components/ui/Toast';
 import { SyncWorker } from '@/app/lib/sync/SyncWorker';
 import type { SyncWorkerStatus } from '@/app/lib/sync/types';
 import {
@@ -60,10 +60,22 @@ export function SyncProvider({ children }: PropsWithChildren) {
     await workerRef.current?.performSync();
   };
 
+  const dismissError = () => {
+    setStatus(prev => ({ ...prev, lastSyncError: null }));
+  };
+
   return (
     <SyncContext.Provider value={{ ...status, syncNow }}>
       {children}
-      <SyncIndicator />
+      {status.lastSyncError && (
+        <Toast
+          variant="error"
+          description="Sync failed. Your changes are saved locally."
+          actionLabel="Retry"
+          onAction={() => void syncNow()}
+          onClose={dismissError}
+        />
+      )}
     </SyncContext.Provider>
   );
 }
