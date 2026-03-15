@@ -227,7 +227,11 @@ export async function searchPartsLocal(
   };
 }
 
-/** Batch-fetch distinct colors for multiple parts from rb_inventory_parts + rb_colors. */
+/**
+ * Batch-fetch distinct colors for multiple parts.
+ * Uses rb_part_rarity for the color list (one row per part+color, ~70 per part)
+ * and a targeted rb_inventory_parts query for per-color image URLs.
+ */
 async function fetchColorsForParts(
   supabase: ReturnType<typeof getCatalogReadClient>,
   partNums: string[]
@@ -239,62 +243,69 @@ async function fetchColorsForParts(
 > {
   if (partNums.length === 0) return new Map();
 
-  // Get distinct (part_num, color_id, img_url) from inventory parts
-  const { data: invParts } = await supabase
-    .from('rb_inventory_parts')
-    .select('part_num, color_id, img_url')
-    .in('part_num', partNums.slice(0, 200));
+  // 1. Get available colors from rb_part_rarity (compact: one row per part+color)
+  const rarityRows: Array<{ part_num: string; color_id: number }>[] = [];
+  for (let i = 0; i < partNums.length; i += 200) {
+    const batch = partNums.slice(i, i + 200);
+    const { data } = await supabase
+      .from('rb_part_rarity')
+      .select('part_num, color_id')
+      .in('part_num', batch);
+    if (data) rarityRows.push(data);
+  }
+  const allRarity = rarityRows.flat();
+  if (!allRarity.length) return new Map();
 
-  if (!invParts?.length) return new Map();
-
-  // Deduplicate by part_num + color_id, keeping first img_url
-  const seen = new Map<
-    string,
-    { partNum: string; colorId: number; imgUrl: string | null }
-  >();
-  for (const row of invParts) {
-    const key = `${row.part_num}:${row.color_id}`;
-    if (!seen.has(key)) {
-      seen.set(key, {
-        partNum: row.part_num,
-        colorId: row.color_id,
-        imgUrl:
-          typeof row.img_url === 'string' && row.img_url.trim()
-            ? row.img_url.trim()
-            : null,
-      });
+  // 2. Get color metadata from rb_colors
+  const colorIds = [...new Set(allRarity.map(r => r.color_id))];
+  const colorMeta = new Map<number, string>();
+  for (let i = 0; i < colorIds.length; i += 200) {
+    const batch = colorIds.slice(i, i + 200);
+    const { data: colors } = await supabase
+      .from('rb_colors')
+      .select('id, name')
+      .in('id', batch);
+    for (const c of colors ?? []) {
+      colorMeta.set(c.id, c.name);
     }
   }
 
-  // Fetch color metadata
-  const colorIds = [...new Set([...seen.values()].map(r => r.colorId))];
-  const colorMeta = new Map<number, { name: string }>();
-  if (colorIds.length > 0) {
-    for (let i = 0; i < colorIds.length; i += 200) {
-      const batch = colorIds.slice(i, i + 200);
-      const { data: colors } = await supabase
-        .from('rb_colors')
-        .select('id, name')
-        .in('id', batch);
-      for (const c of colors ?? []) {
-        colorMeta.set(c.id, { name: c.name });
+  // 3. Get per-color images from rb_inventory_parts (filter to non-null img_url)
+  //    We query per-part to avoid the row explosion from querying all parts at once.
+  const imageMap = new Map<string, string>(); // "partNum:colorId" → img_url
+  for (let i = 0; i < partNums.length; i += 200) {
+    const batch = partNums.slice(i, i + 200);
+    const { data: imgRows } = await supabase
+      .from('rb_inventory_parts')
+      .select('part_num, color_id, img_url')
+      .in('part_num', batch)
+      .not('img_url', 'is', null)
+      .limit(5000);
+    for (const row of imgRows ?? []) {
+      const key = `${row.part_num}:${row.color_id}`;
+      if (
+        !imageMap.has(key) &&
+        typeof row.img_url === 'string' &&
+        row.img_url.trim()
+      ) {
+        imageMap.set(key, row.img_url.trim());
       }
     }
   }
 
-  // Group by part_num
+  // 4. Assemble: group by part_num with color name + image
   const result = new Map<
     string,
     Array<{ colorId: number; colorName: string; imageUrl: string | null }>
   >();
-  for (const entry of seen.values()) {
-    const meta = colorMeta.get(entry.colorId);
-    if (!meta) continue;
-    if (!result.has(entry.partNum)) result.set(entry.partNum, []);
-    result.get(entry.partNum)!.push({
-      colorId: entry.colorId,
-      colorName: meta.name,
-      imageUrl: entry.imgUrl,
+  for (const row of allRarity) {
+    const name = colorMeta.get(row.color_id);
+    if (!name) continue;
+    if (!result.has(row.part_num)) result.set(row.part_num, []);
+    result.get(row.part_num)!.push({
+      colorId: row.color_id,
+      colorName: name,
+      imageUrl: imageMap.get(`${row.part_num}:${row.color_id}`) ?? null,
     });
   }
 
