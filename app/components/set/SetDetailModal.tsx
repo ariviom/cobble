@@ -5,6 +5,7 @@ import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { Modal } from '@/app/components/ui/Modal';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import { Button } from '@/app/components/ui/Button';
+import { formatCurrency } from '@/app/lib/utils/formatCurrency';
 import { DollarSign, ExternalLink, Info, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
@@ -34,22 +35,6 @@ type PriceState =
   | { status: 'loading' }
   | { status: 'loaded'; data: SetPriceData }
   | { status: 'error' };
-
-function formatModalPrice(
-  value: number,
-  currency: string | null | undefined
-): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency ?? 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  } catch {
-    return `${currency ?? '$'}${value.toFixed(2)}`;
-  }
-}
 
 export function SetDetailModal({
   open,
@@ -152,19 +137,19 @@ export function SetDetailModal({
               {hasPrice && priceState.status === 'loaded' ? (
                 <>
                   <div className="text-sm font-medium">
-                    {formatModalPrice(
+                    {formatCurrency(
                       priceState.data.total!,
                       priceState.data.currency
                     )}
                   </div>
                   {hasRange && (
                     <div className="text-xs text-foreground-muted">
-                      {formatModalPrice(
+                      {formatCurrency(
                         priceState.data.minPrice!,
                         priceState.data.currency
                       )}{' '}
                       –{' '}
-                      {formatModalPrice(
+                      {formatCurrency(
                         priceState.data.maxPrice!,
                         priceState.data.currency
                       )}

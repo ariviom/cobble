@@ -12,6 +12,7 @@ import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useUserMinifigs } from '@/app/hooks/useUserMinifigs';
 import { formatMinifigId, pickMinifigRouteId } from '@/app/lib/minifigIds';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { formatCurrency } from '@/app/lib/utils/formatCurrency';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { RarityBadge } from '@/app/components/set/items/RarityBadge';
@@ -26,19 +27,6 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-
-function formatPrice(value: number, currency: string | null): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency ?? 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  } catch {
-    return `${currency ?? '$'}${value.toFixed(2)}`;
-  }
-}
 
 type MinifigPageClientProps = {
   figNum: string;
@@ -239,7 +227,7 @@ export function MinifigPageClient({
               ) : priceGuide?.used?.unitPrice != null ? (
                 <>
                   <div className="text-sm font-medium">
-                    {formatPrice(
+                    {formatCurrency(
                       priceGuide.used.unitPrice,
                       priceGuide.used.currency
                     )}
@@ -248,12 +236,12 @@ export function MinifigPageClient({
                     priceGuide.used.maxPrice != null &&
                     priceGuide.used.minPrice !== priceGuide.used.maxPrice && (
                       <div className="text-xs text-foreground-muted">
-                        {formatPrice(
+                        {formatCurrency(
                           priceGuide.used.minPrice,
                           priceGuide.used.currency
                         )}{' '}
                         –{' '}
-                        {formatPrice(
+                        {formatCurrency(
                           priceGuide.used.maxPrice,
                           priceGuide.used.currency
                         )}

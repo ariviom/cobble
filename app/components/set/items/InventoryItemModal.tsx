@@ -4,6 +4,7 @@ import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { Modal } from '@/app/components/ui/Modal';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { formatMinifigId } from '@/app/lib/minifigIds';
+import { formatCurrency } from '@/app/lib/utils/formatCurrency';
 import { DollarSign, ExternalLink, Layers } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -100,22 +101,6 @@ function useBricklinkValidation(
   }, [blPartId, rbPartId, open, isFigId]);
 
   return state;
-}
-
-function formatModalPrice(
-  value: number,
-  currency: string | null | undefined
-): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency ?? 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  } catch {
-    return `${currency ?? '$'}${value.toFixed(2)}`;
-  }
 }
 
 export function InventoryItemModal({ open, onClose, data }: Props) {
@@ -255,15 +240,15 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
                   {hasPrice && unitPrice != null ? (
                     <>
                       <div className="text-sm font-medium">
-                        {formatModalPrice(unitPrice, currency)}
+                        {formatCurrency(unitPrice, currency)}
                       </div>
                       {hasRange &&
                         minPrice != null &&
                         maxPrice != null &&
                         minPrice !== maxPrice && (
                           <div className="text-xs text-foreground-muted">
-                            {formatModalPrice(minPrice, currency)} –{' '}
-                            {formatModalPrice(maxPrice, currency)}
+                            {formatCurrency(minPrice, currency)} –{' '}
+                            {formatCurrency(maxPrice, currency)}
                           </div>
                         )}
                     </>
