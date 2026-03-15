@@ -21,6 +21,7 @@ export function IdentifyResultCard({
   showConfidence = true,
   rarestSubpartSetCount,
   setsCount,
+  onThumbnailClick,
 }: {
   part: IdentifyPart | null;
   candidates: IdentifyCandidate[];
@@ -32,6 +33,7 @@ export function IdentifyResultCard({
   rarestSubpartSetCount?: number | null;
   /** Total number of sets this part appears in (used for part rarity). */
   setsCount?: number;
+  onThumbnailClick?: () => void;
 }) {
   const hasPart = Boolean(part?.partNum);
   const partNum = part?.partNum ?? '';
@@ -68,21 +70,34 @@ export function IdentifyResultCard({
       ? getRarityTier(setsCount)
       : null;
 
+  const thumbnailContent = displayImageUrl ? (
+    <OptimizedImage
+      src={displayImageUrl}
+      alt={displayName}
+      variant="identifyResult"
+      className="h-full w-full object-contain"
+    />
+  ) : (
+    <ImagePlaceholder variant="fill" />
+  );
+
   return (
     <Card padding="sm">
       <div className="flex items-start gap-4">
-        <div className="relative h-32 w-32 shrink-0 rounded bg-card-muted p-2">
-          {displayImageUrl ? (
-            <OptimizedImage
-              src={displayImageUrl}
-              alt={displayName}
-              variant="identifyResult"
-              className="h-full w-full object-contain"
-            />
-          ) : (
-            <ImagePlaceholder variant="fill" />
-          )}
-        </div>
+        {onThumbnailClick && !isMinifig ? (
+          <button
+            type="button"
+            onClick={onThumbnailClick}
+            className="relative h-32 w-32 shrink-0 cursor-pointer rounded bg-card-muted p-2 transition-opacity hover:opacity-80"
+            aria-label="Open part details"
+          >
+            {thumbnailContent}
+          </button>
+        ) : (
+          <div className="relative h-32 w-32 shrink-0 rounded bg-card-muted p-2">
+            {thumbnailContent}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium">{displayName}</p>
