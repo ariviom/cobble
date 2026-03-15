@@ -37,7 +37,9 @@ export function SearchBar({
       const params = getCurrentSearchParams();
       setQ(params.get('q') ?? '');
       const rawType = params.get('type');
-      setType(rawType === 'minifig' ? 'minifig' : 'set');
+      setType(
+        rawType === 'minifig' ? 'minifig' : rawType === 'part' ? 'part' : 'set'
+      );
     };
     window.addEventListener('popstate', handlePopState);
     return () => {
@@ -57,10 +59,10 @@ export function SearchBar({
       params.delete('q');
     }
     // Only persist non-default type in the URL to keep links clean.
-    if (type === 'minifig') {
-      params.set('type', 'minifig');
-    } else {
+    if (type === 'set') {
       params.delete('type');
+    } else {
+      params.set('type', type);
     }
     const queryString = params.toString();
     const href = queryString ? `/search?${queryString}` : '/search';
@@ -94,10 +96,16 @@ export function SearchBar({
             placeholder={
               type === 'minifig'
                 ? 'Name or figure number'
-                : 'Name or set number'
+                : type === 'part'
+                  ? 'Name or part number'
+                  : 'Name or set number'
             }
             aria-label={
-              type === 'minifig' ? 'Search minifigures' : 'Search sets'
+              type === 'minifig'
+                ? 'Search minifigures'
+                : type === 'part'
+                  ? 'Search parts'
+                  : 'Search sets'
             }
           />
           {q && (
@@ -121,13 +129,17 @@ export function SearchBar({
             size="lg"
             className="flex-1 shadow-lg sm:w-auto sm:flex-none"
             value={type}
-            onChange={event =>
-              setType(event.target.value === 'minifig' ? 'minifig' : 'set')
-            }
+            onChange={event => {
+              const v = event.target.value;
+              setType(
+                v === 'minifig' ? 'minifig' : v === 'part' ? 'part' : 'set'
+              );
+            }}
             aria-label="Search type"
           >
             <option value="set">Sets</option>
             <option value="minifig">Minifigures</option>
+            <option value="part">Parts</option>
           </Select>
           <Button
             type="submit"
