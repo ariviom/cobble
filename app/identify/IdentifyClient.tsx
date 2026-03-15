@@ -10,6 +10,7 @@ import {
   useState,
 } from 'react';
 
+import { CollectionPartModal } from '@/app/components/collection/parts/CollectionPartModal';
 import { IdentifyHistory } from '@/app/components/identify/IdentifyHistory';
 import { IdentifyResultCard } from '@/app/components/identify/IdentifyResultCard';
 import { IdentifySetList } from '@/app/components/identify/IdentifySetList';
@@ -122,7 +123,11 @@ type TabState = {
   error: string | null;
   loadingPhase: LoadingPhase;
   selectedColorId: number | null;
-  colors: Array<{ id: number; name: string }> | null;
+  colors: Array<{
+    id: number;
+    name: string;
+    partImageUrl: string | null;
+  }> | null;
   blPartId: string | null;
   blColors: Array<{ id: number; name: string }> | null;
   rarestSubpartSetCount: number | null;
@@ -177,7 +182,9 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
   const [colors, setColors] = useState<Array<{
     id: number;
     name: string;
+    partImageUrl: string | null;
   }> | null>(null);
+  const [loosePartModalOpen, setLoosePartModalOpen] = useState(false);
   const [rarestSubpartSetCount, setRarestSubpartSetCount] = useState<
     number | null
   >(null);
@@ -1418,18 +1425,42 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           ) : (
             <>
               {part && (
-                <Suspense fallback={<BrickLoader />}>
-                  <IdentifyResultCard
-                    part={part}
-                    candidates={candidates}
-                    colorOptions={colorOptions}
-                    selectedColorId={selectedColorId}
-                    onSelectCandidate={onSelectCandidate}
-                    onChangeColor={onChangeColor}
-                    rarestSubpartSetCount={rarestSubpartSetCount}
-                    setsCount={sets.length}
-                  />
-                </Suspense>
+                <>
+                  <Suspense fallback={<BrickLoader />}>
+                    <IdentifyResultCard
+                      part={part}
+                      candidates={candidates}
+                      colorOptions={colorOptions}
+                      selectedColorId={selectedColorId}
+                      onSelectCandidate={onSelectCandidate}
+                      onChangeColor={onChangeColor}
+                      rarestSubpartSetCount={rarestSubpartSetCount}
+                      setsCount={sets.length}
+                      onThumbnailClick={() => setLoosePartModalOpen(true)}
+                    />
+                  </Suspense>
+                  {loosePartModalOpen && !part.isMinifig && (
+                    <CollectionPartModal
+                      part={{
+                        partNum: part.partNum,
+                        partName: part.name,
+                        imageUrl: part.imageUrl,
+                        colorId: selectedColorId ?? colors?.[0]?.id ?? 0,
+                        colorName:
+                          colors?.find(c => c.id === selectedColorId)?.name ??
+                          part.colorName ??
+                          '',
+                      }}
+                      availableColors={(colors ?? []).map(c => ({
+                        colorId: c.id,
+                        colorName: c.name,
+                        imageUrl: c.partImageUrl,
+                      }))}
+                      onClose={() => setLoosePartModalOpen(false)}
+                      onLooseQuantityChange={() => {}}
+                    />
+                  )}
+                </>
               )}
 
               {hasSearched && (
