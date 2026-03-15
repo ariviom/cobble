@@ -12,6 +12,127 @@
 
 ---
 
+## Chunk 0: DRY Extractions (Prerequisite)
+
+### Task 0A: Extract shared `formatCurrency` utility
+
+The same price formatting logic is duplicated in `SetDetailModal.tsx:38`, `MinifigPageClient.tsx:30`, `InventoryItemModal.tsx:105`. Extract once before adding a 4th copy.
+
+**Files:**
+
+- Create: `app/lib/utils/formatCurrency.ts`
+- Modify: `app/components/set/SetDetailModal.tsx` (remove `formatModalPrice`, import shared)
+- Modify: `app/components/minifig/MinifigPageClient.tsx` (remove `formatPrice`, import shared)
+- Modify: `app/components/set/items/InventoryItemModal.tsx` (remove `formatModalPrice`, import shared)
+
+- [ ] **Step 1: Create shared utility**
+
+```typescript
+// app/lib/utils/formatCurrency.ts
+export function formatCurrency(
+  value: number,
+  currency: string | null | undefined
+): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currency ?? 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return `${currency ?? '$'}${value.toFixed(2)}`;
+  }
+}
+```
+
+- [ ] **Step 2: Update SetDetailModal**
+
+Replace `formatModalPrice` definition (lines 38-52) with:
+
+```tsx
+import { formatCurrency } from '@/app/lib/utils/formatCurrency';
+```
+
+Then replace all calls: `formatModalPrice(value, currency)` → `formatCurrency(value, currency)`.
+
+- [ ] **Step 3: Update MinifigPageClient**
+
+Replace `formatPrice` definition (around line 30) with the same import. Replace all calls.
+
+- [ ] **Step 4: Update InventoryItemModal**
+
+Replace `formatModalPrice` definition (lines 105-119) with the same import. Replace all calls.
+
+- [ ] **Step 5: Run type check and tests**
+
+Run: `npx tsc --noEmit && npm test -- --run`
+Expected: All pass
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add app/lib/utils/formatCurrency.ts app/components/set/SetDetailModal.tsx app/components/minifig/MinifigPageClient.tsx app/components/set/items/InventoryItemModal.tsx
+git commit -m "refactor: extract shared formatCurrency utility"
+```
+
+---
+
+### Task 0B: Extract shared external URL helpers
+
+BrickLink/Rebrickable set URL construction is duplicated in `SetDetailModal.tsx:77-78`, `SetTopBar.tsx:121-124`, and will be needed by the overview.
+
+**Files:**
+
+- Create: `app/lib/utils/externalUrls.ts`
+- Modify: `app/components/set/SetDetailModal.tsx`
+- Modify: `app/components/nav/SetTopBar.tsx`
+
+- [ ] **Step 1: Create URL helpers**
+
+```typescript
+// app/lib/utils/externalUrls.ts
+export function getBricklinkSetUrl(setNumber: string): string {
+  return `https://www.bricklink.com/v2/catalog/catalogitem.page?S=${encodeURIComponent(setNumber)}`;
+}
+
+export function getRebrickableSetUrl(setNumber: string): string {
+  return `https://rebrickable.com/sets/${encodeURIComponent(setNumber)}/`;
+}
+```
+
+- [ ] **Step 2: Update SetDetailModal**
+
+Replace lines 77-78 with imports:
+
+```tsx
+import {
+  getBricklinkSetUrl,
+  getRebrickableSetUrl,
+} from '@/app/lib/utils/externalUrls';
+// ...
+const bricklinkSetUrl = getBricklinkSetUrl(setNumber);
+const rebrickableSetUrl = getRebrickableSetUrl(setNumber);
+```
+
+- [ ] **Step 3: Update SetTopBar**
+
+Replace lines 121-124 with the same pattern.
+
+- [ ] **Step 4: Run type check**
+
+Run: `npx tsc --noEmit`
+Expected: No errors
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/lib/utils/externalUrls.ts app/components/set/SetDetailModal.tsx app/components/nav/SetTopBar.tsx
+git commit -m "refactor: extract shared BrickLink/Rebrickable URL helpers"
+```
+
+---
+
 ## Chunk 1: Foundation — `useOpenSet` Hook & Link Changes
 
 ### Task 1: Create `useOpenSet` hook
@@ -64,7 +185,7 @@ describe('useOpenSet', () => {
     vi.clearAllMocks();
   });
 
-  it('opens tab, adds to recents, and navigates when allowed', () => {
+  it('opens tab, adds to recents, and navigates when allowed', async () => {
     mockOpenTab.mockReturnValue(true);
     const { result } = renderHook(() => useOpenSet());
 
@@ -809,11 +930,13 @@ export async function getSetInventoryStats(setNumber: string): Promise<{
 
   if (!inv) return null;
 
-  // Select only the two columns needed for counting
+  // Select only the two columns needed for counting.
+  // Filter is_spare=false to match getSetInventoryLocal behavior.
   const { data: parts } = await supabase
     .from('rb_inventory_parts_public')
     .select('part_num, color_id')
-    .eq('inventory_id', inv.id);
+    .eq('inventory_id', inv.id)
+    .eq('is_spare', false);
 
   if (!parts || parts.length === 0) return null;
 
@@ -946,18 +1069,25 @@ export async function GET(
   const limit = Math.min(Number(url.searchParams.get('limit')) || 8, 24);
   const offset = Math.max(Number(url.searchParams.get('offset')) || 0, 0);
 
-  const summary = await getSetSummaryLocal(setNumber).catch(() => null);
-  if (!summary || summary.themeId == null) {
-    return NextResponse.json({ sets: [], total: 0 });
+  // Accept themeId/year as query params to avoid redundant summary lookup
+  // on pagination requests (client already has this data from the initial SSR).
+  const qThemeId = Number(url.searchParams.get('themeId'));
+  const qYear = Number(url.searchParams.get('year'));
+
+  let themeId: number | null = Number.isFinite(qThemeId) ? qThemeId : null;
+  let year = Number.isFinite(qYear) ? qYear : 0;
+
+  // Fallback: fetch summary if params not provided (e.g., direct API call)
+  if (themeId == null) {
+    const summary = await getSetSummaryLocal(setNumber).catch(() => null);
+    if (!summary || summary.themeId == null) {
+      return NextResponse.json({ sets: [], total: 0 });
+    }
+    themeId = summary.themeId;
+    year = summary.year;
   }
 
-  const result = await getRelatedSets(
-    summary.themeId,
-    summary.setNumber,
-    summary.year,
-    limit,
-    offset
-  );
+  const result = await getRelatedSets(themeId, setNumber, year, limit, offset);
 
   return NextResponse.json(result);
 }
@@ -1002,12 +1132,13 @@ import { UpgradeModal } from '@/app/components/upgrade-modal';
 import { useOpenSet } from '@/app/hooks/useOpenSet';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import type { RelatedSet } from '@/app/lib/catalog/relatedSets';
+import { formatCurrency } from '@/app/lib/utils/formatCurrency';
+import { getBricklinkSetUrl, getRebrickableSetUrl } from '@/app/lib/utils/externalUrls';
 import {
   ArrowRight,
   DollarSign,
   ExternalLink,
   Info,
-  Layers,
   Palette,
   Puzzle,
 } from 'lucide-react';
@@ -1107,8 +1238,14 @@ export function SetOverviewClient({
     if (loadingMore) return;
     setLoadingMore(true);
     try {
+      const params = new URLSearchParams({
+        limit: '8',
+        offset: String(relatedSets.length),
+        ...(themeId != null ? { themeId: String(themeId) } : {}),
+        ...(year ? { year: String(year) } : {}),
+      });
       const res = await fetch(
-        `/api/sets/${encodeURIComponent(setNumber)}/related?limit=8&offset=${relatedSets.length}`
+        `/api/sets/${encodeURIComponent(setNumber)}/related?${params}`
       );
       if (res.ok) {
         const data = (await res.json()) as { sets: RelatedSet[] };
@@ -1117,7 +1254,7 @@ export function SetOverviewClient({
     } finally {
       setLoadingMore(false);
     }
-  }, [setNumber, relatedSets.length, loadingMore]);
+  }, [setNumber, themeId, year, relatedSets.length, loadingMore]);
 
   const handleOpenSet = () => {
     openSet({
@@ -1131,21 +1268,8 @@ export function SetOverviewClient({
     });
   };
 
-  const bricklinkSetUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?S=${encodeURIComponent(setNumber)}`;
-  const rebrickableSetUrl = `https://rebrickable.com/sets/${encodeURIComponent(setNumber)}/`;
-
-  const formatPrice = (value: number, currency: string | null) => {
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: currency ?? 'USD',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value);
-    } catch {
-      return `${currency ?? '$'}${value.toFixed(2)}`;
-    }
-  };
+  const bricklinkSetUrl = getBricklinkSetUrl(setNumber);
+  const rebrickableSetUrl = getRebrickableSetUrl(setNumber);
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6">
@@ -1194,7 +1318,7 @@ export function SetOverviewClient({
               <div className="text-xs text-foreground-muted">Used Price</div>
               {priceState.status === 'loaded' && priceState.total != null ? (
                 <div className="text-sm font-medium">
-                  {formatPrice(priceState.total, priceState.currency)}
+                  {formatCurrency(priceState.total, priceState.currency)}
                 </div>
               ) : priceState.status === 'loading' ||
                 priceState.status === 'idle' ? (
@@ -1538,6 +1662,13 @@ Verify `SetStatusMenu` is unused:
 Run: `grep -r "SetStatusMenu" app/`
 
 If no imports found, delete: `rm app/components/set/SetStatusMenu.tsx`
+
+- [ ] **Step 3b: Check if SetPageSkeleton is still needed**
+
+Verify `SetPageSkeleton` is still imported elsewhere after removing `SetPageRedirector`:
+Run: `grep -r "SetPageSkeleton" app/`
+
+If only the deleted `SetPageRedirector` imported it, delete: `rm app/components/set/SetPageSkeleton.tsx`
 
 - [ ] **Step 4: Run type check**
 
