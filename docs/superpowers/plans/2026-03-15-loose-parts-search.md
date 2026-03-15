@@ -1338,7 +1338,7 @@ Import `getLoosePart`:
 import { getLoosePart } from '@/app/lib/localDb/loosePartsStore';
 ```
 
-Note: the `colorSwatch` variant may not exist on `OptimizedImage`. Use a simple `<img>` with rounded styling if needed, or add the variant. Check the existing `OptimizedImage` variants and use the closest match or a raw `<img>`.
+Note: Color swatch thumbnails use a raw `<img>` tag (not `OptimizedImage`) since they are small (40x40) and don't need the optimization pipeline.
 
 - [ ] **Step 3: Update loose quantity write to use `selectedColorId`**
 
