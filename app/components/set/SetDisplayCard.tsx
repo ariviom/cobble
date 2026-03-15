@@ -166,7 +166,7 @@ export function SetDisplayCard({
         </button>
       ) : (
         <Link
-          href={`/sets/${encodeURIComponent(setNumber)}`}
+          href={`/sets?active=${encodeURIComponent(setNumber)}`}
           className="flex w-full flex-1 flex-col"
         >
           {cardBody}

@@ -330,6 +330,15 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
               Minifig details →
             </Link>
           )}
+          {!isFigId && row.partId && (
+            <Link
+              href={`/parts/${encodeURIComponent(row.partId)}`}
+              className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-theme-text transition-colors hover:bg-card-muted"
+              onClick={e => e.stopPropagation()}
+            >
+              Part details →
+            </Link>
+          )}
         </div>
       </div>
     </Modal>
