@@ -55,6 +55,11 @@ export function MinifigSearchResultItem({
           </div>
           <div className="flex items-start gap-2 px-3 py-3">
             <div className="min-w-0 flex-1">
+              {(themeName || themePath) && (
+                <div className="mb-0.5 truncate text-2xs text-foreground-muted">
+                  {themePath ?? themeName}
+                </div>
+              )}
               <div className="line-clamp-2 w-full overflow-hidden font-medium">
                 {name}
               </div>
@@ -62,11 +67,6 @@ export function MinifigSearchResultItem({
                 <span>{displayLabel}</span>
                 {typeof numParts === 'number' && numParts > 0 && (
                   <span className="ml-1">• {numParts} parts</span>
-                )}
-                {(themeName || themePath) && (
-                  <div className="mt-1 truncate text-2xs">
-                    {themePath ?? themeName}
-                  </div>
                 )}
               </div>
             </div>
