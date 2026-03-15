@@ -160,11 +160,39 @@ export function CollectionPartModal({
     onLooseQuantityChange();
   };
 
+  // Fetch per-color image on demand when color changes and no imageUrl is cached
+  const [colorImageUrl, setColorImageUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!availableColors) return;
+    const color = availableColors.find(c => c.colorId === selectedColorId);
+    if (color?.imageUrl) {
+      setColorImageUrl(color.imageUrl);
+      return;
+    }
+    // Fetch from API for this specific part+color
+    setColorImageUrl(null);
+    let cancelled = false;
+    fetch(
+      `/api/search/parts/image?partNum=${encodeURIComponent(part.partNum)}&colorId=${selectedColorId}`
+    )
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (!cancelled && data?.imageUrl) {
+          setColorImageUrl(data.imageUrl);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [part.partNum, selectedColorId, availableColors]);
+
   const currentColor = availableColors?.find(
     c => c.colorId === selectedColorId
   );
   const displayColorName = currentColor?.colorName ?? part.colorName;
-  const displayImageUrl = currentColor?.imageUrl ?? part.imageUrl;
+  const displayImageUrl =
+    colorImageUrl ?? currentColor?.imageUrl ?? part.imageUrl;
 
   const ownedFromSets = part.ownedFromSets ?? 0;
   const totalOwned = ownedFromSets + looseQty;
