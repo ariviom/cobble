@@ -84,7 +84,7 @@ export default async function SetPage({ params }: SetPageProps) {
   });
 
   return (
-    <PageLayout>
+    <PageLayout noTopOffset>
       <SetOverviewClient
         setNumber={summary.setNumber}
         name={summary.name}

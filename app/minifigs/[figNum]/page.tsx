@@ -188,7 +188,7 @@ export default async function MinifigPage({ params }: MinifigPageProps) {
   const initialMeta = await getServerMinifigMeta(figNum);
 
   return (
-    <PageLayout>
+    <PageLayout noTopOffset>
       <MinifigPageClient
         figNum={figNum}
         initialName={initialMeta.name}
