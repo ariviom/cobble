@@ -14,7 +14,7 @@ export async function GET(
 ) {
   const { setNumber } = await params;
   const url = request.nextUrl;
-  const limit = Math.min(Number(url.searchParams.get('limit')) || 8, 24);
+  const limit = Math.min(Number(url.searchParams.get('limit')) || 6, 24);
   const offset = Math.max(Number(url.searchParams.get('offset')) || 0, 0);
 
   // Accept themeId/year as query params to avoid redundant summary lookup

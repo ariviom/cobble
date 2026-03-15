@@ -18,7 +18,7 @@ export async function getRelatedSets(
   themeId: number,
   referenceSetNumber: string,
   referenceYear: number,
-  limit: number = 8,
+  limit: number = 6,
   offset: number = 0
 ): Promise<{ sets: RelatedSet[]; total: number }> {
   const supabase = getCatalogReadClient();

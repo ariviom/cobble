@@ -118,7 +118,7 @@ export function SetOverviewClient({
     setLoadingMore(true);
     try {
       const params = new URLSearchParams({
-        limit: '8',
+        limit: '6',
         offset: String(relatedSets.length),
         ...(themeId != null ? { themeId: String(themeId) } : {}),
         ...(year ? { year: String(year) } : {}),
