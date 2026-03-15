@@ -88,10 +88,27 @@ export async function getSetsContainingPart(partNum: string, colorId?: number) {
 // ---------------------------------------------------------------------------
 
 const DIMENSION_PATTERN = /(\d)\s*[xX]\s*(\d)/g;
+/** Matches a trailing dimension like "1 x 1" or "2 x 4 x 3" at end of string. */
+const TRAILING_DIMENSION = /\d+ x \d+( x \d+)*$/;
 
 /** Normalize "1x2", "1X2", "1 x 2" → "1 x 2" for consistent ilike matching. */
 function normalizeDimensions(query: string): string {
   return query.replace(DIMENSION_PATTERN, '$1 x $2');
+}
+
+/**
+ * Build ilike patterns for a name search that respects dimension boundaries.
+ * "1 x 1" should NOT match "1 x 10". We achieve this by requiring the
+ * dimension to be followed by end-of-string or a space (not another digit).
+ * Returns an array of ilike patterns to OR together.
+ */
+function buildNamePatterns(normalized: string): string[] {
+  if (TRAILING_DIMENSION.test(normalized)) {
+    // Query ends with a dimension — use boundary-aware patterns:
+    // "%1 x 1" (at end of name) OR "%1 x 1 %" (followed by space, more text)
+    return [`%${normalized}`, `%${normalized} %`];
+  }
+  return [`%${normalized}%`];
 }
 
 const MAX_QUERY_LENGTH = 200;
@@ -136,6 +153,9 @@ export async function searchPartsLocal(
   const supabase = getCatalogReadClient();
 
   // Fetch up to SEARCH_CAP results so we can sort by popularity before paginating
+  const namePatterns = buildNamePatterns(normalized);
+  const nameFilter = namePatterns.map(p => `name.ilike.${p}`).join(',');
+
   const [byNum, byName] = await Promise.all([
     supabase
       .from('rb_parts')
@@ -145,7 +165,7 @@ export async function searchPartsLocal(
     supabase
       .from('rb_parts')
       .select('part_num, name, part_cat_id, image_url')
-      .ilike('name', `%${normalized}%`)
+      .or(nameFilter)
       .range(0, SEARCH_CAP - 1),
   ]);
 
