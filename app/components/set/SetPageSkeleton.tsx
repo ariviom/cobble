@@ -14,7 +14,7 @@ type SetPageSkeletonProps = {
  *
  * Used during:
  * - SSR/hydration before tabs load from localStorage (minimal variant)
- * - SetPageRedirector while redirecting from /sets/[setNumber] to /sets?active=... (set variant)
+ * - Redirect from /sets/[setNumber] to /sets?active=... (set variant)
  */
 export function SetPageSkeleton({ variant = 'set' }: SetPageSkeletonProps) {
   return (
