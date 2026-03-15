@@ -22,6 +22,10 @@ import { MoreDropdown } from '@/app/components/ui/MoreDropdown';
 import { cn } from '@/app/components/ui/utils';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import {
+  getBricklinkSetUrl,
+  getRebrickableSetUrl,
+} from '@/app/lib/utils/externalUrls';
 import { Check, Copy, Eye, EyeOff, Trophy, Users, X } from 'lucide-react';
 import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -118,10 +122,8 @@ export function SetTopBar({
   const { user } = useSupabaseUser();
   const participantCount = searchParty?.participants.length ?? 0;
   const totalPiecesFound = searchParty?.totalPiecesFound ?? 0;
-  const bricklinkSetUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?S=${encodeURIComponent(
-    setNumber
-  )}`;
-  const rebrickableSetUrl = `https://rebrickable.com/sets/${encodeURIComponent(setNumber)}/`;
+  const bricklinkSetUrl = getBricklinkSetUrl(setNumber);
+  const rebrickableSetUrl = getRebrickableSetUrl(setNumber);
   const sessionCode = useMemo(() => {
     const joinUrl = searchParty?.joinUrl;
     if (!joinUrl) return null;

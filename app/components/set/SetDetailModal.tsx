@@ -6,6 +6,10 @@ import { Modal } from '@/app/components/ui/Modal';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import { Button } from '@/app/components/ui/Button';
 import { formatCurrency } from '@/app/lib/utils/formatCurrency';
+import {
+  getBricklinkSetUrl,
+  getRebrickableSetUrl,
+} from '@/app/lib/utils/externalUrls';
 import { DollarSign, ExternalLink, Info, ArrowRight } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
@@ -59,8 +63,8 @@ export function SetDetailModal({
     ...(typeof themeId === 'number' ? { themeId } : {}),
   });
 
-  const bricklinkSetUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?S=${encodeURIComponent(setNumber)}`;
-  const rebrickableSetUrl = `https://rebrickable.com/sets/${encodeURIComponent(setNumber)}/`;
+  const bricklinkSetUrl = getBricklinkSetUrl(setNumber);
+  const rebrickableSetUrl = getRebrickableSetUrl(setNumber);
 
   // Fetch set price when modal opens
   useEffect(() => {
