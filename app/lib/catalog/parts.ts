@@ -218,22 +218,20 @@ export async function searchPartsLocal(
     }
   }
 
-  // Batch-fetch available colors per part from rb_inventory_parts + rb_colors
+  // Batch-fetch colors and one thumbnail image per part in parallel
   const partNums = pageSlice.map(p => p.part_num);
-  const colorsMap = await fetchColorsForParts(supabase, partNums);
+  const [colorsMap, thumbMap] = await Promise.all([
+    fetchColorsForParts(supabase, partNums),
+    fetchThumbnailsForParts(supabase, partNums),
+  ]);
 
   const results: PartSearchLocalResult[] = pageSlice.map(p => {
     const partColors = colorsMap.get(p.part_num) ?? [];
-    // Prefer white (colorId 15) or light bluish gray (colorId 71) as default image
-    const defaultColor =
-      partColors.find(c => c.colorId === 15) ??
-      partColors.find(c => c.colorId === 71) ??
-      partColors[0];
 
     return {
       partNum: p.part_num,
       name: p.name,
-      imageUrl: defaultColor?.imageUrl ?? p.image_url ?? null,
+      imageUrl: thumbMap.get(p.part_num) ?? p.image_url ?? null,
       categoryName: p.part_cat_id
         ? (categoryMap.get(p.part_cat_id) ?? null)
         : null,
@@ -249,8 +247,8 @@ export async function searchPartsLocal(
 
 /**
  * Batch-fetch distinct colors for multiple parts.
- * Uses rb_part_rarity for the color list (one row per part+color, ~70 per part)
- * and a targeted rb_inventory_parts query for per-color image URLs.
+ * Uses rb_part_rarity for the color list (compact: one row per part+color).
+ * Does NOT fetch per-color images — those are loaded lazily when the modal opens.
  */
 async function fetchColorsForParts(
   supabase: ReturnType<typeof getCatalogReadClient>,
@@ -263,7 +261,7 @@ async function fetchColorsForParts(
 > {
   if (partNums.length === 0) return new Map();
 
-  // 1. Get available colors from rb_part_rarity (compact: one row per part+color)
+  // 1. Get available colors from rb_part_rarity
   const rarityRows: Array<{ part_num: string; color_id: number }>[] = [];
   for (let i = 0; i < partNums.length; i += 200) {
     const batch = partNums.slice(i, i + 200);
@@ -290,30 +288,7 @@ async function fetchColorsForParts(
     }
   }
 
-  // 3. Get per-color images from rb_inventory_parts (filter to non-null img_url)
-  //    We query per-part to avoid the row explosion from querying all parts at once.
-  const imageMap = new Map<string, string>(); // "partNum:colorId" → img_url
-  for (let i = 0; i < partNums.length; i += 200) {
-    const batch = partNums.slice(i, i + 200);
-    const { data: imgRows } = await supabase
-      .from('rb_inventory_parts')
-      .select('part_num, color_id, img_url')
-      .in('part_num', batch)
-      .not('img_url', 'is', null)
-      .limit(5000);
-    for (const row of imgRows ?? []) {
-      const key = `${row.part_num}:${row.color_id}`;
-      if (
-        !imageMap.has(key) &&
-        typeof row.img_url === 'string' &&
-        row.img_url.trim()
-      ) {
-        imageMap.set(key, row.img_url.trim());
-      }
-    }
-  }
-
-  // 4. Assemble: group by part_num with color name + image
+  // 3. Assemble: group by part_num with color name (no images at search time)
   const result = new Map<
     string,
     Array<{ colorId: number; colorName: string; imageUrl: string | null }>
@@ -325,8 +300,43 @@ async function fetchColorsForParts(
     result.get(row.part_num)!.push({
       colorId: row.color_id,
       colorName: name,
-      imageUrl: imageMap.get(`${row.part_num}:${row.color_id}`) ?? null,
+      imageUrl: null, // loaded lazily in modal
     });
+  }
+
+  return result;
+}
+
+/**
+ * Fetch one thumbnail image per part. Queries rb_inventory_parts individually
+ * per part (in parallel) to avoid row explosion from batch queries on popular parts.
+ */
+async function fetchThumbnailsForParts(
+  supabase: ReturnType<typeof getCatalogReadClient>,
+  partNums: string[]
+): Promise<Map<string, string>> {
+  if (partNums.length === 0) return new Map();
+
+  const result = new Map<string, string>();
+
+  // Query each part individually — just need one image row per part.
+  // Run in parallel batches of 10 to avoid overwhelming the connection.
+  const CONCURRENCY = 10;
+  for (let i = 0; i < partNums.length; i += CONCURRENCY) {
+    const batch = partNums.slice(i, i + CONCURRENCY);
+    const promises = batch.map(async partNum => {
+      const { data } = await supabase
+        .from('rb_inventory_parts')
+        .select('img_url')
+        .eq('part_num', partNum)
+        .not('img_url', 'is', null)
+        .limit(1);
+      const url = data?.[0]?.img_url;
+      if (typeof url === 'string' && url.trim()) {
+        result.set(partNum, url.trim());
+      }
+    });
+    await Promise.all(promises);
   }
 
   return result;

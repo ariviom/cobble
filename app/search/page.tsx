@@ -28,10 +28,11 @@ function extractInitialQuery(
 
 function extractInitialType(
   params: Record<string, string | string[] | undefined>
-): 'set' | 'minifig' {
+): 'set' | 'minifig' | 'part' {
   const raw = params.type;
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (value === 'minifig') return 'minifig';
+  if (value === 'part') return 'part';
   return 'set';
 }
 
