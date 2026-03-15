@@ -433,21 +433,12 @@ export function SearchResults() {
           <CollectionPartModal
             part={{
               partNum: selectedPart.partNum,
-              colorId: selectedPart.colors[0]?.colorId ?? 0,
-              canonicalKey: `${selectedPart.partNum}:${selectedPart.colors[0]?.colorId ?? 0}`,
               partName: selectedPart.name,
-              colorName: selectedPart.colors[0]?.colorName ?? '',
               imageUrl: selectedPart.imageUrl,
-              parentCategory: null,
-              categoryName: selectedPart.categoryName,
-              elementId: null,
-              setCount: null,
-              ownedFromSets: 0,
-              looseQuantity: 0,
-              totalOwned: 0,
-              setSources: [],
-              missingFromSets: [],
+              colorId: selectedPart.colors[0]?.colorId ?? 0,
+              colorName: selectedPart.colors[0]?.colorName ?? '',
             }}
+            availableColors={selectedPart.colors}
             onClose={() => setSelectedPart(null)}
             onLooseQuantityChange={() => {}}
           />

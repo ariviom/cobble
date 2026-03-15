@@ -4,17 +4,43 @@ import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { Modal } from '@/app/components/ui/Modal';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { cn } from '@/app/components/ui/utils';
-import { bulkUpsertLooseParts } from '@/app/lib/localDb/loosePartsStore';
+import {
+  bulkUpsertLooseParts,
+  getLoosePart,
+} from '@/app/lib/localDb/loosePartsStore';
 import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import type { CollectionPart } from './types';
+import type { CollectionPart, CollectionPartSetSource } from './types';
 
-type Props = {
-  part: CollectionPart;
+type BaseProps = {
   onClose: () => void;
   onLooseQuantityChange: () => void;
 };
+
+type LegacyProps = BaseProps & {
+  part: CollectionPart;
+  availableColors?: undefined;
+};
+
+type FlexibleProps = BaseProps & {
+  part: {
+    partNum: string;
+    partName: string;
+    imageUrl: string | null;
+    colorId: number;
+    colorName: string;
+    ownedFromSets?: number;
+    setSources?: CollectionPartSetSource[];
+  };
+  availableColors: Array<{
+    colorId: number;
+    colorName: string;
+    imageUrl: string | null;
+  }>;
+};
+
+type Props = LegacyProps | FlexibleProps;
 
 const MAX_LOOSE = 99999;
 
@@ -104,42 +130,60 @@ function LooseQuantityControl({
 
 export function CollectionPartModal({
   part,
+  availableColors,
   onClose,
   onLooseQuantityChange,
 }: Props) {
-  const [looseQty, setLooseQty] = useState(part.looseQuantity);
+  const [selectedColorId, setSelectedColorId] = useState(part.colorId);
+  const [looseQty, setLooseQty] = useState(0);
 
-  // Keep local state in sync if part prop changes (e.g. after reload)
+  // Load loose quantity from IndexedDB whenever the selected color changes
   useEffect(() => {
-    setLooseQty(part.looseQuantity);
-  }, [part.looseQuantity]);
+    let cancelled = false;
+    getLoosePart(part.partNum, selectedColorId).then(entry => {
+      if (!cancelled) {
+        setLooseQty(entry?.quantity ?? 0);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [part.partNum, selectedColorId]);
 
   const handleLooseChange = async (next: number) => {
     setLooseQty(next);
     await bulkUpsertLooseParts(
-      [{ partNum: part.partNum, colorId: part.colorId, quantity: next }],
+      [{ partNum: part.partNum, colorId: selectedColorId, quantity: next }],
       'replace'
     );
     onLooseQuantityChange();
   };
 
-  const ownedFromSets = part.ownedFromSets;
+  const currentColor = availableColors?.find(
+    c => c.colorId === selectedColorId
+  );
+  const displayColorName = currentColor?.colorName ?? part.colorName;
+  const displayImageUrl = currentColor?.imageUrl ?? part.imageUrl;
+
+  const ownedFromSets = part.ownedFromSets ?? 0;
   const totalOwned = ownedFromSets + looseQty;
 
+  const setSources = part.setSources ?? [];
+
   const bricklinkUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(part.partNum)}#T=S`;
-  const rebrickableUrl = `https://rebrickable.com/parts/${encodeURIComponent(part.partNum)}/${part.colorId}/`;
+  const rebrickableUrl = `https://rebrickable.com/parts/${encodeURIComponent(part.partNum)}/${selectedColorId}/`;
   const detailsHref = `/parts/${encodeURIComponent(part.partNum)}`;
 
-  const showSetBreakdown = part.setSources.length > 1;
+  const showSetBreakdown = setSources.length > 1;
 
   return (
     <Modal open onClose={onClose} title={part.partName}>
       <div className="-mx-5 -my-5">
         {/* Hero image */}
         <div className="aspect-square w-full bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
-          {part.imageUrl ? (
+          {displayImageUrl ? (
             <OptimizedImage
-              src={part.imageUrl}
+              src={displayImageUrl}
               alt={part.partName}
               variant="inventoryModal"
               className="size-full object-contain p-6 drop-shadow-sm"
@@ -153,9 +197,44 @@ export function CollectionPartModal({
         <div className="border-t-2 border-subtle px-4 py-2.5">
           <p className="text-xs text-foreground-muted">
             Part {part.partNum}
-            {part.colorName ? ` · ${part.colorName}` : ''}
+            {displayColorName ? ` · ${displayColorName}` : ''}
           </p>
         </div>
+
+        {/* Color picker */}
+        {availableColors && availableColors.length > 0 && (
+          <div className="border-t-2 border-subtle px-4 py-3">
+            <p className="mb-2 text-xs font-medium text-foreground-muted uppercase">
+              Color
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {availableColors.map(c => (
+                <button
+                  key={c.colorId}
+                  type="button"
+                  onClick={() => setSelectedColorId(c.colorId)}
+                  className={cn(
+                    'size-10 overflow-hidden rounded-full border-2 transition-colors',
+                    c.colorId === selectedColorId
+                      ? 'border-theme-primary ring-2 ring-theme-primary/30'
+                      : 'border-subtle hover:border-strong'
+                  )}
+                  title={c.colorName}
+                >
+                  {c.imageUrl ? (
+                    <img
+                      src={c.imageUrl}
+                      alt={c.colorName}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <div className="size-full bg-neutral-200 dark:bg-neutral-700" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Quantity summary */}
         <div className="border-t-2 border-subtle px-4 py-3">
@@ -185,7 +264,7 @@ export function CollectionPartModal({
                 </tr>
               </thead>
               <tbody className="divide-y divide-subtle">
-                {part.setSources.map(src => (
+                {setSources.map(src => (
                   <tr key={src.setNumber}>
                     <td className="py-1 text-foreground">
                       <span className="font-medium">{src.setNumber}</span>
