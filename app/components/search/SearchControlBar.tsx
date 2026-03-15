@@ -319,6 +319,52 @@ export function MinifigSearchControlBar({
 }
 
 // ---------------------------------------------------------------------------
+// Part search control bar
+// ---------------------------------------------------------------------------
+
+type PartSearchControlBarProps = {
+  pageSize: number;
+  onPageSizeChange: (next: number) => void;
+};
+
+export function PartSearchControlBar({
+  pageSize,
+  onPageSizeChange,
+}: PartSearchControlBarProps) {
+  const { openDropdownId, toggleDropdown, closeDropdown, containerRef } =
+    useControlBarDropdown();
+
+  return (
+    <ControlBar containerRef={containerRef}>
+      <div className="relative shrink-0">
+        <DropdownTrigger
+          id="part-show-trigger"
+          panelId="part-show-panel"
+          label={`Show ${pageSize}`}
+          labelIcon={<Hash size={16} />}
+          isOpen={openDropdownId === 'show'}
+          onToggle={() => toggleDropdown('show')}
+        />
+        <DropdownPanelFrame
+          id="part-show-panel"
+          labelledBy="part-show-trigger"
+          isOpen={openDropdownId === 'show'}
+        >
+          <SingleSelectList
+            options={showOptions}
+            selectedKey={String(pageSize)}
+            onChange={key => {
+              onPageSizeChange(Number(key));
+              closeDropdown();
+            }}
+          />
+        </DropdownPanelFrame>
+      </div>
+    </ControlBar>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Pieces grouping helper (shared with collection)
 // ---------------------------------------------------------------------------
 

@@ -24,6 +24,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import {
   MinifigSearchControlBar,
+  PartSearchControlBar,
   SetSearchControlBar,
   fromSortOption,
   getPiecesBucket,
@@ -386,6 +387,10 @@ export function SearchResults() {
     const results = ptPages.flatMap((p: PartSearchPage) => p.results);
     return (
       <>
+        <PartSearchControlBar
+          pageSize={pageSize}
+          onPageSizeChange={handlePageSizeChange}
+        />
         <div className="container-wide py-6 lg:py-8">
           {isPartLoading && (
             <div className="flex justify-center py-12 text-center">

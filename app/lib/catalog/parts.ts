@@ -121,6 +121,9 @@ type PartSearchLocalResult = {
   }>;
 };
 
+/** Max parts to fetch before sorting/paginating. Keeps queries fast. */
+const SEARCH_CAP = 500;
+
 export async function searchPartsLocal(
   rawQuery: string,
   opts: PartSearchOptions
@@ -132,22 +135,18 @@ export async function searchPartsLocal(
   const { page, pageSize } = opts;
   const supabase = getCatalogReadClient();
 
-  // Fetch one extra to detect next page
-  const limit = pageSize + 1;
-  const offset = (page - 1) * pageSize;
-
-  // Search by part_num prefix and name contains in parallel, then merge
+  // Fetch up to SEARCH_CAP results so we can sort by popularity before paginating
   const [byNum, byName] = await Promise.all([
     supabase
       .from('rb_parts')
       .select('part_num, name, part_cat_id, image_url')
       .ilike('part_num', `${normalized}%`)
-      .range(0, limit - 1),
+      .range(0, SEARCH_CAP - 1),
     supabase
       .from('rb_parts')
       .select('part_num, name, part_cat_id, image_url')
       .ilike('name', `%${normalized}%`)
-      .range(0, limit * 2 - 1),
+      .range(0, SEARCH_CAP - 1),
   ]);
 
   // Merge and deduplicate by part_num, preferring part_num matches first
@@ -169,10 +168,18 @@ export async function searchPartsLocal(
   const error = byNum.error ?? byName.error;
   if (error || !merged.length) return { results: [], nextPage: null };
 
-  // Apply pagination to merged results
-  const paged = merged.slice(offset, offset + limit);
-  const hasMore = paged.length > pageSize;
-  const pageSlice = hasMore ? paged.slice(0, pageSize) : paged;
+  // Batch-fetch set counts from rb_part_rarity and sort by popularity
+  const allPartNums = merged.map(p => p.part_num);
+  const setCountMap = await fetchSetCountsForParts(supabase, allPartNums);
+  merged.sort(
+    (a, b) =>
+      (setCountMap.get(b.part_num) ?? 0) - (setCountMap.get(a.part_num) ?? 0)
+  );
+
+  // Paginate the sorted results
+  const offset = (page - 1) * pageSize;
+  const pageSlice = merged.slice(offset, offset + pageSize);
+  const hasMore = offset + pageSize < merged.length;
 
   // Batch-fetch categories
   const catIds = [
@@ -292,4 +299,33 @@ async function fetchColorsForParts(
   }
 
   return result;
+}
+
+/**
+ * Batch-fetch total set counts per part_num from rb_part_rarity.
+ * Sums set_count across all colors for each part.
+ */
+async function fetchSetCountsForParts(
+  supabase: ReturnType<typeof getCatalogReadClient>,
+  partNums: string[]
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (partNums.length === 0) return counts;
+
+  for (let i = 0; i < partNums.length; i += 200) {
+    const batch = partNums.slice(i, i + 200);
+    const { data } = await supabase
+      .from('rb_part_rarity')
+      .select('part_num, set_count')
+      .in('part_num', batch);
+
+    for (const row of data ?? []) {
+      counts.set(
+        row.part_num,
+        (counts.get(row.part_num) ?? 0) + (row.set_count ?? 0)
+      );
+    }
+  }
+
+  return counts;
 }
