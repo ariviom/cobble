@@ -17,9 +17,11 @@ import type {
   SearchType,
   SortOption,
 } from '@/app/types/search';
+import { CollectionPartModal } from '@/app/components/collection/parts/CollectionPartModal';
+import type { PartSearchPage, PartSearchResult } from '@/app/types/search';
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   MinifigSearchControlBar,
   SetSearchControlBar,
@@ -27,6 +29,7 @@ import {
   getPiecesBucket,
   piecesBucketOrder,
 } from './SearchControlBar';
+import { PartSearchResultCard } from './PartSearchResultCard';
 import { SearchResultListItem } from './SearchResultListItem';
 
 async function fetchSearchPage(
@@ -67,6 +70,20 @@ async function fetchMinifigSearchPage(
   }
   const data = (await res.json()) as MinifigSearchPage;
   return data;
+}
+
+async function fetchPartSearchPage(
+  q: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PartSearchPage> {
+  if (!q) return { results: [], nextPage: null };
+  const url = `/api/search/parts?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    await throwAppErrorFromResponse(res, 'search_failed');
+  }
+  return (await res.json()) as PartSearchPage;
 }
 
 function parseFilterParam(value: string | null): FilterType {
@@ -128,6 +145,7 @@ function parseMinifigSort(value: string | null): MinifigSortOption {
 
 function parseTypeParam(value: string | null): SearchType {
   if (value === 'minifig') return 'minifig';
+  if (value === 'part') return 'part';
   return 'set';
 }
 
@@ -325,6 +343,33 @@ export function SearchResults() {
     isFetchingNextPage: isFetchingNextMinifigPage,
   } = minifigQuery;
 
+  const partQuery = useInfiniteQuery<
+    PartSearchPage,
+    AppError,
+    InfiniteData<PartSearchPage, number>,
+    [string, { q: string; pageSize: number }],
+    number
+  >({
+    queryKey: ['search-parts', { q, pageSize }],
+    queryFn: ({ pageParam = 1 }) =>
+      fetchPartSearchPage(q, pageParam as number, pageSize),
+    getNextPageParam: (lastPage: PartSearchPage) => lastPage.nextPage,
+    initialPageParam: 1,
+    enabled: hasQuery && searchType === 'part',
+  });
+  const {
+    data: partData,
+    isLoading: isPartLoading,
+    error: partError,
+    fetchNextPage: fetchNextPartPage,
+    hasNextPage: hasNextPartPage,
+    isFetchingNextPage: isFetchingNextPartPage,
+  } = partQuery;
+
+  const [selectedPart, setSelectedPart] = useState<PartSearchResult | null>(
+    null
+  );
+
   // Group set results based on the active sort field
   const { flatResults, grouped } = useMemo(() => {
     const pages = (setData?.pages as SearchPage[] | undefined) ?? [];
@@ -334,6 +379,81 @@ export function SearchResults() {
 
   if (!hasQuery) {
     return null;
+  }
+
+  if (searchType === 'part') {
+    const ptPages = (partData?.pages as PartSearchPage[] | undefined) ?? [];
+    const results = ptPages.flatMap((p: PartSearchPage) => p.results);
+    return (
+      <>
+        <div className="container-wide py-6 lg:py-8">
+          {isPartLoading && (
+            <div className="flex justify-center py-12 text-center">
+              <BrickLoader />
+            </div>
+          )}
+          {partError && (
+            <ErrorBanner
+              className="mt-2"
+              message="Failed to load part results. Please try again."
+            />
+          )}
+          {!isPartLoading && !partError && results.length > 0 && (
+            <div>
+              <div className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {results.map((r: PartSearchResult) => (
+                  <PartSearchResultCard
+                    key={r.partNum}
+                    result={r}
+                    onClick={() => setSelectedPart(r)}
+                  />
+                ))}
+              </div>
+              {hasNextPartPage && (
+                <div className="mb-8 flex justify-center py-4">
+                  <button
+                    onClick={() => fetchNextPartPage()}
+                    disabled={isFetchingNextPartPage}
+                    className="rounded-lg border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
+                  >
+                    {isFetchingNextPartPage ? 'Loading…' : 'Load More'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          {!isPartLoading && !partError && results.length === 0 && (
+            <EmptyState
+              className="mt-4"
+              message="No parts found. Try a different name or part number."
+            />
+          )}
+        </div>
+        {selectedPart && (
+          <CollectionPartModal
+            part={{
+              partNum: selectedPart.partNum,
+              colorId: selectedPart.colors[0]?.colorId ?? 0,
+              canonicalKey: `${selectedPart.partNum}:${selectedPart.colors[0]?.colorId ?? 0}`,
+              partName: selectedPart.name,
+              colorName: selectedPart.colors[0]?.colorName ?? '',
+              imageUrl: selectedPart.imageUrl,
+              parentCategory: null,
+              categoryName: selectedPart.categoryName,
+              elementId: null,
+              setCount: null,
+              ownedFromSets: 0,
+              looseQuantity: 0,
+              totalOwned: 0,
+              setSources: [],
+              missingFromSets: [],
+            }}
+            onClose={() => setSelectedPart(null)}
+            onLooseQuantityChange={() => {}}
+          />
+        )}
+      </>
+    );
   }
 
   if (searchType === 'minifig') {
