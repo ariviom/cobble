@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
+import { SetDetailModal } from '@/app/components/set/SetDetailModal';
 import { cn } from '@/app/components/ui/utils';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
@@ -39,6 +39,12 @@ type Props = {
 
 export function PartDetailClient({ part, colors, rarityData, sets }: Props) {
   const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
+  const [modalSet, setModalSet] = useState<{
+    setNumber: string;
+    name: string;
+    imageUrl: string | null;
+    year?: number;
+  } | null>(null);
 
   const rarityByColorId = new Map<number, number>(
     rarityData.map(r => [r.color_id, r.set_count])
@@ -170,9 +176,17 @@ export function PartDetailClient({ part, colors, rarityData, sets }: Props) {
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {filteredSets.map(set => (
               <li key={set.set_num}>
-                <Link
-                  href={`/sets/${set.set_num}`}
-                  className="group flex flex-col overflow-hidden rounded-lg border border-subtle bg-card transition-shadow hover:shadow-md"
+                <button
+                  type="button"
+                  onClick={() =>
+                    setModalSet({
+                      setNumber: set.set_num,
+                      name: set.name ?? set.set_num,
+                      imageUrl: set.image_url,
+                      ...(set.year != null && { year: set.year }),
+                    })
+                  }
+                  className="group flex w-full cursor-pointer flex-col overflow-hidden rounded-lg border border-subtle bg-card text-left transition-shadow hover:shadow-md"
                 >
                   <div className="relative aspect-square w-full overflow-hidden bg-background-muted">
                     {set.image_url ? (
@@ -195,12 +209,23 @@ export function PartDetailClient({ part, colors, rarityData, sets }: Props) {
                       {set.year != null && ` · ${set.year}`}
                     </p>
                   </div>
-                </Link>
+                </button>
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {modalSet && (
+        <SetDetailModal
+          open={!!modalSet}
+          onClose={() => setModalSet(null)}
+          setNumber={modalSet.setNumber}
+          setName={modalSet.name}
+          imageUrl={modalSet.imageUrl}
+          year={modalSet.year}
+        />
+      )}
     </div>
   );
 }
