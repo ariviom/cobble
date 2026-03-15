@@ -88,9 +88,14 @@ export async function handlePartIdentify(
       ? (availableColors.find(c => c.id === selectedColorId)?.partImageUrl ??
         null)
       : null;
+  // When no color is selected, try any available color's image as a last resort
+  const anyColorImage =
+    !colorImage && availableColors.length > 0
+      ? (availableColors.find(c => c.partImageUrl)?.partImageUrl ?? null)
+      : null;
   const partMeta = await getPartMetadata(rbPart);
   let partMetaName = partMeta.name;
-  let partMetaImage = colorImage ?? partMeta.imageUrl;
+  let partMetaImage = colorImage ?? partMeta.imageUrl ?? anyColorImage;
   const { blPartId } = partMeta;
 
   // BrickLink superset fallback: when RB has no sets for this part,
@@ -318,11 +323,11 @@ async function getPartMetadata(rbPart: string): Promise<{
     // fall through to API
   }
 
-  // Fall back to Rebrickable API for metadata if catalog miss
-  if (!name) {
+  // Fall back to Rebrickable API for metadata if catalog miss or image missing
+  if (!name || !imageUrl) {
     try {
       const partMeta = await getPart(rbPart);
-      name = partMeta.name;
+      if (!name) name = partMeta.name;
       if (!imageUrl) imageUrl = partMeta.part_img_url;
     } catch {
       // tolerate missing metadata
