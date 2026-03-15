@@ -2,45 +2,37 @@
 
 ## Current Focus
 
-- **Sync Overhaul** — Replaced timestamp-based LWW with server-versioned delta sync. Feature branch `feature/sync-overhaul`. Spec: `docs/superpowers/specs/2026-03-12-sync-overhaul-design.md`. Plan: `docs/superpowers/plans/2026-03-12-sync-overhaul.md`.
-- **Stripe UI/UX Enforcement** — Wire up billing UI (Account page, upgrade CTAs, inline upsells) and feature gating (SSR preload, API guards, usage counters). **Two tiers at launch: Free + Plus only** (Pro deferred).
-- **BrickLink API Compliance** — Code changes complete. Contact `apisupport@bricklink.com` pre-launch to confirm commercial use case.
-- **Derived Pricing System** — Plan at `docs/dev/DERIVED_PRICING_PLAN.md`. Post-launch priority.
-- Keep MVP flows (search, inventory, owned vs missing, CSV exports, pricing) stable.
-- Preserve anonymous/local-only experience while signed-in users sync to Supabase.
+- **Pre-Launch:** Stripe configuration, entitlements E2E testing, onboarding flow, marketing page review
+- **BrickLink API Compliance** — Code complete. Contact `apisupport@bricklink.com` pre-launch.
+- Keep MVP flows stable. Preserve anonymous/local-only experience; signed-in users sync to Supabase.
+
+## Pre-Launch Remaining
+
+See `docs/BACKLOG.md` for full checklist. Key areas:
+
+1. **Stripe config + testing** — Dashboard setup, env vars, E2E test all flows (see `docs/dev/STRIPE_GATING_LAUNCH_CHECKLIST.md`)
+2. **Onboarding** — First-set experience, feature discovery, tier awareness (not built)
+3. **Marketing page** — Review landing page for launch readiness
+4. **Entitlements testing** — Thorough end-to-end validation of all gates and quotas
 
 ## Recently Completed (Mar 2026)
 
-- **Sync Overhaul**: Replaced broken timestamp-based LWW with server-versioned delta sync using Postgres sequence + BEFORE trigger. Per-set watermarks in IndexedDB. Refresh-on-focus pulling via TabCoordinator callbacks. Cross-tab sync_request handling (debounced 500ms). Floating SyncIndicator pill for Plus users. Dead LWW code removed.
+- Delta sync overhaul (server-versioned, watermark-based, refresh-on-focus, cross-tab)
+- Collection parts: missing view redesign with contained set cards
+- SyncIndicator replaced with error-only toast
+- Collection import/export (JSON backup, BrickScan CSV/XML, Rebrickable sets import)
+- Docs cleanup: archived 31 completed spec/plan files, consolidated BACKLOG.md
 
-## Previously Completed (Feb 2026)
+## Active Decisions
 
-- **Search Party**: color slots, progress strip, host-only join UI, session resume persistence (heartbeat flush, joiner localStorage cache, host beforeunload guard), fixed N^2 fanout + found pieces reset + host refresh ending session
-- **UI Polish**: redesign cycle (soft shadows → reverted 3D buttons), set cards overhaul, SignInPrompt modal, collection hero, badge sizing, card color strips
-- **Inventory**: group-by headers with rarity-aware sorting, performance optimizations (parallel queries, reduced recomputation), All/Missing/Owned filter repositioned, grid-small default with localStorage persistence
-- **Set Detail Modal**: pricing, details, external links from inventory views; opens on card click from search/identify routes
-- **Inventory Item Modal**: full-width part image, BrickLink image fallback
-- **Owned data loss fix**: microtask batching replaces 500ms debounce
-- **BL API**: daily quota tracking with graceful degradation, `hit_count` on price cache
-- **Sentry** error tracking integrated
-- **Identify**: minifig heuristic catalog verification, sets-via-subparts, rarest subpart "May also appear in" section
-- **Minifig matching**: self-sufficient BL crawl + seed, autoselect duplicate fix, color filter includes subparts
-- **Bug fixes**: spare parts CSV parsing, /collection 404, minifig pricing, kebab menu, missing/owned filter subpart completion
-
-See `docs/BACKLOG.md` for full backlog.
+- MVP fully usable without auth; Supabase accounts are additive
+- **Data sources**: Rebrickable catalog for entity data; BrickLink API for pricing only
+- **BrickLink pricing is free for all users** (BL ToS)
+- **Two tiers at launch: Free + Plus.** Pro deferred. Schema supports Pro.
+- **Plus includes**: unlimited tabs, identifies, lists, Search Party, sync, part rarity
 
 ## Notes
 
 - **Target test sets**: 1788, 6781, 6989, 40597, 21322
-- **Pricing**: USD + `country_code=US` default; currency/country preference is future work.
-- 556 tests passing (66 test files), clean tsc.
-
-## Active Decisions
-
-- MVP remains fully usable without auth; Supabase accounts are additive.
-- **Data sources**: Rebrickable catalog for all entity data; BrickLink API for pricing and identify fallback only.
-- **BrickLink pricing is free for all users** — BL ToS prohibits gating their data behind a paywall.
-- **Two tiers at launch: Free + Plus.** Pro deferred. Schema already supports Pro.
-- **Plus tier includes**: unlimited tabs, identifies, exports, lists, Search Party, sync, part rarity.
-- **ID mapping tables are ToS-compliant** — sourced from bricklinkable community data and Rebrickable.
-- Out of scope: BrickOwl export, advanced rarity analytics.
+- **Pricing**: USD + `country_code=US` default; currency/country preference is future work
+- 556 tests passing (66 test files), clean tsc
