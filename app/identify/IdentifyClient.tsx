@@ -338,7 +338,11 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
               bricklinkFigId?: string | null;
             };
             sets?: IdentifySet[];
-            availableColors?: Array<{ id: number; name: string }>;
+            availableColors?: Array<{
+              id: number;
+              name: string;
+              partImageUrl?: string | null;
+            }>;
             selectedColorId?: number | null;
             rarestSubpartSetCount?: number | null;
             rarestSubpartSets?: IdentifySet[];
@@ -360,7 +364,13 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           setSets((payloadAny.sets as IdentifySet[]) ?? []);
           if (Array.isArray(payloadAny.availableColors)) {
             const opts = payloadAny.availableColors.filter(c => !!c?.name);
-            setColors(opts.map(c => ({ id: c.id, name: c.name })));
+            setColors(
+              opts.map(c => ({
+                id: c.id,
+                name: c.name,
+                partImageUrl: c.partImageUrl ?? null,
+              }))
+            );
           }
           if (typeof payloadAny.selectedColorId !== 'undefined') {
             setSelectedColorId(payloadAny.selectedColorId ?? null);
@@ -410,7 +420,11 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             bricklinkFigId?: string | null;
           };
           sets?: IdentifySet[];
-          availableColors?: Array<{ id: number; name: string }>;
+          availableColors?: Array<{
+            id: number;
+            name: string;
+            partImageUrl?: string | null;
+          }>;
           selectedColorId?: number | null;
           rarestSubpartSetCount?: number | null;
           rarestSubpartSets?: IdentifySet[];
@@ -451,7 +465,13 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
 
         if (Array.isArray(payloadAny.availableColors)) {
           const opts = payloadAny.availableColors.filter(c => !!c?.name);
-          setColors(opts.map(c => ({ id: c.id, name: c.name })));
+          setColors(
+            opts.map(c => ({
+              id: c.id,
+              name: c.name,
+              partImageUrl: c.partImageUrl ?? null,
+            }))
+          );
         }
 
         if (typeof payloadAny.selectedColorId !== 'undefined') {
@@ -561,7 +581,13 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             c => !!c?.name
           );
           if (availableColors.length > 0) {
-            setColors(availableColors.map(c => ({ id: c.id, name: c.name })));
+            setColors(
+              availableColors.map(c => ({
+                id: c.id,
+                name: c.name,
+                partImageUrl: c.partImageUrl ?? null,
+              }))
+            );
           } else {
             setColors([]);
           }
@@ -650,7 +676,13 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           c => !!c?.name
         );
         if (availableColors.length > 0) {
-          setColors(availableColors.map(c => ({ id: c.id, name: c.name })));
+          setColors(
+            availableColors.map(c => ({
+              id: c.id,
+              name: c.name,
+              partImageUrl: c.partImageUrl ?? null,
+            }))
+          );
         } else {
           setColors([]);
         }
@@ -675,6 +707,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             blCols.map(c => ({
               id: c.id,
               name: c.name,
+              partImageUrl: null,
             }))
           );
           setSelectedColorId(
@@ -894,7 +927,11 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             bricklinkFigId?: string | null;
           };
           sets?: IdentifySet[];
-          availableColors?: Array<{ id: number; name: string }>;
+          availableColors?: Array<{
+            id: number;
+            name: string;
+            partImageUrl?: string | null;
+          }>;
           selectedColorId?: number | null;
         };
         if (payloadAny.part) {
@@ -926,7 +963,13 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         setSets((payloadAny.sets as IdentifySet[]) ?? []);
         if (Array.isArray(payloadAny.availableColors)) {
           const opts = payloadAny.availableColors.filter(c => !!c?.name);
-          setColors(opts.map(c => ({ id: c.id, name: c.name })));
+          setColors(
+            opts.map(c => ({
+              id: c.id,
+              name: c.name,
+              partImageUrl: c.partImageUrl ?? null,
+            }))
+          );
         }
         if ('selectedColorId' in payloadAny) {
           setSelectedColorId(payloadAny.selectedColorId ?? null);
@@ -993,7 +1036,11 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           const avail =
             (
               payload as {
-                availableColors?: Array<{ id: number; name: string }>;
+                availableColors?: Array<{
+                  id: number;
+                  name: string;
+                  partImageUrl?: string | null;
+                }>;
               }
             ).availableColors ?? undefined;
           const selected = (payload as { selectedColorId?: number | null })
@@ -1006,7 +1053,11 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             setColors(
               avail
                 .filter(c => !!c?.name)
-                .map(c => ({ id: c.id, name: c.name }))
+                .map(c => ({
+                  id: c.id,
+                  name: c.name,
+                  partImageUrl: c.partImageUrl ?? null,
+                }))
             );
           }
           if (typeof selected !== 'undefined') {

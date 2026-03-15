@@ -48,7 +48,11 @@ export type IdentifyResponse = {
   part: IdentifyPart;
   candidates: IdentifyCandidate[];
   sets: IdentifySet[];
-  availableColors?: Array<{ id: number; name: string }>;
+  availableColors?: Array<{
+    id: number;
+    name: string;
+    partImageUrl?: string | null;
+  }>;
   // When falling back to BrickLink supersets for assemblies (no component list)
   blPartId?: string;
   blAvailableColors?: Array<{ id: number; name: string }>;
