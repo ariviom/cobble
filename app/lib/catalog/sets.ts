@@ -719,6 +719,48 @@ export async function getSetsForPartLocal(
   );
 }
 
+/**
+ * Lightweight inventory stats — unique parts and colors counts.
+ *
+ * Supabase PostgREST doesn't support COUNT(DISTINCT) directly.
+ * We select only the two narrow columns we need (part_num, color_id)
+ * and count distinct values in JS. For the largest sets (~7500 parts)
+ * this is a few hundred KB transfer — acceptable compared to the full
+ * inventory pipeline which loads images, identities, rarity, etc.
+ */
+export async function getSetInventoryStats(setNumber: string): Promise<{
+  uniqueParts: number;
+  uniqueColors: number;
+} | null> {
+  const supabase = getCatalogReadClient();
+
+  // Find the latest inventory version for this set
+  const { data: inv } = await supabase
+    .from('rb_inventories')
+    .select('id')
+    .eq('set_num', setNumber)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!inv) return null;
+
+  // Select only the two columns needed for counting.
+  // Filter is_spare=false to match getSetInventoryLocal behavior.
+  const { data: parts } = await supabase
+    .from('rb_inventory_parts_public')
+    .select('part_num, color_id')
+    .eq('inventory_id', inv.id)
+    .eq('is_spare', false);
+
+  if (!parts || parts.length === 0) return null;
+
+  const uniqueParts = new Set(parts.map(p => p.part_num)).size;
+  const uniqueColors = new Set(parts.map(p => p.color_id)).size;
+
+  return { uniqueParts, uniqueColors };
+}
+
 async function getSetsForPartLocalImpl(
   partNum: string,
   colorId?: number | null

@@ -9,6 +9,7 @@ export {
 export type { LocalSetMinifig, MinifigCatalogResult } from './minifigs';
 export {
   getSetInventoryLocal,
+  getSetInventoryStats,
   getSetSummaryLocal,
   getSetsForPartLocal,
   searchSetsLocal,
