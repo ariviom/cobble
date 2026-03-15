@@ -275,27 +275,6 @@ export function SetOverviewClient({
         </div>
       </div>
 
-      {/* Minifigures section */}
-      {minifigs.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-lg font-bold">
-            Minifigures ({minifigs.length})
-          </h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {minifigs.map(fig => (
-              <MinifigCard
-                key={fig.figNum}
-                figNum={fig.figNum}
-                name={fig.name ?? 'Unknown'}
-                numParts={fig.numParts ?? 0}
-                quantity={fig.quantity}
-                imageUrl={fig.imageUrl}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* Parts Summary section */}
       {uniqueParts != null && uniqueColors != null && (
         <section>
@@ -319,6 +298,27 @@ export function SetOverviewClient({
                 <div className="text-xs text-foreground-muted">Colors</div>
               </div>
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* Minifigures section */}
+      {minifigs.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-lg font-bold">
+            Minifigures ({minifigs.length})
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {minifigs.map(fig => (
+              <MinifigCard
+                key={fig.figNum}
+                figNum={fig.figNum}
+                name={fig.name ?? 'Unknown'}
+                numParts={fig.numParts ?? 0}
+                quantity={fig.quantity}
+                imageUrl={fig.imageUrl}
+              />
+            ))}
           </div>
         </section>
       )}
