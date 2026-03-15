@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Mock server-only before importing the route
 vi.mock('server-only', () => ({}));
 
-// Mock the rebrickable module
-vi.mock('@/app/lib/rebrickable', () => ({
-  getColors: vi.fn(),
+// Mock the colorMapping module
+vi.mock('@/app/lib/colors/colorMapping', () => ({
+  getDbColors: vi.fn(),
 }));
 
 // Mock metrics
@@ -18,10 +18,10 @@ vi.mock('@/lib/metrics', () => ({
   },
 }));
 
-import { getColors } from '@/app/lib/rebrickable';
+import { getDbColors } from '@/app/lib/colors/colorMapping';
 import { GET } from '../route';
 
-const mockGetColors = vi.mocked(getColors);
+const mockGetDbColors = vi.mocked(getDbColors);
 
 describe('GET /api/colors', () => {
   beforeEach(() => {
@@ -30,19 +30,18 @@ describe('GET /api/colors', () => {
 
   describe('successful responses', () => {
     it('returns colors with id and name only', async () => {
-      const fullColors = [
-        { id: 1, name: 'White', rgb: 'FFFFFF', is_trans: false },
-        { id: 4, name: 'Red', rgb: 'CC0000', is_trans: false },
-        { id: 15, name: 'Trans-Clear', rgb: 'FFFFFF', is_trans: true },
+      const colors = [
+        { id: 1, name: 'White' },
+        { id: 4, name: 'Red' },
+        { id: 15, name: 'Trans-Clear' },
       ];
 
-      mockGetColors.mockResolvedValue(fullColors);
+      mockGetDbColors.mockResolvedValue(colors);
 
       const res = await GET();
 
       expect(res.status).toBe(200);
       const json = await res.json();
-      // Should only include id and name, not rgb or isTrans
       expect(json.colors).toEqual([
         { id: 1, name: 'White' },
         { id: 4, name: 'Red' },
@@ -51,7 +50,7 @@ describe('GET /api/colors', () => {
     });
 
     it('returns empty array when no colors', async () => {
-      mockGetColors.mockResolvedValue([]);
+      mockGetDbColors.mockResolvedValue([]);
 
       const res = await GET();
 
@@ -63,7 +62,7 @@ describe('GET /api/colors', () => {
 
   describe('error handling', () => {
     it('returns 500 when color fetch fails', async () => {
-      mockGetColors.mockRejectedValue(new Error('Rebrickable API error'));
+      mockGetDbColors.mockRejectedValue(new Error('DB error'));
 
       const res = await GET();
 

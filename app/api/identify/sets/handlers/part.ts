@@ -1,4 +1,5 @@
 import { getSetsForPartLocal } from '@/app/lib/catalog';
+import { mapBlColorToRb } from '@/app/lib/colors/colorMapping';
 import { EXTERNAL } from '@/app/lib/constants';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { fetchBLSupersetsFallback } from '@/app/lib/identify/blFallback';
@@ -7,7 +8,6 @@ import {
   getPart,
   getPartColorsForPart,
   getSetsForPart,
-  mapBrickLinkColorIdToRebrickableColorId,
   resolvePartIdToRebrickable,
   type PartAvailableColor,
   type PartInSet,
@@ -72,7 +72,7 @@ export async function handlePartIdentify(
   // Map BL color if provided and no RB color yet
   if (selectedColorId == null && blColorId != null) {
     try {
-      const mapped = await mapBrickLinkColorIdToRebrickableColorId(blColorId);
+      const mapped = await mapBlColorToRb(blColorId);
       if (typeof mapped === 'number') selectedColorId = mapped;
     } catch {
       // ignore color mapping failures

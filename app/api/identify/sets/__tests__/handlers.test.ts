@@ -9,8 +9,12 @@ vi.mock('@/app/lib/rebrickable', () => ({
   getPartColorsForPart: vi.fn(),
   getSetsForPart: vi.fn(),
   getSetSummary: vi.fn(),
-  mapBrickLinkColorIdToRebrickableColorId: vi.fn(),
   resolvePartIdToRebrickable: vi.fn(),
+}));
+
+// Mock color mapping (DB-backed)
+vi.mock('@/app/lib/colors/colorMapping', () => ({
+  mapBlColorToRb: vi.fn().mockResolvedValue(null),
 }));
 
 // Mock catalog

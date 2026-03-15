@@ -115,7 +115,100 @@ export async function getRbToBlColorMapFromDb(): Promise<Map<number, number>> {
   return rbToBl;
 }
 
+/**
+ * Map a BrickLink color ID to a Rebrickable color ID using DB-backed maps.
+ * Returns null if no mapping found.
+ */
+export async function mapBlColorToRb(
+  blColorId: number
+): Promise<number | null> {
+  const map = await getBlToRbColorMap();
+  return map.get(blColorId) ?? null;
+}
+
+/**
+ * Get a map of BrickLink color ID → Rebrickable color name.
+ * Uses the same cached DB data as getColorMaps().
+ */
+export async function getBlColorNameMap(): Promise<Map<number, string>> {
+  const now = Date.now();
+  if (colorNameCache && now - colorNameCache.at < CACHE_TTL_MS) {
+    return colorNameCache.map;
+  }
+
+  const nameMap = new Map<number, string>();
+  try {
+    const supabase = getCatalogReadClient();
+    const { data, error } = await supabase
+      .from('rb_colors')
+      .select('id, name, external_ids');
+
+    if (error) {
+      logger.warn('colorMapping.name_map_failed', { error: error.message });
+      return nameMap;
+    }
+
+    for (const row of data ?? []) {
+      const blIds = extractBlColorIds(row.external_ids);
+      for (const blId of blIds) {
+        if (!nameMap.has(blId)) {
+          nameMap.set(blId, row.name);
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('colorMapping.name_map_error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  colorNameCache = { at: now, map: nameMap };
+  return nameMap;
+}
+
+/**
+ * Get all colors from the DB (id + name).
+ * Replacement for the Rebrickable API-based getColors().
+ */
+export async function getDbColors(): Promise<{ id: number; name: string }[]> {
+  const now = Date.now();
+  if (dbColorsCache && now - dbColorsCache.at < CACHE_TTL_MS) {
+    return dbColorsCache.colors;
+  }
+
+  try {
+    const supabase = getCatalogReadClient();
+    const { data, error } = await supabase
+      .from('rb_colors')
+      .select('id, name')
+      .order('id');
+
+    if (error) {
+      logger.warn('colorMapping.db_colors_failed', { error: error.message });
+      return [];
+    }
+
+    const colors = (data ?? []).map(row => ({ id: row.id, name: row.name }));
+    dbColorsCache = { at: now, colors };
+    return colors;
+  } catch (err) {
+    logger.warn('colorMapping.db_colors_error', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return [];
+  }
+}
+
+// Additional caches for the new functions
+let colorNameCache: { at: number; map: Map<number, string> } | null = null;
+let dbColorsCache: {
+  at: number;
+  colors: { id: number; name: string }[];
+} | null = null;
+
 /** Reset cache (for testing). */
 export function _resetColorMapCache(): void {
   cache = null;
+  colorNameCache = null;
+  dbColorsCache = null;
 }

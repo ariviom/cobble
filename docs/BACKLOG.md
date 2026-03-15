@@ -62,7 +62,7 @@ Backend supports loose parts (stored in backup export, Rebrickable import can in
 
 - [ ] In-app UI to manually add/remove loose parts (part search → add to collection)
 - [ ] Loose parts visible/manageable in collection view
-- [ ] BrickScan CSV dedup: multiple rows for same part+color not aggregated (low priority)
+- [x] BrickScan CSV dedup: multiple rows for same part+color not aggregated (done)
 
 ### 6. Remaining UI/Testing
 
@@ -101,10 +101,9 @@ Replace real-time-only BL API pricing with a three-layer system (BL cache → ob
 
 ### Identify Page Improvements
 
-| Task                                | Effort | Notes                                  |
-| ----------------------------------- | ------ | -------------------------------------- |
-| Search history with part thumbnails | Medium | Store part images, not uploaded photos |
-| Back button returns to results      | Medium | State preservation or URL-based        |
+| Task                           | Effort | Notes                           |
+| ------------------------------ | ------ | ------------------------------- |
+| Back button returns to results | Medium | State preservation or URL-based |
 
 **Backend:**
 
@@ -122,7 +121,7 @@ Currently hosted on Netlify. Vercel is a better fit for Next.js (native App Rout
 ### Architecture Cleanup
 
 - [x] Identify pipeline refactor: three-stage pipeline with typed budget (done)
-- [ ] Normalize color system: DB-backed color mapping exists (`colorMapping.ts`) but identify hot path still calls Rebrickable API via `getColors()` — need to wire `enrichment.ts`, `part.ts` handler, and `/api/colors` to use DB-backed maps
+- [x] Normalize color system: wired `enrichment.ts`, `part.ts` handler, and `/api/colors` to use DB-backed color maps (done)
 
 ---
 
@@ -132,7 +131,7 @@ Technical debt and improvements to pull from when ready.
 
 ### View Preferences
 
-- [ ] Persist last-used inventory view mode (grid, small, etc.) and restore on new set open
+- [x] Persist last-used inventory view mode (grid, small, etc.) and restore on new set open (already implemented via `useInventoryControls` localStorage persistence)
 
 ### Error Handling & UX
 

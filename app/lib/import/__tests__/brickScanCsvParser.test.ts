@@ -51,4 +51,28 @@ describe('parseBrickScanCsv', () => {
     const result = parseBrickScanCsv(csv);
     expect(result.parts).toHaveLength(1);
   });
+
+  it('aggregates duplicate part+color rows', () => {
+    const csv = [
+      HEADER,
+      'P,3001,11,,,5,U,,Brick 2x4,Black,,Col A,2025-08-25,,Bricks',
+      'P,3001,11,,,3,U,,Brick 2x4,Black,,Col B,2025-08-25,,Bricks',
+      'P,3001,5,,,2,U,,Brick 2x4,Red,,Col A,2025-08-25,,Bricks',
+    ].join('\n');
+    const result = parseBrickScanCsv(csv);
+    expect(result.parts).toHaveLength(2);
+    expect(result.parts.find(p => p.blColorId === 11)?.quantity).toBe(8);
+    expect(result.parts.find(p => p.blColorId === 5)?.quantity).toBe(2);
+  });
+
+  it('aggregates duplicate minifig rows', () => {
+    const csv = [
+      HEADER,
+      'M,sw0166,0,,,1,U,,Imperial Shadow Trooper,Not Applicable,,Col A,2025-08-25,Star Wars,',
+      'M,sw0166,0,,,2,U,,Imperial Shadow Trooper,Not Applicable,,Col B,2025-08-25,Star Wars,',
+    ].join('\n');
+    const result = parseBrickScanCsv(csv);
+    expect(result.minifigs).toHaveLength(1);
+    expect(result.minifigs[0]?.quantity).toBe(3);
+  });
 });

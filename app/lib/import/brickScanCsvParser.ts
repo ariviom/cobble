@@ -65,6 +65,9 @@ export function parseBrickScanCsv(content: string): BrickScanParseResult {
     return { parts, minifigs, warnings };
   }
 
+  const partMap = new Map<string, BrickScanPart>();
+  const minifigMap = new Map<string, BrickScanMinifig>();
+
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i]!.trim();
     if (!line) continue;
@@ -88,11 +91,26 @@ export function parseBrickScanCsv(content: string): BrickScanParseResult {
         warnings.push(`Row ${i + 1}: invalid color ID "${colorStr}"`);
         continue;
       }
-      parts.push({ blPartId: itemId, blColorId: colorId, quantity });
+      const key = `${itemId}:${colorId}`;
+      const existing = partMap.get(key);
+      if (existing) {
+        existing.quantity += quantity;
+      } else {
+        partMap.set(key, { blPartId: itemId, blColorId: colorId, quantity });
+      }
     } else if (itemType === 'M') {
-      minifigs.push({ blMinifigId: itemId, quantity });
+      const existing = minifigMap.get(itemId);
+      if (existing) {
+        existing.quantity += quantity;
+      } else {
+        minifigMap.set(itemId, { blMinifigId: itemId, quantity });
+      }
     }
   }
 
-  return { parts, minifigs, warnings };
+  return {
+    parts: [...partMap.values()],
+    minifigs: [...minifigMap.values()],
+    warnings,
+  };
 }

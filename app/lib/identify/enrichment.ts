@@ -1,8 +1,9 @@
 import 'server-only';
 
 import { blGetPartColors, type BLColorEntry } from '@/app/lib/bricklink';
+import { getBlColorNameMap } from '@/app/lib/colors/colorMapping';
 import { EXTERNAL } from '@/app/lib/constants';
-import { getColors, getSetSummary } from '@/app/lib/rebrickable';
+import { getSetSummary } from '@/app/lib/rebrickable';
 import { logger } from '@/lib/metrics';
 
 import { PipelineBudget } from './budget';
@@ -17,24 +18,10 @@ export async function buildBlAvailableColors(
   );
   if (!cols?.length) return [];
 
-  // Map BL color ids to human-readable names via Rebrickable colors (cached in getColors()).
-  const nameByBlId = new Map<number, string>();
+  // Map BL color ids to human-readable names via DB-backed color maps.
+  let nameByBlId = new Map<number, string>();
   try {
-    const rbColors = await getColors();
-    for (const c of rbColors) {
-      const bl = (
-        c.external_ids as { BrickLink?: { ext_ids?: number[] } } | undefined
-      )?.BrickLink;
-      const ids: number[] | undefined = Array.isArray(bl?.ext_ids)
-        ? bl.ext_ids
-        : undefined;
-      if (!ids) continue;
-      for (const blId of ids) {
-        if (!nameByBlId.has(blId)) {
-          nameByBlId.set(blId, c.name);
-        }
-      }
-    }
+    nameByBlId = await getBlColorNameMap();
   } catch (err) {
     logger.warn('identify.rb_colors_mapping_failed', {
       error: err instanceof Error ? err.message : String(err),

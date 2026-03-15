@@ -1,13 +1,13 @@
 import { errorResponse } from '@/app/lib/api/responses';
-import { getColors } from '@/app/lib/rebrickable';
+import { getDbColors } from '@/app/lib/colors/colorMapping';
 import { logger } from '@/lib/metrics';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const colors = await getColors();
+    const colors = await getDbColors();
     return NextResponse.json(
-      { colors: colors.map(c => ({ id: c.id, name: c.name })) },
+      { colors },
       {
         headers: {
           'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
