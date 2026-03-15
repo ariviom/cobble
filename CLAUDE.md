@@ -149,17 +149,19 @@ Use `@custom-variant` for custom variant selectors:
 
 ## Database Migrations
 
-All schema changes must use Supabase CLI migrations — no hand-created files or dashboard-only edits:
+All schema changes must use Supabase CLI migrations — no hand-created files or dashboard-only edits.
+
+**Always use `npx supabase migration new <name>`** to create migration files — never create them manually. The CLI generates a correct timestamp that sorts after existing remote migrations. Hand-picked timestamps risk ordering conflicts that block `db push`.
 
 ```bash
-supabase migration new <name>   # Create migration file (you write SQL)
-supabase db diff -f <name>      # Auto-generate from schema changes
-supabase db reset               # Reset local DB from migrations
-supabase migration up           # Apply new migrations without reset
-supabase db push                # Deploy to remote
+npx supabase migration new <name>   # Create migration file (you write SQL)
+npx supabase db diff -f <name>      # Auto-generate from schema changes
+npx supabase db reset               # Reset local DB from migrations
+npx supabase migration up           # Apply new migrations without reset
+npx supabase db push                # Deploy to remote
 ```
 
-Emergency dashboard changes must be followed by `supabase db pull` / `supabase db diff` to restore migration parity.
+Emergency dashboard changes must be followed by `npx supabase db pull` / `npx supabase db diff` to restore migration parity.
 
 ## Testing
 

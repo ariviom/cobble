@@ -253,6 +253,15 @@ export function useSupabaseOwned({
       if (!userId) return null;
 
       const supabase = getSupabaseBrowserClient();
+
+      // The user may be set from sessionStorage cache before the Supabase
+      // client has a valid JWT.  Verify the session exists before querying
+      // so we don't fire a request that RLS will reject.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return null;
+
       const watermark = await getWatermark(userId, setNumber);
 
       let query = supabase
@@ -273,7 +282,7 @@ export function useSupabaseOwned({
       if (error) {
         // Abort errors are expected during cleanup — don't log them
         if (signal?.aborted) return null;
-        console.error('Delta pull failed', { setNumber, error });
+        console.error('Delta pull failed', { setNumber, error: error.message });
         return null;
       }
 

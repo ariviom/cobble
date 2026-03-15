@@ -101,11 +101,10 @@ Replace real-time-only BL API pricing with a three-layer system (BL cache → ob
 
 ### Identify Page Improvements
 
-| Task                                  | Effort | Notes                                                  |
-| ------------------------------------- | ------ | ------------------------------------------------------ |
-| Filter identified parts by owned sets | Medium | Filter "found in sets" to only show sets the user owns |
-| Search history with part thumbnails   | Medium | Store part images, not uploaded photos                 |
-| Back button returns to results        | Medium | State preservation or URL-based                        |
+| Task                                | Effort | Notes                                  |
+| ----------------------------------- | ------ | -------------------------------------- |
+| Search history with part thumbnails | Medium | Store part images, not uploaded photos |
+| Back button returns to results      | Medium | State preservation or URL-based        |
 
 **Backend:**
 
