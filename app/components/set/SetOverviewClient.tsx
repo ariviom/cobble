@@ -308,7 +308,7 @@ export function SetOverviewClient({
           <h2 className="mb-3 text-lg font-bold">
             Minifigures ({minifigs.length})
           </h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {minifigs.map(fig => (
               <MinifigCard
                 key={fig.figNum}
@@ -327,7 +327,7 @@ export function SetOverviewClient({
       {relatedSets.length > 0 && (
         <section>
           <h2 className="mb-3 text-lg font-bold">Related Sets</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {relatedSets.map(set => (
               <PublicSetCard
                 key={set.setNumber}
