@@ -167,7 +167,12 @@ describe('loosePartsStore', () => {
 
   describe('getLoosePart', () => {
     it('returns the loose part for a given partNum and colorId', async () => {
-      const mockPart = { partNum: '3001', colorId: 11, quantity: 5, updatedAt: 1000 };
+      const mockPart = {
+        partNum: '3001',
+        colorId: 11,
+        quantity: 5,
+        updatedAt: 1000,
+      };
       mockFirst.mockResolvedValue(mockPart);
 
       const result = await getLoosePart('3001', 11);

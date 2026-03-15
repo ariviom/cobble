@@ -94,7 +94,9 @@ describe('GET /api/search', () => {
         nextPage: null,
       });
 
-      const req = new NextRequest('http://localhost/api/search?q=test&pageSize=40');
+      const req = new NextRequest(
+        'http://localhost/api/search?q=test&pageSize=40'
+      );
       const res = await GET(req);
 
       expect(res.status).toBe(200);
