@@ -9,7 +9,7 @@ import { Toast } from '@/app/components/ui/Toast';
 import { UpgradeModal } from '@/app/components/upgrade-modal';
 import { cn } from '@/app/components/ui/utils';
 import type { SetOwnershipState } from '@/app/hooks/useSetOwnershipState';
-import { Check, ExternalLink, List } from 'lucide-react';
+import { Check, ExternalLink, Eye, Link as LinkIcon, List } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -19,6 +19,7 @@ type SetOwnershipAndCollectionsRowProps = {
   className?: string;
   bricklinkUrl?: string | null;
   rebrickableUrl?: string | null;
+  setNumber?: string;
 };
 
 export function SetOwnershipAndCollectionsRow({
@@ -27,6 +28,7 @@ export function SetOwnershipAndCollectionsRow({
   variant = 'default',
   bricklinkUrl,
   rebrickableUrl,
+  setNumber,
 }: SetOwnershipAndCollectionsRowProps) {
   const {
     status,
@@ -51,6 +53,7 @@ export function SetOwnershipAndCollectionsRow({
     message: string;
     variant: 'success' | 'error';
   } | null>(null);
+  const [copiedToast, setCopiedToast] = useState(false);
 
   // Auto-hide mobile toast after 2 seconds
   useEffect(() => {
@@ -58,6 +61,19 @@ export function SetOwnershipAndCollectionsRow({
     const timer = setTimeout(() => setMobileToast(null), 2000);
     return () => clearTimeout(timer);
   }, [mobileToast]);
+
+  useEffect(() => {
+    if (!copiedToast) return;
+    const timer = setTimeout(() => setCopiedToast(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copiedToast]);
+
+  const handleShare = () => {
+    if (!setNumber) return;
+    const url = `${window.location.origin}/sets/${encodeURIComponent(setNumber)}`;
+    void navigator.clipboard?.writeText(url);
+    setCopiedToast(true);
+  };
 
   const handleToggleOwned = () => {
     if (!isAuthenticated) {
@@ -153,6 +169,20 @@ export function SetOwnershipAndCollectionsRow({
             rel="noreferrer noopener"
           />
         )}
+        {variant === 'dropdown' && setNumber && (
+          <MoreDropdownButton
+            icon={<Eye className="size-4" />}
+            label="Set Overview"
+            href={`/sets/${encodeURIComponent(setNumber)}`}
+          />
+        )}
+        {variant === 'dropdown' && setNumber && (
+          <MoreDropdownButton
+            icon={<LinkIcon className="size-4" />}
+            label="Share"
+            onClick={handleShare}
+          />
+        )}
       </div>
       <Modal
         open={showSignIn}
@@ -190,6 +220,15 @@ export function SetOwnershipAndCollectionsRow({
             description={mobileToast.message}
             variant={mobileToast.variant}
             onClose={() => setMobileToast(null)}
+          />,
+          document.body
+        )}
+      {copiedToast &&
+        createPortal(
+          <Toast
+            description="Link copied to clipboard"
+            variant="success"
+            onClose={() => setCopiedToast(false)}
           />,
           document.body
         )}

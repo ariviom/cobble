@@ -319,6 +319,7 @@ export function SetTopBar({
                         variant="dropdown"
                         bricklinkUrl={bricklinkSetUrl}
                         rebrickableUrl={rebrickableSetUrl}
+                        setNumber={setNumber}
                       />
                     </div>
                   )}
@@ -720,6 +721,7 @@ export function SetTopBar({
         numParts={numParts}
         themeId={themeId}
         themeName={themeName}
+        activeSetNumber={setNumber}
       />
     </>
   );
