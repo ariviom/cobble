@@ -3,14 +3,16 @@
 import { SetOwnershipAndCollectionsRow } from '@/app/components/set/SetOwnershipAndCollectionsRow';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { Modal } from '@/app/components/ui/Modal';
+import { UpgradeModal } from '@/app/components/upgrade-modal';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
+import { useOpenSet } from '@/app/hooks/useOpenSet';
 import { Button } from '@/app/components/ui/Button';
 import { formatCurrency } from '@/app/lib/utils/formatCurrency';
 import {
   getBricklinkSetUrl,
   getRebrickableSetUrl,
 } from '@/app/lib/utils/externalUrls';
-import { DollarSign, ExternalLink, Info, ArrowRight } from 'lucide-react';
+import { DollarSign, ExternalLink, Info, ArrowRight, Eye } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 
@@ -24,6 +26,8 @@ type SetDetailModalProps = {
   numParts?: number | undefined;
   themeId?: number | null | undefined;
   themeName?: string | null | undefined;
+  /** When set, hides "Open Set" if this matches setNumber (already on that inventory). */
+  activeSetNumber?: string | null;
 };
 
 type SetPriceData = {
@@ -50,9 +54,16 @@ export function SetDetailModal({
   numParts,
   themeId,
   themeName,
+  activeSetNumber,
 }: SetDetailModalProps) {
   const [priceState, setPriceState] = useState<PriceState>({ status: 'idle' });
   const fetchedRef = useRef(false);
+
+  const { openSet, showUpgradeModal, dismissUpgradeModal, gateFeature } =
+    useOpenSet();
+  const isCurrentSet =
+    activeSetNumber != null &&
+    activeSetNumber.toLowerCase() === setNumber.toLowerCase();
 
   const ownership = useSetOwnershipState({
     setNumber,
@@ -114,119 +125,150 @@ export function SetDetailModal({
     priceState.data.minPrice !== priceState.data.maxPrice;
 
   return (
-    <Modal open={open} onClose={onClose} title={setName}>
-      <div className="-mx-5 -my-5">
-        {/* Hero: full-width set image */}
-        <div className="aspect-4/3 w-full bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
-          {imageUrl ? (
-            <Image
-              src={imageUrl}
-              alt={setName}
-              width={400}
-              height={300}
-              className="size-full object-contain p-4 drop-shadow-sm"
-            />
-          ) : (
-            <ImagePlaceholder variant="fill" />
-          )}
-        </div>
+    <>
+      <Modal open={open} onClose={onClose} title={setName}>
+        <div className="-mx-5 -my-5">
+          {/* Hero: full-width set image */}
+          <div className="aspect-4/3 w-full bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+            {imageUrl ? (
+              <Image
+                src={imageUrl}
+                alt={setName}
+                width={400}
+                height={300}
+                className="size-full object-contain p-4 drop-shadow-sm"
+              />
+            ) : (
+              <ImagePlaceholder variant="fill" />
+            )}
+          </div>
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-2 gap-px border-t-2 border-subtle bg-subtle">
-          {/* Price cell — fixed height to prevent layout shift during load */}
-          <div className="flex min-h-[60px] items-center gap-2.5 bg-card px-4 py-3">
-            <DollarSign className="size-4 shrink-0 text-foreground-muted" />
-            <div className="min-w-0">
-              <div className="text-xs text-foreground-muted">Used Price</div>
-              {hasPrice && priceState.status === 'loaded' ? (
-                <>
-                  <div className="text-sm font-medium">
-                    {formatCurrency(
-                      priceState.data.total!,
-                      priceState.data.currency
-                    )}
-                  </div>
-                  {hasRange && (
-                    <div className="text-xs text-foreground-muted">
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 gap-px border-t-2 border-subtle bg-subtle">
+            {/* Price cell — fixed height to prevent layout shift during load */}
+            <div className="flex min-h-[60px] items-center gap-2.5 bg-card px-4 py-3">
+              <DollarSign className="size-4 shrink-0 text-foreground-muted" />
+              <div className="min-w-0">
+                <div className="text-xs text-foreground-muted">Used Price</div>
+                {hasPrice && priceState.status === 'loaded' ? (
+                  <>
+                    <div className="text-sm font-medium">
                       {formatCurrency(
-                        priceState.data.minPrice!,
-                        priceState.data.currency
-                      )}{' '}
-                      –{' '}
-                      {formatCurrency(
-                        priceState.data.maxPrice!,
+                        priceState.data.total!,
                         priceState.data.currency
                       )}
                     </div>
-                  )}
-                </>
-              ) : priceState.status === 'loading' ||
-                priceState.status === 'idle' ? (
-                <div className="text-sm text-foreground-muted">Loading…</div>
-              ) : priceState.status === 'error' ? (
-                <div className="text-sm text-foreground-muted">Unavailable</div>
-              ) : (
-                <div className="text-sm text-foreground-muted">–</div>
-              )}
-            </div>
-          </div>
-
-          {/* Details cell */}
-          <div className="flex min-h-[60px] items-center gap-2.5 bg-card px-4 py-3">
-            <Info className="size-4 shrink-0 text-foreground-muted" />
-            <div className="min-w-0">
-              <div className="text-xs text-foreground-muted">Details</div>
-              <div className="text-sm font-medium">
-                {typeof year === 'number' ? year : '—'}
-                {typeof numParts === 'number' && ` · ${numParts} pcs`}
+                    {hasRange && (
+                      <div className="text-xs text-foreground-muted">
+                        {formatCurrency(
+                          priceState.data.minPrice!,
+                          priceState.data.currency
+                        )}{' '}
+                        –{' '}
+                        {formatCurrency(
+                          priceState.data.maxPrice!,
+                          priceState.data.currency
+                        )}
+                      </div>
+                    )}
+                  </>
+                ) : priceState.status === 'loading' ||
+                  priceState.status === 'idle' ? (
+                  <div className="text-sm text-foreground-muted">Loading…</div>
+                ) : priceState.status === 'error' ? (
+                  <div className="text-sm text-foreground-muted">
+                    Unavailable
+                  </div>
+                ) : (
+                  <div className="text-sm text-foreground-muted">–</div>
+                )}
               </div>
-              {themeName && (
-                <div className="truncate text-xs text-foreground-muted">
-                  {themeName}
+            </div>
+
+            {/* Details cell */}
+            <div className="flex min-h-[60px] items-center gap-2.5 bg-card px-4 py-3">
+              <Info className="size-4 shrink-0 text-foreground-muted" />
+              <div className="min-w-0">
+                <div className="text-xs text-foreground-muted">Details</div>
+                <div className="text-sm font-medium">
+                  {typeof year === 'number' ? year : '—'}
+                  {typeof numParts === 'number' && ` · ${numParts} pcs`}
                 </div>
-              )}
+                {themeName && (
+                  <div className="truncate text-xs text-foreground-muted">
+                    {themeName}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* External links */}
-        <div className="flex gap-px border-t-2 border-subtle bg-subtle">
-          <a
-            href={bricklinkSetUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
-          >
-            BrickLink
-            <ExternalLink className="size-3.5" />
-          </a>
-          <a
-            href={rebrickableSetUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
-          >
-            Rebrickable
-            <ExternalLink className="size-3.5" />
-          </a>
-        </div>
+          {/* External links */}
+          <div className="flex gap-px border-t-2 border-subtle bg-subtle">
+            <a
+              href={bricklinkSetUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
+            >
+              BrickLink
+              <ExternalLink className="size-3.5" />
+            </a>
+            <a
+              href={rebrickableSetUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
+            >
+              Rebrickable
+              <ExternalLink className="size-3.5" />
+            </a>
+          </div>
 
-        {/* Ownership row — matches SetDisplayCard bottom pattern */}
-        <SetOwnershipAndCollectionsRow ownership={ownership} />
+          {/* Ownership row — matches SetDisplayCard bottom pattern */}
+          <SetOwnershipAndCollectionsRow ownership={ownership} />
 
-        {/* Open Set CTA */}
-        <div className="border-t-2 border-subtle p-3">
-          <Button
-            href={`/sets/${encodeURIComponent(setNumber)}`}
-            variant="primary"
-            size="md"
-            className="w-full"
-          >
-            Open Set
-            <ArrowRight className="size-4" />
-          </Button>
+          {/* CTA buttons */}
+          <div className="flex flex-col gap-2 border-t-2 border-subtle p-3">
+            <Button
+              href={`/sets/${encodeURIComponent(setNumber)}`}
+              variant="secondary"
+              size="md"
+              className="w-full"
+            >
+              <Eye className="size-4" />
+              Set Overview
+            </Button>
+            {!isCurrentSet && (
+              <Button
+                variant="primary"
+                size="md"
+                className="w-full"
+                onClick={() => {
+                  onClose();
+                  openSet({
+                    setNumber,
+                    name: setName,
+                    year: year ?? 0,
+                    imageUrl,
+                    numParts: numParts ?? 0,
+                    themeId: themeId ?? null,
+                    themeName: themeName ?? null,
+                  });
+                }}
+              >
+                Open Set
+                <ArrowRight className="size-4" />
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
-    </Modal>
+      </Modal>
+      <UpgradeModal
+        open={showUpgradeModal}
+        feature={gateFeature}
+        onClose={dismissUpgradeModal}
+      />
+    </>
   );
 }
