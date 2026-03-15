@@ -89,6 +89,7 @@ export type PartSearchResult = {
   colors: Array<{
     colorId: number;
     colorName: string;
+    rgb: string | null;
     imageUrl: string | null;
   }>;
 };

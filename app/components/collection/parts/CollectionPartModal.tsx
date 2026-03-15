@@ -36,6 +36,7 @@ type FlexibleProps = BaseProps & {
   availableColors: Array<{
     colorId: number;
     colorName: string;
+    rgb?: string | null;
     imageUrl: string | null;
   }>;
 };
@@ -228,7 +229,12 @@ export function CollectionPartModal({
                       className="size-full object-cover"
                     />
                   ) : (
-                    <div className="size-full bg-neutral-200 dark:bg-neutral-700" />
+                    <div
+                      className="size-full"
+                      style={{
+                        backgroundColor: c.rgb ? `#${c.rgb}` : '#ccc',
+                      }}
+                    />
                   )}
                 </button>
               ))}

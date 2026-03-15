@@ -134,6 +134,7 @@ type PartSearchLocalResult = {
   colors: Array<{
     colorId: number;
     colorName: string;
+    rgb: string | null;
     imageUrl: string | null;
   }>;
 };
@@ -256,7 +257,12 @@ async function fetchColorsForParts(
 ): Promise<
   Map<
     string,
-    Array<{ colorId: number; colorName: string; imageUrl: string | null }>
+    Array<{
+      colorId: number;
+      colorName: string;
+      rgb: string | null;
+      imageUrl: string | null;
+    }>
   >
 > {
   if (partNums.length === 0) return new Map();
@@ -274,32 +280,38 @@ async function fetchColorsForParts(
   const allRarity = rarityRows.flat();
   if (!allRarity.length) return new Map();
 
-  // 2. Get color metadata from rb_colors
+  // 2. Get color metadata (name + rgb) from rb_colors
   const colorIds = [...new Set(allRarity.map(r => r.color_id))];
-  const colorMeta = new Map<number, string>();
+  const colorMeta = new Map<number, { name: string; rgb: string | null }>();
   for (let i = 0; i < colorIds.length; i += 200) {
     const batch = colorIds.slice(i, i + 200);
     const { data: colors } = await supabase
       .from('rb_colors')
-      .select('id, name')
+      .select('id, name, rgb')
       .in('id', batch);
     for (const c of colors ?? []) {
-      colorMeta.set(c.id, c.name);
+      colorMeta.set(c.id, { name: c.name, rgb: c.rgb });
     }
   }
 
-  // 3. Assemble: group by part_num with color name (no images at search time)
+  // 3. Assemble: group by part_num with color name + rgb (images loaded lazily in modal)
   const result = new Map<
     string,
-    Array<{ colorId: number; colorName: string; imageUrl: string | null }>
+    Array<{
+      colorId: number;
+      colorName: string;
+      rgb: string | null;
+      imageUrl: string | null;
+    }>
   >();
   for (const row of allRarity) {
-    const name = colorMeta.get(row.color_id);
-    if (!name) continue;
+    const meta = colorMeta.get(row.color_id);
+    if (!meta) continue;
     if (!result.has(row.part_num)) result.set(row.part_num, []);
     result.get(row.part_num)!.push({
       colorId: row.color_id,
-      colorName: name,
+      colorName: meta.name,
+      rgb: meta.rgb,
       imageUrl: null, // loaded lazily in modal
     });
   }
@@ -307,9 +319,12 @@ async function fetchColorsForParts(
   return result;
 }
 
+/** Preferred color order for thumbnails: white, black, then any. */
+const PREFERRED_THUMB_COLORS = [15, 0];
+
 /**
- * Fetch one thumbnail image per part. Queries rb_inventory_parts individually
- * per part (in parallel) to avoid row explosion from batch queries on popular parts.
+ * Fetch one thumbnail image per part, preferring white then black.
+ * Queries rb_inventory_parts per-part to avoid row explosion on popular parts.
  */
 async function fetchThumbnailsForParts(
   supabase: ReturnType<typeof getCatalogReadClient>,
@@ -319,12 +334,26 @@ async function fetchThumbnailsForParts(
 
   const result = new Map<string, string>();
 
-  // Query each part individually — just need one image row per part.
-  // Run in parallel batches of 10 to avoid overwhelming the connection.
   const CONCURRENCY = 10;
   for (let i = 0; i < partNums.length; i += CONCURRENCY) {
     const batch = partNums.slice(i, i + CONCURRENCY);
     const promises = batch.map(async partNum => {
+      // Try preferred colors first (white=15, black=0), then fall back to any
+      for (const colorId of PREFERRED_THUMB_COLORS) {
+        const { data } = await supabase
+          .from('rb_inventory_parts')
+          .select('img_url')
+          .eq('part_num', partNum)
+          .eq('color_id', colorId)
+          .not('img_url', 'is', null)
+          .limit(1);
+        const url = data?.[0]?.img_url;
+        if (typeof url === 'string' && url.trim()) {
+          result.set(partNum, url.trim());
+          return;
+        }
+      }
+      // Fallback: any color with an image
       const { data } = await supabase
         .from('rb_inventory_parts')
         .select('img_url')
