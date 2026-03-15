@@ -4,8 +4,9 @@ export type MatchType = 'set' | 'theme' | 'subtheme';
  * High-level search type for the /search page.
  * - 'set'      → standard set search
  * - 'minifig'  → minifigure search
+ * - 'part'     → part search
  */
-export type SearchType = 'set' | 'minifig';
+export type SearchType = 'set' | 'minifig' | 'part';
 
 export type FilterType = 'all' | MatchType;
 
@@ -77,5 +78,22 @@ export type MinifigSearchResult = {
 
 export type MinifigSearchPage = {
   results: MinifigSearchResult[];
+  nextPage: number | null;
+};
+
+export type PartSearchResult = {
+  partNum: string;
+  name: string;
+  imageUrl: string | null;
+  categoryName: string | null;
+  colors: Array<{
+    colorId: number;
+    colorName: string;
+    imageUrl: string | null;
+  }>;
+};
+
+export type PartSearchPage = {
+  results: PartSearchResult[];
   nextPage: number | null;
 };

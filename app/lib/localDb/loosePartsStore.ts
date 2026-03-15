@@ -60,6 +60,30 @@ export async function getLoosePartsCount(): Promise<number> {
   }
 }
 
+/**
+ * Get a single loose part entry by its compound key.
+ * Returns undefined if not found or if IndexedDB is unavailable.
+ */
+export async function getLoosePart(
+  partNum: string,
+  colorId: number
+): Promise<LocalLoosePart | undefined> {
+  if (!isIndexedDBAvailable()) return undefined;
+
+  try {
+    const db = getLocalDb();
+    return await db.localLooseParts
+      .where('[partNum+colorId]')
+      .equals([partNum, colorId])
+      .first();
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to read loose part from IndexedDB:', error);
+    }
+    return undefined;
+  }
+}
+
 // ============================================================================
 // Write Operations
 // ============================================================================

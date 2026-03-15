@@ -11,7 +11,7 @@ import { z } from 'zod';
 const CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
 
 const allowedFilters: FilterType[] = ['all', 'set', 'theme', 'subtheme'];
-const allowedSizes = new Set([20, 40, 60, 80, 100]);
+const allowedSizes = new Set([20, 50, 100]);
 
 const querySchema = z.object({
   q: z.string().default(''),

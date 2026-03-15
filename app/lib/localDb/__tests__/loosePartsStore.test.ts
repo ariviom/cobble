@@ -55,6 +55,7 @@ vi.mock('../schema', () => ({
 
 import {
   getAllLooseParts,
+  getLoosePart,
   getLoosePartsCount,
   bulkUpsertLooseParts,
   clearAllLooseParts,
@@ -157,6 +158,48 @@ describe('loosePartsStore', () => {
       const result = await getLoosePartsCount();
 
       expect(result).toBe(0);
+    });
+  });
+
+  // ==========================================================================
+  // getLoosePart
+  // ==========================================================================
+
+  describe('getLoosePart', () => {
+    it('returns the loose part for a given partNum and colorId', async () => {
+      const mockPart = { partNum: '3001', colorId: 11, quantity: 5, updatedAt: 1000 };
+      mockFirst.mockResolvedValue(mockPart);
+
+      const result = await getLoosePart('3001', 11);
+
+      expect(mockWhere).toHaveBeenCalledWith('[partNum+colorId]');
+      expect(mockEquals).toHaveBeenCalledWith(['3001', 11]);
+      expect(result).toEqual(mockPart);
+    });
+
+    it('returns undefined when no entry exists', async () => {
+      mockFirst.mockResolvedValue(undefined);
+
+      const result = await getLoosePart('9999', 0);
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined when IndexedDB is unavailable', async () => {
+      vi.mocked(isIndexedDBAvailable).mockReturnValue(false);
+
+      const result = await getLoosePart('3001', 11);
+      expect(result).toBeUndefined();
+      expect(mockWhere).not.toHaveBeenCalled();
+    });
+
+    it('returns undefined and warns on error', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      mockFirst.mockRejectedValue(new Error('DB error'));
+
+      const result = await getLoosePart('3001', 11);
+      expect(result).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
     });
   });
 

@@ -71,7 +71,7 @@ describe('GET /api/search', () => {
       });
 
       const req = new NextRequest(
-        'http://localhost/api/search?q=star+wars&sort=year&page=2&pageSize=40&filter=set&exact=1'
+        'http://localhost/api/search?q=star+wars&sort=year&page=2&pageSize=50&filter=set&exact=1'
       );
       const res = await GET(req);
 
@@ -80,10 +80,27 @@ describe('GET /api/search', () => {
         query: 'star wars',
         sort: 'year',
         page: 2,
-        pageSize: 40,
+        pageSize: 50,
         filterType: 'set',
         exactMatch: true,
       });
+    });
+
+    it('clamps previously-allowed pageSize 40 to default 20', async () => {
+      mockSearchSetsPage.mockResolvedValue({
+        results: [],
+        slice: [],
+        page: 1,
+        nextPage: null,
+      });
+
+      const req = new NextRequest('http://localhost/api/search?q=test&pageSize=40');
+      const res = await GET(req);
+
+      expect(res.status).toBe(200);
+      expect(mockSearchSetsPage).toHaveBeenCalledWith(
+        expect.objectContaining({ pageSize: 20 })
+      );
     });
 
     it('clamps pageSize to allowed values', async () => {
