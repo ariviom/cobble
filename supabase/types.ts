@@ -1202,6 +1202,7 @@ export type Database = {
       user_parts_inventory: {
         Row: {
           color_id: number;
+          loose_quantity: number;
           part_num: string;
           quantity: number;
           updated_at: string;
@@ -1209,6 +1210,7 @@ export type Database = {
         };
         Insert: {
           color_id: number;
+          loose_quantity?: number;
           part_num: string;
           quantity?: number;
           updated_at?: string;
@@ -1216,6 +1218,7 @@ export type Database = {
         };
         Update: {
           color_id?: number;
+          loose_quantity?: number;
           part_num?: string;
           quantity?: number;
           updated_at?: string;
@@ -1578,7 +1581,7 @@ export type Database = {
         }[];
       };
       get_max_sync_versions: {
-        Args: { p_user_id: string; p_set_nums: string[] };
+        Args: { p_set_nums: string[]; p_user_id: string };
         Returns: {
           max_version: number;
           set_num: string;
@@ -1596,6 +1599,10 @@ export type Database = {
           part_num: string;
           required_qty: number;
         }[];
+      };
+      get_owned_part_count: {
+        Args: { p_color_id: number; p_part_num: string; p_user_id: string };
+        Returns: number;
       };
       get_sets_with_minifigs: {
         Args: never;
