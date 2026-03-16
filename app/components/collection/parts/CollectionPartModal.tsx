@@ -148,14 +148,17 @@ export function CollectionPartModal({
     Array<{ setNumber: string; quantity: number }>
   >([]);
 
-  // Get the list of set numbers the user has marked as "owned"
-  const ownedSetNumbers = useUserSetsStore(state => {
+  // Get the list of set numbers the user has marked as "owned".
+  // Select the stable sets object, then derive the list in useMemo to avoid
+  // creating a new array reference on every render (which causes infinite loops).
+  const userSets = useUserSetsStore(state => state.sets);
+  const ownedSetNumbers = useMemo(() => {
     const nums: string[] = [];
-    for (const entry of Object.values(state.sets)) {
+    for (const entry of Object.values(userSets)) {
       if (entry.status.owned) nums.push(entry.setNumber);
     }
     return nums;
-  });
+  }, [userSets]);
 
   // Load loose quantity + owned-from-sets whenever the selected color changes.
   // "Owned from sets" = sum of quantityRequired from cached set inventories
