@@ -49,26 +49,22 @@ type GroupKey =
   | 'blue'
   | 'purple'
   | 'brown'
-  | 'black'
   | 'gray'
-  | 'white'
   | 'special';
 
 const GROUP_META: Record<
   GroupKey,
   { label: string; swatch: string; order: number }
 > = {
-  red: { label: 'Red', swatch: 'C91A09', order: 0 },
-  orange: { label: 'Orange', swatch: 'FE8A18', order: 1 },
-  yellow: { label: 'Yellow', swatch: 'F2CD37', order: 2 },
-  green: { label: 'Green', swatch: '237841', order: 3 },
-  blue: { label: 'Blue', swatch: '0055BF', order: 4 },
-  purple: { label: 'Purple', swatch: '81007B', order: 5 },
-  brown: { label: 'Brown', swatch: '583927', order: 6 },
-  black: { label: 'Black', swatch: '05131D', order: 7 },
-  gray: { label: 'Gray', swatch: 'A0A5A9', order: 8 },
-  white: { label: 'White', swatch: 'FFFFFF', order: 9 },
-  special: { label: 'Special', swatch: 'DBAC34', order: 10 },
+  gray: { label: 'Gray', swatch: 'A0A5A9', order: 0 },
+  red: { label: 'Red', swatch: 'C91A09', order: 1 },
+  orange: { label: 'Orange', swatch: 'FE8A18', order: 2 },
+  yellow: { label: 'Yellow', swatch: 'F2CD37', order: 3 },
+  green: { label: 'Green', swatch: '237841', order: 4 },
+  blue: { label: 'Blue', swatch: '0055BF', order: 5 },
+  purple: { label: 'Purple', swatch: '81007B', order: 6 },
+  brown: { label: 'Brown', swatch: '583927', order: 7 },
+  special: { label: 'Special', swatch: 'DBAC34', order: 8 },
 };
 
 function classifyColor(name: string, rgb: string | null | undefined): GroupKey {
@@ -92,14 +88,10 @@ function classifyColor(name: string, rgb: string | null | undefined): GroupKey {
 
   const [h, s, l] = hexToHsl(rgb);
 
-  // Neutrals by lightness + low saturation
-  if (s < 0.1) {
-    if (l < 0.2) return 'black';
-    if (l > 0.85) return 'white';
-    return 'gray';
-  }
-  if (l < 0.15) return 'black';
-  if (l > 0.92 && s < 0.2) return 'white';
+  // Neutrals (black, white, gray all grouped as 'gray')
+  if (s < 0.1) return 'gray';
+  if (l < 0.15) return 'gray';
+  if (l > 0.92 && s < 0.2) return 'gray';
 
   // Chromatic grouping by hue
   if (h < 15 || h >= 345) return 'red';

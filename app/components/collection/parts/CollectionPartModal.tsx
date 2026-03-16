@@ -170,13 +170,11 @@ export function CollectionPartModal({
     [availableColors]
   );
 
-  // Auto-expand the group containing the initially selected color
+  // Auto-expand gray group first (most common starting point)
   useEffect(() => {
     if (!colorGroups.length) return;
-    const group = colorGroups.find(g =>
-      g.colors.some(c => c.colorId === selectedColorId)
-    );
-    if (group) setExpandedGroup(group.key);
+    const gray = colorGroups.find(g => g.key === 'gray');
+    setExpandedGroup(gray ? 'gray' : colorGroups[0]!.key);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!availableColors) return;
