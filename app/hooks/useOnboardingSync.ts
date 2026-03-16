@@ -56,7 +56,9 @@ async function writeRemoteOnboarding(
 export function useOnboardingSync() {
   const { user } = useSupabaseUser();
   const hasHydrated = useRef(false);
-  const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
 
   // Hydrate from Supabase on first auth
   useEffect(() => {
