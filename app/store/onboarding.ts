@@ -12,11 +12,14 @@ type PersistedState = {
   dismissed: boolean;
 };
 
+/** localStorage includes collapsed; Supabase does not */
+type LocalState = PersistedState & { collapsed?: boolean };
+
 function persistKey(userId?: string): string {
   return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
 }
 
-function readStorage(userId?: string): PersistedState | null {
+function readStorage(userId?: string): LocalState | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(persistKey(userId));
@@ -26,7 +29,7 @@ function readStorage(userId?: string): PersistedState | null {
   }
 }
 
-function writeStorage(state: PersistedState, userId?: string): void {
+function writeStorage(state: LocalState, userId?: string): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(persistKey(userId), JSON.stringify(state));
@@ -73,23 +76,41 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     }
 
     set({ completedSteps: next });
-    writeStorage({ completedSteps: next, dismissed: get().dismissed }, _userId);
+    writeStorage(
+      {
+        completedSteps: next,
+        dismissed: get().dismissed,
+        collapsed: get().collapsed,
+      },
+      _userId
+    );
   },
 
   dismiss: () => {
-    const { _userId, completedSteps } = get();
+    const { _userId, completedSteps, collapsed } = get();
     set({ dismissed: true });
-    writeStorage({ completedSteps, dismissed: true }, _userId);
+    writeStorage({ completedSteps, dismissed: true, collapsed }, _userId);
   },
 
   reEnable: () => {
     const { _userId, completedSteps } = get();
     set({ dismissed: false, collapsed: false });
-    writeStorage({ completedSteps, dismissed: false }, _userId);
+    writeStorage(
+      { completedSteps, dismissed: false, collapsed: false },
+      _userId
+    );
   },
 
-  collapse: () => set({ collapsed: true }),
-  expand: () => set({ collapsed: false }),
+  collapse: () => {
+    const { _userId, completedSteps, dismissed } = get();
+    set({ collapsed: true });
+    writeStorage({ completedSteps, dismissed, collapsed: true }, _userId);
+  },
+  expand: () => {
+    const { _userId, completedSteps, dismissed } = get();
+    set({ collapsed: false });
+    writeStorage({ completedSteps, dismissed, collapsed: false }, _userId);
+  },
 
   hydrate: (userId?: string) => {
     const stored = readStorage(userId);
@@ -97,6 +118,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
       set({
         completedSteps: stored.completedSteps,
         dismissed: stored.dismissed,
+        collapsed: stored.collapsed ?? false,
         _userId: userId,
       });
     } else {
