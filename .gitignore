@@ -69,3 +69,6 @@ rotating_stud/frames/
 
 # Superpowers brainstorm mockups
 .superpowers/
+
+# Video recording output
+scripts/videos/output/
