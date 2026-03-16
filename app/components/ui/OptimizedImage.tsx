@@ -14,13 +14,9 @@ type OptimizedImageProps = {
   className?: string;
   priority?: boolean;
   sizesOverride?: string;
-  qualityOverride?: number;
   /** Disable fade-in animation (e.g., for above-the-fold images) */
   disableFade?: boolean;
-} & Omit<
-  ImageProps,
-  'src' | 'alt' | 'width' | 'height' | 'sizes' | 'quality' | 'priority'
->;
+} & Omit<ImageProps, 'src' | 'alt' | 'width' | 'height' | 'sizes' | 'priority'>;
 
 /**
  * Thin wrapper around next/image that applies consistent sizing, quality, and
@@ -33,7 +29,6 @@ export function OptimizedImage({
   className,
   priority,
   sizesOverride,
-  qualityOverride,
   disableFade,
   onLoad,
   ...rest
@@ -56,8 +51,7 @@ export function OptimizedImage({
     );
   }
 
-  const { width, height, sizes, quality } = getImageSizeConfig(variant);
-  const finalQuality = qualityOverride ?? quality;
+  const { width, height, sizes } = getImageSizeConfig(variant);
   const shouldFade = !disableFade && !priority;
 
   return (
@@ -71,7 +65,6 @@ export function OptimizedImage({
         width={width}
         height={height}
         sizes={sizesOverride ?? sizes}
-        {...(finalQuality !== undefined ? { quality: finalQuality } : {})}
         className={cn(
           className,
           shouldFade && 'transition-opacity duration-200',
