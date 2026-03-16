@@ -10,7 +10,8 @@ import {
 } from '@/app/lib/localDb/loosePartsStore';
 import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { groupColors } from './colorGroups';
 import type { CollectionPart, CollectionPartSetSource } from './types';
 
 type BaseProps = {
@@ -163,6 +164,20 @@ export function CollectionPartModal({
   // Fetch per-color image on demand when color changes and no imageUrl is cached.
   // Keep the previous image visible until the new one is ready (no flash).
   const [colorImageUrl, setColorImageUrl] = useState<string | null>(null);
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const colorGroups = useMemo(
+    () => (availableColors ? groupColors(availableColors) : []),
+    [availableColors]
+  );
+
+  // Auto-expand the group containing the initially selected color
+  useEffect(() => {
+    if (!colorGroups.length) return;
+    const group = colorGroups.find(g =>
+      g.colors.some(c => c.colorId === selectedColorId)
+    );
+    if (group) setExpandedGroup(group.key);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!availableColors) return;
     const color = availableColors.find(c => c.colorId === selectedColorId);
@@ -236,43 +251,86 @@ export function CollectionPartModal({
           </p>
         </div>
 
-        {/* Color picker */}
-        {availableColors && availableColors.length > 0 && (
+        {/* Color picker — grouped */}
+        {colorGroups.length > 0 && (
           <div className="border-t-2 border-subtle px-4 py-3">
             <p className="mb-2 text-xs font-medium text-foreground-muted uppercase">
               Color
             </p>
-            <div className="flex flex-wrap gap-2">
-              {availableColors.map(c => (
-                <button
-                  key={c.colorId}
-                  type="button"
-                  onClick={() => setSelectedColorId(c.colorId)}
-                  className={cn(
-                    'size-10 overflow-hidden rounded-full border-2 transition-colors',
-                    c.colorId === selectedColorId
-                      ? 'border-theme-primary ring-2 ring-theme-primary/30'
-                      : 'border-subtle hover:border-strong'
-                  )}
-                  title={c.colorName}
-                >
-                  {c.imageUrl ? (
-                    <img
-                      src={c.imageUrl}
-                      alt={c.colorName}
-                      className="size-full object-cover"
+            {/* Group toggles */}
+            <div className="flex flex-wrap gap-1.5">
+              {colorGroups.map(g => {
+                const isExpanded = expandedGroup === g.key;
+                const hasSelected = g.colors.some(
+                  c => c.colorId === selectedColorId
+                );
+                return (
+                  <button
+                    key={g.key}
+                    type="button"
+                    onClick={() => setExpandedGroup(isExpanded ? null : g.key)}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-2xs font-medium transition-colors',
+                      isExpanded
+                        ? 'border-theme-primary bg-theme-primary/10 text-foreground'
+                        : hasSelected
+                          ? 'border-strong bg-card-muted text-foreground'
+                          : 'border-subtle bg-card text-foreground-muted hover:border-strong'
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'size-3.5 shrink-0 rounded-full border',
+                        g.swatch === 'FFFFFF'
+                          ? 'border-neutral-300'
+                          : 'border-black/10'
+                      )}
+                      style={{ backgroundColor: `#${g.swatch}` }}
                     />
-                  ) : (
-                    <div
-                      className="size-full"
-                      style={{
-                        backgroundColor: c.rgb ? `#${c.rgb}` : '#ccc',
-                      }}
-                    />
-                  )}
-                </button>
-              ))}
+                    {g.label}
+                    <span className="text-foreground-muted">
+                      {g.colors.length}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+            {/* Expanded group colors */}
+            {expandedGroup && (
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {colorGroups
+                  .find(g => g.key === expandedGroup)
+                  ?.colors.map(c => (
+                    <button
+                      key={c.colorId}
+                      type="button"
+                      onClick={() => setSelectedColorId(c.colorId)}
+                      className={cn(
+                        'size-9 overflow-hidden rounded-full border-2 transition-colors',
+                        c.colorId === selectedColorId
+                          ? 'border-theme-primary ring-2 ring-theme-primary/30'
+                          : 'border-subtle hover:border-strong'
+                      )}
+                      title={c.colorName}
+                    >
+                      {c.imageUrl ? (
+                        <img
+                          src={c.imageUrl}
+                          alt={c.colorName}
+                          className="size-full object-cover"
+                        />
+                      ) : (
+                        <div
+                          className="size-full"
+                          style={{
+                            backgroundColor: c.rgb ? `#${c.rgb}` : '#ccc',
+                          }}
+                        />
+                      )}
+                    </button>
+                  ))}
+              </div>
+            )}
           </div>
         )}
 
