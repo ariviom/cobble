@@ -156,7 +156,7 @@ export function MinifigPageClient({
   );
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-6 lg:py-10">
+    <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6">
       {/* Hero Section - Collectible showcase */}
       <Card elevated padding="none" className="overflow-hidden">
         {/* Image hero with subtle gradient backdrop */}
@@ -348,7 +348,7 @@ export function MinifigPageClient({
 
       {/* May also appear in — rarest subpart sets */}
       {rarestSubpartSets.length > 0 && (
-        <Card elevated className="mt-6" padding="none">
+        <Card elevated padding="none">
           <div className="px-5 py-4 sm:px-6">
             <span className="text-xs font-semibold tracking-wide text-foreground-muted uppercase">
               May also appear in

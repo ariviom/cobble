@@ -281,7 +281,7 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
   const rbUrl = `https://rebrickable.com/parts/${encodeURIComponent(part.part_num)}/${selectedColorId}/`;
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-6 lg:py-10">
+    <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6">
       {/* Hero card */}
       <Card elevated padding="none" className="overflow-hidden">
         {/* Image hero */}
@@ -400,7 +400,7 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
       </Card>
 
       {/* Sets containing this part */}
-      <div className="mt-8">
+      <div>
         <h2 className="mb-3 text-sm font-semibold tracking-wide text-foreground-muted uppercase">
           Sets Containing This Part
           {setsTotal != null && (
