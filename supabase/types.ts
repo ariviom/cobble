@@ -1604,6 +1604,16 @@ export type Database = {
         Args: { p_color_id: number; p_part_num: string; p_user_id: string };
         Returns: number;
       };
+      get_sets_for_part: {
+        Args: { p_limit?: number; p_offset?: number; p_part_num: string };
+        Returns: {
+          image_url: string;
+          name: string;
+          set_num: string;
+          total_count: number;
+          year: number;
+        }[];
+      };
       get_sets_with_minifigs: {
         Args: never;
         Returns: {
