@@ -1,5 +1,6 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 
 const CACHE_CONTROL = 'private, max-age=30';
@@ -43,13 +44,16 @@ export async function GET(req: NextRequest) {
   }
 
   const { data, error } = await supabase.rpc('get_owned_part_count', {
-    p_user_id: user.id,
     p_part_num: partNum,
     p_color_id: colorIdNum,
   });
 
   if (error) {
-    // Fallback: RPC doesn't exist yet, return 0
+    logger.warn('parts.owned.rpc_failed', {
+      partNum,
+      colorId: colorIdNum,
+      error: error.message,
+    });
     return NextResponse.json(
       { total: 0 },
       { headers: { 'Cache-Control': CACHE_CONTROL } }

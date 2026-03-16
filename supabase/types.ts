@@ -1601,7 +1601,7 @@ export type Database = {
         }[];
       };
       get_owned_part_count: {
-        Args: { p_color_id: number; p_part_num: string; p_user_id: string };
+        Args: { p_color_id: number; p_part_num: string };
         Returns: number;
       };
       get_sets_for_part: {

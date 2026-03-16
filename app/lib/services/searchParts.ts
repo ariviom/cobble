@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { searchPartsLocal } from '@/app/lib/catalog/parts';
 
 export async function searchPartsPage(args: {
