@@ -109,7 +109,16 @@ export function ColorPicker({
             <button
               key={g.key}
               type="button"
-              onClick={() => onExpandGroup(isExpanded ? null : g.key)}
+              onClick={() => {
+                if (isExpanded) {
+                  onExpandGroup(null);
+                } else {
+                  onExpandGroup(g.key);
+                  if (g.colors.length === 1) {
+                    onSelectColor(g.colors[0]!.colorId);
+                  }
+                }
+              }}
               className={cn(
                 'relative flex size-9 items-center justify-center overflow-hidden rounded-full border-2 transition-colors',
                 isExpanded
