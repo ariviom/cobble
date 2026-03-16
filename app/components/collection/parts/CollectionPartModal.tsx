@@ -9,7 +9,7 @@ import {
   getLoosePart,
 } from '@/app/lib/localDb/loosePartsStore';
 import { getOwnedAcrossSets } from '@/app/lib/localDb/ownedStore';
-import { flushPendingWritesAsync } from '@/app/store/owned';
+import { useUserSetsStore } from '@/app/store/user-sets';
 import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -148,28 +148,36 @@ export function CollectionPartModal({
     Array<{ setNumber: string; quantity: number }>
   >([]);
 
+  // Get the list of set numbers the user has marked as "owned"
+  const ownedSetNumbers = useUserSetsStore(state => {
+    const nums: string[] = [];
+    for (const entry of Object.values(state.sets)) {
+      if (entry.status.owned) nums.push(entry.setNumber);
+    }
+    return nums;
+  });
+
   // Load loose quantity + owned-from-sets whenever the selected color changes.
-  // Flush pending Zustand writes first to ensure IndexedDB is up-to-date.
+  // "Owned from sets" = sum of quantityRequired from cached set inventories
+  // for sets the user has marked as owned.
   useEffect(() => {
     let cancelled = false;
     const inventoryKey = `${part.partNum}:${selectedColorId}`;
 
-    flushPendingWritesAsync().then(() =>
-      Promise.all([
-        getLoosePart(part.partNum, selectedColorId),
-        getOwnedAcrossSets(inventoryKey),
-      ]).then(([looseEntry, ownedData]) => {
-        if (cancelled) return;
-        setLooseQty(looseEntry?.quantity ?? 0);
-        setOwnedFromSetsForColor(ownedData.total);
-        setSetSourcesForColor(ownedData.sets);
-      })
-    );
+    Promise.all([
+      getLoosePart(part.partNum, selectedColorId),
+      getOwnedAcrossSets(inventoryKey, ownedSetNumbers),
+    ]).then(([looseEntry, ownedData]) => {
+      if (cancelled) return;
+      setLooseQty(looseEntry?.quantity ?? 0);
+      setOwnedFromSetsForColor(ownedData.total);
+      setSetSourcesForColor(ownedData.sets);
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [part.partNum, selectedColorId]);
+  }, [part.partNum, selectedColorId, ownedSetNumbers]);
 
   const handleLooseChange = async (next: number) => {
     setLooseQty(next);

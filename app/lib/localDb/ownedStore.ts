@@ -67,30 +67,44 @@ export async function getOwnedQuantity(
 }
 
 /**
- * Get total owned quantity for a part+color across ALL sets.
- * Returns { total, sets } where sets is an array of { setNumber, quantity }.
+ * Get total owned quantity for a part+color from sets the user has marked as "owned".
+ *
+ * Paradigm: "Owned" means the user owns the set (purchased / has it), so all parts
+ * in that set's inventory are considered owned. This queries the cached set inventories
+ * (catalogSetParts) for sets the user has marked owned, and sums the quantityRequired.
+ *
+ * @param inventoryKey - `{partNum}:{colorId}`
+ * @param ownedSetNumbers - set numbers the user has marked as owned
  */
 export async function getOwnedAcrossSets(
-  inventoryKey: string
+  inventoryKey: string,
+  ownedSetNumbers: string[]
 ): Promise<{
   total: number;
   sets: Array<{ setNumber: string; quantity: number }>;
 }> {
-  if (!isIndexedDBAvailable()) return { total: 0, sets: [] };
+  if (!isIndexedDBAvailable() || ownedSetNumbers.length === 0)
+    return { total: 0, sets: [] };
 
   try {
     const db = getLocalDb();
-    const rows = await db.localOwned
+    // Find all cached inventory entries for this part+color across any set
+    const rows = await db.catalogSetParts
       .where('inventoryKey')
       .equals(inventoryKey)
       .toArray();
 
+    // Filter to only sets the user has marked as owned
+    const ownedSet = new Set(ownedSetNumbers.map(s => s.toLowerCase()));
     let total = 0;
     const sets: Array<{ setNumber: string; quantity: number }> = [];
     for (const row of rows) {
-      if (row.quantity > 0) {
-        total += row.quantity;
-        sets.push({ setNumber: row.setNumber, quantity: row.quantity });
+      if (
+        ownedSet.has(row.setNumber.toLowerCase()) &&
+        row.quantityRequired > 0
+      ) {
+        total += row.quantityRequired;
+        sets.push({ setNumber: row.setNumber, quantity: row.quantityRequired });
       }
     }
     return { total, sets };
