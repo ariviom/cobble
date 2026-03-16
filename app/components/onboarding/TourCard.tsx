@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useOnboarding } from '@/app/hooks/useOnboarding';
 import { useOnboardingSync } from '@/app/hooks/useOnboardingSync';
+import { useOnboardingStore } from '@/app/store/onboarding';
 import { TourSignupPrompt } from './TourSignupPrompt';
 import { TourChecklist } from './TourChecklist';
 import { TourItemModal } from './TourItemModal';
@@ -23,6 +24,13 @@ export function TourCard() {
 
   // Activate Supabase sync
   useOnboardingSync();
+
+  // Hydrate from localStorage for anonymous users
+  useEffect(() => {
+    if (!user && !isLoading) {
+      useOnboardingStore.getState().hydrate();
+    }
+  }, [user, isLoading]);
 
   const [selectedItem, setSelectedItem] = useState<TourItem | null>(null);
   const [showDismissedNote, setShowDismissedNote] = useState(false);
