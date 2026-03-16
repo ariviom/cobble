@@ -1,3 +1,5 @@
+'use client';
+
 import { create } from 'zustand';
 import {
   PARENT_COMPLETION_MAP,
@@ -145,6 +147,9 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     const merged = [...new Set([...local, ...remote.completedSteps])];
     const dismissed = remote.dismissed;
     set({ completedSteps: merged, dismissed });
-    writeStorage({ completedSteps: merged, dismissed }, _userId);
+    writeStorage(
+      { completedSteps: merged, dismissed, collapsed: get().collapsed },
+      _userId
+    );
   },
 }));
