@@ -66,6 +66,42 @@ export async function getOwnedQuantity(
   }
 }
 
+/**
+ * Get total owned quantity for a part+color across ALL sets.
+ * Returns { total, sets } where sets is an array of { setNumber, quantity }.
+ */
+export async function getOwnedAcrossSets(
+  inventoryKey: string
+): Promise<{
+  total: number;
+  sets: Array<{ setNumber: string; quantity: number }>;
+}> {
+  if (!isIndexedDBAvailable()) return { total: 0, sets: [] };
+
+  try {
+    const db = getLocalDb();
+    const rows = await db.localOwned
+      .where('inventoryKey')
+      .equals(inventoryKey)
+      .toArray();
+
+    let total = 0;
+    const sets: Array<{ setNumber: string; quantity: number }> = [];
+    for (const row of rows) {
+      if (row.quantity > 0) {
+        total += row.quantity;
+        sets.push({ setNumber: row.setNumber, quantity: row.quantity });
+      }
+    }
+    return { total, sets };
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Failed to read owned across sets from IndexedDB:', error);
+    }
+    return { total: 0, sets: [] };
+  }
+}
+
 // ============================================================================
 // Write Operations
 // ============================================================================

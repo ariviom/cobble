@@ -8,6 +8,7 @@ import {
   bulkUpsertLooseParts,
   getLoosePart,
 } from '@/app/lib/localDb/loosePartsStore';
+import { getOwnedAcrossSets } from '@/app/lib/localDb/ownedStore';
 import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -138,15 +139,26 @@ export function CollectionPartModal({
 }: Props) {
   const [selectedColorId, setSelectedColorId] = useState(part.colorId);
   const [looseQty, setLooseQty] = useState(0);
+  const [ownedFromSetsForColor, setOwnedFromSetsForColor] = useState(0);
+  const [setSourcesForColor, setSetSourcesForColor] = useState<
+    Array<{ setNumber: string; quantity: number }>
+  >([]);
 
-  // Load loose quantity from IndexedDB whenever the selected color changes
+  // Load loose quantity + owned-from-sets whenever the selected color changes
   useEffect(() => {
     let cancelled = false;
-    getLoosePart(part.partNum, selectedColorId).then(entry => {
-      if (!cancelled) {
-        setLooseQty(entry?.quantity ?? 0);
-      }
+    const inventoryKey = `${part.partNum}:${selectedColorId}`;
+
+    Promise.all([
+      getLoosePart(part.partNum, selectedColorId),
+      getOwnedAcrossSets(inventoryKey),
+    ]).then(([looseEntry, ownedData]) => {
+      if (cancelled) return;
+      setLooseQty(looseEntry?.quantity ?? 0);
+      setOwnedFromSetsForColor(ownedData.total);
+      setSetSourcesForColor(ownedData.sets);
     });
+
     return () => {
       cancelled = true;
     };
@@ -213,16 +225,14 @@ export function CollectionPartModal({
   const displayImageUrl =
     colorImageUrl ?? currentColor?.imageUrl ?? part.imageUrl;
 
-  const ownedFromSets = part.ownedFromSets ?? 0;
+  const ownedFromSets = ownedFromSetsForColor;
   const totalOwned = ownedFromSets + looseQty;
-
-  const setSources = part.setSources ?? [];
 
   const bricklinkUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(part.partNum)}#T=S`;
   const rebrickableUrl = `https://rebrickable.com/parts/${encodeURIComponent(part.partNum)}/${selectedColorId}/`;
   const detailsHref = `/parts/${encodeURIComponent(part.partNum)}`;
 
-  const showSetBreakdown = setSources.length > 1;
+  const showSetBreakdown = setSourcesForColor.length > 1;
 
   return (
     <Modal open onClose={onClose} title={part.partName}>
@@ -355,28 +365,23 @@ export function CollectionPartModal({
         {showSetBreakdown && (
           <div className="border-t-2 border-subtle px-4 py-3">
             <p className="mb-2 text-xs font-medium text-foreground-muted uppercase">
-              By set
+              From sets
             </p>
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-foreground-muted">
                   <th className="pb-1 text-left font-medium">Set</th>
-                  <th className="pb-1 text-right font-medium">Owned / Req.</th>
+                  <th className="pb-1 text-right font-medium">Owned</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-subtle">
-                {setSources.map(src => (
+                {setSourcesForColor.map(src => (
                   <tr key={src.setNumber}>
                     <td className="py-1 text-foreground">
                       <span className="font-medium">{src.setNumber}</span>
-                      {src.setName && (
-                        <span className="ml-1 text-foreground-muted">
-                          {src.setName}
-                        </span>
-                      )}
                     </td>
                     <td className="py-1 text-right text-foreground tabular-nums">
-                      {src.quantityOwned} / {src.quantityInSet}
+                      {src.quantity}
                     </td>
                   </tr>
                 ))}
