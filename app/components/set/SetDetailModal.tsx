@@ -8,6 +8,7 @@ import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import { useOpenSet } from '@/app/hooks/useOpenSet';
 import { Button } from '@/app/components/ui/Button';
 import { formatCurrency } from '@/app/lib/utils/formatCurrency';
+import { ModalExternalLinks } from '@/app/components/ui/ModalExternalLinks';
 import {
   getBricklinkSetUrl,
   getRebrickableSetUrl,
@@ -204,26 +205,20 @@ export function SetDetailModal({
           </div>
 
           {/* External links */}
-          <div className="flex gap-px border-t-2 border-subtle bg-subtle">
-            <a
-              href={bricklinkSetUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
-            >
-              BrickLink
-              <ExternalLink className="size-3.5" />
-            </a>
-            <a
-              href={rebrickableSetUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
-            >
-              Rebrickable
-              <ExternalLink className="size-3.5" />
-            </a>
-          </div>
+          <ModalExternalLinks
+            links={[
+              {
+                href: bricklinkSetUrl,
+                label: 'BrickLink',
+                icon: <ExternalLink className="size-3.5" />,
+              },
+              {
+                href: rebrickableSetUrl,
+                label: 'Rebrickable',
+                icon: <ExternalLink className="size-3.5" />,
+              },
+            ]}
+          />
 
           {/* Ownership row — matches SetDisplayCard bottom pattern */}
           <SetOwnershipAndCollectionsRow ownership={ownership} />

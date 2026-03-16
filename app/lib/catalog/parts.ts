@@ -2,6 +2,7 @@ import 'server-only';
 
 import { LEGO_COLOR_IDS } from '@/app/components/collection/parts/colorGroups';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
+import { sanitizeQuery } from '@/app/lib/utils/sanitizeQuery';
 
 export async function getPartByPartNum(partNum: string) {
   const supabase = getCatalogReadClient();
@@ -108,16 +109,6 @@ function termToPattern(term: string): string[] {
   return [`%${term}%`];
 }
 
-const MAX_QUERY_LENGTH = 200;
-const SPECIAL_CHARS = /[%_\\]/g;
-
-function sanitizePartQuery(query: string): string {
-  return query
-    .slice(0, MAX_QUERY_LENGTH)
-    .replace(SPECIAL_CHARS, char => `\\${char}`)
-    .trim();
-}
-
 type PartSearchOptions = {
   page: number;
   pageSize: number;
@@ -143,7 +134,7 @@ export async function searchPartsLocal(
   rawQuery: string,
   opts: PartSearchOptions
 ): Promise<{ results: PartSearchLocalResult[]; nextPage: number | null }> {
-  const sanitized = sanitizePartQuery(rawQuery);
+  const sanitized = sanitizeQuery(rawQuery);
   if (!sanitized) return { results: [], nextPage: null };
 
   const normalized = normalizeDimensions(sanitized);
@@ -343,7 +334,8 @@ const PREFERRED_THUMB_COLORS = [LEGO_COLOR_IDS.WHITE, LEGO_COLOR_IDS.BLACK];
 
 /**
  * Fetch one thumbnail image per part, preferring white then black.
- * Uses a single query per part for preferred colors (1 round trip instead of 3).
+ * Uses batch queries: first for preferred colors, then a single fallback for
+ * any parts that had no preferred-color thumbnail.
  */
 async function fetchThumbnailsForParts(
   supabase: ReturnType<typeof getCatalogReadClient>,
@@ -353,44 +345,77 @@ async function fetchThumbnailsForParts(
 
   const result = new Map<string, string>();
 
-  const CONCURRENCY = 10;
-  for (let i = 0; i < partNums.length; i += CONCURRENCY) {
-    const batch = partNums.slice(i, i + CONCURRENCY);
-    const promises = batch.map(async partNum => {
-      // Single query for preferred colors (white + black)
-      const { data: preferred } = await supabase
-        .from('rb_inventory_parts')
-        .select('img_url, color_id')
-        .eq('part_num', partNum)
-        .in('color_id', PREFERRED_THUMB_COLORS)
-        .not('img_url', 'is', null)
-        .limit(2);
+  // 1. Batch-fetch preferred-color thumbnails (white + black)
+  const preferredBatches: Promise<
+    { part_num: string; img_url: string | null; color_id: number }[]
+  >[] = [];
+  for (let i = 0; i < partNums.length; i += 200) {
+    const batch = partNums.slice(i, i + 200);
+    preferredBatches.push(
+      Promise.resolve(
+        supabase
+          .from('rb_inventory_parts')
+          .select('part_num, img_url, color_id')
+          .in('part_num', batch)
+          .in('color_id', PREFERRED_THUMB_COLORS)
+          .not('img_url', 'is', null)
+      ).then(({ data }) => data ?? [])
+    );
+  }
+  const allPreferred = (await Promise.all(preferredBatches)).flat();
 
-      if (preferred?.length) {
-        // Pick best match in preference order
-        for (const colorId of PREFERRED_THUMB_COLORS) {
-          const match = preferred.find(r => r.color_id === colorId);
-          const url = match?.img_url;
-          if (typeof url === 'string' && url.trim()) {
-            result.set(partNum, url.trim());
-            return;
-          }
-        }
-      }
+  // Group preferred results by part_num, pick best match in preference order
+  const preferredByPart = new Map<
+    string,
+    { img_url: string | null; color_id: number }[]
+  >();
+  for (const row of allPreferred) {
+    if (!preferredByPart.has(row.part_num)) {
+      preferredByPart.set(row.part_num, []);
+    }
+    preferredByPart.get(row.part_num)!.push(row);
+  }
 
-      // Fallback: any color with an image
-      const { data } = await supabase
-        .from('rb_inventory_parts')
-        .select('img_url')
-        .eq('part_num', partNum)
-        .not('img_url', 'is', null)
-        .limit(1);
-      const url = data?.[0]?.img_url;
+  for (const [partNum, rows] of preferredByPart) {
+    for (const colorId of PREFERRED_THUMB_COLORS) {
+      const match = rows.find(r => r.color_id === colorId);
+      const url = match?.img_url;
       if (typeof url === 'string' && url.trim()) {
         result.set(partNum, url.trim());
+        break;
       }
-    });
-    await Promise.all(promises);
+    }
+  }
+
+  // 2. Collect parts that still need a thumbnail
+  const missingPartNums = partNums.filter(pn => !result.has(pn));
+  if (missingPartNums.length === 0) return result;
+
+  // 3. Single batch fallback: any color with an image
+  const fallbackBatches: Promise<
+    { part_num: string; img_url: string | null }[]
+  >[] = [];
+  for (let i = 0; i < missingPartNums.length; i += 200) {
+    const batch = missingPartNums.slice(i, i + 200);
+    fallbackBatches.push(
+      Promise.resolve(
+        supabase
+          .from('rb_inventory_parts')
+          .select('part_num, img_url')
+          .in('part_num', batch)
+          .not('img_url', 'is', null)
+      ).then(({ data }) => data ?? [])
+    );
+  }
+  const allFallback = (await Promise.all(fallbackBatches)).flat();
+
+  // Pick the first available image per part
+  for (const row of allFallback) {
+    if (result.has(row.part_num)) continue;
+    const url = row.img_url;
+    if (typeof url === 'string' && url.trim()) {
+      result.set(row.part_num, url.trim());
+    }
   }
 
   return result;

@@ -2,6 +2,7 @@
 
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useUserLists } from '@/app/hooks/useUserLists';
+import { normalizeSetKey } from '@/app/lib/domain/setNumber';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { useUserSetsStore } from '@/app/store/user-sets';
 import { useEffect, useMemo, useState } from 'react';
@@ -32,10 +33,6 @@ type RbSetRow = {
   num_parts: number;
   theme_id: number | null;
 };
-
-function normalizeKey(setNumber: string): string {
-  return setNumber.trim().toLowerCase();
-}
 
 // --- localStorage cache for collection items ---
 
@@ -117,7 +114,7 @@ export function updateCollectionCacheForToggle(
   if (!entry) return; // no cache to update
 
   const bySet = new Map(entry.bySet);
-  const key = normalizeKey(setNum);
+  const key = normalizeSetKey(setNum);
   const existing = bySet.get(key) ?? [];
 
   if (added) {
@@ -197,7 +194,7 @@ export function mergeCollectionSets(
 
   // Add owned sets
   for (const s of ownedSets) {
-    const key = normalizeKey(s.setNumber);
+    const key = normalizeSetKey(s.setNumber);
     merged.set(key, {
       setNumber: s.setNumber,
       name: s.name,
@@ -212,7 +209,7 @@ export function mergeCollectionSets(
 
   // Add list-only sets (not already in owned)
   for (const [rawSetNum, listIds] of listItemsBySet) {
-    const key = normalizeKey(rawSetNum);
+    const key = normalizeSetKey(rawSetNum);
     if (merged.has(key)) continue;
 
     const meta = listOnlyMeta.get(key);
@@ -322,7 +319,7 @@ export function useCollectionSets(): UseCollectionSetsResult {
         const bySet = new Map<string, string[]>();
         const allListSetNums: string[] = [];
         for (const row of rows) {
-          const key = normalizeKey(row.set_num);
+          const key = normalizeSetKey(row.set_num);
           const existing = bySet.get(key);
           if (existing) {
             existing.push(row.list_id);
@@ -352,7 +349,7 @@ export function useCollectionSets(): UseCollectionSetsResult {
             if (metaError) continue;
 
             for (const row of (metaData ?? []) as RbSetRow[]) {
-              metaMap.set(normalizeKey(row.set_num), row);
+              metaMap.set(normalizeSetKey(row.set_num), row);
             }
           }
         }

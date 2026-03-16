@@ -3,6 +3,7 @@ import 'server-only';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { normalizeText } from '@/app/lib/rebrickable';
+import { rbFetch } from '@/app/lib/rebrickable/client';
 import { logger } from '@/lib/metrics';
 import type { MinifigMatchSource, MinifigSortOption } from '@/app/types/search';
 
@@ -69,12 +70,22 @@ export async function findRbMinifigsByBlIds(
   const supabase = getCatalogReadClient();
   const result = new Map<string, RbMinifigRow>();
 
-  const { data: byBlId } = await supabase
-    .from('rb_minifigs')
-    .select('fig_num, name, num_parts, bl_minifig_id')
-    .in('bl_minifig_id', blIds);
+  // Batch .in() at 200 to avoid URL length limits
+  const blIdBatches: Promise<RbMinifigRow[]>[] = [];
+  for (let i = 0; i < blIds.length; i += 200) {
+    const batch = blIds.slice(i, i + 200);
+    blIdBatches.push(
+      Promise.resolve(
+        supabase
+          .from('rb_minifigs')
+          .select('fig_num, name, num_parts, bl_minifig_id')
+          .in('bl_minifig_id', batch)
+      ).then(({ data }) => data ?? [])
+    );
+  }
+  const allByBlId = (await Promise.all(blIdBatches)).flat();
 
-  for (const row of byBlId ?? []) {
+  for (const row of allByBlId) {
     if (row.bl_minifig_id) {
       result.set(row.bl_minifig_id, row);
     }
@@ -82,12 +93,22 @@ export async function findRbMinifigsByBlIds(
 
   const unmatchedIds = blIds.filter(id => !result.has(id));
   if (unmatchedIds.length > 0) {
-    const { data: byFigNum } = await supabase
-      .from('rb_minifigs')
-      .select('fig_num, name, num_parts, bl_minifig_id')
-      .in('fig_num', unmatchedIds);
+    // Batch .in() at 200 for the fallback query as well
+    const figNumBatches: Promise<RbMinifigRow[]>[] = [];
+    for (let i = 0; i < unmatchedIds.length; i += 200) {
+      const batch = unmatchedIds.slice(i, i + 200);
+      figNumBatches.push(
+        Promise.resolve(
+          supabase
+            .from('rb_minifigs')
+            .select('fig_num, name, num_parts, bl_minifig_id')
+            .in('fig_num', batch)
+        ).then(({ data }) => data ?? [])
+      );
+    }
+    const allByFigNum = (await Promise.all(figNumBatches)).flat();
 
-    for (const row of byFigNum ?? []) {
+    for (const row of allByFigNum) {
       const key = row.bl_minifig_id ?? row.fig_num;
       if (!result.has(key)) {
         result.set(key, row);
@@ -645,15 +666,26 @@ export async function getSetMinifigsLocal(
     return [];
   }
 
-  // Get BL IDs for these fig_nums
+  // Get BL IDs for these fig_nums (batch at 200)
   const figNums = [...new Set(invMinifigs.map(im => im.fig_num))];
-  const { data: rbMinifigs } = await supabase
-    .from('rb_minifigs')
-    .select('fig_num, bl_minifig_id')
-    .in('fig_num', figNums);
+  const figNumBatches: Promise<
+    { fig_num: string; bl_minifig_id: string | null }[]
+  >[] = [];
+  for (let i = 0; i < figNums.length; i += 200) {
+    const batch = figNums.slice(i, i + 200);
+    figNumBatches.push(
+      Promise.resolve(
+        supabase
+          .from('rb_minifigs')
+          .select('fig_num, bl_minifig_id')
+          .in('fig_num', batch)
+      ).then(({ data }) => data ?? [])
+    );
+  }
+  const rbMinifigs = (await Promise.all(figNumBatches)).flat();
 
   const figToBlId = new Map<string, string>();
-  for (const m of rbMinifigs ?? []) {
+  for (const m of rbMinifigs) {
     figToBlId.set(m.fig_num, m.bl_minifig_id ?? m.fig_num);
   }
 
@@ -690,7 +722,8 @@ export async function getOrFetchMinifigImageUrl(
   figNum: string,
   blMinifigId?: string | null
 ): Promise<string | null> {
-  const supabase = getCatalogReadClient();
+  // rb_minifig_images is a SERVICE_ROLE table — use write client for reads
+  const supabase = getCatalogWriteClient();
 
   // Check cache first
   const { data: cached } = await supabase
@@ -703,47 +736,41 @@ export async function getOrFetchMinifigImageUrl(
     return cached.image_url;
   }
 
-  // Fetch from RB API
-  const apiKey = process.env.REBRICKABLE_API;
-  if (apiKey) {
-    try {
-      const res = await fetch(
-        `https://rebrickable.com/api/v3/lego/minifigs/${encodeURIComponent(figNum)}/?key=${apiKey}`
-      );
-      if (res.ok) {
-        const data = (await res.json()) as { set_img_url?: string | null };
-        const imgUrl = data.set_img_url ?? null;
+  // Fetch from RB API using shared client (retry, circuit breaker, auth)
+  try {
+    const data = await rbFetch<{ set_img_url?: string | null }>(
+      `/lego/minifigs/${encodeURIComponent(figNum)}/`
+    );
+    const imgUrl = data.set_img_url ?? null;
 
-        // Cache the result (best-effort, don't block on failure)
-        if (imgUrl) {
-          const writer = getCatalogWriteClient();
-          writer
-            .from('rb_minifig_images')
-            .upsert(
-              {
-                fig_num: figNum,
-                image_url: imgUrl,
-                last_fetched_at: new Date().toISOString(),
-              },
-              { onConflict: 'fig_num' }
-            )
-            .then(({ error }) => {
-              if (error) {
-                logger.warn('minifig.image_cache_write_failed', {
-                  figNum,
-                  error: error.message,
-                });
-              }
+    // Cache the result (best-effort, don't block on failure)
+    if (imgUrl) {
+      const writer = getCatalogWriteClient();
+      writer
+        .from('rb_minifig_images')
+        .upsert(
+          {
+            fig_num: figNum,
+            image_url: imgUrl,
+            last_fetched_at: new Date().toISOString(),
+          },
+          { onConflict: 'fig_num' }
+        )
+        .then(({ error }) => {
+          if (error) {
+            logger.warn('minifig.image_cache_write_failed', {
+              figNum,
+              error: error.message,
             });
-          return imgUrl;
-        }
-      }
-    } catch (err) {
-      logger.warn('minifig.image_api_fetch_failed', {
-        figNum,
-        error: err instanceof Error ? err.message : String(err),
-      });
+          }
+        });
+      return imgUrl;
     }
+  } catch (err) {
+    logger.warn('minifig.image_api_fetch_failed', {
+      figNum,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   // BrickLink image fallback

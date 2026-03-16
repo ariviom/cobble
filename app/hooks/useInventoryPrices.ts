@@ -2,7 +2,7 @@
 
 import type { InventoryRow } from '@/app/components/set/types';
 import { logger } from '@/lib/metrics';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type PriceStatus = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -66,6 +66,11 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
   const [pricesError, setPricesError] = useState<string | null>(null);
   const [pendingKeys, setPendingKeys] = useState<Set<string>>(new Set());
 
+  const pendingKeysRef = useRef(pendingKeys);
+  pendingKeysRef.current = pendingKeys;
+  const pricesByKeyRef = useRef(pricesByKey);
+  pricesByKeyRef.current = pricesByKey;
+
   const requestPricesForKeys = useCallback(
     async (keysToLoad: string[]) => {
       const uniqueKeys = Array.from(
@@ -74,8 +79,8 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
       if (!uniqueKeys.length || !rows.length) return;
 
       const keysToFetch = uniqueKeys.filter(key => {
-        if (pendingKeys.has(key)) return false;
-        if (pricesByKey[key]) return false;
+        if (pendingKeysRef.current.has(key)) return false;
+        if (pricesByKeyRef.current[key]) return false;
         return true;
       });
 
@@ -155,7 +160,7 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
           }
           return next;
         });
-        if (Object.keys(pricesByKey).length > 0) {
+        if (Object.keys(pricesByKeyRef.current).length > 0) {
           setPricesStatus('loaded');
         } else {
           setPricesStatus('idle');
@@ -232,7 +237,7 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
           console.error('[InventoryPrices] load failed', err);
         }
         setPricesStatus(prev =>
-          prev === 'idle' && Object.keys(pricesByKey).length === 0
+          prev === 'idle' && Object.keys(pricesByKeyRef.current).length === 0
             ? 'error'
             : prev
         );
@@ -247,7 +252,7 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
         });
       }
     },
-    [keys, rows, pendingKeys, pricesByKey, setNumber]
+    [keys, rows, setNumber]
   );
 
   // Reset prices when switching sets

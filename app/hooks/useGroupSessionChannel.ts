@@ -466,9 +466,7 @@ export function useGroupSessionChannel({
       if (!channel) return;
 
       // Update local participant stats immediately for responsive UI
-      if (onParticipantPiecesDelta) {
-        onParticipantPiecesDelta(participantId ?? null, args.delta);
-      }
+      onParticipantPiecesDeltaRef.current?.(participantId ?? null, args.delta);
 
       // Accumulate delta for this key (batches rapid changes)
       const pending = pendingDeltasRef.current.get(args.key);
@@ -525,14 +523,7 @@ export function useGroupSessionChannel({
 
       deltaTimersRef.current.set(args.key, timer);
     },
-    [
-      enabled,
-      sessionId,
-      participantId,
-      clientId,
-      setNumber,
-      onParticipantPiecesDelta,
-    ]
+    [enabled, sessionId, participantId, clientId, setNumber]
   );
 
   const broadcastOwnedSnapshot = useCallback(

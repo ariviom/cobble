@@ -9,6 +9,7 @@ import type {
 import { normalizeText } from '@/app/lib/rebrickable/utils';
 import { filterExactMatches } from '@/app/lib/searchExactMatch';
 import type { MatchType } from '@/app/types/search';
+import { logger } from '@/lib/metrics';
 
 export async function searchSets(
   query: string,
@@ -256,9 +257,10 @@ export async function getAggregatedSearchResults(
             }
           }
         } catch (innerErr) {
-          console.error('Tokenized search failed', {
+          logger.warn('search.tokenized_search_failed', {
             token,
-            error: innerErr instanceof Error ? innerErr.message : innerErr,
+            error:
+              innerErr instanceof Error ? innerErr.message : String(innerErr),
           });
         }
       }
@@ -375,14 +377,10 @@ export async function getAggregatedSearchResults(
         } catch (err) {
           // Theme-based expansion is best-effort; log and continue on failure.
           if (process.env.NODE_ENV !== 'production') {
-            try {
-              console.error('Theme-based set fetch failed', {
-                themeId,
-                error: err instanceof Error ? err.message : String(err),
-              });
-            } catch {
-              // ignore logging failures
-            }
+            logger.warn('search.theme_set_fetch_failed', {
+              themeId,
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
         }
         if (collected.length >= SEARCH_AGG_CAP) break;

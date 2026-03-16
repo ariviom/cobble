@@ -6,6 +6,12 @@ import { CollectionGroupHeading } from '@/app/components/ui/CollectionGroupHeadi
 import { FilterBar } from '@/app/components/ui/FilterBar';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
 import { Select } from '@/app/components/ui/Select';
+import {
+  getMinifigStatusLabel,
+  getRootThemeId,
+  getRootThemeName,
+  type ThemeInfo,
+} from '@/app/lib/utils/collectionFilters';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -48,12 +54,6 @@ type PublicListSummary = {
   minifigIds: string[];
 };
 
-type ThemeInfo = {
-  id: number;
-  name: string;
-  parent_id: number | null;
-};
-
 type CustomListFilter = `list:${string}`;
 type CollectionFilter = 'all' | 'owned' | 'wishlist' | CustomListFilter;
 type GroupBy = 'status' | 'theme';
@@ -73,40 +73,6 @@ function extractListId(value: CollectionFilter): string | null {
 function getPrimaryStatusLabel(owned: boolean): string {
   if (owned) return 'Owned';
   return 'Collections';
-}
-
-function getRootThemeId(
-  themeId: number,
-  themeMap: Map<number, ThemeInfo>
-): number {
-  let current = themeMap.get(themeId);
-  if (!current) return themeId;
-  while (current.parent_id != null) {
-    const parent = themeMap.get(current.parent_id);
-    if (!parent) break;
-    current = parent;
-  }
-  return current.id;
-}
-
-function getRootThemeName(
-  themeId: number,
-  themeMap: Map<number, ThemeInfo>
-): string | null {
-  const rootId = getRootThemeId(themeId, themeMap);
-  const root = themeMap.get(rootId);
-  return root?.name ?? null;
-}
-
-function getMinifigStatusLabel(status: PublicMinifigSummary['status']): string {
-  switch (status) {
-    case 'owned':
-      return 'Owned';
-    case 'want':
-      return 'Wishlist';
-    default:
-      return 'Minifigures';
-  }
 }
 
 type PublicUserCollectionOverviewProps = {

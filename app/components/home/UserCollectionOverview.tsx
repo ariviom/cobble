@@ -15,7 +15,14 @@ import { useUserMinifigs } from '@/app/hooks/useUserMinifigs';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { getLoosePartsCount } from '@/app/lib/localDb/loosePartsStore';
 import { loadUserPartsSyncPreferences } from '@/app/lib/userPartsSyncPreferences';
+import {
+  getMinifigStatusLabel,
+  getRootThemeId,
+  getRootThemeName,
+  type ThemeInfo,
+} from '@/app/lib/utils/collectionFilters';
 import { useUserSetsStore } from '@/app/store/user-sets';
+import { logger } from '@/lib/metrics';
 import type { Tables } from '@/supabase/types';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -29,12 +36,6 @@ import {
   type MinifigSortField,
   type SortDir,
 } from './CollectionControlBar';
-
-type ThemeInfo = {
-  id: number;
-  name: string;
-  parent_id: number | null;
-};
 
 type CustomListFilter = `list:${string}`;
 
@@ -148,36 +149,6 @@ function extractListId(value: ListFilter): string | null {
 
 function getPrimaryStatusLabel(): string {
   return 'All Sets';
-}
-
-function getRootThemeId(themeId: number, themeMap: ThemeMap): number {
-  let current = themeMap.get(themeId);
-  if (!current) return themeId;
-  while (current.parent_id != null) {
-    const parent = themeMap.get(current.parent_id);
-    if (!parent) break;
-    current = parent;
-  }
-  return current.id;
-}
-
-function getRootThemeName(themeId: number, themeMap: ThemeMap): string | null {
-  const rootId = getRootThemeId(themeId, themeMap);
-  const root = themeMap.get(rootId);
-  return root?.name ?? null;
-}
-
-function getMinifigStatusLabel(
-  status: Tables<'user_minifigs'>['status'] | null
-): string {
-  switch (status) {
-    case 'owned':
-      return 'Owned';
-    case 'want':
-      return 'Wishlist';
-    default:
-      return 'Minifigures';
-  }
 }
 
 function usePartSyncPreference(
@@ -330,7 +301,7 @@ export function UserCollectionOverview({
       }
 
       if (error) {
-        console.error('Failed to load list membership', error);
+        logger.error('Failed to load list membership', { error });
         setListMembershipError(error.message ?? 'Failed to load list');
         setListMembershipErrorId(selectedListId);
         setListMembershipLoading(current =>

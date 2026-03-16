@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock server-only before importing the route
@@ -6,9 +6,7 @@ vi.mock('server-only', () => ({}));
 
 // Mock CSRF middleware to pass through
 vi.mock('@/app/lib/middleware/csrf', () => ({
-  withCsrfProtection: (
-    handler: (req: NextRequest) => Promise<NextResponse> | NextResponse
-  ) => handler,
+  withCsrfProtection: (handler: (...args: never[]) => unknown) => handler,
 }));
 
 // Mock rate limiting to avoid blocking authenticated requests
@@ -95,7 +93,7 @@ describe('/api/sync', () => {
           body: JSON.stringify({ operations: [] }),
         });
 
-        const res = await POST(req);
+        const res = await POST(req, { params: Promise.resolve({}) });
 
         expect(res.status).toBe(401);
         const json = await res.json();
@@ -117,7 +115,7 @@ describe('/api/sync', () => {
           body: JSON.stringify({ operations: [] }),
         });
 
-        const res = await POST(req);
+        const res = await POST(req, { params: Promise.resolve({}) });
 
         expect(res.status).toBe(400);
         const json = await res.json();
@@ -130,7 +128,7 @@ describe('/api/sync', () => {
           body: JSON.stringify({}),
         });
 
-        const res = await POST(req);
+        const res = await POST(req, { params: Promise.resolve({}) });
 
         expect(res.status).toBe(400);
         const json = await res.json();
@@ -145,7 +143,7 @@ describe('/api/sync', () => {
           }),
         });
 
-        const res = await POST(req);
+        const res = await POST(req, { params: Promise.resolve({}) });
 
         expect(res.status).toBe(400);
         const json = await res.json();
@@ -170,7 +168,7 @@ describe('/api/sync', () => {
           body: JSON.stringify({ operations }),
         });
 
-        const res = await POST(req);
+        const res = await POST(req, { params: Promise.resolve({}) });
 
         expect(res.status).toBe(400);
         const json = await res.json();
@@ -206,7 +204,7 @@ describe('/api/sync', () => {
           body: JSON.stringify({ operations }),
         });
 
-        const res = await POST(req);
+        const res = await POST(req, { params: Promise.resolve({}) });
 
         expect(res.status).toBe(200);
         const json = await res.json();
@@ -234,7 +232,7 @@ describe('/api/sync', () => {
           body: JSON.stringify({ operations }),
         });
 
-        const res = await POST(req);
+        const res = await POST(req, { params: Promise.resolve({}) });
 
         expect(res.status).toBe(200);
         const json = await res.json();
@@ -272,7 +270,7 @@ describe('/api/sync', () => {
           body: JSON.stringify({ operations }),
         });
 
-        const res = await POST(req);
+        const res = await POST(req, { params: Promise.resolve({}) });
 
         expect(res.status).toBe(200);
         const json = await res.json();
@@ -301,7 +299,7 @@ describe('/api/sync', () => {
           body: JSON.stringify({ operations }),
         });
 
-        const res = await POST(req);
+        const res = await POST(req, { params: Promise.resolve({}) });
 
         expect(res.status).toBe(200);
         expect(mockUpsert).toHaveBeenCalled();
@@ -340,7 +338,7 @@ describe('/api/sync', () => {
           body: JSON.stringify({ operations }),
         });
 
-        const res = await POST(req);
+        const res = await POST(req, { params: Promise.resolve({}) });
 
         expect(res.status).toBe(200);
         const json = await res.json();
@@ -387,7 +385,7 @@ describe('/api/sync', () => {
           body: JSON.stringify({ operations }),
         });
 
-        const res = await POST(req);
+        const res = await POST(req, { params: Promise.resolve({}) });
 
         expect(res.status).toBe(200);
         const json = await res.json();
@@ -437,7 +435,7 @@ describe('/api/sync', () => {
           body: JSON.stringify({ operations }),
         });
 
-        const res = await POST(req);
+        const res = await POST(req, { params: Promise.resolve({}) });
 
         expect(res.status).toBe(200);
         const json = await res.json();

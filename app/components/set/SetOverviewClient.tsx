@@ -5,6 +5,7 @@ import { SetOwnershipAndCollectionsRow } from '@/app/components/set/SetOwnership
 import { PublicSetCard } from '@/app/components/set/PublicSetCard';
 import { Button } from '@/app/components/ui/Button';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
+import { ModalExternalLinks } from '@/app/components/ui/ModalExternalLinks';
 import { UpgradeModal } from '@/app/components/upgrade-modal';
 import { useOpenSet } from '@/app/hooks/useOpenSet';
 import { useSetOwnershipState } from '@/app/hooks/useSetOwnershipState';
@@ -232,26 +233,20 @@ export function SetOverviewClient({
         </div>
 
         {/* External links */}
-        <div className="flex gap-px border-t-2 border-subtle bg-subtle">
-          <a
-            href={bricklinkSetUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
-          >
-            BrickLink
-            <ExternalLink className="size-3.5" />
-          </a>
-          <a
-            href={rebrickableSetUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
-          >
-            Rebrickable
-            <ExternalLink className="size-3.5" />
-          </a>
-        </div>
+        <ModalExternalLinks
+          links={[
+            {
+              href: bricklinkSetUrl,
+              label: 'BrickLink',
+              icon: <ExternalLink className="size-3.5" />,
+            },
+            {
+              href: rebrickableSetUrl,
+              label: 'Rebrickable',
+              icon: <ExternalLink className="size-3.5" />,
+            },
+          ]}
+        />
 
         {/* Ownership row */}
         <div className="border-t-2 border-subtle px-3 py-2">

@@ -1,17 +1,22 @@
 'use client';
 
-import { CollectionsModalContent } from '@/app/components/collections/CollectionsModalContent';
+import { CollectionsModals } from '@/app/components/shared/CollectionsModals';
 import { Button } from '@/app/components/ui/Button';
 import { Modal } from '@/app/components/ui/Modal';
 import { MoreDropdownButton } from '@/app/components/ui/MoreDropdown';
 import { StatusToggleButton } from '@/app/components/ui/StatusToggleButton';
 import { Toast } from '@/app/components/ui/Toast';
-import { UpgradeModal } from '@/app/components/upgrade-modal';
 import { cn } from '@/app/components/ui/utils';
+import { useOwnershipToast } from '@/app/hooks/useOwnershipToast';
 import type { SetOwnershipState } from '@/app/hooks/useSetOwnershipState';
 import { Check, ExternalLink, Eye, Link as LinkIcon, List } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+
+const SET_TOAST_MESSAGES = {
+  owned: 'You own this set!',
+  removed: 'Removed from owned sets',
+} as const;
 
 type SetOwnershipAndCollectionsRowProps = {
   ownership: SetOwnershipState;
@@ -49,18 +54,13 @@ export function SetOwnershipAndCollectionsRow({
 
   const [showCollections, setShowCollections] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
-  const [mobileToast, setMobileToast] = useState<{
-    message: string;
-    variant: 'success' | 'error';
-  } | null>(null);
   const [copiedToast, setCopiedToast] = useState(false);
 
-  // Auto-hide mobile toast after 2 seconds
-  useEffect(() => {
-    if (!mobileToast) return;
-    const timer = setTimeout(() => setMobileToast(null), 2000);
-    return () => clearTimeout(timer);
-  }, [mobileToast]);
+  const {
+    mobileToast,
+    clearMobileToast,
+    handleToggleOwned: onToggle,
+  } = useOwnershipToast(status.owned, toggleOwned, SET_TOAST_MESSAGES);
 
   useEffect(() => {
     if (!copiedToast) return;
@@ -80,18 +80,7 @@ export function SetOwnershipAndCollectionsRow({
       setShowSignIn(true);
       return;
     }
-    const willBeOwned = !status.owned;
-    toggleOwned();
-
-    // Show toast on mobile (when label is hidden)
-    const isMobile = window.matchMedia('(max-width: 639px)').matches;
-    if (isMobile) {
-      setMobileToast(
-        willBeOwned
-          ? { message: 'You own this set!', variant: 'success' }
-          : { message: 'Removed from owned sets', variant: 'error' }
-      );
-    }
+    onToggle();
   };
 
   const handleOpenCollections = () => {
@@ -198,28 +187,26 @@ export function SetOwnershipAndCollectionsRow({
           </Button>
         </div>
       </Modal>
-      <Modal
-        open={showCollections}
-        title="Collections"
+      <CollectionsModals
+        isOpen={showCollections}
         onClose={() => setShowCollections(false)}
-      >
-        <CollectionsModalContent
-          lists={lists}
-          selectedListIds={selectedListIds}
-          isLoading={listsLoading}
-          error={listsError}
-          onToggle={toggleList}
-          onCreate={createList}
-          onRename={renameList}
-          onDelete={deleteList}
-        />
-      </Modal>
+        lists={lists}
+        selectedListIds={selectedListIds}
+        listsLoading={listsLoading}
+        listsError={listsError}
+        toggleList={toggleList}
+        createList={createList}
+        renameList={renameList}
+        deleteList={deleteList}
+        showListUpgradeModal={showListUpgradeModal}
+        dismissListUpgradeModal={dismissListUpgradeModal}
+      />
       {mobileToast &&
         createPortal(
           <Toast
             description={mobileToast.message}
             variant={mobileToast.variant}
-            onClose={() => setMobileToast(null)}
+            onClose={clearMobileToast}
           />,
           document.body
         )}
@@ -232,11 +219,6 @@ export function SetOwnershipAndCollectionsRow({
           />,
           document.body
         )}
-      <UpgradeModal
-        open={showListUpgradeModal}
-        feature="lists.unlimited"
-        onClose={dismissListUpgradeModal}
-      />
     </>
   );
 }

@@ -11,6 +11,11 @@ import type {
 import { dedup } from '@/app/lib/utils/dedup';
 import { logger } from '@/lib/metrics';
 
+/** LRU cache for getSetsForPart results — 1 hour TTL */
+const setsCache = new LRUCache<string, PartInSet[]>(500, 60 * 60 * 1000);
+/** Negative cache for empty getSetsForPart results — 10 minute TTL */
+const setsNegCache = new LRUCache<string, true>(500, 10 * 60 * 1000);
+
 export async function getPart(partNum: string): Promise<RebrickablePart> {
   const trimmed = partNum.trim();
   if (!trimmed) {
@@ -235,35 +240,22 @@ export async function getSetsForPart(
 ): Promise<PartInSet[]> {
   const trimmedPart = partNum.trim();
   if (!trimmedPart) return [];
-  // 1h TTL cache with brief negative TTL to reduce thrash on empty results
-  const SETS_TTL_MS = 60 * 60 * 1000;
-  const NEGATIVE_TTL_MS = 10 * 60 * 1000;
-  const MAX_CACHE_ENTRIES = 500;
-  type SetsCacheEntry = { at: number; items: PartInSet[] };
-  const globalAny = globalThis as unknown as {
-    __RB_SETS_CACHE__?: Map<string, SetsCacheEntry>;
-    __RB_SETS_NEG_CACHE__?: Map<string, { at: number }>;
-  };
-  if (!globalAny.__RB_SETS_CACHE__) globalAny.__RB_SETS_CACHE__ = new Map();
-  if (!globalAny.__RB_SETS_NEG_CACHE__)
-    globalAny.__RB_SETS_NEG_CACHE__ = new Map();
-  const posCache = globalAny.__RB_SETS_CACHE__!;
-  const negCache = globalAny.__RB_SETS_NEG_CACHE__!;
+
   const cacheKey = `${trimmedPart.toLowerCase()}::${typeof colorId === 'number' ? colorId : ''}`;
-  const now = Date.now();
-  const hit = posCache.get(cacheKey);
-  if (hit && now - hit.at < SETS_TTL_MS) {
+
+  const cachedSets = setsCache.get(cacheKey);
+  if (cachedSets !== undefined) {
     if (process.env.NODE_ENV !== 'production') {
       logger.debug('rebrickable.parts.sets_cache_hit', {
         partNum,
         colorId,
-        count: hit.items.length,
+        count: cachedSets.length,
       });
     }
-    return hit.items;
+    return cachedSets;
   }
-  const negHit = negCache.get(cacheKey);
-  if (negHit && now - negHit.at < NEGATIVE_TTL_MS) {
+
+  if (setsNegCache.get(cacheKey) !== undefined) {
     if (process.env.NODE_ENV !== 'production') {
       logger.debug('rebrickable.parts.sets_negative_cache_hit', {
         partNum,
@@ -453,32 +445,9 @@ export async function getSetsForPart(
   }
   // Cache results
   if (sets.length > 0) {
-    posCache.set(cacheKey, { at: now, items: sets });
-    if (posCache.size > MAX_CACHE_ENTRIES) {
-      // naive eviction of oldest
-      let oldestKey: string | null = null;
-      let oldestAt = Number.MAX_SAFE_INTEGER;
-      for (const [k, v] of posCache.entries()) {
-        if (v.at < oldestAt) {
-          oldestAt = v.at;
-          oldestKey = k;
-        }
-      }
-      if (oldestKey) posCache.delete(oldestKey);
-    }
+    setsCache.set(cacheKey, sets);
   } else {
-    negCache.set(cacheKey, { at: now });
-    if (negCache.size > MAX_CACHE_ENTRIES) {
-      let oldestKey: string | null = null;
-      let oldestAt = Number.MAX_SAFE_INTEGER;
-      for (const [k, v] of negCache.entries()) {
-        if (v.at < oldestAt) {
-          oldestAt = v.at;
-          oldestKey = k;
-        }
-      }
-      if (oldestKey) negCache.delete(oldestKey);
-    }
+    setsNegCache.set(cacheKey, true);
   }
   return sets;
 }

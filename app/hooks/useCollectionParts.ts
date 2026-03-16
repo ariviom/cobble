@@ -93,19 +93,21 @@ async function loadCatalogPartsForSets(
 
   const db = getLocalDb();
   const result = new Map<string, CatalogSetPart[]>();
-  const uncached: string[] = [];
 
-  for (const setNum of setNumbers) {
-    const parts = await db.catalogSetParts
-      .where('setNumber')
-      .equals(setNum)
-      .toArray();
-    if (parts.length > 0) {
-      result.set(setNum, parts);
-    } else {
-      uncached.push(setNum);
-    }
+  const allParts = await db.catalogSetParts
+    .where('setNumber')
+    .anyOf(setNumbers)
+    .toArray();
+  const grouped = new Map<string, CatalogSetPart[]>();
+  for (const part of allParts) {
+    const arr = grouped.get(part.setNumber) ?? [];
+    arr.push(part);
+    grouped.set(part.setNumber, arr);
   }
+  for (const [setNum, parts] of grouped) {
+    result.set(setNum, parts);
+  }
+  const uncached = setNumbers.filter(s => !grouped.has(s));
 
   // Fetch uncached inventories
   if (uncached.length === 1) {

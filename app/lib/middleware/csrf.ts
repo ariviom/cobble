@@ -62,13 +62,21 @@ export function validateOrigin(
   return 'invalid';
 }
 
-export function withCsrfProtection(
-  handler: (req: NextRequest) => Promise<NextResponse> | NextResponse
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RouteContext = { params: Promise<any> };
+
+export function withCsrfProtection<
+  TContext extends RouteContext = RouteContext,
+>(
+  handler: (
+    req: NextRequest,
+    context: TContext
+  ) => Promise<NextResponse> | NextResponse
 ) {
-  return async (req: NextRequest) => {
+  return async (req: NextRequest, context: TContext) => {
     // GET requests are read-only, no CSRF protection needed
     if (req.method === 'GET') {
-      return handler(req);
+      return handler(req, context);
     }
 
     const originStatus = validateOrigin(req);
@@ -96,6 +104,6 @@ export function withCsrfProtection(
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 
-    return handler(req);
+    return handler(req, context);
   };
 }

@@ -3,6 +3,7 @@ import { getSetInventoryLocal } from '@/app/lib/catalog';
 import { getSetInventoriesLocalBatch } from '@/app/lib/catalog/batchInventory';
 import { queryPartRarityBatch } from '@/app/lib/catalog/rarity';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
+import type { PartIdentity } from '@/app/lib/domain/partIdentity';
 import { getSetInventory } from '@/app/lib/rebrickable';
 import type { ResolutionContext } from '@/app/lib/services/identityResolution';
 import {
@@ -59,6 +60,9 @@ function enrichSetWithMinifigSubparts(
     parentByFigNum.set(parent.partId.slice(4), parent);
   }
 
+  // Cache resolved identities to avoid redundant resolution calls
+  const identityCache = new Map<string, PartIdentity>();
+
   // Track child rows by canonical key for dedup across minifigs
   const childRowsByKey = new Map<string, InventoryRow>();
 
@@ -81,12 +85,17 @@ function enrichSetWithMinifigSubparts(
     const minifigQty = parentRow.quantityRequired ?? 1;
 
     for (const sp of subparts) {
-      const subpartIdentity = resolveRbMinifigSubpartIdentity(
-        sp.rbPartId,
-        sp.rbColorId,
-        ctx,
-        sp.blPartId
-      );
+      const cacheKey = `${sp.rbPartId}:${sp.rbColorId}`;
+      let subpartIdentity = identityCache.get(cacheKey);
+      if (!subpartIdentity) {
+        subpartIdentity = resolveRbMinifigSubpartIdentity(
+          sp.rbPartId,
+          sp.rbColorId,
+          ctx,
+          sp.blPartId
+        );
+        identityCache.set(cacheKey, subpartIdentity);
+      }
       const canonicalKey = subpartIdentity.canonicalKey;
       const totalQtyForThisMinifig = sp.quantity * minifigQty;
       const blPartId = sp.blPartId ?? sp.rbPartId;
@@ -177,11 +186,10 @@ function enrichSetWithMinifigSubparts(
     if (subparts.length > 0) {
       const relationMap = new Map<string, number>();
       for (const sp of subparts) {
-        const spIdentity = resolveRbMinifigSubpartIdentity(
-          sp.rbPartId,
-          sp.rbColorId,
-          ctx
-        );
+        const cacheKey = `${sp.rbPartId}:${sp.rbColorId}`;
+        const spIdentity =
+          identityCache.get(cacheKey) ??
+          resolveRbMinifigSubpartIdentity(sp.rbPartId, sp.rbColorId, ctx);
         const key = spIdentity.canonicalKey;
         relationMap.set(key, (relationMap.get(key) ?? 0) + sp.quantity);
       }

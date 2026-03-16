@@ -24,7 +24,7 @@ export type OwnedState = {
   isStorageAvailable: () => boolean;
   _version: number; // Version counter for triggering re-renders
   /** Track which sets have been hydrated from IndexedDB */
-  _hydratedSets: Set<string>;
+  _hydratedSets: Record<string, true>;
   /** Whether IndexedDB is available for persistence */
   _storageAvailable: boolean;
 };
@@ -252,7 +252,7 @@ export async function resetOwnedCache(): Promise<void> {
   // 4. Reset Zustand state so sets re-hydrate on next access
   useOwnedStore.setState({
     _version: 0,
-    _hydratedSets: new Set<string>(),
+    _hydratedSets: {},
     _storageAvailable: true,
   });
 }
@@ -300,11 +300,11 @@ function write(setNumber: string, data: Record<string, number>) {
 
 export const useOwnedStore = create<OwnedState>((set, get) => ({
   _version: 0,
-  _hydratedSets: new Set<string>(),
+  _hydratedSets: {},
   _storageAvailable: true, // Assume true until checked
 
   isHydrated: (setNumber: string) => {
-    return get()._hydratedSets.has(setNumber);
+    return setNumber in get()._hydratedSets;
   },
 
   isStorageAvailable: () => {
@@ -350,7 +350,7 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
   hydrateFromIndexedDB: async (setNumber: string) => {
     // Check if already hydrated
     const currentState = useOwnedStore.getState();
-    if (currentState._hydratedSets.has(setNumber)) {
+    if (setNumber in currentState._hydratedSets) {
       return;
     }
 
@@ -378,7 +378,7 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
         set(state => ({
           ...state,
           _storageAvailable: false,
-          _hydratedSets: new Set([...state._hydratedSets, setNumber]),
+          _hydratedSets: { ...state._hydratedSets, [setNumber]: true as const },
         }));
         return;
       }
@@ -396,7 +396,7 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
         set(state => ({
           ...state,
           _version: state._version + 1,
-          _hydratedSets: new Set([...state._hydratedSets, setNumber]),
+          _hydratedSets: { ...state._hydratedSets, [setNumber]: true as const },
         }));
       } catch (error) {
         // Cache was reset while we were reading — discard
@@ -410,7 +410,7 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
         set(state => ({
           ...state,
           _storageAvailable: false,
-          _hydratedSets: new Set([...state._hydratedSets, setNumber]),
+          _hydratedSets: { ...state._hydratedSets, [setNumber]: true as const },
         }));
       } finally {
         hydrationPromises.delete(setNumber);

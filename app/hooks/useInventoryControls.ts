@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type {
   GroupBy,
   InventoryFilter,
@@ -36,71 +36,56 @@ function createDefaultFilter(): InventoryFilter {
   };
 }
 
+function readStoredControls(): Partial<{
+  sortKey: SortKey;
+  sortDir: 'asc' | 'desc';
+  groupBy: GroupBy;
+  view: ViewType;
+  itemSize: ItemSize;
+  display: InventoryFilter['display'];
+}> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function useInventoryControls(options?: UseInventoryControlsOptions) {
   const { initialState, skipStorageHydration = false } = options ?? {};
 
-  const [sortKey, setSortKeyState] = useState<SortKey>(
-    initialState?.sortKey ?? 'color'
-  );
-  const [sortDir, setSortDirState] = useState<'asc' | 'desc'>(
-    initialState?.sortDir ?? 'asc'
-  );
-  const [filter, setFilterState] = useState<InventoryFilter>(
-    initialState?.filter ?? createDefaultFilter()
-  );
-  const [view, setViewState] = useState<ViewType>(initialState?.view ?? 'grid');
-  const [itemSize, setItemSizeState] = useState<ItemSize>(
-    initialState?.itemSize ?? 'sm'
-  );
-  const [groupBy, setGroupByState] = useState<GroupBy>(
-    initialState?.groupBy ?? 'none'
+  // Parse localStorage once upfront (not inside each useState initializer)
+  const stored = skipStorageHydration ? null : readStoredControls();
+
+  const [sortKey, setSortKey] = useState<SortKey>(
+    initialState?.sortKey ?? stored?.sortKey ?? 'color'
   );
 
-  // Track if we've hydrated from storage
-  const hydratedRef = useRef(false);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(
+    initialState?.sortDir ?? stored?.sortDir ?? 'asc'
+  );
 
-  // Hydrate from localStorage (only for default/global controls, not tab-specific)
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (hydratedRef.current) return;
-    if (skipStorageHydration) {
-      hydratedRef.current = true;
-      return;
+  const [filter, setFilter] = useState<InventoryFilter>(() => {
+    if (initialState?.filter) return initialState.filter;
+    if (stored?.display) {
+      return { ...createDefaultFilter(), display: stored.display };
     }
+    return createDefaultFilter();
+  });
 
-    hydratedRef.current = true;
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as Partial<{
-        sortKey: SortKey;
-        sortDir: 'asc' | 'desc';
-        groupBy: GroupBy;
-        view: ViewType;
-        itemSize: ItemSize;
-        display: InventoryFilter['display'];
-      }>;
+  const [view, setView] = useState<ViewType>(
+    initialState?.view ?? stored?.view ?? 'grid'
+  );
 
-      // Only apply storage values if no initial state was provided for that field
-      if (!initialState?.sortKey && parsed.sortKey)
-        setSortKeyState(parsed.sortKey);
-      if (!initialState?.sortDir && parsed.sortDir)
-        setSortDirState(parsed.sortDir);
-      if (!initialState?.groupBy && parsed.groupBy)
-        setGroupByState(parsed.groupBy);
-      if (!initialState?.view && parsed.view) setViewState(parsed.view);
-      if (!initialState?.itemSize && parsed.itemSize)
-        setItemSizeState(parsed.itemSize);
-      if (!initialState?.filter && parsed.display) {
-        setFilterState(prev => ({
-          ...prev,
-          display: parsed.display!,
-        }));
-      }
-    } catch {
-      // Ignore storage errors; fall back to defaults
-    }
-  }, [initialState, skipStorageHydration]);
+  const [itemSize, setItemSize] = useState<ItemSize>(
+    initialState?.itemSize ?? stored?.itemSize ?? 'sm'
+  );
+
+  const [groupBy, setGroupBy] = useState<GroupBy>(
+    initialState?.groupBy ?? stored?.groupBy ?? 'none'
+  );
 
   // Persist to localStorage
   useEffect(() => {
@@ -128,49 +113,6 @@ export function useInventoryControls(options?: UseInventoryControlsOptions) {
     filter.display,
     skipStorageHydration,
   ]);
-
-  // Setters
-  const setSortKey = useCallback(
-    (value: SortKey | ((prev: SortKey) => SortKey)) => {
-      setSortKeyState(value);
-    },
-    []
-  );
-
-  const setSortDir = useCallback(
-    (value: 'asc' | 'desc' | ((prev: 'asc' | 'desc') => 'asc' | 'desc')) => {
-      setSortDirState(value);
-    },
-    []
-  );
-
-  const setFilter = useCallback(
-    (value: InventoryFilter | ((prev: InventoryFilter) => InventoryFilter)) => {
-      setFilterState(value);
-    },
-    []
-  );
-
-  const setView = useCallback(
-    (value: ViewType | ((prev: ViewType) => ViewType)) => {
-      setViewState(value);
-    },
-    []
-  );
-
-  const setItemSize = useCallback(
-    (value: ItemSize | ((prev: ItemSize) => ItemSize)) => {
-      setItemSizeState(value);
-    },
-    []
-  );
-
-  const setGroupBy = useCallback(
-    (value: GroupBy | ((prev: GroupBy) => GroupBy)) => {
-      setGroupByState(value);
-    },
-    []
-  );
 
   return {
     sortKey,

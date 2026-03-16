@@ -29,6 +29,29 @@ import {
   type SetStateAction,
 } from 'react';
 
+/** Returns true if a row passes the display filter (all/missing/owned). */
+function passesDisplayFilter(
+  display: InventoryFilter['display'],
+  ownedValue: number,
+  required: number
+): boolean {
+  if (display === 'missing') return computeMissing(required, ownedValue) > 0;
+  if (display === 'owned') return ownedValue > 0;
+  return true;
+}
+
+/** Returns true if a row passes the color filter, including the minifig "—" exception. */
+function passesColorFilter(
+  colorName: string,
+  parentCategory: string | undefined,
+  colorSet: Set<string> | null
+): boolean {
+  if (!colorSet) return true;
+  if (colorSet.has(colorName)) return true;
+  if (colorSet.has('—') && parentCategory === 'Minifigure') return true;
+  return false;
+}
+
 export type InventoryViewModel = {
   // Raw data
   rows: InventoryRow[];
@@ -217,7 +240,7 @@ export function useInventoryViewModel(
   // so we use a stable empty object to avoid re-filtering on every owned change.
   const ownedForVisibility =
     filter.display === 'missing' || filter.display === 'owned'
-      ? ownedByKey
+      ? deferredOwnedByKey
       : EMPTY_OWNED;
 
   const visibleIndices = useMemo(() => {
@@ -230,19 +253,16 @@ export function useInventoryViewModel(
       filter.colors && filter.colors.length > 0 ? new Set(filter.colors) : null;
 
     return idxs.filter(i => {
-      if (filter.display === 'missing' || filter.display === 'owned') {
-        const ownedValue = effectiveOwned(
-          keys[i]!,
-          rows[i]!,
-          ownedForVisibility
-        );
-        if (filter.display === 'missing') {
-          if (computeMissing(rows[i]!.quantityRequired, ownedValue) === 0)
-            return false;
-        } else if (filter.display === 'owned') {
-          if (ownedValue === 0) return false;
-        }
-      }
+      const r = rows[i]!;
+
+      if (
+        !passesDisplayFilter(
+          filter.display,
+          effectiveOwned(keys[i]!, r, ownedForVisibility),
+          r.quantityRequired
+        )
+      )
+        return false;
 
       if (selectedParents) {
         const parent = parentByIndex[i];
@@ -254,14 +274,8 @@ export function useInventoryViewModel(
         }
       }
 
-      if (colorSet) {
-        const colorName = rows[i]!.colorName;
-        if (!colorSet.has(colorName)) {
-          // When "Minifigures" color is selected, also show minifig subparts
-          if (!(colorSet.has('—') && rows[i]!.parentCategory === 'Minifigure'))
-            return false;
-        }
-      }
+      if (!passesColorFilter(r.colorName, r.parentCategory, colorSet))
+        return false;
 
       if (filter.rarityTiers && filter.rarityTiers.length > 0) {
         const tier = rarityByIndex[i];
@@ -409,27 +423,17 @@ export function useInventoryViewModel(
     view === 'micro' ? 'grid-size-micro' : gridSizeClass[itemSize];
 
   const countsByParent = useMemo(() => {
+    const colorSet =
+      filter.colors && filter.colors.length > 0 ? new Set(filter.colors) : null;
     const counts: Record<string, number> = {};
+
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
-      const key = keys[i]!;
-      const ownedValue = effectiveOwned(key, r, deferredOwnedByKey);
+      const ownedValue = effectiveOwned(keys[i]!, r, deferredOwnedByKey);
 
-      if (filter.display === 'missing') {
-        if (computeMissing(r.quantityRequired, ownedValue) === 0) continue;
-      } else if (filter.display === 'owned') {
-        if (ownedValue === 0) continue;
-      }
-
-      if (filter.colors && filter.colors.length > 0) {
-        if (!filter.colors.includes(r.colorName)) {
-          // When "Minifigures" color is selected, also show minifig subparts
-          if (
-            !(filter.colors.includes('—') && r.parentCategory === 'Minifigure')
-          )
-            continue;
-        }
-      }
+      if (!passesDisplayFilter(filter.display, ownedValue, r.quantityRequired))
+        continue;
+      if (!passesColorFilter(r.colorName, r.parentCategory, colorSet)) continue;
 
       const parent = parentByIndex[i] ?? 'Misc';
       counts[parent] = (counts[parent] ?? 0) + 1;
@@ -449,15 +453,10 @@ export function useInventoryViewModel(
 
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i]!;
-      const key = keys[i]!;
-      const ownedValue = effectiveOwned(key, r, deferredOwnedByKey);
+      const ownedValue = effectiveOwned(keys[i]!, r, deferredOwnedByKey);
 
-      // Apply display filter
-      if (filter.display === 'missing') {
-        if (computeMissing(r.quantityRequired, ownedValue) === 0) continue;
-      } else if (filter.display === 'owned') {
-        if (ownedValue === 0) continue;
-      }
+      if (!passesDisplayFilter(filter.display, ownedValue, r.quantityRequired))
+        continue;
 
       // Apply category filter
       if (selectedParents) {

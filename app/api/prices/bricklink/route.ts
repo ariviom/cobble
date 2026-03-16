@@ -1,4 +1,9 @@
 import { errorResponse } from '@/app/lib/api/responses';
+import {
+  BL_RATE_LIMIT_IP,
+  BL_RATE_LIMIT_USER,
+  BL_RATE_WINDOW_MS,
+} from '@/app/lib/bricklink/rateLimitConfig';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { DEFAULT_PRICING_PREFERENCES } from '@/app/lib/pricing';
 import {
@@ -14,12 +19,6 @@ import { z } from 'zod';
 
 const MAX_ITEMS = 100;
 const BATCH_SIZE = 10;
-const RATE_WINDOW_MS =
-  Number.parseInt(process.env.BL_RATE_WINDOW_MS ?? '', 10) || 60_000;
-const RATE_LIMIT_PER_MINUTE =
-  Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE ?? '', 10) || 60;
-const RATE_LIMIT_PER_MINUTE_USER =
-  Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE_USER ?? '', 10) || 60;
 
 const schema = z.object({
   items: z
@@ -48,12 +47,6 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
   const items: PriceRequestItem[] = parsed.data.items;
   const clientIp = (await getClientIp(req)) ?? 'unknown';
 
-  if (process.env.NODE_ENV !== 'production') {
-    logEvent('prices.bricklink.request', {
-      itemCount: items.length,
-    });
-  }
-
   // Determine pricing preferences for this request (user-specific when
   // authenticated via Supabase cookies; otherwise fall back to global USD).
   let pricingPrefs = DEFAULT_PRICING_PREFERENCES;
@@ -76,42 +69,33 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
   }
 
   const ipLimit = await consumeRateLimit(`bl-prices:ip:${clientIp}`, {
-    windowMs: RATE_WINDOW_MS,
-    maxHits: RATE_LIMIT_PER_MINUTE,
+    windowMs: BL_RATE_WINDOW_MS,
+    maxHits: BL_RATE_LIMIT_IP,
   });
   if (!ipLimit.allowed) {
     incrementCounter('prices_bricklink_rate_limited', { scope: 'ip' });
-    return NextResponse.json(
-      {
-        error: 'rate_limited',
-        scope: 'ip',
-        retryAfterSeconds: ipLimit.retryAfterSeconds,
-      },
-      {
-        status: 429,
-        headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
-      }
-    );
+    return errorResponse('rate_limited', {
+      message: 'Too many pricing requests. Please wait a moment.',
+      details: { scope: 'ip', retryAfterSeconds: ipLimit.retryAfterSeconds },
+      headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+    });
   }
 
   if (userId) {
     const userLimit = await consumeRateLimit(`bl-prices:user:${userId}`, {
-      windowMs: RATE_WINDOW_MS,
-      maxHits: RATE_LIMIT_PER_MINUTE_USER,
+      windowMs: BL_RATE_WINDOW_MS,
+      maxHits: BL_RATE_LIMIT_USER,
     });
     if (!userLimit.allowed) {
       incrementCounter('prices_bricklink_rate_limited', { scope: 'user' });
-      return NextResponse.json(
-        {
-          error: 'rate_limited',
+      return errorResponse('rate_limited', {
+        message: 'Too many pricing requests. Please wait a moment.',
+        details: {
           scope: 'user',
           retryAfterSeconds: userLimit.retryAfterSeconds,
         },
-        {
-          status: 429,
-          headers: { 'Retry-After': String(userLimit.retryAfterSeconds) },
-        }
-      );
+        headers: { 'Retry-After': String(userLimit.retryAfterSeconds) },
+      });
     }
   }
 
@@ -119,12 +103,6 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     batchSize: BATCH_SIZE,
     logPrefix: 'prices.bricklink',
   });
-
-  if (process.env.NODE_ENV !== 'production') {
-    logEvent('prices.bricklink.response', {
-      pricedCount: Object.keys(prices).length,
-    });
-  }
 
   logEvent('prices_bricklink_response', {
     pricedCount: Object.keys(prices).length,

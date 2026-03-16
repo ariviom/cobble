@@ -288,6 +288,34 @@ export async function fetchBLSupersetsFallback(
     });
   }
 
+  // Pre-compute component list and resolve part IDs once for both
+  // the intersection and heuristic strategies below.
+  const components = subsets
+    .map(s => ({
+      partNum: s?.item?.no,
+      colorId: typeof s?.color_id === 'number' ? s.color_id : undefined,
+    }))
+    .filter(c => typeof c.partNum === 'string') as {
+    partNum: string;
+    colorId?: number;
+  }[];
+  const limited = components.slice(0, componentLimit);
+
+  // Cache resolvePartIdToRebrickable results to avoid duplicate API calls
+  // across the intersection and heuristic passes.
+  const resolvedPartCache = new Map<string, { partNum: string } | null>();
+
+  async function resolvePartCached(
+    partNum: string
+  ): Promise<{ partNum: string } | null> {
+    if (resolvedPartCache.has(partNum)) {
+      return resolvedPartCache.get(partNum)!;
+    }
+    const result = await resolvePartIdToRebrickable(partNum);
+    resolvedPartCache.set(partNum, result);
+    return result;
+  }
+
   // Deterministic intersection using subsets and our RB catalog
   if (!setsFromBL.length && subsets.length) {
     logger.debug('identify.bl_subsets_available', {
@@ -296,21 +324,10 @@ export async function fetchBLSupersetsFallback(
       subsetSample: subsets[0] ?? null,
     });
 
-    const components = subsets
-      .map(s => ({
-        partNum: s?.item?.no,
-        colorId: typeof s?.color_id === 'number' ? s.color_id : undefined,
-      }))
-      .filter(c => typeof c.partNum === 'string') as {
-      partNum: string;
-      colorId?: number;
-    }[];
-
-    const limited = components.slice(0, componentLimit);
     const perComponentSets: BLSet[][] = [];
     for (const comp of limited) {
       try {
-        const resolved = await resolvePartIdToRebrickable(comp.partNum);
+        const resolved = await resolvePartCached(comp.partNum);
         if (!resolved) continue;
         const rbSets = await getSetsForPart(resolved.partNum, comp.colorId);
         const mapped = rbSets.map(s => ({
@@ -390,17 +407,6 @@ export async function fetchBLSupersetsFallback(
 
   // Heuristic component-based inference (last resort)
   if (!setsFromBL.length && subsets.length) {
-    const components = subsets
-      .map(s => ({
-        partNum: s?.item?.no,
-        colorId: typeof s?.color_id === 'number' ? s.color_id : undefined,
-      }))
-      .filter(c => typeof c.partNum === 'string') as {
-      partNum: string;
-      colorId?: number;
-    }[];
-
-    const limited = components.slice(0, componentLimit);
     const setHitMap = new Map<
       string,
       {
@@ -411,7 +417,7 @@ export async function fetchBLSupersetsFallback(
 
     for (const comp of limited) {
       try {
-        const resolved = await resolvePartIdToRebrickable(comp.partNum);
+        const resolved = await resolvePartCached(comp.partNum);
         if (!resolved) continue;
         const rbSets = await getSetsForPart(resolved.partNum, comp.colorId);
         for (const s of rbSets) {

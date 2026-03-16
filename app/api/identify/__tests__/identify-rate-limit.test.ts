@@ -27,7 +27,7 @@ describe('identify route rate limiting', () => {
       method: 'POST',
       headers: { origin: 'http://localhost:3000' },
     });
-    const res = await POST(req);
+    const res = await POST(req, { params: Promise.resolve({}) });
 
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('7');

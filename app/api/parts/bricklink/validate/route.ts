@@ -1,5 +1,9 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { blValidatePart } from '@/app/lib/bricklink';
+import {
+  BL_RATE_LIMIT_IP,
+  BL_RATE_WINDOW_MS,
+} from '@/app/lib/bricklink/rateLimitConfig';
 import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { incrementCounter, logger } from '@/lib/metrics';
@@ -7,10 +11,6 @@ import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
 const PART_SUFFIX_PATTERN = /^(\d+)[a-z]$/i;
-const RATE_WINDOW_MS =
-  Number.parseInt(process.env.BL_RATE_WINDOW_MS ?? '', 10) || 60_000;
-const RATE_LIMIT_PER_MINUTE =
-  Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE ?? '', 10) || 60;
 
 /** Self-heal: update rb_parts.bl_part_id with the corrected BL ID. */
 async function selfHealBlPartId(
@@ -73,8 +73,8 @@ export async function GET(req: NextRequest) {
 
   const clientIp = (await getClientIp(req)) ?? 'unknown';
   const ipLimit = await consumeRateLimit(`bl-validate:ip:${clientIp}`, {
-    windowMs: RATE_WINDOW_MS,
-    maxHits: RATE_LIMIT_PER_MINUTE,
+    windowMs: BL_RATE_WINDOW_MS,
+    maxHits: BL_RATE_LIMIT_IP,
   });
   if (!ipLimit.allowed) {
     incrementCounter('parts_bricklink_validate_rate_limited');

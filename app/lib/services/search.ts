@@ -3,18 +3,9 @@ import {
   getAggregatedSearchResults,
   type SimpleSet,
 } from '@/app/lib/rebrickable';
+import { sanitizeQuery } from '@/app/lib/utils/sanitizeQuery';
 import type { FilterType } from '@/app/types/search';
 import { logger } from '@/lib/metrics';
-
-const MAX_QUERY_LENGTH = 200;
-const SPECIAL_CHARS = /[%_\\]/g;
-
-function sanitizeSearchQuery(query: string): string {
-  return query
-    .slice(0, MAX_QUERY_LENGTH)
-    .replace(SPECIAL_CHARS, char => `\\${char}`)
-    .trim();
-}
 
 function applyFilter(
   results: SimpleSet[],
@@ -51,7 +42,7 @@ export async function searchSetsPage(args: {
   };
 }> {
   const { sort, page, pageSize, filterType = 'all', exactMatch = false } = args;
-  const sanitizedQuery = sanitizeSearchQuery(args.query);
+  const sanitizedQuery = sanitizeQuery(args.query);
 
   type ResultArray = Awaited<ReturnType<typeof getAggregatedSearchResults>>;
   let all: ResultArray = [];

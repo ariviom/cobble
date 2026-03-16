@@ -6,6 +6,7 @@ import { useRecentSets } from '@/app/hooks/useRecentSets';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useThemeNames } from '@/app/hooks/useThemeNames';
 import { useUserLists } from '@/app/hooks/useUserLists';
+import { normalizeSetKey } from '@/app/lib/domain/setNumber';
 import {
   getStoredGroupSessions,
   clearStoredGroupSession,
@@ -50,10 +51,6 @@ export type UnifiedFilterOption = {
   label: string;
   count: number;
 };
-
-function normalizeKey(setNumber: string): string {
-  return setNumber.trim().toLowerCase();
-}
 
 export function useUnifiedSets(isActive = true) {
   const { user } = useSupabaseUser();
@@ -114,7 +111,7 @@ export function useUnifiedSets(isActive = true) {
 
     // 1. Seed from recent sets (synchronous, instant)
     for (const r of recentSets) {
-      const key = normalizeKey(r.setNumber);
+      const key = normalizeSetKey(r.setNumber);
       const themeId = r.themeId ?? null;
       map.set(key, {
         setNumber: r.setNumber,
@@ -135,7 +132,7 @@ export function useUnifiedSets(isActive = true) {
 
     // 2. Merge completion stats
     for (const c of completionSets) {
-      const key = normalizeKey(c.setNumber);
+      const key = normalizeSetKey(c.setNumber);
       const existing = map.get(key);
       if (existing) {
         existing.ownedCount = c.ownedCount;
@@ -162,7 +159,7 @@ export function useUnifiedSets(isActive = true) {
 
     // 3. Merge collection sets (highest priority metadata)
     for (const s of collectionSets) {
-      const key = normalizeKey(s.setNumber);
+      const key = normalizeSetKey(s.setNumber);
       const existing = map.get(key);
       if (existing) {
         // Collection has authoritative metadata

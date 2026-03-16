@@ -71,7 +71,7 @@ export function useSupabaseOwned({
   const hydrateFromIndexedDB = useOwnedStore(
     (state: OwnedState) => state.hydrateFromIndexedDB
   );
-  const isOwnedHydrated = hydratedSets.has(setNumber);
+  const isOwnedHydrated = setNumber in hydratedSets;
 
   // Ensure IndexedDB hydration has been triggered for this set.
   useEffect(() => {

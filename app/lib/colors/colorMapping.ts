@@ -12,6 +12,8 @@ export type ColorMaps = {
   rbToBl: Map<number, number>;
   /** BrickLink color ID → Rebrickable color ID */
   blToRb: Map<number, number>;
+  /** BrickLink color ID → Rebrickable color name */
+  blColorNames: Map<number, string>;
 };
 
 // ---------------------------------------------------------------------------
@@ -20,6 +22,10 @@ export type ColorMaps = {
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 let cache: { at: number; maps: ColorMaps } | null = null;
+let dbColorsCache: {
+  at: number;
+  colors: { id: number; name: string }[];
+} | null = null;
 
 // ---------------------------------------------------------------------------
 // Core: build color maps from rb_colors table
@@ -49,16 +55,17 @@ function extractBlColorIds(externalIds: unknown): number[] {
 async function buildColorMapsFromDb(): Promise<ColorMaps> {
   const rbToBl = new Map<number, number>();
   const blToRb = new Map<number, number>();
+  const blColorNames = new Map<number, string>();
 
   try {
     const supabase = getCatalogReadClient();
     const { data, error } = await supabase
       .from('rb_colors')
-      .select('id, external_ids');
+      .select('id, name, external_ids');
 
     if (error) {
       logger.warn('colorMapping.build_failed', { error: error.message });
-      return { rbToBl, blToRb };
+      return { rbToBl, blToRb, blColorNames };
     }
 
     for (const row of data ?? []) {
@@ -71,6 +78,9 @@ async function buildColorMapsFromDb(): Promise<ColorMaps> {
           if (!blToRb.has(blId)) {
             blToRb.set(blId, row.id);
           }
+          if (!blColorNames.has(blId)) {
+            blColorNames.set(blId, row.name);
+          }
         }
       }
     }
@@ -80,7 +90,7 @@ async function buildColorMapsFromDb(): Promise<ColorMaps> {
     });
   }
 
-  return { rbToBl, blToRb };
+  return { rbToBl, blToRb, blColorNames };
 }
 
 // ---------------------------------------------------------------------------
@@ -131,39 +141,8 @@ export async function mapBlColorToRb(
  * Uses the same cached DB data as getColorMaps().
  */
 export async function getBlColorNameMap(): Promise<Map<number, string>> {
-  const now = Date.now();
-  if (colorNameCache && now - colorNameCache.at < CACHE_TTL_MS) {
-    return colorNameCache.map;
-  }
-
-  const nameMap = new Map<number, string>();
-  try {
-    const supabase = getCatalogReadClient();
-    const { data, error } = await supabase
-      .from('rb_colors')
-      .select('id, name, external_ids');
-
-    if (error) {
-      logger.warn('colorMapping.name_map_failed', { error: error.message });
-      return nameMap;
-    }
-
-    for (const row of data ?? []) {
-      const blIds = extractBlColorIds(row.external_ids);
-      for (const blId of blIds) {
-        if (!nameMap.has(blId)) {
-          nameMap.set(blId, row.name);
-        }
-      }
-    }
-  } catch (err) {
-    logger.warn('colorMapping.name_map_error', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
-
-  colorNameCache = { at: now, map: nameMap };
-  return nameMap;
+  const { blColorNames } = await getColorMaps();
+  return blColorNames;
 }
 
 /**
@@ -199,16 +178,8 @@ export async function getDbColors(): Promise<{ id: number; name: string }[]> {
   }
 }
 
-// Additional caches for the new functions
-let colorNameCache: { at: number; map: Map<number, string> } | null = null;
-let dbColorsCache: {
-  at: number;
-  colors: { id: number; name: string }[];
-} | null = null;
-
 /** Reset cache (for testing). */
 export function _resetColorMapCache(): void {
   cache = null;
-  colorNameCache = null;
   dbColorsCache = null;
 }

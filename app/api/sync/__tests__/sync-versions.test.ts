@@ -46,7 +46,7 @@ vi.mock('@/lib/metrics', () => ({
 }));
 
 vi.mock('@/app/lib/middleware/csrf', () => ({
-  withCsrfProtection: (handler: (req: Request) => unknown) => handler,
+  withCsrfProtection: (handler: (...args: never[]) => unknown) => handler,
 }));
 
 describe('POST /api/sync — versions response', () => {
@@ -91,7 +91,9 @@ describe('POST /api/sync — versions response', () => {
       }),
     });
 
-    const response = await POST(req as NextRequest);
+    const response = await POST(req as NextRequest, {
+      params: Promise.resolve({}),
+    });
     const body = await response.json();
 
     expect(body.success).toBe(true);
@@ -125,7 +127,9 @@ describe('POST /api/sync — versions response', () => {
       }),
     });
 
-    const response = await POST(req as NextRequest);
+    const response = await POST(req as NextRequest, {
+      params: Promise.resolve({}),
+    });
     const body = await response.json();
 
     expect(body.success).toBe(true);

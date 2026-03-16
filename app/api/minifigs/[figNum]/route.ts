@@ -1,6 +1,10 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { blGetPartPriceGuide } from '@/app/lib/bricklink';
 import {
+  BL_RATE_LIMIT_IP_STRICT,
+  BL_RATE_WINDOW_MS,
+} from '@/app/lib/bricklink/rateLimitConfig';
+import {
   findRbMinifig,
   getBlMinifigImageUrl,
   getOrFetchMinifigImageUrl,
@@ -11,11 +15,6 @@ import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { incrementCounter, logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
-
-const BL_RATE_WINDOW_MS =
-  Number.parseInt(process.env.BL_RATE_WINDOW_MS ?? '', 10) || 60_000;
-const BL_RATE_LIMIT =
-  Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE ?? '', 10) || 30;
 
 type MinifigMetaLight = {
   /** BrickLink minifig ID (primary) */
@@ -82,7 +81,7 @@ type MinifigMetaResponse = MinifigMetaLight & {
 
 export async function GET(
   req: NextRequest,
-  context: unknown
+  { params }: { params: Promise<{ figNum: string }> }
 ): Promise<NextResponse<MinifigMetaResponse | { error: string }>> {
   const { searchParams } = new URL(req.url);
   const includeSubparts =
@@ -90,15 +89,8 @@ export async function GET(
   const includePricing =
     (searchParams.get('includePricing') ?? '').toLowerCase() === 'true';
 
-  const maybeParams =
-    (context as { params?: { figNum?: string } | Promise<{ figNum?: string }> })
-      ?.params ?? {};
-  const resolvedParams =
-    typeof (maybeParams as Promise<unknown>).then === 'function'
-      ? await (maybeParams as Promise<{ figNum?: string }>)
-      : (maybeParams as { figNum?: string });
-  const raw = resolvedParams?.figNum ?? '';
-  const inputId = raw.trim();
+  const { figNum } = await params;
+  const inputId = figNum.trim();
   if (!inputId) {
     return errorResponse('missing_required_field', {
       message: 'Minifig figure number is required',
@@ -120,7 +112,7 @@ export async function GET(
     const clientIp = (await getClientIp(req)) ?? 'unknown';
     const ipLimit = await consumeRateLimit(`bl-minifig:ip:${clientIp}`, {
       windowMs: BL_RATE_WINDOW_MS,
-      maxHits: BL_RATE_LIMIT,
+      maxHits: BL_RATE_LIMIT_IP_STRICT,
     });
     if (!ipLimit.allowed) {
       incrementCounter('minifig_pricing_rate_limited');
@@ -174,6 +166,8 @@ export async function GET(
     // Kick off rarest subpart sets lookup in parallel (resolved later)
     let rarestSubpartSetsPromise: Promise<RarestSubpartSetsResult | null> =
       Promise.resolve(null);
+    // Theme name lookup — started as soon as theme_id is known, resolved later
+    let themeNamePromise: Promise<string | null> = Promise.resolve(null);
 
     if (rbFigNum) {
       try {
@@ -250,14 +244,13 @@ export async function GET(
                   themeName == null &&
                   typeof firstSetDetail.theme_id === 'number'
                 ) {
-                  const { data: theme } = await supabase
-                    .from('rb_themes')
-                    .select('name')
-                    .eq('id', firstSetDetail.theme_id)
-                    .maybeSingle();
-                  if (theme?.name) {
-                    themeName = theme.name;
-                  }
+                  themeNamePromise = Promise.resolve(
+                    supabase
+                      .from('rb_themes')
+                      .select('name')
+                      .eq('id', firstSetDetail.theme_id)
+                      .maybeSingle()
+                  ).then(({ data }) => data?.name ?? null);
                 }
               }
             }
@@ -362,8 +355,14 @@ export async function GET(
       numParts = count;
     }
 
-    // Resolve rarest subpart sets (was running in parallel)
-    const rarestResult = await rarestSubpartSetsPromise;
+    // Resolve parallel lookups
+    const [rarestResult, resolvedThemeName] = await Promise.all([
+      rarestSubpartSetsPromise,
+      themeNamePromise,
+    ]);
+    if (resolvedThemeName) {
+      themeName = resolvedThemeName;
+    }
     const rarestSubpartSets: RarestSubpartSetsPayload[] =
       rarestResult?.sets?.map(s => ({
         setNumber: s.setNumber,

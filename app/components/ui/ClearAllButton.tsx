@@ -4,7 +4,7 @@ import { cn } from './utils';
 
 type Props = {
   onClick: () => void;
-  className?: string;
+  className?: string | undefined;
 };
 
 export function ClearAllButton({ onClick, className }: Props) {

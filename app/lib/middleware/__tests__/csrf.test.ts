@@ -46,6 +46,7 @@ describe('csrf validateOrigin', () => {
 
 describe('withCsrfProtection', () => {
   const okHandler = async () => NextResponse.json({ ok: true });
+  const stubContext = { params: Promise.resolve({}) };
 
   beforeEach(() => {
     process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.com';
@@ -56,7 +57,7 @@ describe('withCsrfProtection', () => {
     const req = new NextRequest('https://app.example.com/api/test', {
       method: 'GET',
     });
-    const res = await wrapped(req);
+    const res = await wrapped(req, stubContext);
     const json = await res.json();
     expect(json.ok).toBe(true);
   });
@@ -67,7 +68,7 @@ describe('withCsrfProtection', () => {
       method: 'POST',
       headers: { origin: 'https://evil.example.com' },
     });
-    const res = await wrapped(req);
+    const res = await wrapped(req, stubContext);
     expect(res.status).toBe(403);
     const json = await res.json();
     expect(json.error).toBe('forbidden');
@@ -79,7 +80,7 @@ describe('withCsrfProtection', () => {
       method: 'POST',
       // No origin, no referer, no CSRF header/cookie
     });
-    const res = await wrapped(req);
+    const res = await wrapped(req, stubContext);
     expect(res.status).toBe(403);
   });
 
@@ -89,7 +90,7 @@ describe('withCsrfProtection', () => {
       method: 'POST',
       headers: { origin: 'https://app.example.com' },
     });
-    const res = await wrapped(req);
+    const res = await wrapped(req, stubContext);
     const json = await res.json();
     expect(json.ok).toBe(true);
   });
@@ -104,7 +105,7 @@ describe('withCsrfProtection', () => {
         cookie: 'csrf_token=token-b',
       },
     });
-    const res = await wrapped(req);
+    const res = await wrapped(req, stubContext);
     expect(res.status).toBe(403);
   });
 
@@ -117,7 +118,7 @@ describe('withCsrfProtection', () => {
         cookie: 'csrf_token=matching-token',
       },
     });
-    const res = await wrapped(req);
+    const res = await wrapped(req, stubContext);
     const json = await res.json();
     expect(json.ok).toBe(true);
   });

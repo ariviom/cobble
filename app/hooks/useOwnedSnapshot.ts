@@ -30,7 +30,7 @@ export function useOwnedSnapshot(setNumber: string): UseOwnedSnapshotResult {
     void hydrateFromIndexedDB(setNumber);
   }, [setNumber, hydrateFromIndexedDB]);
 
-  const isHydrated = hydratedSets.has(setNumber);
+  const isHydrated = setNumber in hydratedSets;
 
   // O(1) — direct Map lookup instead of O(n) key-by-key rebuild
   const ownedByKey = useMemo(() => {

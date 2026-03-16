@@ -103,23 +103,20 @@ export async function checkAndIncrementUsage(
   return incrementFallback(supabase, opts, windowStart, resetAt);
 }
 
-/**
- * Non-atomic fallback: read current count, check limit, then upsert.
- * Has a small race window but keeps quota enforcement working when the
- * atomic RPC function is unavailable (e.g. migration not yet applied).
- */
-async function incrementFallback(
-  supabase: SupabaseClient<Database>,
-  opts: IncrementOptions,
-  windowStart: string,
-  resetAt: string
-): Promise<UsageCheckResult> {
-  const table =
-    'usage_counters' as unknown as keyof Database['public']['Tables'];
+const USAGE_TABLE =
+  'usage_counters' as unknown as keyof Database['public']['Tables'];
 
-  // Read current count
+/**
+ * Read the current count and upsert an incremented value.
+ * Shared by both `incrementFallback` and the fallback inside `incrementUsage`.
+ */
+async function upsertUsageCount(
+  supabase: SupabaseClient<Database>,
+  opts: { userId: string; featureKey: string; windowKind: UsageWindowKind },
+  windowStart: string
+): Promise<{ currentCount: number; writeError: { message: string } | null }> {
   const { data: existing, error: readError } = await supabase
-    .from(table)
+    .from(USAGE_TABLE)
     .select('count')
     .eq('user_id', opts.userId)
     .eq('feature_key', opts.featureKey)
@@ -132,22 +129,13 @@ async function incrementFallback(
       error: readError.message,
       featureKey: opts.featureKey,
     });
-    return { allowed: false, limit: opts.limit, remaining: 0, resetAt };
+    return { currentCount: -1, writeError: readError };
   }
 
   const currentCount = (existing as { count: number } | null)?.count ?? 0;
-  if (currentCount >= opts.limit) {
-    return {
-      allowed: false,
-      limit: opts.limit,
-      remaining: 0,
-      resetAt,
-    };
-  }
 
-  // Upsert incremented count (type assertion needed — table not in generated types)
   const { error: writeError } = await (
-    supabase.from(table) as unknown as {
+    supabase.from(USAGE_TABLE) as unknown as {
       upsert: (
         values: Record<string, unknown>,
         options?: { onConflict?: string }
@@ -164,6 +152,41 @@ async function incrementFallback(
     },
     { onConflict: 'user_id,feature_key,window_kind,window_start' }
   );
+
+  return { currentCount, writeError };
+}
+
+/**
+ * Non-atomic fallback: read current count, check limit, then upsert.
+ * Has a small race window but keeps quota enforcement working when the
+ * atomic RPC function is unavailable (e.g. migration not yet applied).
+ */
+async function incrementFallback(
+  supabase: SupabaseClient<Database>,
+  opts: IncrementOptions,
+  windowStart: string,
+  resetAt: string
+): Promise<UsageCheckResult> {
+  const { currentCount, writeError } = await upsertUsageCount(
+    supabase,
+    opts,
+    windowStart
+  );
+
+  // Read failed
+  if (currentCount < 0) {
+    return { allowed: false, limit: opts.limit, remaining: 0, resetAt };
+  }
+
+  // Over limit (before increment)
+  if (currentCount >= opts.limit) {
+    return {
+      allowed: false,
+      limit: opts.limit,
+      remaining: 0,
+      resetAt,
+    };
+  }
 
   if (writeError) {
     logger.error('usage_counters.fallback_write_failed', {
@@ -220,36 +243,7 @@ export async function incrementUsage(
       featureKey: opts.featureKey,
     });
 
-    const table =
-      'usage_counters' as unknown as keyof Database['public']['Tables'];
-    const { data: existing } = await supabase
-      .from(table)
-      .select('count')
-      .eq('user_id', opts.userId)
-      .eq('feature_key', opts.featureKey)
-      .eq('window_kind', opts.windowKind)
-      .eq('window_start', windowStart)
-      .maybeSingle();
-
-    const currentCount = (existing as { count: number } | null)?.count ?? 0;
-    const { error: writeError } = await (
-      supabase.from(table) as unknown as {
-        upsert: (
-          values: Record<string, unknown>,
-          options?: { onConflict?: string }
-        ) => PromiseLike<{ error: { message: string } | null }>;
-      }
-    ).upsert(
-      {
-        user_id: opts.userId,
-        feature_key: opts.featureKey,
-        window_kind: opts.windowKind,
-        window_start: windowStart,
-        count: currentCount + 1,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id,feature_key,window_kind,window_start' }
-    );
+    const { writeError } = await upsertUsageCount(supabase, opts, windowStart);
 
     if (writeError) {
       logger.warn('usage_counters.increment_fallback_write_failed', {
@@ -264,14 +258,12 @@ export async function getUsageStatus(
   opts: Omit<IncrementOptions, 'limit'> & { limit: number }
 ): Promise<UsageStatus> {
   const supabase = opts.supabase ?? getSupabaseServiceRoleClient();
-  const usageCountersTable =
-    'usage_counters' as unknown as keyof Database['public']['Tables'];
   const now = new Date();
   const windowStart = getWindowStart(opts.windowKind, now);
   const resetAt = getResetAt(opts.windowKind, now);
 
   const { data, error } = await supabase
-    .from(usageCountersTable)
+    .from(USAGE_TABLE)
     .select('count')
     .eq('user_id', opts.userId)
     .eq('feature_key', opts.featureKey)

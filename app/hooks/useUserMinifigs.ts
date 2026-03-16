@@ -94,6 +94,32 @@ export function invalidateUserMinifigsCache(userId?: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Subscriber pattern for optimistic mutations
+// ---------------------------------------------------------------------------
+// Allows useMinifigStatus to push optimistic updates that all active
+// useUserMinifigs hook instances pick up immediately.
+
+type MinifigsListener = (minifigs: UserMinifig[]) => void;
+const listeners = new Set<MinifigsListener>();
+
+/**
+ * Optimistically update the shared user minifigs. Updates the cache and
+ * notifies all active useUserMinifigs hook instances so they re-render
+ * with the new state immediately.
+ */
+export function optimisticUpdateUserMinifigs(
+  userId: string,
+  updater: (prev: UserMinifig[]) => UserMinifig[]
+): void {
+  const prev = getCachedMinifigs(userId) ?? [];
+  const next = updater(prev);
+  setCachedMinifigs(userId, next);
+  for (const listener of listeners) {
+    listener(next);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // In-flight request deduplication
 // ---------------------------------------------------------------------------
 
@@ -142,6 +168,17 @@ export function useUserMinifigs(): UseUserMinifigsResult {
   const [minifigs, setMinifigs] = useState<UserMinifig[]>(cached ?? []);
   const [isLoading, setIsLoading] = useState<boolean>(!!user && !cached);
   const [error, setError] = useState<string | null>(null);
+
+  // Subscribe to optimistic updates from other hooks (e.g. useMinifigStatus)
+  useEffect(() => {
+    const listener: MinifigsListener = next => {
+      setMinifigs(next);
+    };
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) {

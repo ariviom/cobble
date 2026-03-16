@@ -1,14 +1,13 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { blGetPartSupersets, type BLSupersetItem } from '@/app/lib/bricklink';
+import {
+  BL_RATE_LIMIT_IP_STRICT,
+  BL_RATE_WINDOW_MS,
+} from '@/app/lib/bricklink/rateLimitConfig';
 import { getSetSummary, type PartInSet } from '@/app/lib/rebrickable';
 import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
-
-const RATE_WINDOW_MS =
-  Number.parseInt(process.env.BL_RATE_WINDOW_MS ?? '', 10) || 60_000;
-const RATE_LIMIT_PER_MINUTE =
-  Number.parseInt(process.env.BL_RATE_LIMIT_PER_MINUTE ?? '', 10) || 30;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -22,8 +21,8 @@ export async function GET(req: NextRequest) {
   }
   const clientIp = (await getClientIp(req)) ?? 'unknown';
   const ipLimit = await consumeRateLimit(`bl-supersets:ip:${clientIp}`, {
-    windowMs: RATE_WINDOW_MS,
-    maxHits: RATE_LIMIT_PER_MINUTE,
+    windowMs: BL_RATE_WINDOW_MS,
+    maxHits: BL_RATE_LIMIT_IP_STRICT,
   });
   if (!ipLimit.allowed) {
     incrementCounter('identify_supersets_rate_limited');

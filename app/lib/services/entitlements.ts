@@ -133,8 +133,8 @@ export async function getEntitlements(
 
   const tier: Entitlements['tier'] = base.tier;
 
-  // Use service role client for reading feature flags and overrides
-  // because these tables have restrictive RLS policies
+  // feature_flags and entitlement_overrides have restrictive RLS —
+  // always use the service role client regardless of what the caller passed.
   const serviceClient = getSupabaseServiceRoleClient();
   const flags = await loadFlags(serviceClient);
   const overrides = await loadOverrides(serviceClient, userId);

@@ -124,14 +124,7 @@ export function Inventory() {
       maxPrice: priceInfo?.maxPrice ?? null,
       currency: priceInfo?.currency ?? null,
     };
-  }, [
-    selectedItemKey,
-    keys,
-    rows,
-    pricesByKey,
-    pendingPriceKeys,
-    requestPricesForKeys,
-  ]);
+  }, [selectedItemKey, keys, rows, pricesByKey, pendingPriceKeys]);
 
   // Inline rendering helper — renders items directly in JSX.
   // InventoryItem's memo comparator prevents DOM updates for unchanged items.

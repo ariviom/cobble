@@ -88,7 +88,7 @@ export function useSearchPartyChannel(
 
   const pendingSnapshotBroadcastRef = useRef(false);
   const hydratedSets = useOwnedStore(state => state._hydratedSets);
-  const isSetHydrated = hydratedSets.has(setNumber);
+  const isSetHydrated = setNumber in hydratedSets;
 
   // -------------------------------------------------------------------------
   // Joiner owned state (seeded from localStorage for refresh resilience)

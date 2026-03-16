@@ -42,10 +42,8 @@ async function resolveBlMinifigIdImpl(
   const existing = await findRbMinifig(blMinifigId);
   if (existing) return existing.fig_num;
 
-  const supabase = getCatalogReadClient();
-
   // Tier 1: Cross-reference via bl_set_minifigs (no API call)
-  const tier1Result = await matchViaSetMinifigs(supabase, blMinifigId);
+  const tier1Result = await matchViaSetMinifigs(blMinifigId);
   if (tier1Result) {
     await persistMapping(blMinifigId, tier1Result);
     return tier1Result;
@@ -56,7 +54,8 @@ async function resolveBlMinifigIdImpl(
     const supersets = await blGetMinifigSupersets(blMinifigId);
     if (supersets.length > 0) {
       const setNums = supersets.map(s => s.setNumber);
-      const tier2Result = await matchViaRbInventories(supabase, setNums);
+      const reader = getCatalogReadClient();
+      const tier2Result = await matchViaRbInventories(reader, setNums);
       if (tier2Result) {
         await persistMapping(blMinifigId, tier2Result);
         return tier2Result;
@@ -77,7 +76,6 @@ async function resolveBlMinifigIdImpl(
  * then cross-reference with rb_inventory_minifigs to find candidate fig_nums.
  */
 async function matchViaSetMinifigs(
-  supabase: ReturnType<typeof getCatalogReadClient>,
   blMinifigId: string
 ): Promise<string | null> {
   const writer = getCatalogWriteClient();
@@ -90,7 +88,7 @@ async function matchViaSetMinifigs(
   if (!blSets?.length) return null;
 
   const setNums = blSets.map(s => s.set_num);
-  return matchViaRbInventories(supabase, setNums);
+  return matchViaRbInventories(writer, setNums);
 }
 
 /**

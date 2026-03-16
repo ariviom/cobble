@@ -43,6 +43,20 @@ export type UseSearchPartyLifecycleResult = {
 };
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function extractDisplayName(user: User): string {
+  return (
+    (user.user_metadata &&
+      ((user.user_metadata.full_name as string | undefined) ||
+        (user.user_metadata.name as string | undefined))) ||
+    user.email ||
+    'You'
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
@@ -68,6 +82,78 @@ export function useSearchPartyLifecycle({
   // Track isActive in a ref so handleSessionEnded can read it without re-creating
   const isActiveRef = useRef(isActive);
   isActiveRef.current = isActive;
+
+  /**
+   * Shared join flow: POST to join endpoint, register participant, update
+   * tab state, and persist the group session. Called by both
+   * handleStartSearchTogether and handleContinueSession after their
+   * respective pre-steps (create session / reactivate).
+   */
+  const joinAndRegister = useCallback(
+    async (
+      session: { id: string; slug: string },
+      colorSlot?: number
+    ): Promise<void> => {
+      const displayName = extractDisplayName(user!);
+
+      const joinRes = await fetch(
+        `/api/group-sessions/${encodeURIComponent(session.slug)}/join`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            displayName,
+            clientToken: clientId,
+            ...(colorSlot != null ? { colorSlot } : {}),
+          }),
+        }
+      );
+
+      const joinData = (await joinRes.json()) as {
+        participant?: {
+          id: string;
+          displayName: string;
+          piecesFound: number;
+          colorSlot?: number | null;
+        };
+      };
+
+      if (joinRes.ok && joinData.participant) {
+        const hostParticipant: GroupParticipant = {
+          id: joinData.participant.id,
+          displayName: joinData.participant.displayName,
+          piecesFound: joinData.participant.piecesFound ?? 0,
+          lastSeenAt: new Date().toISOString(),
+          colorSlot: joinData.participant.colorSlot ?? null,
+        };
+
+        setParticipants([hostParticipant]);
+
+        openTab({
+          ...tab,
+          groupSessionId: session.id,
+          groupSessionSlug: session.slug,
+          groupParticipantId: joinData.participant.id,
+          groupRole: 'host',
+        });
+
+        storeGroupSession({
+          sessionId: session.id,
+          slug: session.slug,
+          setNumber: tab.setNumber,
+          setName: tab.name,
+          imageUrl: tab.imageUrl,
+          numParts: tab.numParts,
+          year: tab.year,
+          themeId: tab.themeId ?? null,
+          participantId: joinData.participant.id,
+          role: 'host',
+          joinedAt: Date.now(),
+        });
+      }
+    },
+    [user, clientId, tab, setParticipants, openTab]
+  );
 
   const handleSessionEnded = useCallback(() => {
     const slug = tab.groupSessionSlug;
@@ -135,68 +221,7 @@ export function useSearchPartyLifecycle({
           return;
         }
 
-        const displayName =
-          (user.user_metadata &&
-            ((user.user_metadata.full_name as string | undefined) ||
-              (user.user_metadata.name as string | undefined))) ||
-          user.email ||
-          'You';
-
-        const joinRes = await fetch(
-          `/api/group-sessions/${encodeURIComponent(data.session.slug)}/join`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              displayName,
-              clientToken: clientId,
-              ...(colorSlot != null ? { colorSlot } : {}),
-            }),
-          }
-        );
-
-        const joinData = (await joinRes.json()) as {
-          participant?: {
-            id: string;
-            displayName: string;
-            piecesFound: number;
-            colorSlot?: number | null;
-          };
-        };
-
-        if (joinRes.ok && joinData.participant) {
-          const hostParticipant: GroupParticipant = {
-            id: joinData.participant.id,
-            displayName: joinData.participant.displayName,
-            piecesFound: joinData.participant.piecesFound ?? 0,
-            lastSeenAt: new Date().toISOString(),
-            colorSlot: joinData.participant.colorSlot ?? null,
-          };
-
-          setParticipants([hostParticipant]);
-
-          openTab({
-            ...tab,
-            groupSessionId: data.session.id,
-            groupSessionSlug: data.session.slug,
-            groupParticipantId: joinData.participant.id,
-            groupRole: 'host',
-          });
-
-          storeGroupSession({
-            sessionId: data.session.id,
-            slug: data.session.slug,
-            setNumber: tab.setNumber,
-            setName: tab.name,
-            imageUrl: tab.imageUrl,
-            numParts: tab.numParts,
-            year: tab.year,
-            themeId: tab.themeId ?? null,
-            participantId: joinData.participant.id,
-            role: 'host',
-            joinedAt: Date.now(),
-          });
-        }
+        await joinAndRegister(data.session, colorSlot);
       } catch (err) {
         logger.warn('[SearchParty] Failed to start session', {
           error: err instanceof Error ? err.message : String(err),
@@ -206,7 +231,7 @@ export function useSearchPartyLifecycle({
         setIsSearchTogetherLoading(false);
       }
     },
-    [user, clientId, isSearchTogetherLoading, tab, setParticipants, openTab]
+    [user, clientId, isSearchTogetherLoading, tab, joinAndRegister]
   );
 
   const handleEndSearchTogether = useCallback(async () => {
@@ -273,75 +298,14 @@ export function useSearchPartyLifecycle({
           return;
         }
 
-        const displayName =
-          (user.user_metadata &&
-            ((user.user_metadata.full_name as string | undefined) ||
-              (user.user_metadata.name as string | undefined))) ||
-          user.email ||
-          'You';
-
-        const joinRes = await fetch(
-          `/api/group-sessions/${encodeURIComponent(reactivateData.session.slug)}/join`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              displayName,
-              clientToken: clientId,
-              ...(colorSlot != null ? { colorSlot } : {}),
-            }),
-          }
-        );
-
-        const joinData = (await joinRes.json()) as {
-          participant?: {
-            id: string;
-            displayName: string;
-            piecesFound: number;
-            colorSlot?: number | null;
-          };
-        };
-
-        if (joinRes.ok && joinData.participant) {
-          const hostParticipant: GroupParticipant = {
-            id: joinData.participant.id,
-            displayName: joinData.participant.displayName,
-            piecesFound: joinData.participant.piecesFound ?? 0,
-            lastSeenAt: new Date().toISOString(),
-            colorSlot: joinData.participant.colorSlot ?? null,
-          };
-
-          setParticipants([hostParticipant]);
-
-          openTab({
-            ...tab,
-            groupSessionId: reactivateData.session.id,
-            groupSessionSlug: reactivateData.session.slug,
-            groupParticipantId: joinData.participant.id,
-            groupRole: 'host',
-          });
-
-          storeGroupSession({
-            sessionId: reactivateData.session.id,
-            slug: reactivateData.session.slug,
-            setNumber: tab.setNumber,
-            setName: tab.name,
-            imageUrl: tab.imageUrl,
-            numParts: tab.numParts,
-            year: tab.year,
-            themeId: tab.themeId ?? null,
-            participantId: joinData.participant.id,
-            role: 'host',
-            joinedAt: Date.now(),
-          });
-        }
+        await joinAndRegister(reactivateData.session, colorSlot);
       } catch {
         setSearchPartyError('Failed to continue session. Please try again.');
       } finally {
         setIsSearchTogetherLoading(false);
       }
     },
-    [user, clientId, isSearchTogetherLoading, tab, setParticipants, openTab]
+    [user, clientId, isSearchTogetherLoading, joinAndRegister]
   );
 
   const handleRemoveParticipant = useCallback(

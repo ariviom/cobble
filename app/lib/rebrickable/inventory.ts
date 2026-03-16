@@ -14,6 +14,7 @@ import {
   extractBricklinkPartId,
   mapCategoryNameToParent,
 } from '@/app/lib/rebrickable/utils';
+import { logger } from '@/lib/metrics';
 
 export async function getSetInventory(
   setNumber: string
@@ -203,7 +204,7 @@ export async function getSetInventory(
           }
         }
       } catch (err) {
-        console.error('Failed to fetch minifig parts', {
+        logger.warn('inventory.minifig_parts_fetch_failed', {
           figNum,
           error: err instanceof Error ? err.message : String(err),
         });

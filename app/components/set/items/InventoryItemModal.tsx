@@ -2,6 +2,10 @@
 
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { Modal } from '@/app/components/ui/Modal';
+import {
+  ModalExternalLinkPlaceholder,
+  ModalExternalLinks,
+} from '@/app/components/ui/ModalExternalLinks';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import { formatCurrency } from '@/app/lib/utils/formatCurrency';
@@ -173,6 +177,10 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
         validatedPartId
       )}${linkHash}`;
 
+  const rebrickableUrl = isFigId
+    ? `https://rebrickable.com/minifigs/${encodeURIComponent(row.identity?.rbFigNum ?? rebrickableFigId ?? row.partId.replace(/^fig:/, ''))}/`
+    : `https://rebrickable.com/parts/${encodeURIComponent(row.partId)}/${row.colorId != null ? `${row.colorId}/` : ''}`;
+
   const identifyPart = isMinifig
     ? bricklinkFigId
       ? `fig:${bricklinkFigId}`
@@ -292,35 +300,37 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
         )}
 
         {/* External links */}
-        <div className="flex gap-px border-t-2 border-subtle bg-subtle">
-          {blLinkUnavailable ? (
-            <div className="flex flex-1 items-center justify-center bg-card px-3 py-4 text-sm text-foreground-muted italic">
-              Not on BrickLink
-            </div>
-          ) : (
-            <a
-              href={bricklinkUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
-            >
-              BrickLink
-              <ExternalLink className="size-3.5" />
-            </a>
-          )}
-          <a
-            href={
-              isFigId
-                ? `https://rebrickable.com/minifigs/${encodeURIComponent(row.identity?.rbFigNum ?? rebrickableFigId ?? row.partId.replace(/^fig:/, ''))}/`
-                : `https://rebrickable.com/parts/${encodeURIComponent(row.partId)}/${row.colorId != null ? `${row.colorId}/` : ''}`
-            }
-            target="_blank"
-            rel="noreferrer noopener"
-            className="flex flex-1 items-center justify-center gap-1.5 bg-card px-3 py-4 text-sm font-medium text-foreground-muted transition-colors hover:bg-card-muted hover:text-theme-text"
-          >
-            Rebrickable
-            <ExternalLink className="size-3.5" />
-          </a>
+        <ModalExternalLinks
+          links={
+            blLinkUnavailable
+              ? [
+                  {
+                    href: rebrickableUrl,
+                    label: 'Rebrickable',
+                    icon: <ExternalLink className="size-3.5" />,
+                  },
+                ]
+              : [
+                  {
+                    href: bricklinkUrl,
+                    label: 'BrickLink',
+                    icon: <ExternalLink className="size-3.5" />,
+                  },
+                  {
+                    href: rebrickableUrl,
+                    label: 'Rebrickable',
+                    icon: <ExternalLink className="size-3.5" />,
+                  },
+                ]
+          }
+          before={
+            blLinkUnavailable ? (
+              <ModalExternalLinkPlaceholder>
+                Not on BrickLink
+              </ModalExternalLinkPlaceholder>
+            ) : undefined
+          }
+        >
           {isMinifig && effectiveMinifigId && (
             <Link
               href={`/minifigs/${encodeURIComponent(effectiveMinifigId)}`}
@@ -339,7 +349,7 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
               Part details →
             </Link>
           )}
-        </div>
+        </ModalExternalLinks>
       </div>
     </Modal>
   );

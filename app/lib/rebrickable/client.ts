@@ -98,23 +98,17 @@ function createTimeoutSignal(timeoutMs: number): {
 }
 
 /**
- * Fetch from Rebrickable API with retry/backoff support and circuit breaker.
+ * Core fetch logic with retry/backoff and circuit breaker.
+ * Both `rbFetch` and `rbFetchAbsolute` delegate to this.
  */
-export async function rbFetch<T>(
-  path: string,
-  searchParams?: Record<string, string | number>
+async function rbFetchCore<T>(
+  url: URL | string,
+  options?: { label?: string }
 ): Promise<T> {
-  // Check circuit breaker before attempting request
   assertBreakerClosed();
 
   const apiKey = getApiKey();
-  const url = new URL(`${BASE}${path}`);
-  if (searchParams) {
-    for (const [k, v] of Object.entries(searchParams)) {
-      url.searchParams.set(k, String(v));
-    }
-  }
-
+  const label = options?.label ?? String(url);
   let lastError: Error | null = null;
 
   for (let attempt = 1; attempt <= RB_MAX_ATTEMPTS; attempt += 1) {
@@ -168,13 +162,12 @@ export async function rbFetch<T>(
         }
 
         if (!delayMs) {
-          // Fallback: small exponential backoff capped at 5s.
           delayMs = Math.min(500 * attempt, 5000);
         }
 
         if (process.env.NODE_ENV !== 'production') {
           logger.debug('rebrickable.throttled', {
-            path,
+            url: label,
             attempt,
             status,
             delayMs,
@@ -190,7 +183,7 @@ export async function rbFetch<T>(
         const delayMs = Math.min(300 * attempt, 2000);
         if (process.env.NODE_ENV !== 'production') {
           logger.debug('rebrickable.upstream_error', {
-            path,
+            url: label,
             attempt,
             status,
           });
@@ -199,17 +192,15 @@ export async function rbFetch<T>(
         continue;
       }
 
-      // cleanup() already called after fetch completed
       recordFailure();
-      const err = new Error(
+      lastError = new Error(
         `Rebrickable error ${status}${bodySnippet ? `: ${bodySnippet}` : ''}`
       );
-      lastError = err;
       break;
     } catch (err) {
       cleanup();
       recordFailure();
-      // Check if this is a timeout/abort error
+
       const isAbort =
         err instanceof Error &&
         (err.name === 'AbortError' || err.message.includes('timed out'));
@@ -236,125 +227,24 @@ export async function rbFetch<T>(
 }
 
 /**
+ * Fetch from Rebrickable API with retry/backoff support and circuit breaker.
+ */
+export async function rbFetch<T>(
+  path: string,
+  searchParams?: Record<string, string | number>
+): Promise<T> {
+  const url = new URL(`${BASE}${path}`);
+  if (searchParams) {
+    for (const [k, v] of Object.entries(searchParams)) {
+      url.searchParams.set(k, String(v));
+    }
+  }
+  return rbFetchCore<T>(url, { label: path });
+}
+
+/**
  * Fetch from an absolute URL (for pagination links) with retry/backoff support and circuit breaker.
  */
 export async function rbFetchAbsolute<T>(absoluteUrl: string): Promise<T> {
-  // Check circuit breaker before attempting request
-  assertBreakerClosed();
-
-  const apiKey = getApiKey();
-  let lastError: Error | null = null;
-
-  for (let attempt = 1; attempt <= RB_MAX_ATTEMPTS; attempt += 1) {
-    const { signal, cleanup } = createTimeoutSignal(RB_REQUEST_TIMEOUT_MS);
-    try {
-      const res = await fetch(absoluteUrl, {
-        headers: { Authorization: `key ${apiKey}` },
-        next: { revalidate: 60 * 60 },
-        signal,
-      });
-      cleanup();
-
-      if (res.ok) {
-        recordSuccess();
-        return (await res.json()) as T;
-      }
-
-      const status = res.status;
-      let bodySnippet = '';
-      try {
-        const text = await res.text();
-        bodySnippet = text.slice(0, 200);
-      } catch {
-        // ignore body read errors
-      }
-
-      if (status === 429 || status === 503) {
-        let delayMs = 0;
-        const retryAfter = res.headers.get('Retry-After');
-        if (retryAfter) {
-          const asNumber = Number(retryAfter);
-          if (Number.isFinite(asNumber) && asNumber > 0) {
-            delayMs = Math.min(asNumber * 1000, RB_MAX_RETRY_DELAY_MS);
-          }
-        }
-
-        if (!delayMs && bodySnippet) {
-          const match = bodySnippet.match(
-            /Expected available in\s+(\d+)\s+seconds?/i
-          );
-          if (match) {
-            const seconds = Number(match[1]);
-            if (Number.isFinite(seconds) && seconds > 0) {
-              delayMs = Math.min(seconds * 1000, RB_MAX_RETRY_DELAY_MS);
-            }
-          }
-        }
-
-        if (!delayMs) {
-          delayMs = Math.min(500 * attempt, 5000);
-        }
-
-        if (process.env.NODE_ENV !== 'production') {
-          logger.debug('rebrickable.throttled_absolute', {
-            url: absoluteUrl,
-            attempt,
-            status,
-            delayMs,
-          });
-        }
-
-        if (attempt < RB_MAX_ATTEMPTS) {
-          await sleep(delayMs);
-          continue;
-        }
-      } else if (status >= 500 && status <= 599 && attempt < RB_MAX_ATTEMPTS) {
-        const delayMs = Math.min(300 * attempt, 2000);
-        if (process.env.NODE_ENV !== 'production') {
-          logger.debug('rebrickable.upstream_error_absolute', {
-            url: absoluteUrl,
-            attempt,
-            status,
-          });
-        }
-        await sleep(delayMs);
-        continue;
-      }
-
-      // cleanup() already called after fetch completed
-      recordFailure();
-      const err = new Error(
-        `Rebrickable error ${status}${
-          bodySnippet ? `: ${bodySnippet}` : ''
-        } (absolute)`
-      );
-      lastError = err;
-      break;
-    } catch (err) {
-      cleanup();
-      recordFailure();
-      // Check if this is a timeout/abort error
-      const isAbort =
-        err instanceof Error &&
-        (err.name === 'AbortError' || err.message.includes('timed out'));
-
-      lastError =
-        err instanceof Error
-          ? err
-          : new Error(`Rebrickable absolute fetch failed: ${String(err)}`);
-
-      // Don't retry timeout errors - they indicate slow upstream
-      if (isAbort) {
-        break;
-      }
-
-      if (attempt < RB_MAX_ATTEMPTS) {
-        const delayMs = Math.min(300 * attempt, 2000);
-        await sleep(delayMs);
-        continue;
-      }
-    }
-  }
-
-  throw lastError ?? new Error('Rebrickable error: absolute request failed');
+  return rbFetchCore<T>(absoluteUrl, { label: absoluteUrl });
 }

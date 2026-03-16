@@ -1,15 +1,19 @@
 'use client';
 
-import { CollectionsModalContent } from '@/app/components/collections/CollectionsModalContent';
-import { Modal } from '@/app/components/ui/Modal';
+import { CollectionsModals } from '@/app/components/shared/CollectionsModals';
 import { StatusToggleButton } from '@/app/components/ui/StatusToggleButton';
 import { Toast } from '@/app/components/ui/Toast';
-import { UpgradeModal } from '@/app/components/upgrade-modal';
 import { cn } from '@/app/components/ui/utils';
 import type { MinifigOwnershipState } from '@/app/hooks/useMinifigOwnershipState';
+import { useOwnershipToast } from '@/app/hooks/useOwnershipToast';
 import { Check, List } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+
+const MINIFIG_TOAST_MESSAGES = {
+  owned: 'Marked as owned!',
+  removed: 'Removed from owned',
+} as const;
 
 type MinifigOwnershipAndCollectionsRowProps = {
   ownership: MinifigOwnershipState;
@@ -40,34 +44,15 @@ export function MinifigOwnershipAndCollectionsRow({
   } = ownership;
 
   const [showCollections, setShowCollections] = useState(false);
-  const [mobileToast, setMobileToast] = useState<{
-    message: string;
-    variant: 'success' | 'error';
-  } | null>(null);
   const controlsDisabled = !isAuthenticated || isAuthenticating;
   const showAuthHint = !isAuthenticating && !isAuthenticated;
 
-  // Auto-hide mobile toast after 2 seconds
-  useEffect(() => {
-    if (!mobileToast) return;
-    const timer = setTimeout(() => setMobileToast(null), 2000);
-    return () => clearTimeout(timer);
-  }, [mobileToast]);
+  const { mobileToast, clearMobileToast, handleToggleOwned } =
+    useOwnershipToast(status.owned, toggleOwned, MINIFIG_TOAST_MESSAGES);
 
-  const handleToggleOwned = () => {
+  const wrappedToggleOwned = () => {
     if (!isAuthenticated) return;
-    const willBeOwned = !status.owned;
-    toggleOwned();
-
-    // Show toast on mobile (when label is hidden)
-    const isMobile = window.matchMedia('(max-width: 639px)').matches;
-    if (isMobile) {
-      setMobileToast(
-        willBeOwned
-          ? { message: 'Marked as owned!', variant: 'success' }
-          : { message: 'Removed from owned', variant: 'error' }
-      );
-    }
+    handleToggleOwned();
   };
 
   const handleOpenCollections = () => {
@@ -111,7 +96,7 @@ export function MinifigOwnershipAndCollectionsRow({
               ? 'Sign in to mark minifigures as owned'
               : undefined
           }
-          onClick={handleToggleOwned}
+          onClick={wrappedToggleOwned}
           variant={variant === 'dropdown' ? 'dropdown' : variant}
           color="green"
           compact
@@ -140,36 +125,29 @@ export function MinifigOwnershipAndCollectionsRow({
           Sign in to track ownership and collections.
         </div>
       )}
-      <Modal
-        open={showCollections}
-        title="Collections"
+      <CollectionsModals
+        isOpen={showCollections}
         onClose={() => setShowCollections(false)}
-      >
-        <CollectionsModalContent
-          lists={lists}
-          selectedListIds={selectedListIds}
-          isLoading={listsLoading}
-          error={listsError}
-          onToggle={toggleList}
-          onCreate={createList}
-          onRename={renameList}
-          onDelete={deleteList}
-        />
-      </Modal>
+        lists={lists}
+        selectedListIds={selectedListIds}
+        listsLoading={listsLoading}
+        listsError={listsError}
+        toggleList={toggleList}
+        createList={createList}
+        renameList={renameList}
+        deleteList={deleteList}
+        showListUpgradeModal={showListUpgradeModal}
+        dismissListUpgradeModal={dismissListUpgradeModal}
+      />
       {mobileToast &&
         createPortal(
           <Toast
             description={mobileToast.message}
             variant={mobileToast.variant}
-            onClose={() => setMobileToast(null)}
+            onClose={clearMobileToast}
           />,
           document.body
         )}
-      <UpgradeModal
-        open={showListUpgradeModal}
-        feature="lists.unlimited"
-        onClose={dismissListUpgradeModal}
-      />
     </>
   );
 }

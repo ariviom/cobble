@@ -42,7 +42,7 @@ describe('prices bricklink rate limiting', () => {
       },
     });
 
-    const res = await PricesPost(req);
+    const res = await PricesPost(req, { params: Promise.resolve({}) });
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('9');
     const json = await res.json();
@@ -63,7 +63,7 @@ describe('prices bricklink rate limiting', () => {
       }
     );
 
-    const res = await PricesSetPost(req);
+    const res = await PricesSetPost(req, { params: Promise.resolve({}) });
     expect(res.status).toBe(429);
     expect(res.headers.get('Retry-After')).toBe('9');
     const json = await res.json();
