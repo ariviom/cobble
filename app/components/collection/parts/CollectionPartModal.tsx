@@ -244,7 +244,6 @@ export function CollectionPartModal({
     colorImageUrl ?? currentColor?.imageUrl ?? part.imageUrl;
 
   const ownedFromSets = ownedFromSetsForColor;
-  const totalOwned = ownedFromSets + looseQty;
 
   const bricklinkUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(part.partNum)}#T=S`;
   const rebrickableUrl = `https://rebrickable.com/parts/${encodeURIComponent(part.partNum)}/${selectedColorId}/`;
@@ -407,15 +406,6 @@ export function CollectionPartModal({
             onChange={handleLooseChange}
           />
         </div>
-
-        {/* Total */}
-        {(ownedFromSets > 0 || looseQty > 0) && (
-          <div className="border-t-2 border-subtle px-4 py-2.5">
-            <p className="text-sm font-medium text-foreground">
-              Total: {totalOwned}
-            </p>
-          </div>
-        )}
 
         {/* External links */}
         <div className="flex gap-px border-t-2 border-subtle bg-subtle">
