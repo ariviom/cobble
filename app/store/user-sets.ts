@@ -1,6 +1,7 @@
 'use client';
 
 import { readStorage, writeStorage } from '@/app/lib/persistence/storage';
+import { useOnboardingStore } from '@/app/store/onboarding';
 import { create } from 'zustand';
 
 export type SetStatus = {
@@ -283,6 +284,9 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
         sets: nextSets,
       };
       persistState(nextState);
+      if (owned) {
+        useOnboardingStore.getState().complete('add_set');
+      }
       return nextState;
     });
   },

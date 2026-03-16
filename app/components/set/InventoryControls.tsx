@@ -2,6 +2,7 @@
 
 import { DropdownPortalProvider } from '@/app/components/ui/GroupedDropdown';
 import { useControlBarDropdown } from '@/app/hooks/useControlBarDropdown';
+import { useOnboardingStore } from '@/app/store/onboarding';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TopBarControls } from './controls/TopBarControls';
 import {
@@ -58,6 +59,16 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
       if (containerRef) containerRef.current = el;
     },
     [containerRef]
+  );
+
+  const handleGroupByChange = useCallback(
+    (g: 'none' | 'color' | 'size' | 'category' | 'rarity') => {
+      setGroupBy(g);
+      if (g !== 'none') {
+        useOnboardingStore.getState().complete('mark_piece_group_category');
+      }
+    },
+    [setGroupBy]
   );
 
   const [isParentOpen, setIsParentOpen] = useState(false);
@@ -119,7 +130,9 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
       else if (groupId === 'order') {
         if (key !== sortDir) setSortDir(key === 'asc' ? 'asc' : 'desc');
       } else if (groupId === 'groupBy')
-        setGroupBy(key as 'none' | 'color' | 'size' | 'category' | 'rarity');
+        handleGroupByChange(
+          key as 'none' | 'color' | 'size' | 'category' | 'rarity'
+        );
     } else if (dropdownId === 'view') {
       if (groupId === 'viewMode') {
         setView(key as 'list' | 'grid');
@@ -139,6 +152,7 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
         ? filter.colors.filter(c => c !== color)
         : [...filter.colors, color],
     });
+    useOnboardingStore.getState().complete('mark_piece_filter_color');
   };
 
   return (
@@ -165,7 +179,7 @@ export function InventoryControls({ isLoading }: InventoryControlsProps) {
               setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
             }
             groupBy={groupBy}
-            onChangeGroupBy={setGroupBy}
+            onChangeGroupBy={handleGroupByChange}
             displayKey={filter.display}
             onChangeDisplay={(next: 'all' | 'missing' | 'owned') =>
               handleDropdownChange('display', 'display', next)

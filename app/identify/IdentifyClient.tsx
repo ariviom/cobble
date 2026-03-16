@@ -28,6 +28,7 @@ import { Input } from '@/app/components/ui/Input';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
 import { ThemedPageHeader } from '@/app/components/ui/ThemedPageHeader';
 import { UpgradeModal } from '@/app/components/upgrade-modal';
+import { useOnboardingStore } from '@/app/store/onboarding';
 import {
   addRecentIdentify,
   type IdentifySource,
@@ -263,6 +264,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
         setsFound: setsCount,
         source,
       });
+      useOnboardingStore.getState().complete('identify_part');
     },
     []
   );

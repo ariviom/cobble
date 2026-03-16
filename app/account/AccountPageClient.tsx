@@ -10,6 +10,8 @@ import {
   TabsTrigger,
 } from '@/app/components/ui/Tabs';
 import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
+import { useOnboardingStore } from '@/app/store/onboarding';
+import { useEffect } from 'react';
 import type { Tables } from '@/supabase/types';
 import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
@@ -48,6 +50,10 @@ export default function AccountPageClient({
   initialSubscription,
 }: AccountPageClientProps) {
   useHydrateUserSets();
+
+  useEffect(() => {
+    useOnboardingStore.getState().complete('review_settings');
+  }, []);
 
   const {
     user,

@@ -7,6 +7,7 @@ import {
   clearStoredGroupSession,
 } from '@/app/store/group-sessions';
 import { isSpTabId, type SetTab } from '@/app/store/open-tabs';
+import { useOnboardingStore } from '@/app/store/onboarding';
 import { logger } from '@/lib/metrics';
 import type { User } from '@supabase/supabase-js';
 
@@ -222,6 +223,7 @@ export function useSearchPartyLifecycle({
         }
 
         await joinAndRegister(data.session, colorSlot);
+        useOnboardingStore.getState().complete('start_search_party');
       } catch (err) {
         logger.warn('[SearchParty] Failed to start session', {
           error: err instanceof Error ? err.message : String(err),

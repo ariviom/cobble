@@ -5,6 +5,7 @@ import {
   isIndexedDBAvailable,
   setOwnedForSet,
 } from '@/app/lib/localDb';
+import { useOnboardingStore } from '@/app/store/onboarding';
 import { create } from 'zustand';
 
 export type OwnedState = {
@@ -328,6 +329,9 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
           })()
         : { ...state, [key]: nextQty };
     write(setNumber, updated);
+    if (nextQty > 0) {
+      useOnboardingStore.getState().complete('mark_piece_select');
+    }
     // Increment version to trigger re-renders for components subscribed to _version
     set(state => ({ ...state, _version: (state._version ?? 0) + 1 }));
   },

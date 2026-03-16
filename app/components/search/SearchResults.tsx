@@ -22,7 +22,8 @@ import { pickDefaultColor } from '@/app/components/collection/parts/colorGroups'
 import type { PartSearchPage, PartSearchResult } from '@/app/types/search';
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useOnboardingStore } from '@/app/store/onboarding';
 import {
   MinifigSearchControlBar,
   PartSearchControlBar,
@@ -314,6 +315,15 @@ export function SearchResults() {
     hasNextPage: hasNextSetPage,
     isFetchingNextPage: isFetchingNextSetPage,
   } = setQuery;
+
+  const searchTourFired = useRef(false);
+  useEffect(() => {
+    if (searchTourFired.current) return;
+    if (setData?.pages?.length && setData.pages[0].results.length > 0) {
+      searchTourFired.current = true;
+      useOnboardingStore.getState().complete('search_set');
+    }
+  }, [setData?.pages?.length]);
 
   const minifigQuery = useInfiniteQuery<
     MinifigSearchPage,
