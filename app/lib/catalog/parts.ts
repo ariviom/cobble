@@ -88,8 +88,8 @@ export async function getSetsContainingPart(partNum: string, colorId?: number) {
 // ---------------------------------------------------------------------------
 
 const DIMENSION_PATTERN = /(\d)\s*[xX]\s*(\d)/g;
-/** Matches a trailing dimension like "1 x 1" or "2 x 4 x 3" at end of string. */
-const TRAILING_DIMENSION = /\d+ x \d+( x \d+)*$/;
+/** Matches a dimension like "1 x 1" or "2 x 4 x 3". */
+const DIMENSION_RE = /\d+ x \d+( x \d+)*/;
 
 /** Normalize "1x2", "1X2", "1 x 2" → "1 x 2" for consistent ilike matching. */
 function normalizeDimensions(query: string): string {
@@ -97,18 +97,45 @@ function normalizeDimensions(query: string): string {
 }
 
 /**
- * Build ilike patterns for a name search that respects dimension boundaries.
- * "1 x 1" should NOT match "1 x 10". We achieve this by requiring the
- * dimension to be followed by end-of-string or a space (not another digit).
- * Returns an array of ilike patterns to OR together.
+ * Split a normalized query into search terms.
+ * Dimensions like "1 x 2" are kept as a single term.
+ * Other words are split by whitespace.
+ * Returns terms in the order they should be AND-matched against part names.
+ *
+ * "1 x 2 tile" → ["1 x 2", "tile"]
+ * "red brick 2 x 4" → ["red", "brick", "2 x 4"]
+ * "3001" → ["3001"]
  */
-function buildNamePatterns(normalized: string): string[] {
-  if (TRAILING_DIMENSION.test(normalized)) {
-    // Query ends with a dimension — use boundary-aware patterns:
-    // "%1 x 1" (at end of name) OR "%1 x 1 %" (followed by space, more text)
-    return [`%${normalized}`, `%${normalized} %`];
+function splitSearchTerms(normalized: string): string[] {
+  const terms: string[] = [];
+  let remaining = normalized;
+
+  // Extract dimension patterns first (they contain spaces we don't want to split on)
+  const dimMatch = remaining.match(DIMENSION_RE);
+  if (dimMatch) {
+    terms.push(dimMatch[0]);
+    remaining = remaining.replace(dimMatch[0], ' ').trim();
   }
-  return [`%${normalized}%`];
+
+  // Split remaining by whitespace
+  for (const word of remaining.split(/\s+/)) {
+    if (word) terms.push(word);
+  }
+
+  return terms;
+}
+
+/**
+ * Build a boundary-aware ilike pattern for a single term.
+ * Dimension terms get boundary matching to prevent "1 x 1" matching "1 x 10".
+ * Non-dimension terms use simple substring matching.
+ */
+function termToPattern(term: string): string[] {
+  if (DIMENSION_RE.test(term)) {
+    // Boundary-aware: match at end of name OR followed by space
+    return [`%${term}`, `%${term} %`];
+  }
+  return [`%${term}%`];
 }
 
 const MAX_QUERY_LENGTH = 200;
@@ -153,21 +180,36 @@ export async function searchPartsLocal(
   const { page, pageSize } = opts;
   const supabase = getCatalogReadClient();
 
-  // Fetch up to SEARCH_CAP results so we can sort by popularity before paginating
-  const namePatterns = buildNamePatterns(normalized);
-  const nameFilter = namePatterns.map(p => `name.ilike.${p}`).join(',');
+  // Split into terms for AND matching: "1x2 tile" → ["1 x 2", "tile"]
+  const terms = splitSearchTerms(normalized);
 
+  // Build name query: chain .ilike() for each term (AND logic).
+  // For dimension terms, use .or() with boundary patterns within that term.
+  function buildNameQuery() {
+    let query = supabase
+      .from('rb_parts')
+      .select('part_num, name, part_cat_id, image_url');
+
+    for (const term of terms) {
+      const patterns = termToPattern(term);
+      if (patterns.length === 1) {
+        query = query.ilike('name', patterns[0]!);
+      } else {
+        // Dimension term: OR the boundary patterns
+        query = query.or(patterns.map(p => `name.ilike.${p}`).join(','));
+      }
+    }
+    return query.range(0, SEARCH_CAP - 1);
+  }
+
+  // Fetch up to SEARCH_CAP results so we can sort by popularity before paginating
   const [byNum, byName] = await Promise.all([
     supabase
       .from('rb_parts')
       .select('part_num, name, part_cat_id, image_url')
       .ilike('part_num', `${normalized}%`)
       .range(0, SEARCH_CAP - 1),
-    supabase
-      .from('rb_parts')
-      .select('part_num, name, part_cat_id, image_url')
-      .or(nameFilter)
-      .range(0, SEARCH_CAP - 1),
+    buildNameQuery(),
   ]);
 
   // Merge and deduplicate by part_num, preferring part_num matches first

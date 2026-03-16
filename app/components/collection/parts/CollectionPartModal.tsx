@@ -18,6 +18,8 @@ import type { CollectionPart, CollectionPartSetSource } from './types';
 type BaseProps = {
   onClose: () => void;
   onLooseQuantityChange: () => void;
+  /** Whether to show the "Owned from sets" column (based on user syncFromSets setting). Defaults to true. */
+  showOwnedFromSets?: boolean;
 };
 
 type LegacyProps = BaseProps & {
@@ -136,6 +138,7 @@ export function CollectionPartModal({
   availableColors,
   onClose,
   onLooseQuantityChange,
+  showOwnedFromSets = true,
 }: Props) {
   const [selectedColorId, setSelectedColorId] = useState(part.colorId);
   const [looseQty, setLooseQty] = useState(0);
@@ -347,60 +350,49 @@ export function CollectionPartModal({
           </div>
         )}
 
-        {/* Quantity summary */}
-        <div className="border-t-2 border-subtle px-4 py-3">
-          <p className="text-sm font-medium text-foreground">
-            Total owned: {totalOwned}
-          </p>
-          {(ownedFromSets > 0 || looseQty > 0) && (
-            <p className="text-xs text-foreground-muted">
-              {ownedFromSets > 0 && `${ownedFromSets} from sets`}
-              {ownedFromSets > 0 && looseQty > 0 && ' + '}
-              {looseQty > 0 && `${looseQty} loose`}
-            </p>
+        {/* Owned / Loose side by side */}
+        <div className="flex gap-px border-t-2 border-subtle bg-subtle">
+          {showOwnedFromSets && (
+            <div className="flex-1 bg-card px-4 py-3">
+              <p className="mb-1 text-xs font-medium text-foreground-muted uppercase">
+                Owned
+              </p>
+              <p className="text-2xl font-bold tabular-nums">{ownedFromSets}</p>
+              {showSetBreakdown && (
+                <div className="mt-2 space-y-0.5">
+                  {setSourcesForColor.map(src => (
+                    <div
+                      key={src.setNumber}
+                      className="flex justify-between text-2xs text-foreground-muted"
+                    >
+                      <span>{src.setNumber}</span>
+                      <span className="tabular-nums">{src.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
+          <div className="flex-1 bg-card px-4 py-3">
+            <p className="mb-1 text-xs font-medium text-foreground-muted uppercase">
+              Loose
+            </p>
+            <LooseQuantityControl
+              key={selectedColorId}
+              value={looseQty}
+              onChange={handleLooseChange}
+            />
+          </div>
         </div>
 
-        {/* Per-set breakdown */}
-        {showSetBreakdown && (
-          <div className="border-t-2 border-subtle px-4 py-3">
-            <p className="mb-2 text-xs font-medium text-foreground-muted uppercase">
-              From sets
+        {/* Total */}
+        {(ownedFromSets > 0 || looseQty > 0) && (
+          <div className="border-t-2 border-subtle px-4 py-2.5">
+            <p className="text-sm font-medium text-foreground">
+              Total: {totalOwned}
             </p>
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-foreground-muted">
-                  <th className="pb-1 text-left font-medium">Set</th>
-                  <th className="pb-1 text-right font-medium">Owned</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-subtle">
-                {setSourcesForColor.map(src => (
-                  <tr key={src.setNumber}>
-                    <td className="py-1 text-foreground">
-                      <span className="font-medium">{src.setNumber}</span>
-                    </td>
-                    <td className="py-1 text-right text-foreground tabular-nums">
-                      {src.quantity}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         )}
-
-        {/* Loose quantity editor */}
-        <div className="border-t-2 border-subtle px-4 py-3">
-          <p className="mb-2 text-xs font-medium text-foreground-muted uppercase">
-            Loose quantity
-          </p>
-          <LooseQuantityControl
-            key={selectedColorId}
-            value={looseQty}
-            onChange={handleLooseChange}
-          />
-        </div>
 
         {/* External links */}
         <div className="flex gap-px border-t-2 border-subtle bg-subtle">
