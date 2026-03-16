@@ -1090,6 +1090,17 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
     [blColors, colors]
   );
 
+  // Update thumbnail when selected color changes
+  useEffect(() => {
+    if (selectedColorId == null || !colors) return;
+    const match = colors.find(c => c.id === selectedColorId);
+    if (match?.partImageUrl) {
+      setPart(prev =>
+        prev ? { ...prev, imageUrl: match.partImageUrl } : prev
+      );
+    }
+  }, [selectedColorId, colors]);
+
   useEffect(() => {
     if (!searchParams) return;
     if (hasBootstrappedFromQueryRef.current) return;
