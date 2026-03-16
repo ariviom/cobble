@@ -160,7 +160,8 @@ export function CollectionPartModal({
     onLooseQuantityChange();
   };
 
-  // Fetch per-color image on demand when color changes and no imageUrl is cached
+  // Fetch per-color image on demand when color changes and no imageUrl is cached.
+  // Keep the previous image visible until the new one is ready (no flash).
   const [colorImageUrl, setColorImageUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!availableColors) return;
@@ -169,16 +170,21 @@ export function CollectionPartModal({
       setColorImageUrl(color.imageUrl);
       return;
     }
-    // Fetch from API for this specific part+color
-    setColorImageUrl(null);
+    // Fetch from API — keep previous image visible until new one is ready
     let cancelled = false;
     fetch(
       `/api/search/parts/image?partNum=${encodeURIComponent(part.partNum)}&colorId=${selectedColorId}`
     )
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
-        if (!cancelled && data?.imageUrl) {
-          setColorImageUrl(data.imageUrl);
+        if (cancelled) return;
+        if (data?.imageUrl) {
+          // Preload the image before swapping to avoid flash
+          const img = new Image();
+          img.onload = () => {
+            if (!cancelled) setColorImageUrl(data.imageUrl);
+          };
+          img.src = data.imageUrl;
         }
       })
       .catch(() => {});
