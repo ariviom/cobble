@@ -33,7 +33,7 @@ export default async function PartDetailPage({ params }: Props) {
   ]);
 
   return (
-    <PageLayout noTopOffset>
+    <PageLayout>
       <PartDetailClient part={part} colors={colors} rarityData={rarityData} />
     </PageLayout>
   );
