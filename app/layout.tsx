@@ -214,8 +214,10 @@ export default async function RootLayout({
                 isAuthenticated={!!initialUser}
               >
                 <ReactQueryProvider>
-                  <ErrorBoundary>{children}</ErrorBoundary>
-                  <TourCard />
+                  <ErrorBoundary>
+                    {children}
+                    <TourCard />
+                  </ErrorBoundary>
                 </ReactQueryProvider>
               </ThemeProvider>
             </SyncProvider>

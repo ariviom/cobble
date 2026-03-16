@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useOnboarding } from '@/app/hooks/useOnboarding';
 import { useOnboardingSync } from '@/app/hooks/useOnboardingSync';
@@ -10,7 +11,11 @@ import { TourChecklist } from './TourChecklist';
 import { TourItemModal } from './TourItemModal';
 import type { TourItem } from './tourConfig';
 
+/** Routes where the tour card should never appear. */
+const HIDDEN_ROUTES = new Set(['/']);
+
 export function TourCard() {
+  const pathname = usePathname();
   const { user, isLoading } = useSupabaseUser();
   const {
     dismissed,
@@ -34,6 +39,9 @@ export function TourCard() {
 
   const [selectedItem, setSelectedItem] = useState<TourItem | null>(null);
   const [showDismissedNote, setShowDismissedNote] = useState(false);
+
+  // Don't render on hidden routes (e.g. marketing landing page)
+  if (HIDDEN_ROUTES.has(pathname)) return null;
 
   // Don't render during loading
   if (isLoading) return null;

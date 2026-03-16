@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import {
+  ALL_ITEM_IDS,
   PARENT_COMPLETION_MAP,
   TOP_LEVEL_IDS,
   type TourItemId,
@@ -142,10 +143,15 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   },
 
   mergeFromRemote: (remote: PersistedState) => {
-    const { completedSteps: local, _userId } = get();
+    const { completedSteps: local, dismissed: localDismissed, _userId } = get();
+    // Validate remote steps against known IDs
+    const validRemote = remote.completedSteps.filter(s =>
+      (ALL_ITEM_IDS as string[]).includes(s)
+    );
     // Union of local and remote completed steps
-    const merged = [...new Set([...local, ...remote.completedSteps])];
-    const dismissed = remote.dismissed;
+    const merged = [...new Set([...local, ...validRemote])];
+    // OR so a local dismiss isn't overwritten by a stale remote value
+    const dismissed = localDismissed || remote.dismissed;
     set({ completedSteps: merged, dismissed });
     writeStorage(
       { completedSteps: merged, dismissed, collapsed: get().collapsed },
