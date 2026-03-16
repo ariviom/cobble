@@ -8,8 +8,6 @@ import {
   bulkUpsertLooseParts,
   getLoosePart,
 } from '@/app/lib/localDb/loosePartsStore';
-import { getOwnedAcrossSets } from '@/app/lib/localDb/ownedStore';
-import { useUserSetsStore } from '@/app/store/user-sets';
 import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -148,39 +146,32 @@ export function CollectionPartModal({
     Array<{ setNumber: string; quantity: number }>
   >([]);
 
-  // Get the list of set numbers the user has marked as "owned".
-  // Select the stable sets object, then derive the list in useMemo to avoid
-  // creating a new array reference on every render (which causes infinite loops).
-  const userSets = useUserSetsStore(state => state.sets);
-  const ownedSetNumbers = useMemo(() => {
-    const nums: string[] = [];
-    for (const entry of Object.values(userSets)) {
-      if (entry.status.owned) nums.push(entry.setNumber);
-    }
-    return nums;
-  }, [userSets]);
-
   // Load loose quantity + owned-from-sets whenever the selected color changes.
-  // "Owned from sets" = sum of quantityRequired from cached set inventories
-  // for sets the user has marked as owned.
+  // Owned count comes from server (queries user_sets + rb_inventory_parts).
+  // Loose count comes from IndexedDB.
   useEffect(() => {
     let cancelled = false;
-    const inventoryKey = `${part.partNum}:${selectedColorId}`;
 
-    Promise.all([
-      getLoosePart(part.partNum, selectedColorId),
-      getOwnedAcrossSets(inventoryKey, ownedSetNumbers),
-    ]).then(([looseEntry, ownedData]) => {
-      if (cancelled) return;
-      setLooseQty(looseEntry?.quantity ?? 0);
-      setOwnedFromSetsForColor(ownedData.total);
-      setSetSourcesForColor(ownedData.sets);
-    });
+    const loosePromise = getLoosePart(part.partNum, selectedColorId);
+    const ownedPromise = fetch(
+      `/api/parts/owned?partNum=${encodeURIComponent(part.partNum)}&colorId=${selectedColorId}`
+    )
+      .then(res => (res.ok ? res.json() : { total: 0, sets: [] }))
+      .catch(() => ({ total: 0, sets: [] }));
+
+    Promise.all([loosePromise, ownedPromise]).then(
+      ([looseEntry, ownedData]) => {
+        if (cancelled) return;
+        setLooseQty(looseEntry?.quantity ?? 0);
+        setOwnedFromSetsForColor(ownedData.total);
+        setSetSourcesForColor(ownedData.sets);
+      }
+    );
 
     return () => {
       cancelled = true;
     };
-  }, [part.partNum, selectedColorId, ownedSetNumbers]);
+  }, [part.partNum, selectedColorId]);
 
   const handleLooseChange = async (next: number) => {
     setLooseQty(next);
