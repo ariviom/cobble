@@ -390,7 +390,11 @@ export function CollectionPartModal({
           <p className="mb-2 text-xs font-medium text-foreground-muted uppercase">
             Loose quantity
           </p>
-          <LooseQuantityControl value={looseQty} onChange={handleLooseChange} />
+          <LooseQuantityControl
+            key={selectedColorId}
+            value={looseQty}
+            onChange={handleLooseChange}
+          />
         </div>
 
         {/* External links */}

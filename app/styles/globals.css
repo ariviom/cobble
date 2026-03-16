@@ -1,6 +1,18 @@
 @import 'tailwindcss';
 @import './fonts.css';
 
+/* Restore pointer cursor on interactive elements (Tailwind v4 removed the v3 default) */
+button,
+[role='button'],
+a,
+select,
+summary,
+[type='button'],
+[type='submit'],
+[type='reset'] {
+  cursor: pointer;
+}
+
 @theme {
   --color-neutral-00: oklch(100% 0 0);
   --color-neutral-50: oklch(98.5% 0 0);
