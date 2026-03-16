@@ -12,6 +12,7 @@ import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
 import { Select } from '@/app/components/ui/Select';
 import { Switch } from '@/app/components/ui/Switch';
 import { getKeepAwake } from '@/app/hooks/useWakeLock';
+import { useOnboarding } from '@/app/hooks/useOnboarding';
 import { useOrigin } from '@/app/hooks/useOrigin';
 import { useTheme } from '@/app/hooks/useTheme';
 import {
@@ -75,6 +76,9 @@ export function DisplayTab({
   const [defaultInventoryView, setDefaultInventoryView] = useState<
     'list' | 'grid'
   >('list');
+
+  // Tour
+  const { dismissed: tourDismissed, reEnable: reEnableTour } = useOnboarding();
 
   // Wake lock (keep screen awake)
   const [supportsWakeLock, setSupportsWakeLock] = useState(false);
@@ -422,6 +426,28 @@ export function DisplayTab({
                   label={keepAwake ? 'On' : 'Off'}
                 />
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tour Section */}
+      {tourDismissed && (
+        <Card>
+          <CardHeader>
+            <CardTitle>App Tour</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between rounded-lg border border-subtle p-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">App Tour</p>
+                <p className="text-xs text-foreground-muted">
+                  Re-enable the guided tour of Brick Party
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={reEnableTour}>
+                Show tour
+              </Button>
             </div>
           </CardContent>
         </Card>
