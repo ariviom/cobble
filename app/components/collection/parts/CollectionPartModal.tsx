@@ -258,7 +258,7 @@ export function CollectionPartModal({
               Color
             </p>
             {/* Group toggles */}
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {colorGroups.map(g => {
                 const isExpanded = expandedGroup === g.key;
                 const hasSelected = g.colors.some(
@@ -270,25 +270,27 @@ export function CollectionPartModal({
                     type="button"
                     onClick={() => setExpandedGroup(isExpanded ? null : g.key)}
                     className={cn(
-                      'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-2xs font-medium transition-colors',
+                      'relative flex size-9 items-center justify-center overflow-hidden rounded-full border-2 transition-colors',
                       isExpanded
-                        ? 'border-theme-primary bg-theme-primary/10 text-foreground'
+                        ? 'border-theme-primary ring-2 ring-theme-primary/30'
                         : hasSelected
-                          ? 'border-strong bg-card-muted text-foreground'
-                          : 'border-subtle bg-card text-foreground-muted hover:border-strong'
+                          ? 'border-strong'
+                          : 'border-subtle hover:border-strong'
                     )}
+                    title={`${g.label} (${g.colors.length})`}
                   >
                     <span
-                      className={cn(
-                        'size-3.5 shrink-0 rounded-full border',
-                        g.swatch === 'FFFFFF'
-                          ? 'border-neutral-300'
-                          : 'border-black/10'
-                      )}
+                      className="absolute inset-0"
                       style={{ backgroundColor: `#${g.swatch}` }}
                     />
-                    {g.label}
-                    <span className="text-foreground-muted">
+                    <span
+                      className={cn(
+                        'relative text-2xs font-bold',
+                        g.swatch === 'FFFFFF' || g.swatch === 'F2CD37'
+                          ? 'text-neutral-500'
+                          : 'text-white'
+                      )}
+                    >
                       {g.colors.length}
                     </span>
                   </button>
@@ -297,39 +299,42 @@ export function CollectionPartModal({
             </div>
             {/* Expanded group colors */}
             {expandedGroup && (
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                {colorGroups
-                  .find(g => g.key === expandedGroup)
-                  ?.colors.map(c => (
-                    <button
-                      key={c.colorId}
-                      type="button"
-                      onClick={() => setSelectedColorId(c.colorId)}
-                      className={cn(
-                        'size-9 overflow-hidden rounded-full border-2 transition-colors',
-                        c.colorId === selectedColorId
-                          ? 'border-theme-primary ring-2 ring-theme-primary/30'
-                          : 'border-subtle hover:border-strong'
-                      )}
-                      title={c.colorName}
-                    >
-                      {c.imageUrl ? (
-                        <img
-                          src={c.imageUrl}
-                          alt={c.colorName}
-                          className="size-full object-cover"
-                        />
-                      ) : (
-                        <div
-                          className="size-full"
-                          style={{
-                            backgroundColor: c.rgb ? `#${c.rgb}` : '#ccc',
-                          }}
-                        />
-                      )}
-                    </button>
-                  ))}
-              </div>
+              <>
+                <div className="my-2.5 border-t border-subtle" />
+                <div className="flex flex-wrap gap-2">
+                  {colorGroups
+                    .find(g => g.key === expandedGroup)
+                    ?.colors.map(c => (
+                      <button
+                        key={c.colorId}
+                        type="button"
+                        onClick={() => setSelectedColorId(c.colorId)}
+                        className={cn(
+                          'size-9 overflow-hidden rounded-full border-2 transition-colors',
+                          c.colorId === selectedColorId
+                            ? 'border-theme-primary ring-2 ring-theme-primary/30'
+                            : 'border-subtle hover:border-strong'
+                        )}
+                        title={c.colorName}
+                      >
+                        {c.imageUrl ? (
+                          <img
+                            src={c.imageUrl}
+                            alt={c.colorName}
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <div
+                            className="size-full"
+                            style={{
+                              backgroundColor: c.rgb ? `#${c.rgb}` : '#ccc',
+                            }}
+                          />
+                        )}
+                      </button>
+                    ))}
+                </div>
+              </>
             )}
           </div>
         )}
