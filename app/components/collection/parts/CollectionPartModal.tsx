@@ -354,7 +354,7 @@ export function CollectionPartModal({
           </div>
         )}
 
-        {/* Owned / Loose side by side */}
+        {/* Owned / Loose summary side by side */}
         <div className="flex gap-px border-t-2 border-subtle bg-subtle">
           {showOwnedFromSets && (
             <div className="flex-1 bg-card px-4 py-3">
@@ -381,12 +381,20 @@ export function CollectionPartModal({
             <p className="mb-1 text-xs font-medium text-foreground-muted uppercase">
               Loose
             </p>
-            <LooseQuantityControl
-              key={selectedColorId}
-              value={looseQty}
-              onChange={handleLooseChange}
-            />
+            <p className="text-2xl font-bold tabular-nums">{looseQty}</p>
           </div>
+        </div>
+
+        {/* Loose quantity editor — full width */}
+        <div className="border-t-2 border-subtle px-4 py-3">
+          <p className="mb-2 text-xs font-medium text-foreground-muted uppercase">
+            Loose quantity
+          </p>
+          <LooseQuantityControl
+            key={selectedColorId}
+            value={looseQty}
+            onChange={handleLooseChange}
+          />
         </div>
 
         {/* Total */}
