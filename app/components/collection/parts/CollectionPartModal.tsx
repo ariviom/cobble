@@ -9,6 +9,7 @@ import {
   getLoosePart,
 } from '@/app/lib/localDb/loosePartsStore';
 import { getOwnedAcrossSets } from '@/app/lib/localDb/ownedStore';
+import { flushPendingWritesAsync } from '@/app/store/owned';
 import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -147,20 +148,23 @@ export function CollectionPartModal({
     Array<{ setNumber: string; quantity: number }>
   >([]);
 
-  // Load loose quantity + owned-from-sets whenever the selected color changes
+  // Load loose quantity + owned-from-sets whenever the selected color changes.
+  // Flush pending Zustand writes first to ensure IndexedDB is up-to-date.
   useEffect(() => {
     let cancelled = false;
     const inventoryKey = `${part.partNum}:${selectedColorId}`;
 
-    Promise.all([
-      getLoosePart(part.partNum, selectedColorId),
-      getOwnedAcrossSets(inventoryKey),
-    ]).then(([looseEntry, ownedData]) => {
-      if (cancelled) return;
-      setLooseQty(looseEntry?.quantity ?? 0);
-      setOwnedFromSetsForColor(ownedData.total);
-      setSetSourcesForColor(ownedData.sets);
-    });
+    flushPendingWritesAsync().then(() =>
+      Promise.all([
+        getLoosePart(part.partNum, selectedColorId),
+        getOwnedAcrossSets(inventoryKey),
+      ]).then(([looseEntry, ownedData]) => {
+        if (cancelled) return;
+        setLooseQty(looseEntry?.quantity ?? 0);
+        setOwnedFromSetsForColor(ownedData.total);
+        setSetSourcesForColor(ownedData.sets);
+      })
+    );
 
     return () => {
       cancelled = true;
