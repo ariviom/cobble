@@ -142,9 +142,6 @@ export function CollectionPartModal({
   const [selectedColorId, setSelectedColorId] = useState(part.colorId);
   const [looseQty, setLooseQty] = useState(0);
   const [ownedFromSetsForColor, setOwnedFromSetsForColor] = useState(0);
-  const [setSourcesForColor, setSetSourcesForColor] = useState<
-    Array<{ setNumber: string; quantity: number }>
-  >([]);
 
   // Load loose quantity + owned-from-sets whenever the selected color changes.
   // Owned count comes from server (queries user_sets + rb_inventory_parts).
@@ -164,7 +161,6 @@ export function CollectionPartModal({
         if (cancelled) return;
         setLooseQty(looseEntry?.quantity ?? 0);
         setOwnedFromSetsForColor(ownedData.total);
-        setSetSourcesForColor(ownedData.sets);
       }
     );
 
@@ -239,8 +235,6 @@ export function CollectionPartModal({
   const bricklinkUrl = `https://www.bricklink.com/v2/catalog/catalogitem.page?P=${encodeURIComponent(part.partNum)}#T=S`;
   const rebrickableUrl = `https://rebrickable.com/parts/${encodeURIComponent(part.partNum)}/${selectedColorId}/`;
   const detailsHref = `/parts/${encodeURIComponent(part.partNum)}`;
-
-  const showSetBreakdown = setSourcesForColor.length > 1;
 
   return (
     <Modal open onClose={onClose} title={part.partName}>
@@ -363,19 +357,6 @@ export function CollectionPartModal({
                 Owned
               </p>
               <p className="text-2xl font-bold tabular-nums">{ownedFromSets}</p>
-              {showSetBreakdown && (
-                <div className="mt-2 space-y-0.5">
-                  {setSourcesForColor.map(src => (
-                    <div
-                      key={src.setNumber}
-                      className="flex justify-between text-2xs text-foreground-muted"
-                    >
-                      <span>{src.setNumber}</span>
-                      <span className="tabular-nums">{src.quantity}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           )}
           <div className="flex-1 bg-card px-4 py-3">

@@ -1,6 +1,6 @@
 import { errorResponse } from '@/app/lib/api/responses';
-import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { NextRequest, NextResponse } from 'next/server';
 
 const CACHE_CONTROL = 'private, max-age=30';
@@ -12,7 +12,7 @@ const CACHE_CONTROL = 'private, max-age=30';
  * the authenticated user has marked as "owned".
  *
  * Paradigm: "Owned" means the user owns the SET, so all parts in that
- * set's inventory are considered owned. We sum quantityRequired from
+ * set's inventory are considered owned. We sum quantity from
  * rb_inventory_parts for matching sets.
  */
 export async function GET(req: NextRequest) {
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   if (!user) {
     return NextResponse.json(
-      { total: 0, sets: [] },
+      { total: 0 },
       { headers: { 'Cache-Control': CACHE_CONTROL } }
     );
   }
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
   if (setsError || !ownedSets?.length) {
     return NextResponse.json(
-      { total: 0, sets: [] },
+      { total: 0 },
       { headers: { 'Cache-Control': CACHE_CONTROL } }
     );
   }
@@ -63,58 +63,39 @@ export async function GET(req: NextRequest) {
 
   // Find all inventory entries for this part+color in those sets
   const catalog = getCatalogReadClient();
-  const sets: Array<{ setNumber: string; quantity: number }> = [];
   let total = 0;
 
-  // Batch the set numbers to avoid URL length limits
   for (let i = 0; i < ownedSetNums.length; i += 200) {
     const batch = ownedSetNums.slice(i, i + 200);
 
     // Get inventory IDs for these sets
     const { data: inventories } = await catalog
       .from('rb_inventories')
-      .select('id, set_num')
+      .select('id')
       .in('set_num', batch);
 
     if (!inventories?.length) continue;
 
-    const invIdToSet = new Map<number, string>();
-    for (const inv of inventories) {
-      if (inv.set_num) invIdToSet.set(inv.id, inv.set_num);
-    }
+    const invIds = inventories.map(inv => inv.id);
 
-    const invIds = [...invIdToSet.keys()];
-
-    // Batch inventory IDs too
     for (let j = 0; j < invIds.length; j += 200) {
       const invBatch = invIds.slice(j, j + 200);
       const { data: parts } = await catalog
         .from('rb_inventory_parts')
-        .select('inventory_id, quantity')
+        .select('quantity')
         .in('inventory_id', invBatch)
         .eq('part_num', partNum)
         .eq('color_id', colorIdNum)
         .eq('is_spare', false);
 
-      if (!parts?.length) continue;
-
-      // Aggregate by set
-      const setTotals = new Map<string, number>();
-      for (const p of parts) {
-        const setNum = invIdToSet.get(p.inventory_id);
-        if (!setNum) continue;
-        setTotals.set(setNum, (setTotals.get(setNum) ?? 0) + p.quantity);
-      }
-
-      for (const [setNum, qty] of setTotals) {
-        total += qty;
-        sets.push({ setNumber: setNum, quantity: qty });
+      for (const p of parts ?? []) {
+        total += p.quantity;
       }
     }
   }
 
   return NextResponse.json(
-    { total, sets },
+    { total },
     { headers: { 'Cache-Control': CACHE_CONTROL } }
   );
 }
