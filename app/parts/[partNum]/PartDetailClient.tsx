@@ -9,7 +9,10 @@ import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { ColorPicker } from '@/app/components/collection/parts/ColorPicker';
 import { LooseQuantityControl } from '@/app/components/collection/parts/LooseQuantityControl';
-import { groupColors } from '@/app/components/collection/parts/colorGroups';
+import {
+  groupColors,
+  pickDefaultColor,
+} from '@/app/components/collection/parts/colorGroups';
 import {
   bulkUpsertLooseParts,
   getLoosePart,
@@ -45,12 +48,20 @@ type Props = {
 };
 
 export function PartDetailClient({ part, colors, rarityData }: Props) {
+  // Map colors to the format ColorPicker expects
+  const availableColors = useMemo(
+    () =>
+      colors.map(c => ({
+        colorId: c.color_id,
+        colorName: c.name,
+        rgb: c.rgb,
+        imageUrl: null as string | null,
+      })),
+    [colors]
+  );
+
   const [selectedColorId, setSelectedColorId] = useState<number>(
-    // Default to first color, prefer white (15), then black (0)
-    colors.find(c => c.color_id === 15)?.color_id ??
-      colors.find(c => c.color_id === 0)?.color_id ??
-      colors[0]?.color_id ??
-      0
+    pickDefaultColor(availableColors)?.colorId ?? 0
   );
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [looseQty, setLooseQty] = useState(0);
@@ -71,18 +82,6 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
   const [setsHasMore, setSetsHasMore] = useState(false);
   const [setsError, setSetsError] = useState(false);
 
-  // Map colors to the format ColorPicker expects
-  const availableColors = useMemo(
-    () =>
-      colors.map(c => ({
-        colorId: c.color_id,
-        colorName: c.name,
-        rgb: c.rgb,
-        imageUrl: null as string | null,
-      })),
-    [colors]
-  );
-
   const colorGroups = useMemo(
     () => groupColors(availableColors),
     [availableColors]
@@ -95,54 +94,54 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
     setExpandedGroup(gray ? 'gray' : colorGroups[0]!.key);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load loose quantity + owned count when color changes
+  // Single consolidated effect for all per-color data loading.
+  // Debounces rapid color taps (100ms) then fetches loose qty, owned count,
+  // and per-color image in one pass.
   useEffect(() => {
     let cancelled = false;
+    const initialColor = pickDefaultColor(availableColors)?.colorId ?? 0;
+    const timer = setTimeout(
+      () => {
+        const loosePromise = getLoosePart(part.part_num, selectedColorId);
 
-    const loosePromise = getLoosePart(part.part_num, selectedColorId);
-    const ownedPromise = fetch(
-      `/api/parts/owned?partNum=${encodeURIComponent(part.part_num)}&colorId=${selectedColorId}`
-    )
-      .then(res => (res.ok ? res.json() : { total: 0 }))
-      .catch(() => ({ total: 0 }));
+        const ownedPromise = fetch(
+          `/api/parts/owned?partNum=${encodeURIComponent(part.part_num)}&colorId=${selectedColorId}`
+        )
+          .then(res => (res.ok ? res.json() : { total: 0 }))
+          .catch(() => ({ total: 0 }));
 
-    Promise.all([loosePromise, ownedPromise]).then(
-      ([looseEntry, ownedData]) => {
-        if (cancelled) return;
-        setLooseQty(looseEntry?.quantity ?? 0);
-        setOwnedFromSets(ownedData.total);
-      }
+        const imagePromise = fetch(
+          `/api/search/parts/image?partNum=${encodeURIComponent(part.part_num)}&colorId=${selectedColorId}`
+        )
+          .then(res => (res.ok ? res.json() : null))
+          .then(data => data?.imageUrl ?? null)
+          .catch(() => null);
+
+        Promise.all([loosePromise, ownedPromise, imagePromise]).then(
+          ([looseEntry, ownedData, imgUrl]) => {
+            if (cancelled) return;
+            setLooseQty(looseEntry?.quantity ?? 0);
+            setOwnedFromSets(ownedData.total);
+            if (imgUrl) {
+              const img = new window.Image();
+              img.onload = () => {
+                if (!cancelled) setColorImageUrl(imgUrl);
+              };
+              img.src = imgUrl;
+            } else {
+              setColorImageUrl(null);
+            }
+          }
+        );
+      },
+      selectedColorId === initialColor ? 0 : 100
     );
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, [part.part_num, selectedColorId]);
-
-  // Fetch per-color image
-  useEffect(() => {
-    let cancelled = false;
-    fetch(
-      `/api/search/parts/image?partNum=${encodeURIComponent(part.part_num)}&colorId=${selectedColorId}`
-    )
-      .then(res => (res.ok ? res.json() : null))
-      .then(data => {
-        if (cancelled) return;
-        if (data?.imageUrl) {
-          const img = new window.Image();
-          img.onload = () => {
-            if (!cancelled) setColorImageUrl(data.imageUrl);
-          };
-          img.src = data.imageUrl;
-        } else {
-          setColorImageUrl(null);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [part.part_num, selectedColorId]);
+  }, [part.part_num, selectedColorId, availableColors]);
 
   // Load sets on mount (page 1), then more on demand
   useEffect(() => {

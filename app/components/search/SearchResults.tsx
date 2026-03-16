@@ -18,6 +18,7 @@ import type {
   SortOption,
 } from '@/app/types/search';
 import { CollectionPartModal } from '@/app/components/collection/parts/CollectionPartModal';
+import { pickDefaultColor } from '@/app/components/collection/parts/colorGroups';
 import type { PartSearchPage, PartSearchResult } from '@/app/types/search';
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -440,20 +441,11 @@ export function SearchResults() {
               partNum: selectedPart.partNum,
               partName: selectedPart.name,
               imageUrl: selectedPart.imageUrl,
-              colorId:
-                selectedPart.colors.find(c => c.colorId === 15)?.colorId ??
-                selectedPart.colors.find(c => c.colorId === 71)?.colorId ??
-                selectedPart.colors[0]?.colorId ??
-                0,
-              colorName:
-                selectedPart.colors.find(c => c.colorId === 15)?.colorName ??
-                selectedPart.colors.find(c => c.colorId === 71)?.colorName ??
-                selectedPart.colors[0]?.colorName ??
-                '',
+              colorId: pickDefaultColor(selectedPart.colors)?.colorId ?? 0,
+              colorName: pickDefaultColor(selectedPart.colors)?.colorName ?? '',
             }}
             availableColors={selectedPart.colors}
             onClose={() => setSelectedPart(null)}
-            onLooseQuantityChange={() => {}}
           />
         )}
       </>

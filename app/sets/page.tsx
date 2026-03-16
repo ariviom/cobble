@@ -89,11 +89,15 @@ export default function SetsPage() {
   const saveTabState = useOpenTabsStore(state => state.saveTabState);
   const openLandingTab = useOpenTabsStore(state => state.openLandingTab);
   const {
+    openTab,
     replaceLandingWithSet,
     showUpgradeModal,
     dismissUpgradeModal,
     gateFeature,
   } = useGatedOpenTab();
+
+  // Track pending deep-link open to avoid repeated fetch attempts
+  const pendingDeepLinkRef = useRef<string | null>(null);
 
   // Auto-create a landing tab if store hydrates with no tabs
   const hasAutoCreatedRef = useRef(false);
@@ -285,6 +289,47 @@ export default function SetsPage() {
       if (activeFromUrl !== activeTabId) {
         setActiveTab(activeFromUrl);
       }
+      pendingDeepLinkRef.current = null;
+    } else if (
+      activeFromUrl &&
+      !tabs.some(t => t.id === activeFromUrl) &&
+      pendingDeepLinkRef.current !== activeFromUrl
+    ) {
+      // Deep link to a set that isn't open as a tab — fetch its data and open it
+      pendingDeepLinkRef.current = activeFromUrl;
+      fetch(
+        `/api/search?q=${encodeURIComponent(activeFromUrl)}&exact=true&pageSize=20`
+      )
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          if (!data?.results?.length) {
+            pendingDeepLinkRef.current = null;
+            return;
+          }
+          // Find the exact match by set number
+          const set = data.results.find(
+            (r: { setNumber: string }) =>
+              r.setNumber.toLowerCase() === activeFromUrl.toLowerCase()
+          );
+          if (set) {
+            openTab({
+              type: 'set',
+              id: set.setNumber,
+              setNumber: set.setNumber,
+              name: set.name,
+              imageUrl: set.imageUrl,
+              numParts: set.numParts,
+              year: set.year,
+              themeId: set.themeId ?? null,
+              themeName: set.themeName ?? null,
+            });
+          } else {
+            pendingDeepLinkRef.current = null;
+          }
+        })
+        .catch(() => {
+          pendingDeepLinkRef.current = null;
+        });
     } else if (activeTabId) {
       const currentActive = tabs.find(t => t.id === activeTabId);
       if (currentActive && isLandingTab(currentActive)) {
@@ -312,7 +357,7 @@ export default function SetsPage() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [tabs, activeTabId, setActiveTab, saveCurrentScroll]);
+  }, [tabs, activeTabId, setActiveTab, saveCurrentScroll, openTab]);
 
   // Track active tab changes (scroll restoration is handled by SetTabContainerContent)
   useEffect(() => {

@@ -1419,7 +1419,6 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                         imageUrl: c.partImageUrl,
                       }))}
                       onClose={() => setLoosePartModalOpen(false)}
-                      onLooseQuantityChange={() => {}}
                     />
                   )}
                 </>

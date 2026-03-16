@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { LEGO_COLOR_IDS } from '@/app/components/collection/parts/colorGroups';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 
 export async function getPartByPartNum(partNum: string) {
@@ -50,37 +51,6 @@ export async function getPartSetCount(partNum: string, colorId?: number) {
 
   const { data } = await query;
   return data ?? [];
-}
-
-export async function getSetsContainingPart(partNum: string, colorId?: number) {
-  // rb_inventory_parts has a FK to rb_inventories, so we do two queries.
-  const supabase = getCatalogReadClient();
-  let query = supabase
-    .from('rb_inventory_parts')
-    .select('inventory_id')
-    .eq('part_num', partNum)
-    .eq('is_spare', false);
-
-  if (colorId != null) {
-    query = query.eq('color_id', colorId);
-  }
-
-  const { data: invParts } = await query.limit(500);
-  if (!invParts?.length) return [];
-
-  const invIds = [...new Set(invParts.map(r => r.inventory_id))];
-
-  const { data: inventories } = await supabase
-    .from('rb_inventories')
-    .select('set_num')
-    .in('id', invIds.slice(0, 200))
-    .not('set_num', 'like', 'fig-%');
-
-  const setNums = new Set<string>();
-  for (const row of inventories ?? []) {
-    if (row.set_num) setNums.add(row.set_num);
-  }
-  return [...setNums];
 }
 
 // ---------------------------------------------------------------------------
@@ -309,32 +279,39 @@ async function fetchColorsForParts(
 > {
   if (partNums.length === 0) return new Map();
 
-  // 1. Get available colors from rb_part_rarity
-  const rarityRows: Array<{ part_num: string; color_id: number }>[] = [];
+  // 1. Get available colors from rb_part_rarity (parallel batches)
+  const rarityBatches: Promise<{ part_num: string; color_id: number }[]>[] = [];
   for (let i = 0; i < partNums.length; i += 200) {
     const batch = partNums.slice(i, i + 200);
-    const { data } = await supabase
-      .from('rb_part_rarity')
-      .select('part_num, color_id')
-      .in('part_num', batch);
-    if (data) rarityRows.push(data);
+    rarityBatches.push(
+      Promise.resolve(
+        supabase
+          .from('rb_part_rarity')
+          .select('part_num, color_id')
+          .in('part_num', batch)
+      ).then(({ data }) => data ?? [])
+    );
   }
-  const allRarity = rarityRows.flat();
+  const allRarity = (await Promise.all(rarityBatches)).flat();
   if (!allRarity.length) return new Map();
 
-  // 2. Get color metadata (name + rgb) from rb_colors
+  // 2. Get color metadata (name + rgb) from rb_colors (parallel batches)
   const colorIds = [...new Set(allRarity.map(r => r.color_id))];
   const colorMeta = new Map<number, { name: string; rgb: string | null }>();
+  const colorBatches: Promise<void>[] = [];
   for (let i = 0; i < colorIds.length; i += 200) {
     const batch = colorIds.slice(i, i + 200);
-    const { data: colors } = await supabase
-      .from('rb_colors')
-      .select('id, name, rgb')
-      .in('id', batch);
-    for (const c of colors ?? []) {
-      colorMeta.set(c.id, { name: c.name, rgb: c.rgb });
-    }
+    colorBatches.push(
+      Promise.resolve(
+        supabase.from('rb_colors').select('id, name, rgb').in('id', batch)
+      ).then(({ data: colors }) => {
+        for (const c of colors ?? []) {
+          colorMeta.set(c.id, { name: c.name, rgb: c.rgb });
+        }
+      })
+    );
   }
+  await Promise.all(colorBatches);
 
   // 3. Assemble: group by part_num with color name + rgb (images loaded lazily in modal)
   const result = new Map<
@@ -362,11 +339,11 @@ async function fetchColorsForParts(
 }
 
 /** Preferred color order for thumbnails: white, black, then any. */
-const PREFERRED_THUMB_COLORS = [15, 0];
+const PREFERRED_THUMB_COLORS = [LEGO_COLOR_IDS.WHITE, LEGO_COLOR_IDS.BLACK];
 
 /**
  * Fetch one thumbnail image per part, preferring white then black.
- * Queries rb_inventory_parts per-part to avoid row explosion on popular parts.
+ * Uses a single query per part for preferred colors (1 round trip instead of 3).
  */
 async function fetchThumbnailsForParts(
   supabase: ReturnType<typeof getCatalogReadClient>,
@@ -380,21 +357,27 @@ async function fetchThumbnailsForParts(
   for (let i = 0; i < partNums.length; i += CONCURRENCY) {
     const batch = partNums.slice(i, i + CONCURRENCY);
     const promises = batch.map(async partNum => {
-      // Try preferred colors first (white=15, black=0), then fall back to any
-      for (const colorId of PREFERRED_THUMB_COLORS) {
-        const { data } = await supabase
-          .from('rb_inventory_parts')
-          .select('img_url')
-          .eq('part_num', partNum)
-          .eq('color_id', colorId)
-          .not('img_url', 'is', null)
-          .limit(1);
-        const url = data?.[0]?.img_url;
-        if (typeof url === 'string' && url.trim()) {
-          result.set(partNum, url.trim());
-          return;
+      // Single query for preferred colors (white + black)
+      const { data: preferred } = await supabase
+        .from('rb_inventory_parts')
+        .select('img_url, color_id')
+        .eq('part_num', partNum)
+        .in('color_id', PREFERRED_THUMB_COLORS)
+        .not('img_url', 'is', null)
+        .limit(2);
+
+      if (preferred?.length) {
+        // Pick best match in preference order
+        for (const colorId of PREFERRED_THUMB_COLORS) {
+          const match = preferred.find(r => r.color_id === colorId);
+          const url = match?.img_url;
+          if (typeof url === 'string' && url.trim()) {
+            result.set(partNum, url.trim());
+            return;
+          }
         }
       }
+
       // Fallback: any color with an image
       const { data } = await supabase
         .from('rb_inventory_parts')
@@ -424,14 +407,22 @@ async function fetchSetCountsForParts(
   const counts = new Map<string, number>();
   if (partNums.length === 0) return counts;
 
+  const batches: Promise<{ part_num: string; set_count: number | null }[]>[] =
+    [];
   for (let i = 0; i < partNums.length; i += 200) {
     const batch = partNums.slice(i, i + 200);
-    const { data } = await supabase
-      .from('rb_part_rarity')
-      .select('part_num, set_count')
-      .in('part_num', batch);
-
-    for (const row of data ?? []) {
+    batches.push(
+      Promise.resolve(
+        supabase
+          .from('rb_part_rarity')
+          .select('part_num, set_count')
+          .in('part_num', batch)
+      ).then(({ data }) => data ?? [])
+    );
+  }
+  const results = await Promise.all(batches);
+  for (const rows of results) {
+    for (const row of rows) {
       counts.set(
         row.part_num,
         (counts.get(row.part_num) ?? 0) + (row.set_count ?? 0)

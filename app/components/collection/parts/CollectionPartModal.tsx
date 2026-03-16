@@ -17,7 +17,7 @@ import type { CollectionPart, CollectionPartSetSource } from './types';
 
 type BaseProps = {
   onClose: () => void;
-  onLooseQuantityChange: () => void;
+  onLooseQuantityChange?: () => void;
   /** Whether to show the "Owned from sets" column (based on user syncFromSets setting). Defaults to true. */
   showOwnedFromSets?: boolean;
 };
@@ -141,7 +141,7 @@ export function CollectionPartModal({
       [{ partNum: part.partNum, colorId: selectedColorId, quantity: next }],
       'replace'
     );
-    onLooseQuantityChange();
+    onLooseQuantityChange?.();
   };
 
   const currentColor = availableColors?.find(

@@ -1,14 +1,7 @@
 'use client';
 
 import { cn } from '@/app/components/ui/utils';
-import type { ColorGroup } from './colorGroups';
-
-type ColorEntry = {
-  colorId: number;
-  colorName: string;
-  rgb?: string | null;
-  imageUrl: string | null;
-};
+import type { ColorEntry, ColorGroup } from './colorGroups';
 
 type Props = {
   colorGroups: ColorGroup[];

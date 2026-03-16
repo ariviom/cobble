@@ -3,12 +3,33 @@
  * Groups LEGO colors into ROYGBIV + neutral categories based on RGB hue.
  */
 
-type ColorEntry = {
+export type ColorEntry = {
   colorId: number;
   colorName: string;
   rgb?: string | null;
   imageUrl: string | null;
 };
+
+/** Well-known Rebrickable color IDs used for default selection and thumbnail preference. */
+export const LEGO_COLOR_IDS = { WHITE: 15, BLACK: 0, LIGHT_GRAY: 71 } as const;
+
+/** Preferred color order for default selection: white, light gray, black. */
+const PREFERRED_DEFAULT_IDS = [
+  LEGO_COLOR_IDS.WHITE,
+  LEGO_COLOR_IDS.LIGHT_GRAY,
+  LEGO_COLOR_IDS.BLACK,
+] as const;
+
+/** Pick the best default color from a list, preferring white → light gray → black → first. */
+export function pickDefaultColor<T extends { colorId: number }>(
+  colors: T[]
+): T | undefined {
+  for (const id of PREFERRED_DEFAULT_IDS) {
+    const c = colors.find(c => c.colorId === id);
+    if (c) return c;
+  }
+  return colors[0];
+}
 
 export type ColorGroup = {
   key: string;
