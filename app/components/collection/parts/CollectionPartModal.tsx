@@ -12,6 +12,7 @@ import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { groupColors } from './colorGroups';
+import { ColorPicker } from './ColorPicker';
 import type { CollectionPart, CollectionPartSetSource } from './types';
 
 type BaseProps = {
@@ -261,91 +262,20 @@ export function CollectionPartModal({
           </p>
         </div>
 
-        {/* Color picker — grouped */}
-        {colorGroups.length > 0 && (
+        {/* Color picker */}
+        {availableColors && availableColors.length > 0 && (
           <div className="border-t-2 border-subtle px-4 py-3">
             <p className="mb-2 text-xs font-medium text-foreground-muted uppercase">
               Color
             </p>
-            {/* Group toggles */}
-            <div className="flex flex-wrap gap-2">
-              {colorGroups.map(g => {
-                const isExpanded = expandedGroup === g.key;
-                const hasSelected = g.colors.some(
-                  c => c.colorId === selectedColorId
-                );
-                return (
-                  <button
-                    key={g.key}
-                    type="button"
-                    onClick={() => setExpandedGroup(isExpanded ? null : g.key)}
-                    className={cn(
-                      'relative flex size-9 items-center justify-center overflow-hidden rounded-full border-2 transition-colors',
-                      isExpanded
-                        ? 'border-theme-primary ring-2 ring-theme-primary/30'
-                        : hasSelected
-                          ? 'border-strong'
-                          : 'border-subtle hover:border-strong'
-                    )}
-                    title={`${g.label} (${g.colors.length})`}
-                  >
-                    <span
-                      className="absolute inset-0"
-                      style={{ backgroundColor: `#${g.swatch}` }}
-                    />
-                    <span
-                      className={cn(
-                        'relative text-2xs font-bold',
-                        g.swatch === 'FFFFFF' || g.swatch === 'F2CD37'
-                          ? 'text-neutral-500'
-                          : 'text-white'
-                      )}
-                    >
-                      {g.colors.length}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            {/* Expanded group colors */}
-            {expandedGroup && (
-              <>
-                <div className="my-2.5 border-t border-subtle" />
-                <div className="flex flex-wrap gap-2">
-                  {colorGroups
-                    .find(g => g.key === expandedGroup)
-                    ?.colors.map(c => (
-                      <button
-                        key={c.colorId}
-                        type="button"
-                        onClick={() => setSelectedColorId(c.colorId)}
-                        className={cn(
-                          'size-9 overflow-hidden rounded-full border-2 transition-colors',
-                          c.colorId === selectedColorId
-                            ? 'border-theme-primary ring-2 ring-theme-primary/30'
-                            : 'border-subtle hover:border-strong'
-                        )}
-                        title={c.colorName}
-                      >
-                        {c.imageUrl ? (
-                          <img
-                            src={c.imageUrl}
-                            alt={c.colorName}
-                            className="size-full object-cover"
-                          />
-                        ) : (
-                          <div
-                            className="size-full"
-                            style={{
-                              backgroundColor: c.rgb ? `#${c.rgb}` : '#ccc',
-                            }}
-                          />
-                        )}
-                      </button>
-                    ))}
-                </div>
-              </>
-            )}
+            <ColorPicker
+              colorGroups={colorGroups}
+              allColors={availableColors}
+              selectedColorId={selectedColorId}
+              expandedGroup={expandedGroup}
+              onExpandGroup={setExpandedGroup}
+              onSelectColor={setSelectedColorId}
+            />
           </div>
         )}
 
