@@ -25,11 +25,11 @@ type RarityRow = {
   color_id: number;
 };
 
-type SetMeta = {
-  set_num: string;
+type SetResult = {
+  setNumber: string;
   name: string | null;
   year: number | null;
-  image_url: string | null;
+  imageUrl: string | null;
 };
 
 type Props = {
@@ -41,7 +41,6 @@ type Props = {
   };
   colors: PartColor[];
   rarityData: RarityRow[];
-  sets: SetMeta[];
 };
 
 const MAX_LOOSE = 99999;
@@ -123,7 +122,7 @@ function LooseQuantityControl({
   );
 }
 
-export function PartDetailClient({ part, colors, rarityData, sets }: Props) {
+export function PartDetailClient({ part, colors, rarityData }: Props) {
   const [selectedColorId, setSelectedColorId] = useState<number>(
     // Default to first color, prefer white (15), then black (0)
     colors.find(c => c.color_id === 15)?.color_id ??
@@ -141,6 +140,13 @@ export function PartDetailClient({ part, colors, rarityData, sets }: Props) {
     imageUrl: string | null;
     year?: number;
   } | null>(null);
+
+  // Paginated sets
+  const [setsData, setSetsData] = useState<SetResult[]>([]);
+  const [setsPage, setSetsPage] = useState(1);
+  const [setsTotal, setSetsTotal] = useState<number | null>(null);
+  const [setsLoading, setSetsLoading] = useState(false);
+  const [setsHasMore, setSetsHasMore] = useState(false);
 
   // Map colors to the format ColorPicker expects
   const availableColors = useMemo(
@@ -215,6 +221,47 @@ export function PartDetailClient({ part, colors, rarityData, sets }: Props) {
     };
   }, [part.part_num, selectedColorId]);
 
+  // Load sets on mount (page 1), then more on demand
+  useEffect(() => {
+    let cancelled = false;
+    setSetsLoading(true);
+    fetch(`/api/parts/sets?partNum=${encodeURIComponent(part.part_num)}&page=1`)
+      .then(res =>
+        res.ok ? res.json() : { results: [], nextPage: null, total: 0 }
+      )
+      .then(data => {
+        if (cancelled) return;
+        setSetsData(data.results);
+        setSetsHasMore(!!data.nextPage);
+        setSetsTotal(data.total ?? null);
+        setSetsPage(1);
+        setSetsLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setSetsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [part.part_num]);
+
+  const loadMoreSets = () => {
+    if (setsLoading || !setsHasMore) return;
+    const nextPage = setsPage + 1;
+    setSetsLoading(true);
+    fetch(
+      `/api/parts/sets?partNum=${encodeURIComponent(part.part_num)}&page=${nextPage}`
+    )
+      .then(res => (res.ok ? res.json() : { results: [], nextPage: null }))
+      .then(data => {
+        setSetsData(prev => [...prev, ...data.results]);
+        setSetsHasMore(!!data.nextPage);
+        setSetsPage(nextPage);
+        setSetsLoading(false);
+      })
+      .catch(() => setSetsLoading(false));
+  };
+
   const handleLooseChange = async (next: number) => {
     setLooseQty(next);
     await bulkUpsertLooseParts(
@@ -226,10 +273,6 @@ export function PartDetailClient({ part, colors, rarityData, sets }: Props) {
   const selectedColor = colors.find(c => c.color_id === selectedColorId);
   const rarityByColorId = new Map<number, number>(
     rarityData.map(r => [r.color_id, r.set_count])
-  );
-  const totalSetCount = rarityData.reduce(
-    (acc, r) => acc + (r.set_count ?? 0),
-    0
   );
   const selectedRarity = rarityByColorId.get(selectedColorId) ?? 0;
 
@@ -360,54 +403,72 @@ export function PartDetailClient({ part, colors, rarityData, sets }: Props) {
       <div className="mt-8">
         <h2 className="mb-3 text-sm font-semibold tracking-wide text-foreground-muted uppercase">
           Sets Containing This Part
-          <span className="ml-2 font-normal normal-case">
-            ({totalSetCount})
-          </span>
+          {setsTotal != null && (
+            <span className="ml-2 font-normal normal-case">({setsTotal})</span>
+          )}
         </h2>
 
-        {sets.length === 0 ? (
+        {!setsLoading && setsData.length === 0 ? (
           <p className="text-sm text-foreground-muted">No sets found.</p>
         ) : (
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {sets.map(set => (
-              <li key={set.set_num}>
+          <>
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              {setsData.map(set => (
+                <li key={set.setNumber}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setModalSet({
+                        setNumber: set.setNumber,
+                        name: set.name ?? set.setNumber,
+                        imageUrl: set.imageUrl,
+                        ...(set.year != null && { year: set.year }),
+                      })
+                    }
+                    className="group flex w-full flex-col overflow-hidden rounded-lg border border-subtle bg-card text-left transition-shadow hover:shadow-md"
+                  >
+                    <div className="relative aspect-square w-full overflow-hidden bg-background-muted">
+                      {set.imageUrl ? (
+                        <OptimizedImage
+                          src={set.imageUrl}
+                          alt={set.name ?? set.setNumber}
+                          variant="setCard"
+                          className="object-contain p-2 transition-transform duration-200 group-hover:scale-105"
+                        />
+                      ) : (
+                        <ImagePlaceholder variant="fill" />
+                      )}
+                    </div>
+                    <div className="p-2">
+                      <p className="truncate text-xs font-semibold text-foreground">
+                        {set.name ?? set.setNumber}
+                      </p>
+                      <p className="font-mono text-2xs text-foreground-muted">
+                        {set.setNumber}
+                        {set.year != null && ` · ${set.year}`}
+                      </p>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {setsHasMore && (
+              <div className="mt-4 flex justify-center">
                 <button
-                  type="button"
-                  onClick={() =>
-                    setModalSet({
-                      setNumber: set.set_num,
-                      name: set.name ?? set.set_num,
-                      imageUrl: set.image_url,
-                      ...(set.year != null && { year: set.year }),
-                    })
-                  }
-                  className="group flex w-full flex-col overflow-hidden rounded-lg border border-subtle bg-card text-left transition-shadow hover:shadow-md"
+                  onClick={loadMoreSets}
+                  disabled={setsLoading}
+                  className="rounded-lg border border-subtle bg-card px-4 py-2 text-sm hover:bg-card-muted"
                 >
-                  <div className="relative aspect-square w-full overflow-hidden bg-background-muted">
-                    {set.image_url ? (
-                      <OptimizedImage
-                        src={set.image_url}
-                        alt={set.name ?? set.set_num}
-                        variant="setCard"
-                        className="object-contain p-2 transition-transform duration-200 group-hover:scale-105"
-                      />
-                    ) : (
-                      <ImagePlaceholder variant="fill" />
-                    )}
-                  </div>
-                  <div className="p-2">
-                    <p className="truncate text-xs font-semibold text-foreground">
-                      {set.name ?? set.set_num}
-                    </p>
-                    <p className="font-mono text-2xs text-foreground-muted">
-                      {set.set_num}
-                      {set.year != null && ` · ${set.year}`}
-                    </p>
-                  </div>
+                  {setsLoading ? 'Loading…' : 'Load More'}
                 </button>
-              </li>
-            ))}
-          </ul>
+              </div>
+            )}
+            {setsLoading && setsData.length === 0 && (
+              <p className="text-center text-sm text-foreground-muted">
+                Loading sets…
+              </p>
+            )}
+          </>
         )}
       </div>
 

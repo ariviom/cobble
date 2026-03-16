@@ -1,12 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { PageLayout } from '@/app/components/layout/PageLayout';
-import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import {
   getPartByPartNum,
   getPartColors,
   getPartSetCount,
-  getSetsContainingPart,
 } from '@/app/lib/catalog/parts';
 import { PartDetailClient } from './PartDetailClient';
 
@@ -28,29 +26,15 @@ export default async function PartDetailPage({ params }: Props) {
   const part = await getPartByPartNum(partNum);
   if (!part) notFound();
 
-  const [colors, rarityData, setNums] = await Promise.all([
+  // Only fetch lightweight data server-side. Sets are loaded client-side with pagination.
+  const [colors, rarityData] = await Promise.all([
     getPartColors(partNum),
     getPartSetCount(partNum),
-    getSetsContainingPart(partNum),
   ]);
-
-  // Fetch set metadata for display
-  const { data: setMeta } =
-    setNums.length > 0
-      ? await getCatalogReadClient()
-          .from('rb_sets')
-          .select('set_num, name, year, image_url')
-          .in('set_num', setNums.slice(0, 200))
-      : { data: [] };
 
   return (
     <PageLayout noTopOffset>
-      <PartDetailClient
-        part={part}
-        colors={colors}
-        rarityData={rarityData}
-        sets={setMeta ?? []}
-      />
+      <PartDetailClient part={part} colors={colors} rarityData={rarityData} />
     </PageLayout>
   );
 }
