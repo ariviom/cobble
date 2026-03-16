@@ -440,8 +440,16 @@ export function SearchResults() {
               partNum: selectedPart.partNum,
               partName: selectedPart.name,
               imageUrl: selectedPart.imageUrl,
-              colorId: selectedPart.colors[0]?.colorId ?? 0,
-              colorName: selectedPart.colors[0]?.colorName ?? '',
+              colorId:
+                selectedPart.colors.find(c => c.colorId === 15)?.colorId ??
+                selectedPart.colors.find(c => c.colorId === 71)?.colorId ??
+                selectedPart.colors[0]?.colorId ??
+                0,
+              colorName:
+                selectedPart.colors.find(c => c.colorId === 15)?.colorName ??
+                selectedPart.colors.find(c => c.colorId === 71)?.colorName ??
+                selectedPart.colors[0]?.colorName ??
+                '',
             }}
             availableColors={selectedPart.colors}
             onClose={() => setSelectedPart(null)}

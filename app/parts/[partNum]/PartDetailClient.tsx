@@ -69,6 +69,7 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
   const [setsTotal, setSetsTotal] = useState<number | null>(null);
   const [setsLoading, setSetsLoading] = useState(false);
   const [setsHasMore, setSetsHasMore] = useState(false);
+  const [setsError, setSetsError] = useState(false);
 
   // Map colors to the format ColorPicker expects
   const availableColors = useMemo(
@@ -171,17 +172,21 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
     if (setsLoading || !setsHasMore) return;
     const nextPage = setsPage + 1;
     setSetsLoading(true);
+    setSetsError(false);
     fetch(
       `/api/parts/sets?partNum=${encodeURIComponent(part.part_num)}&page=${nextPage}`
     )
-      .then(res => (res.ok ? res.json() : { results: [], nextPage: null }))
+      .then(res => (res.ok ? res.json() : Promise.reject(new Error('Failed'))))
       .then(data => {
         setSetsData(prev => [...prev, ...data.results]);
         setSetsHasMore(!!data.nextPage);
         setSetsPage(nextPage);
         setSetsLoading(false);
       })
-      .catch(() => setSetsLoading(false));
+      .catch(() => {
+        setSetsLoading(false);
+        setSetsError(true);
+      });
   };
 
   const handleLooseChange = async (next: number) => {
@@ -375,7 +380,7 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
               ))}
             </ul>
             {setsHasMore && (
-              <div className="mt-4 flex justify-center">
+              <div className="mt-4 flex flex-col items-center gap-2">
                 <button
                   onClick={loadMoreSets}
                   disabled={setsLoading}
@@ -383,6 +388,11 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
                 >
                   {setsLoading ? 'Loading…' : 'Load More'}
                 </button>
+                {setsError && (
+                  <p className="text-xs text-red-600">
+                    Failed to load more sets. Try again.
+                  </p>
+                )}
               </div>
             )}
             {setsLoading && setsData.length === 0 && (

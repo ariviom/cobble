@@ -1605,7 +1605,12 @@ export type Database = {
         Returns: number;
       };
       get_sets_for_part: {
-        Args: { p_limit?: number; p_offset?: number; p_part_num: string };
+        Args: {
+          p_include_count?: boolean;
+          p_limit?: number;
+          p_offset?: number;
+          p_part_num: string;
+        };
         Returns: {
           image_url: string;
           name: string;

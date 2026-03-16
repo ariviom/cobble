@@ -25,10 +25,12 @@ export async function GET(req: NextRequest) {
   const supabase = getCatalogReadClient();
   const offset = (page - 1) * PAGE_SIZE;
 
+  const isFirstPage = page === 1;
   const { data, error } = await supabase.rpc('get_sets_for_part', {
     p_part_num: partNum,
-    p_limit: PAGE_SIZE,
+    p_limit: PAGE_SIZE + 1, // fetch one extra to detect next page
     p_offset: offset,
+    p_include_count: isFirstPage,
   });
 
   if (error || !data?.length) {
@@ -38,10 +40,11 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const total = Number(data[0]?.total_count ?? 0);
-  const hasMore = offset + PAGE_SIZE < total;
+  const hasMore = data.length > PAGE_SIZE;
+  const pageData = hasMore ? data.slice(0, PAGE_SIZE) : data;
+  const total = isFirstPage ? Number(data[0]?.total_count ?? 0) : undefined;
 
-  const results = data.map(
+  const results = pageData.map(
     (s: {
       set_num: string;
       name: string | null;
@@ -56,7 +59,11 @@ export async function GET(req: NextRequest) {
   );
 
   return NextResponse.json(
-    { results, nextPage: hasMore ? page + 1 : null, total },
+    {
+      results,
+      nextPage: hasMore ? page + 1 : null,
+      ...(total != null && { total }),
+    },
     { headers: { 'Cache-Control': CACHE_CONTROL } }
   );
 }

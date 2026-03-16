@@ -58,43 +58,6 @@ export function CollectionPartModal({
   const [looseQty, setLooseQty] = useState(0);
   const [ownedFromSetsForColor, setOwnedFromSetsForColor] = useState(0);
 
-  // Load loose quantity + owned-from-sets whenever the selected color changes.
-  // Owned count comes from server (queries user_sets + rb_inventory_parts).
-  // Loose count comes from IndexedDB.
-  useEffect(() => {
-    let cancelled = false;
-
-    const loosePromise = getLoosePart(part.partNum, selectedColorId);
-    const ownedPromise = fetch(
-      `/api/parts/owned?partNum=${encodeURIComponent(part.partNum)}&colorId=${selectedColorId}`
-    )
-      .then(res => (res.ok ? res.json() : { total: 0, sets: [] }))
-      .catch(() => ({ total: 0, sets: [] }));
-
-    Promise.all([loosePromise, ownedPromise]).then(
-      ([looseEntry, ownedData]) => {
-        if (cancelled) return;
-        setLooseQty(looseEntry?.quantity ?? 0);
-        setOwnedFromSetsForColor(ownedData.total);
-      }
-    );
-
-    return () => {
-      cancelled = true;
-    };
-  }, [part.partNum, selectedColorId]);
-
-  const handleLooseChange = async (next: number) => {
-    setLooseQty(next);
-    await bulkUpsertLooseParts(
-      [{ partNum: part.partNum, colorId: selectedColorId, quantity: next }],
-      'replace'
-    );
-    onLooseQuantityChange();
-  };
-
-  // Fetch per-color image on demand when color changes and no imageUrl is cached.
-  // Keep the previous image visible until the new one is ready (no flash).
   const [colorImageUrl, setColorImageUrl] = useState<string | null>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const colorGroups = useMemo(
@@ -108,35 +71,78 @@ export function CollectionPartModal({
     const gray = colorGroups.find(g => g.key === 'gray');
     setExpandedGroup(gray ? 'gray' : colorGroups[0]!.key);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Single consolidated effect for all per-color data loading.
+  // Debounces rapid color taps (100ms) then fetches loose qty, owned count,
+  // and per-color image in one pass.
   useEffect(() => {
-    if (!availableColors) return;
-    const color = availableColors.find(c => c.colorId === selectedColorId);
-    if (color?.imageUrl) {
-      setColorImageUrl(color.imageUrl);
-      return;
-    }
-    // Fetch from API — keep previous image visible until new one is ready
     let cancelled = false;
-    fetch(
-      `/api/search/parts/image?partNum=${encodeURIComponent(part.partNum)}&colorId=${selectedColorId}`
-    )
-      .then(res => (res.ok ? res.json() : null))
-      .then(data => {
-        if (cancelled) return;
-        if (data?.imageUrl) {
-          // Preload the image before swapping to avoid flash
-          const img = new Image();
-          img.onload = () => {
-            if (!cancelled) setColorImageUrl(data.imageUrl);
-          };
-          img.src = data.imageUrl;
-        }
-      })
-      .catch(() => {});
+    const timer = setTimeout(
+      () => {
+        // Loose qty from IndexedDB
+        const loosePromise = getLoosePart(part.partNum, selectedColorId);
+
+        // Owned count from server
+        const ownedPromise = showOwnedFromSets
+          ? fetch(
+              `/api/parts/owned?partNum=${encodeURIComponent(part.partNum)}&colorId=${selectedColorId}`
+            )
+              .then(res => (res.ok ? res.json() : { total: 0 }))
+              .catch(() => ({ total: 0 }))
+          : Promise.resolve({ total: 0 });
+
+        // Per-color image (skip fetch if availableColors already has one)
+        const cachedImg = availableColors?.find(
+          c => c.colorId === selectedColorId
+        )?.imageUrl;
+        const imagePromise = cachedImg
+          ? Promise.resolve(cachedImg)
+          : fetch(
+              `/api/search/parts/image?partNum=${encodeURIComponent(part.partNum)}&colorId=${selectedColorId}`
+            )
+              .then(res => (res.ok ? res.json() : null))
+              .then(data => data?.imageUrl ?? null)
+              .catch(() => null);
+
+        Promise.all([loosePromise, ownedPromise, imagePromise]).then(
+          ([looseEntry, ownedData, imgUrl]) => {
+            if (cancelled) return;
+            setLooseQty(looseEntry?.quantity ?? 0);
+            setOwnedFromSetsForColor(ownedData.total);
+            if (imgUrl) {
+              // Preload before swapping to avoid flash
+              const img = new Image();
+              img.onload = () => {
+                if (!cancelled) setColorImageUrl(imgUrl);
+              };
+              img.src = imgUrl;
+            }
+          }
+        );
+      },
+      selectedColorId === part.colorId ? 0 : 100
+    ); // no debounce on initial load
+
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, [part.partNum, selectedColorId, availableColors]);
+  }, [
+    part.partNum,
+    part.colorId,
+    selectedColorId,
+    showOwnedFromSets,
+    availableColors,
+  ]);
+
+  const handleLooseChange = async (next: number) => {
+    setLooseQty(next);
+    await bulkUpsertLooseParts(
+      [{ partNum: part.partNum, colorId: selectedColorId, quantity: next }],
+      'replace'
+    );
+    onLooseQuantityChange();
+  };
 
   const currentColor = availableColors?.find(
     c => c.colorId === selectedColorId
