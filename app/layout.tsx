@@ -1,3 +1,4 @@
+import { TourCard } from '@/app/components/onboarding/TourCard';
 import { DunningBanner } from '@/app/components/dunning-banner';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 import { AuthProvider } from '@/app/components/providers/auth-provider';
@@ -214,6 +215,7 @@ export default async function RootLayout({
               >
                 <ReactQueryProvider>
                   <ErrorBoundary>{children}</ErrorBoundary>
+                  <TourCard />
                 </ReactQueryProvider>
               </ThemeProvider>
             </SyncProvider>
