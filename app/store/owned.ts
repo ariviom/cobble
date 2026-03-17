@@ -144,8 +144,9 @@ async function flushWriteToIndexedDB(setNumber: string): Promise<void> {
   if (!data) return;
 
   if (!checkStorageAvailable()) {
-    // In-memory only mode - just clear the pending write
-    pendingWrites.delete(setNumber);
+    // Storage unavailable — keep data in pendingWrites so the
+    // localStorage safety net (savePendingToLocalStorage) can capture it.
+    // Don't attempt the write or clear the entry.
     return;
   }
 
@@ -203,16 +204,15 @@ function flushAllPendingWrites() {
   // Synchronous safety net — survives even if the page is killed immediately
   savePendingToLocalStorage();
 
-  // Attempt async IndexedDB writes (may not complete on unload)
+  // Attempt async IndexedDB writes (may not complete on unload).
+  // Do NOT clear the localStorage backup from here — it's a safety net
+  // for exactly this scenario (page killed before async writes land).
+  // The normal write path (flushWriteToIndexedDB) clears it when all
+  // pending writes have successfully landed in IndexedDB.
   for (const setNumber of pendingWrites.keys()) {
-    flushWriteToIndexedDB(setNumber)
-      .then(() => {
-        // If all pending writes flushed successfully, clear the LS fallback
-        if (pendingWrites.size === 0) clearPendingLocalStorage();
-      })
-      .catch(() => {
-        // Swallow errors on unload — localStorage fallback has us covered
-      });
+    flushWriteToIndexedDB(setNumber).catch(() => {
+      // Swallow errors on unload — localStorage fallback has us covered
+    });
   }
 }
 
@@ -250,12 +250,14 @@ export async function resetOwnedCache(): Promise<void> {
   hydrationPromises.clear();
   reconcilePromise = null;
 
-  // 4. Reset Zustand state so sets re-hydrate on next access
-  useOwnedStore.setState({
-    _version: 0,
+  // 4. Reset Zustand state so sets re-hydrate on next access.
+  // Always INCREMENT _version (never reset to 0) so Zustand detects a change
+  // even if _hydratedSets was already {}.
+  useOwnedStore.setState(state => ({
+    _version: state._version + 1,
     _hydratedSets: {},
     _storageAvailable: true,
-  });
+  }));
 }
 
 function scheduleWrite(setNumber: string) {
@@ -372,13 +374,20 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
       // Ensure any pending writes saved to localStorage on a previous
       // page unload have been flushed to IndexedDB before we read.
       await reconcilePendingFromLocalStorage();
-      if (myEpoch !== cacheEpoch) return; // Cache was reset during reconcile
+      if (myEpoch !== cacheEpoch) {
+        // Epoch changed during reconcile — abort but ensure we can retry.
+        // Bump _version so the effect that called us detects a change and re-fires.
+        hydrationPromises.delete(setNumber);
+        set(state => ({ ...state, _version: state._version + 1 }));
+        return;
+      }
 
       // Check storage availability and update state if needed
       const available = checkStorageAvailable();
       if (!available) {
         // No IndexedDB - mark as hydrated with empty data (in-memory only mode)
-        if (myEpoch !== cacheEpoch) return; // Cache was reset; discard
+        if (myEpoch !== cacheEpoch) return;
+        hydrationPromises.delete(setNumber);
         set(state => ({
           ...state,
           _storageAvailable: false,
@@ -390,8 +399,12 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
       try {
         const indexedDBData = await getOwnedForSet(setNumber);
 
-        // Cache was reset while we were reading — discard stale data
-        if (myEpoch !== cacheEpoch) return;
+        if (myEpoch !== cacheEpoch) {
+          // Epoch changed during read — abort but allow retry.
+          hydrationPromises.delete(setNumber);
+          set(state => ({ ...state, _version: state._version + 1 }));
+          return;
+        }
 
         // Update in-memory cache with IndexedDB data
         cache.set(setNumber, indexedDBData);
@@ -403,8 +416,11 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
           _hydratedSets: { ...state._hydratedSets, [setNumber]: true as const },
         }));
       } catch (error) {
-        // Cache was reset while we were reading — discard
-        if (myEpoch !== cacheEpoch) return;
+        if (myEpoch !== cacheEpoch) {
+          hydrationPromises.delete(setNumber);
+          set(state => ({ ...state, _version: state._version + 1 }));
+          return;
+        }
 
         if (process.env.NODE_ENV !== 'production') {
           console.warn('[owned] Failed to hydrate from IndexedDB:', error);
@@ -425,6 +441,11 @@ export const useOwnedStore = create<OwnedState>((set, get) => ({
     return hydrationPromise;
   },
 }));
+
+// Test-only export — allows tests to simulate page-hide flushes.
+// Dead-code-eliminated in production builds.
+export const flushAllPendingWritesForTest =
+  process.env.NODE_ENV !== 'production' ? flushAllPendingWrites : undefined;
 
 // Register global event listeners to flush pending writes on page unload/hide.
 // This prevents data loss when the user navigates away before debounce completes.

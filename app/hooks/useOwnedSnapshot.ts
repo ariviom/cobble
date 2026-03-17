@@ -25,12 +25,15 @@ export function useOwnedSnapshot(setNumber: string): UseOwnedSnapshotResult {
     (state: OwnedState) => state.hydrateFromIndexedDB
   );
 
-  // Trigger IndexedDB hydration on mount
-  useEffect(() => {
-    void hydrateFromIndexedDB(setNumber);
-  }, [setNumber, hydrateFromIndexedDB]);
-
   const isHydrated = setNumber in hydratedSets;
+
+  // Trigger IndexedDB hydration on mount (or retry after epoch abort).
+  // Depends on `version` so that if hydration is aborted by an epoch change
+  // (e.g. resetOwnedCache during auth), the version bump re-triggers this effect.
+  useEffect(() => {
+    if (isHydrated) return;
+    void hydrateFromIndexedDB(setNumber);
+  }, [setNumber, hydrateFromIndexedDB, isHydrated, version]);
 
   // O(1) — direct Map lookup instead of O(n) key-by-key rebuild
   const ownedByKey = useMemo(() => {

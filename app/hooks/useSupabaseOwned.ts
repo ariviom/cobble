@@ -65,6 +65,7 @@ export function useSupabaseOwned({
   const markAllAsOwned = useOwnedStore(
     (state: OwnedState) => state.markAllAsOwned
   );
+  const version = useOwnedStore((state: OwnedState) => state._version);
   const hydratedSets = useOwnedStore(
     (state: OwnedState) => state._hydratedSets
   );
@@ -74,10 +75,12 @@ export function useSupabaseOwned({
   const isOwnedHydrated = setNumber in hydratedSets;
 
   // Ensure IndexedDB hydration has been triggered for this set.
+  // Depends on `version` so that if hydration is aborted by an epoch change
+  // (e.g. resetOwnedCache during auth), the version bump re-triggers this effect.
   useEffect(() => {
     if (isOwnedHydrated) return;
     void hydrateFromIndexedDB(setNumber);
-  }, [setNumber, hydrateFromIndexedDB, isOwnedHydrated]);
+  }, [setNumber, hydrateFromIndexedDB, isOwnedHydrated, version]);
 
   // Initialize client ID on mount
   useEffect(() => {

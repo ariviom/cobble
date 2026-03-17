@@ -92,6 +92,59 @@ describe('useOwnedStore', () => {
     expect(useOwnedStore.getState()._storageAvailable).toBe(false);
   });
 
+  it('bumps _version when hydrateFromIndexedDB is aborted by epoch change', async () => {
+    const setNumber = '8888-1';
+    mockGetOwnedForSet.mockImplementation(async () => {
+      // Simulate resetOwnedCache during hydration read
+      const { resetOwnedCache } = await import('@/app/store/owned');
+      await resetOwnedCache();
+      mockSetOwnedForSet.mockClear(); // clear calls from reset
+      return { 'part:1': 5 };
+    });
+
+    const versionBefore = useOwnedStore.getState()._version;
+    await useOwnedStore.getState().hydrateFromIndexedDB(setNumber);
+    const versionAfter = useOwnedStore.getState()._version;
+
+    // Version must have bumped so the hydration effect re-fires
+    expect(versionAfter).toBeGreaterThan(versionBefore);
+    // Set should NOT be marked as hydrated (data was stale)
+    expect(useOwnedStore.getState()._hydratedSets).not.toHaveProperty(
+      setNumber
+    );
+  });
+
+  it('flushAllPendingWrites preserves localStorage when storageAvailable is false', async () => {
+    const setNumber = '6666-1';
+
+    // Trigger 3 write failures to set storageAvailable = false
+    mockSetOwnedForSet.mockRejectedValue(new Error('fail'));
+    for (let i = 0; i < 3; i++) {
+      act(() => {
+        useOwnedStore.getState().setOwned(setNumber, `p:${i}`, i + 1);
+      });
+      await flushMicrotasks();
+    }
+    expect(useOwnedStore.getState()._storageAvailable).toBe(false);
+
+    // Add more data while storage is unavailable
+    act(() => {
+      useOwnedStore.getState().setOwned(setNumber, 'p:extra', 10);
+    });
+
+    // Import and call flushAllPendingWrites (simulates page hide)
+    const { flushAllPendingWritesForTest } = await import('@/app/store/owned');
+    flushAllPendingWritesForTest!();
+    await flushMicrotasks();
+
+    // localStorage should still have the data
+    const raw = localStorage.getItem('brick_party_pending_owned');
+    expect(raw).not.toBeNull();
+    const parsed = JSON.parse(raw!);
+    expect(parsed[setNumber]).toBeDefined();
+    expect(parsed[setNumber]['p:extra']).toBe(10);
+  });
+
   it('resets failure count on successful write', async () => {
     const setNumber = '7777-1';
 

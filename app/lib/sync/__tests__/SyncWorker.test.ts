@@ -220,6 +220,52 @@ describe('SyncWorker', () => {
       // Should have triggered initial sync after init
       expect(localDb.getPendingSyncOperations).toHaveBeenCalled();
     });
+
+    it('does not reset owned cache on null → userId transition (auth hydration)', async () => {
+      const { resetOwnedCache } = vi.mocked(await import('@/app/store/owned'));
+      worker = new SyncWorker();
+      const initPromise = worker.init();
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+
+      resetOwnedCache.mockClear();
+      await worker.setUserId('user-123');
+      await flushPromises();
+
+      expect(resetOwnedCache).not.toHaveBeenCalled();
+    });
+
+    it('resets owned cache when switching between real user IDs', async () => {
+      const { resetOwnedCache } = vi.mocked(await import('@/app/store/owned'));
+      worker = new SyncWorker();
+      const initPromise = worker.init();
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+      await worker.setUserId('user-A');
+      await flushPromises();
+
+      resetOwnedCache.mockClear();
+      await worker.setUserId('user-B');
+      await flushPromises();
+
+      expect(resetOwnedCache).toHaveBeenCalledTimes(1);
+    });
+
+    it('resets owned cache on logout (userId → null)', async () => {
+      const { resetOwnedCache } = vi.mocked(await import('@/app/store/owned'));
+      worker = new SyncWorker();
+      const initPromise = worker.init();
+      await vi.advanceTimersByTimeAsync(0);
+      await initPromise;
+      await worker.setUserId('user-123');
+      await flushPromises();
+
+      resetOwnedCache.mockClear();
+      await worker.setUserId(null);
+      await flushPromises();
+
+      expect(resetOwnedCache).toHaveBeenCalledTimes(1);
+    });
   });
 
   // =========================================================================

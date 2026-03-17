@@ -138,8 +138,12 @@ export class SyncWorker {
     const previousUserId = this.userId;
     this.userId = userId;
 
-    // Clear in-memory owned caches when the user actually changes
-    if (previousUserId !== userId) {
+    // Only reset owned caches on a real user switch (A→B or A→null).
+    // The null→userId transition is auth hydration on page load — the
+    // data in IndexedDB already belongs to this user, no reset needed.
+    const isRealUserSwitch =
+      previousUserId !== userId && previousUserId !== null;
+    if (isRealUserSwitch) {
       await resetOwnedCache();
     }
 
