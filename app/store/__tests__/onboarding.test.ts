@@ -124,4 +124,30 @@ describe('onboarding store', () => {
     expect(completed).toBe(1);
     expect(total).toBe(6);
   });
+
+  it('resets anonymous dismissal when hydrating a new authenticated user', () => {
+    // Simulate anonymous dismissal
+    useOnboardingStore.getState().hydrate();
+    useOnboardingStore.getState().dismiss();
+    expect(useOnboardingStore.getState().dismissed).toBe(true);
+
+    // Hydrate with a userId that has no stored state (new account)
+    useOnboardingStore.getState().hydrate('new-user-456');
+    expect(useOnboardingStore.getState().dismissed).toBe(false);
+  });
+
+  it('preserves authenticated dismissal when hydrating with stored state', () => {
+    storage.set(
+      'onboarding:progress:user-789',
+      JSON.stringify({
+        completedSteps: ['search_set'],
+        dismissed: true,
+      })
+    );
+    useOnboardingStore.getState().hydrate('user-789');
+    expect(useOnboardingStore.getState().dismissed).toBe(true);
+    expect(useOnboardingStore.getState().completedSteps).toContain(
+      'search_set'
+    );
+  });
 });

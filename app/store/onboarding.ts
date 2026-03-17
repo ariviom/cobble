@@ -129,7 +129,13 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
         _hydrated: true,
       });
     } else {
-      set({ _userId: userId, _hydrated: true });
+      // For new authenticated users with no prior stored state,
+      // reset any anonymous dismissal so the tour appears fresh.
+      set({
+        _userId: userId,
+        _hydrated: true,
+        ...(userId ? { dismissed: false, collapsed: false } : {}),
+      });
     }
   },
 

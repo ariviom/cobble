@@ -135,6 +135,7 @@ export function SetDisplayCard({
       {onClick ? (
         <button
           type="button"
+          data-video-target="set-card"
           onClick={onClick}
           className="flex w-full flex-1 cursor-pointer flex-col text-left"
         >

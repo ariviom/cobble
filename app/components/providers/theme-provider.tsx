@@ -283,26 +283,38 @@ function AppThemeInner({
   );
 }
 
+/**
+ * Module-level flag: allow video recordings to bypass forcedTheme for anonymous
+ * users. Read once at import time so it never triggers a re-render.
+ */
+const THEME_OVERRIDE: boolean = (() => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem('theme:override') === 'true';
+  } catch {
+    return false;
+  }
+})();
+
 export function ThemeProvider({
   children,
   initialTheme,
   initialThemeColor,
   isAuthenticated,
 }: ThemeProviderProps) {
+  const forceLight = isAuthenticated === false && !THEME_OVERRIDE;
   return (
     <NextThemesProvider
       attribute="class"
       defaultTheme={initialTheme ?? 'light'}
-      enableSystem={isAuthenticated !== false}
+      enableSystem={!forceLight}
       storageKey={USER_THEME_KEY}
       enableColorScheme
-      {...(isAuthenticated === false ? { forcedTheme: 'light' } : {})}
+      {...(forceLight ? { forcedTheme: 'light' } : {})}
     >
       <AppThemeInner
         {...(initialThemeColor !== undefined ? { initialThemeColor } : {})}
-        {...(isAuthenticated === false
-          ? { forcedResolvedTheme: 'light' as const }
-          : {})}
+        {...(forceLight ? { forcedResolvedTheme: 'light' as const } : {})}
       >
         {children}
       </AppThemeInner>

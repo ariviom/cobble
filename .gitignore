@@ -72,3 +72,4 @@ rotating_stud/frames/
 
 # Video recording output
 scripts/videos/output/
+scripts/videos/auth-state.json

@@ -49,7 +49,10 @@ export function SetCardBody({
               {themeLabel}
             </div>
           )}
-          <div className="line-clamp-2 w-full leading-tight font-bold text-foreground">
+          <div
+            data-video-target="set-card-name"
+            className="line-clamp-2 w-full leading-tight font-bold text-foreground"
+          >
             {displayName}
           </div>
           <div className="mt-1 w-full text-2xs font-semibold text-foreground-muted">
