@@ -46,6 +46,8 @@ type OnboardingState = {
   dismissed: boolean;
   collapsed: boolean;
   _userId: string | undefined;
+  /** True once hydrate() has been called (localStorage read complete) */
+  _hydrated: boolean;
 
   complete: (id: TourItemId) => void;
   dismiss: () => void;
@@ -64,6 +66,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   dismissed: false,
   collapsed: false,
   _userId: undefined,
+  _hydrated: false,
 
   complete: (id: TourItemId) => {
     const { completedSteps, _userId } = get();
@@ -123,9 +126,10 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
         dismissed: stored.dismissed,
         collapsed: stored.collapsed ?? false,
         _userId: userId,
+        _hydrated: true,
       });
     } else {
-      set({ _userId: userId });
+      set({ _userId: userId, _hydrated: true });
     }
   },
 

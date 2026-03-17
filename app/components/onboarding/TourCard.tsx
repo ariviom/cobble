@@ -26,6 +26,7 @@ export function TourCard() {
     isComplete,
     progress,
   } = useOnboarding();
+  const hydrated = useOnboardingStore(s => s._hydrated);
 
   // Activate Supabase sync
   useOnboardingSync();
@@ -43,8 +44,8 @@ export function TourCard() {
   // Don't render on hidden routes (e.g. marketing landing page)
   if (HIDDEN_ROUTES.has(pathname)) return null;
 
-  // Don't render during loading
-  if (isLoading) return null;
+  // Don't render until auth check and onboarding hydration are both done
+  if (isLoading || !hydrated) return null;
 
   // Completed + dismissed = permanently hidden
   if (isComplete() && dismissed) return null;

@@ -17,6 +17,7 @@ describe('onboarding store', () => {
       completedSteps: [],
       dismissed: false,
       collapsed: false,
+      _hydrated: false,
     });
   });
 
@@ -75,7 +76,7 @@ describe('onboarding store', () => {
     expect(parsed.completedSteps).toContain('search_set');
   });
 
-  it('hydrates from localStorage', () => {
+  it('hydrates from localStorage and sets _hydrated flag', () => {
     storage.set(
       'onboarding:progress',
       JSON.stringify({
@@ -83,7 +84,9 @@ describe('onboarding store', () => {
         dismissed: false,
       })
     );
+    expect(useOnboardingStore.getState()._hydrated).toBe(false);
     useOnboardingStore.getState().hydrate();
+    expect(useOnboardingStore.getState()._hydrated).toBe(true);
     expect(useOnboardingStore.getState().completedSteps).toContain(
       'search_set'
     );
