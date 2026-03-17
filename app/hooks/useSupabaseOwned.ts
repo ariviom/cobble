@@ -329,25 +329,28 @@ export function useSupabaseOwned({
       const result = await deltaPull(abortController.signal);
       if (cancelled || !result) return;
 
-      // Reconcile: compare local owned data against cloud keys and
-      // re-enqueue any local-only pieces that haven't synced yet.
-      // Runs on every hydration (not just first-pull) to self-heal
-      // if enqueue calls failed or sync queue entries were lost.
-      let cloudKeySet: Set<string>;
+      // Bidirectional reconciliation: detect gaps in both directions.
+      // - Cloud→Local: cloud has data the local store is missing
+      //   (e.g., watermark advanced past rows that were lost from cache)
+      // - Local→Cloud: local has data that never synced to Supabase
+      //   (e.g., enqueue call failed or sync queue entry was lost)
+
+      // Build cloud map: key → owned_quantity
+      let cloudMap: Map<string, number>;
 
       if (result.watermark === 0) {
         // First pull already fetched all cloud rows — reuse them
-        cloudKeySet = new Set(
-          result.data
-            .filter(r => (r.owned_quantity ?? 0) > 0)
-            .map(r => `${r.part_num}:${r.color_id}`)
-        );
+        cloudMap = new Map();
+        for (const r of result.data) {
+          const qty = r.owned_quantity ?? 0;
+          if (qty > 0) cloudMap.set(`${r.part_num}:${r.color_id}`, qty);
+        }
       } else {
-        // Subsequent pull: lightweight query for cloud keys only
+        // Subsequent pull: query all cloud data for this set
         const supabase = getSupabaseBrowserClient();
         const { data: cloudRows, error } = await supabase
           .from('user_set_parts')
-          .select('part_num, color_id')
+          .select('part_num, color_id, owned_quantity')
           .eq('user_id', userId!)
           .eq('set_num', setNumber)
           .eq('is_spare', false)
@@ -356,20 +359,31 @@ export function useSupabaseOwned({
 
         if (cancelled) return;
         if (error) {
-          // Cloud query failed — skip reconciliation, use delta pull only
           setHydrated(true);
           return;
         }
 
-        cloudKeySet = new Set(
-          (cloudRows ?? []).map(r => `${r.part_num}:${r.color_id}`)
-        );
+        cloudMap = new Map();
+        for (const r of cloudRows ?? []) {
+          cloudMap.set(`${r.part_num}:${r.color_id}`, r.owned_quantity ?? 0);
+        }
       }
 
-      // Read from in-memory cache (most up-to-date after delta pull)
+      const inventoryKeySet = new Set(keys);
       const localData = readOwnedCache(setNumber);
+
+      // Cloud→Local: apply cloud data missing from local store
+      for (const [key, qty] of cloudMap) {
+        if (!inventoryKeySet.has(key)) continue;
+        const localQty = localData[key] ?? 0;
+        if (localQty === 0 && qty > 0) {
+          setOwned(setNumber, key, qty);
+        }
+      }
+
+      // Local→Cloud: enqueue local data missing from cloud
       for (const [key, qty] of Object.entries(localData)) {
-        if (qty > 0 && !cloudKeySet.has(key)) {
+        if (qty > 0 && !cloudMap.has(key)) {
           enqueueChange(key, qty);
         }
       }
