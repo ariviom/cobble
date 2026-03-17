@@ -32,7 +32,7 @@ export function OwnedQuantityControl({
         'list:sm:max-w-min grid:w-full micro:h-11 micro:w-full micro:min-w-0',
         className
       )}
-      buttonClassName="micro:h-11 micro:min-w-0 micro:text-lg"
+      buttonClassName="micro:h-11 micro:min-w-0 micro:flex-1 micro:text-lg"
       beforeInput={
         <div className="hidden h-full border-l border-subtle micro:block" />
       }
