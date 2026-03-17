@@ -8,7 +8,7 @@ import {
   getWatermark,
   setWatermark as setWatermarkFn,
 } from '@/app/lib/localDb/watermarkStore';
-import { getOwnedForSet } from '@/app/lib/localDb/ownedStore';
+import { readOwnedCache } from '@/app/store/owned';
 import { getTabCoordinator } from '@/app/lib/sync/tabCoordinator';
 import { enqueueOwnedChangeIfPossible } from '@/app/lib/ownedSync';
 import { useOwnedStore, type OwnedState } from '@/app/store/owned';
@@ -329,18 +329,48 @@ export function useSupabaseOwned({
       const result = await deltaPull(abortController.signal);
       if (cancelled || !result) return;
 
-      // First pull (watermark === 0): enqueue local-only keys for upload
-      if (result.watermark === 0) {
-        const localData = await getOwnedForSet(setNumber);
-        if (cancelled) return;
+      // Reconcile: compare local owned data against cloud keys and
+      // re-enqueue any local-only pieces that haven't synced yet.
+      // Runs on every hydration (not just first-pull) to self-heal
+      // if enqueue calls failed or sync queue entries were lost.
+      let cloudKeySet: Set<string>;
 
-        const cloudKeys = new Set(
-          result.data.map(r => `${r.part_num}:${r.color_id}`)
+      if (result.watermark === 0) {
+        // First pull already fetched all cloud rows — reuse them
+        cloudKeySet = new Set(
+          result.data
+            .filter(r => (r.owned_quantity ?? 0) > 0)
+            .map(r => `${r.part_num}:${r.color_id}`)
         );
-        for (const [key, qty] of Object.entries(localData)) {
-          if (!cloudKeys.has(key) && qty > 0) {
-            enqueueChange(key, qty);
-          }
+      } else {
+        // Subsequent pull: lightweight query for cloud keys only
+        const supabase = getSupabaseBrowserClient();
+        const { data: cloudRows, error } = await supabase
+          .from('user_set_parts')
+          .select('part_num, color_id')
+          .eq('user_id', userId!)
+          .eq('set_num', setNumber)
+          .eq('is_spare', false)
+          .gt('owned_quantity', 0)
+          .abortSignal(abortController.signal);
+
+        if (cancelled) return;
+        if (error) {
+          // Cloud query failed — skip reconciliation, use delta pull only
+          setHydrated(true);
+          return;
+        }
+
+        cloudKeySet = new Set(
+          (cloudRows ?? []).map(r => `${r.part_num}:${r.color_id}`)
+        );
+      }
+
+      // Read from in-memory cache (most up-to-date after delta pull)
+      const localData = readOwnedCache(setNumber);
+      for (const [key, qty] of Object.entries(localData)) {
+        if (qty > 0 && !cloudKeySet.has(key)) {
+          enqueueChange(key, qty);
         }
       }
 
