@@ -48,7 +48,7 @@ export const TOUR_ITEMS: TourItem[] = [
   },
   {
     id: 'mark_piece',
-    label: 'Mark a piece found',
+    label: 'Filter and mark pieces',
     subtext: 'Track your progress on a set',
     route: '/search',
     routeLabel: 'Go to Search',
@@ -57,7 +57,7 @@ export const TOUR_ITEMS: TourItem[] = [
     subtasks: [
       {
         id: 'mark_piece_select',
-        label: 'Select a part found',
+        label: 'Mark a piece found',
         subtext: 'Tap a part to mark it found',
         route: '',
         routeLabel: '',

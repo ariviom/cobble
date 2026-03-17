@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Modal } from '@/app/components/ui/Modal';
 import { Button } from '@/app/components/ui/Button';
 import { useOnboarding } from '@/app/hooks/useOnboarding';
@@ -16,6 +16,7 @@ type Props = {
 
 export function TourItemModal({ item, open, onClose, videoUrl }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const { resolveRoute, resolveRouteLabel, collapse } = useOnboarding();
 
   if (!item) return null;
@@ -23,6 +24,9 @@ export function TourItemModal({ item, open, onClose, videoUrl }: Props) {
   const route = resolveRoute(item);
   const routeLabel = resolveRouteLabel(item);
   const needsSetFirst = item.dynamicRoute && getRecentSets().length === 0;
+  const routeBase = item.dynamicRoute ? '/sets' : route;
+  const alreadyOnRoute =
+    pathname === routeBase || pathname.startsWith(routeBase + '/');
 
   const handleGo = () => {
     onClose();
@@ -52,9 +56,11 @@ export function TourItemModal({ item, open, onClose, videoUrl }: Props) {
           />
         )}
 
-        <Button variant="primary" onClick={handleGo}>
-          {routeLabel}
-        </Button>
+        {!alreadyOnRoute && (
+          <Button variant="primary" onClick={handleGo}>
+            {routeLabel}
+          </Button>
+        )}
       </div>
     </Modal>
   );

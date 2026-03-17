@@ -101,7 +101,7 @@ export function TourCard() {
           className="flex w-full items-center justify-between p-3"
         >
           <span className="text-sm font-medium text-foreground">
-            Tour Brick Party
+            Brick Party Tour
           </span>
           <span className="text-xs text-foreground-muted">
             {completed}/{total} complete

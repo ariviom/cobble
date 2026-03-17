@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { TOUR_ITEMS, type TourItem } from './tourConfig';
 import { useOnboarding } from '@/app/hooks/useOnboarding';
 
@@ -14,17 +15,19 @@ function ChecklistItem({
   isComplete,
   onClick,
   indent = false,
+  suffix,
 }: {
   item: TourItem;
   isComplete: boolean;
   onClick: () => void;
   indent?: boolean;
+  suffix?: string | undefined;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-start gap-3 rounded-md px-3 py-2 text-left transition-colors hover:bg-foreground/5 ${indent ? 'pl-9' : ''} ${isComplete ? 'opacity-60' : ''}`}
+      className={`flex w-full items-start gap-3 rounded-md px-3 py-1 text-left transition-colors hover:bg-foreground/5 ${indent ? 'pl-9' : ''} ${isComplete ? 'opacity-60' : ''}`}
     >
       <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
         {isComplete ? (
@@ -50,6 +53,11 @@ function ChecklistItem({
           className={`text-sm font-medium ${isComplete ? 'text-foreground-muted line-through' : 'text-foreground'}`}
         >
           {item.label}
+          {suffix && (
+            <span className="ml-1 font-normal text-foreground-muted">
+              {suffix}
+            </span>
+          )}
         </span>
         <p className="text-xs text-foreground-muted">{item.subtext}</p>
       </div>
@@ -60,17 +68,18 @@ function ChecklistItem({
 export function TourChecklist({ onItemClick, onDismiss, onCollapse }: Props) {
   const { isStepComplete, progress } = useOnboarding();
   const { completed, total } = progress();
+  const [expandedParent, setExpandedParent] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col gap-1 p-4">
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-lg font-bold text-foreground">Tour Brick Party</h3>
-        <button
-          type="button"
-          onClick={onCollapse}
-          className="flex h-6 w-6 items-center justify-center rounded text-foreground-muted hover:text-foreground"
-          aria-label="Minimize tour"
-        >
+    <div className="flex flex-col">
+      <button
+        type="button"
+        onClick={onCollapse}
+        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-foreground/5"
+        aria-label="Minimize tour"
+      >
+        <h3 className="text-lg font-bold text-foreground">Brick Party Tour</h3>
+        <span className="flex h-6 w-6 items-center justify-center text-foreground-muted">
           <svg
             className="h-4 w-4"
             fill="none"
@@ -84,32 +93,57 @@ export function TourChecklist({ onItemClick, onDismiss, onCollapse }: Props) {
               d="M19 9l-7 7-7-7"
             />
           </svg>
-        </button>
-      </div>
+        </span>
+      </button>
 
-      <div className="flex flex-col gap-0.5">
-        {TOUR_ITEMS.map(item => (
-          <div key={item.id}>
-            <ChecklistItem
-              item={item}
-              isComplete={isStepComplete(item.id)}
-              onClick={() => onItemClick(item)}
-            />
-            {item.subtasks?.map(sub => (
+      <div className="flex flex-col px-4">
+        {TOUR_ITEMS.map(item => {
+          const hasSubtasks = item.subtasks && item.subtasks.length > 0;
+          const isExpanded = expandedParent === item.id;
+          const subtasksDone = hasSubtasks
+            ? item.subtasks!.filter(s => isStepComplete(s.id)).length
+            : 0;
+
+          return (
+            <div key={item.id}>
               <ChecklistItem
-                key={sub.id}
-                item={sub}
-                isComplete={isStepComplete(sub.id)}
-                onClick={() => onItemClick(item)}
-                indent
+                item={item}
+                isComplete={
+                  hasSubtasks
+                    ? subtasksDone === item.subtasks!.length
+                    : isStepComplete(item.id)
+                }
+                onClick={() => {
+                  if (hasSubtasks) {
+                    setExpandedParent(isExpanded ? null : item.id);
+                  } else {
+                    onItemClick(item);
+                  }
+                }}
+                suffix={
+                  hasSubtasks && !isExpanded
+                    ? `(${subtasksDone}/${item.subtasks!.length})`
+                    : undefined
+                }
               />
-            ))}
-          </div>
-        ))}
+              {hasSubtasks &&
+                isExpanded &&
+                item.subtasks!.map(sub => (
+                  <ChecklistItem
+                    key={sub.id}
+                    item={sub}
+                    isComplete={isStepComplete(sub.id)}
+                    onClick={() => onItemClick(item)}
+                    indent
+                  />
+                ))}
+            </div>
+          );
+        })}
       </div>
 
       {/* Progress bar */}
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-2 flex items-center gap-2 px-4 pb-3">
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-foreground/10">
           <div
             className="h-full rounded-full bg-theme-primary transition-all duration-300"
@@ -125,7 +159,7 @@ export function TourChecklist({ onItemClick, onDismiss, onCollapse }: Props) {
       <button
         type="button"
         onClick={onDismiss}
-        className="mt-2 self-start text-xs text-foreground-muted hover:text-foreground"
+        className="-mt-1 self-start px-4 pb-3 text-xs text-foreground-muted hover:text-foreground"
       >
         Skip tour
       </button>
