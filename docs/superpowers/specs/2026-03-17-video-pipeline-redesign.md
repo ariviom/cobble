@@ -24,31 +24,62 @@ export function run(ctx: ScenarioContext): Promise<ScenarioResult>;
 
 ### ScenarioConfig
 
+Scenarios define their own config interface extending the base:
+
 ```ts
-interface ScenarioConfig {
+/** Base timing fields shared by all scenarios. */
+interface BaseTiming {
+  initialPause: number;
+  zoomTransition: number;
+  panTransition: number;
+  typingBase: [number, number]; // [min, max] ms per keystroke
+  typingPauseChance: number; // probability of extra 200ms pause
+}
+
+/** Base zoom fields shared by all scenarios. */
+interface BaseZoom {
+  modalFraming: number;
+  modalCenterOffset: number; // fraction of viewport height to shift modal center down
+}
+
+/** Base config — scenarios extend this with their own timing/zoom/content fields. */
+interface ScenarioConfig<
+  T extends BaseTiming = BaseTiming,
+  Z extends BaseZoom = BaseZoom,
+> {
   name: string;
   description: string;
   warmStart: boolean; // true = skip page.goto in run(), use warm SPA state
-
-  timing: {
-    initialPause: number;
-    zoomTransition: number;
-    panTransition: number;
-    typingBase: [number, number]; // [min, max] ms per keystroke
-    typingPauseChance: number; // probability of extra 200ms pause
-    [key: string]: number | [number, number]; // scenario-specific timing keys
-  };
-
-  zoom: {
-    searchInput: number; // e.g., 1.8
-    modalFraming: number; // e.g., 1.25
-    modalCenterOffset: number; // fraction of viewport height to shift modal center down
-    [key: string]: number; // scenario-specific zoom levels
-  };
-
-  [key: string]: unknown; // scenario-specific content (set numbers, queries, etc.)
+  timing: T;
+  zoom: Z;
 }
 ```
+
+Each scenario extends the base with its own fields:
+
+```ts
+// In search-set.ts
+interface SearchSetTiming extends BaseTiming {
+  dwellOnResults: number;
+  dwellOnCard: number;
+  dwellOnModal: number;
+  dwellOnOwnedMark: number;
+  dwellOnModalView: number;
+  zoomToModal: number;
+  postClose: number;
+}
+
+interface SearchSetZoom extends BaseZoom {
+  searchInput: number;
+}
+
+interface SearchSetConfig
+  extends ScenarioConfig<SearchSetTiming, SearchSetZoom> {
+  setNumber: string;
+}
+```
+
+This gives full type safety — `t.dwellOnResults` is `number`, not `number | [number, number]`. No casts needed.
 
 The `timing` and `zoom` objects use descriptive names so the purpose of each value is clear without reading choreography code. Scenario-specific keys (like `setNumber` for search-set) go at the top level.
 
@@ -63,14 +94,19 @@ interface ScenarioContext {
   viewportCenter: { x: number; y: number };
 
   // Helpers
-  mark(zoom: number, center?: { x: number; y: number }): void;
+  mark(zoom: number, center?: { x: number; y: number }): void; // center required when zoom > 1; omitting it produces full-view
   typeNaturally(text: string): Promise<void>;
   centerOf(locator: Locator): Promise<{ x: number; y: number }>;
   wait(ms: number): Promise<void>; // alias for page.waitForTimeout
 }
 ```
 
-Created by a `createContext()` factory in `context.ts`. The factory wires up `mark()` to record zoom keyframes with timestamps, `typeNaturally()` to use the config's typing speed values, and computes `viewport` and `viewportCenter` from the Playwright page.
+Created by a `createContext()` factory in `context.ts`. The factory:
+
+- Captures `t0 = Date.now()` at creation time as the time origin for all keyframe timestamps.
+- Exposes `ctx.elapsed()` returning `(Date.now() - t0) / 1000` — used by `mark()` internally and available to scenarios for `trimStart` computation.
+- Binds helpers to the page and config: `ctx.typeNaturally = (text) => typeNaturally(page, text, config.timing)`, `ctx.centerOf = (loc) => centerOf(loc)`.
+- Computes `viewport` and `viewportCenter` from the Playwright page's viewport size.
 
 ### ScenarioResult
 
@@ -82,6 +118,8 @@ interface ScenarioResult {
 ```
 
 A proper typed return. No more manual `'trimStart' in scenarioResult` checks.
+
+`trimStart` is computed by the scenario: the elapsed time from context creation to when visible content begins. For `warmStart: true`, this is near 0 (just a short settle wait). For `warmStart: false`, it covers the full `page.goto()` + network idle duration. `recorder.ts` adds its own `preScenarioSec` (time from video-start to `run()` call, covering browser launch + warmUp) on top of this value for the FFmpeg `-ss` offset.
 
 ## Warm-Start Mechanism
 
@@ -107,6 +145,14 @@ Solves two problems: API response caching and eliminating the brick loader flash
 - Perform all interactions that `run()` will perform (to populate both browser cache and TanStack Query cache).
 - End with the page in a clean starting state.
 - Return nothing — side-effect-only function.
+
+### Context Isolation Between Phases
+
+`recorder.ts` creates **two separate contexts**: one for `warmUp` and one for `run`. The warmUp context has a no-op `mark()` (zoom keyframes from the warm-up phase are discarded). After warmUp completes, a fresh context is created for `run()` with a new `t0`, fresh `zoomKeyframes` array, and fully functional `mark()`. Both contexts share the same `page` object (so browser cache and SPA state carry over).
+
+### warmUp Is Always Called
+
+Even when `warmStart: false`, `warmUp` is still called to populate the API cache. The difference is only in whether `run()` calls `page.goto()` afterward (destroying SPA state but keeping browser HTTP cache and the API route interception).
 
 ### API Cache Stays in recorder.ts
 
@@ -141,7 +187,14 @@ scripts/videos/
 
 ### Responsibilities
 
-**record.ts** (~100 lines): CLI parsing with `--viewport`, `--theme`, `--color`, `--url`, `--serial`, `--storage-state`, `--list` flags. Builds variant matrix. Validates scenario exists. Orchestrates parallel recording via `mapWithConcurrency`. Auto-cleans previous outputs. Scenario discovery via `--list` (scans `scenarios/` directory).
+**record.ts** (~100 lines): CLI parsing with `--viewport`, `--theme`, `--color`, `--url`, `--serial`, `--storage-state`, `--list` flags. Builds variant matrix. Validates scenario exists. Orchestrates parallel recording via `mapWithConcurrency`. Auto-cleans previous outputs.
+
+**`--list` flag**: Scans `scenarios/` for `.ts` files, dynamically imports each to read its exported `config`, and prints `name — description` to stdout (one per line), then exits. Example output:
+
+```
+search-set — Search by set number, mark owned, search by name
+identify — Identify a part by image, view matches
+```
 
 **recorder.ts** (~200 lines): `recordVariant()` function. Launches browser, creates context with `addInitScript` for theme/color/onboarding injection. Attaches API response capture. Calls `warmUp`. Installs API route interception. Calls `run`. Saves video. Computes trim. Builds FFmpeg filter (zoom for desktop, passthrough for mobile). Runs FFmpeg. Cleans temp files. Logs FFmpeg stderr on failure.
 
@@ -194,7 +247,11 @@ Changes in `recorder.ts`:
 ## Example: Refactored search-set.ts
 
 ```ts
-import type { ScenarioConfig, ScenarioContext, ScenarioResult } from '../context';
+import type {
+  ScenarioConfig,
+  ScenarioContext,
+  ScenarioResult,
+} from '../context';
 
 export const config: ScenarioConfig = {
   name: 'search-set',
@@ -233,27 +290,37 @@ export async function warmUp(ctx: ScenarioContext) {
   await page.waitForLoadState('networkidle');
 
   // Search by number — caches API response and images
-  await searchInput.fill(c.setNumber as string);
+  await searchInput.fill(c.setNumber);
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await resultCard.first().waitFor({ state: 'visible', timeout: 15000 });
-  await page.waitForTimeout(2000);
+  await ctx.wait(2000);
 
   // Grab set name and search by that too
-  const setName = (await page.locator('[data-video-target="set-card-name"]').first().textContent()) ?? 'Galaxy Explorer';
+  const setName =
+    (await page
+      .locator('[data-video-target="set-card-name"]')
+      .first()
+      .textContent()) ?? 'Galaxy Explorer';
   await page.getByLabel('Clear search').click();
   await searchInput.fill(setName);
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await resultCard.first().waitFor({ state: 'visible', timeout: 15000 });
-  await page.waitForTimeout(2000);
+  await ctx.wait(2000);
 
   // Open modal to cache its data
   await resultCard.first().click();
-  await page.waitForTimeout(1500);
-  await page.getByLabel('Close').click().catch(() => {});
+  await ctx.wait(1500);
+  await page
+    .getByLabel('Close')
+    .click()
+    .catch(() => {});
 
   // Clean up to starting state
-  await page.getByLabel('Clear search').click().catch(() => {});
-  await page.waitForTimeout(500);
+  await page
+    .getByLabel('Clear search')
+    .click()
+    .catch(() => {});
+  await ctx.wait(500);
 }
 
 export async function run(ctx: ScenarioContext): Promise<ScenarioResult> {
@@ -266,7 +333,7 @@ export async function run(ctx: ScenarioContext): Promise<ScenarioResult> {
     await page.waitForLoadState('networkidle');
   }
   await wait(200);
-  const trimStart = /* computed from ctx timestamps */;
+  const trimStart = ctx.elapsed(); // seconds since context creation
 
   mark(1);
   await wait(t.initialPause);
@@ -281,7 +348,7 @@ export async function run(ctx: ScenarioContext): Promise<ScenarioResult> {
   mark(c.zoom.searchInput, searchCenter);
 
   await searchInput.click();
-  await typeNaturally(c.setNumber as string);
+  await typeNaturally(c.setNumber);
   await page.getByRole('button', { name: 'Search', exact: true }).click();
 
   await resultCard.first().waitFor({ state: 'visible', timeout: 15000 });
