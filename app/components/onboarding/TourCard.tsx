@@ -12,7 +12,7 @@ import { TourItemModal } from './TourItemModal';
 import type { TourItem } from './tourConfig';
 
 /** Routes where the tour card should never appear. */
-const HIDDEN_ROUTES = new Set(['/']);
+const HIDDEN_ROUTES = new Set(['/', '/login', '/signup']);
 
 export function TourCard() {
   const pathname = usePathname();

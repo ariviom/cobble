@@ -23,6 +23,7 @@ import { chromium, type Page } from 'playwright';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
+import { buildZoompanFilter, type ZoomKeyframe } from './zoom';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -31,9 +32,10 @@ import { execSync } from 'child_process';
 const OUTPUT_DIR = join(__dirname, 'output');
 const DEFAULT_URL = 'https://brick-party.com';
 const DEFAULT_CONCURRENCY = 4;
+const RECORDING_FPS = 25;
 
 const VIEWPORTS = {
-  desktop: { width: 1280, height: 720 },
+  desktop: { width: 1920, height: 1080 },
   mobile: { width: 390, height: 844 },
 } as const;
 
@@ -124,7 +126,10 @@ function parseArgs() {
 // ---------------------------------------------------------------------------
 
 async function recordVariant(
-  scenarioRun: (page: Page, baseUrl: string) => Promise<void>,
+  scenarioRun: (
+    page: Page,
+    baseUrl: string
+  ) => Promise<{ trimStart?: number; zoomKeyframes?: ZoomKeyframe[] } | void>,
   scriptName: string,
   variant: Variant,
   baseUrl: string,
@@ -137,6 +142,8 @@ async function recordVariant(
   mkdirSync(videoDir, { recursive: true });
 
   const vp = VIEWPORTS[viewport];
+  const isDesktop = viewport !== 'mobile';
+
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: vp,
@@ -174,26 +181,43 @@ async function recordVariant(
     { theme, color }
   );
 
+  const videoStartMs = Date.now();
   const page = await context.newPage();
 
-  // Navigate to a lightweight page to establish the origin's localStorage,
-  // then set values that addInitScript may miss due to origin isolation.
-  await page.goto(`${baseUrl}/favicon.ico`, { waitUntil: 'commit' });
-  await page.evaluate(
-    ({ theme, color }) => {
-      localStorage.setItem('userTheme', theme);
-      localStorage.setItem('userThemeColor', color);
-      localStorage.setItem('theme:override', 'true');
-      localStorage.setItem(
-        'onboarding:progress',
-        JSON.stringify({ completedSteps: [], dismissed: true })
-      );
-    },
-    { theme, color }
-  );
+  // Warm-up: run scenario once, capturing API responses for instant replay.
+  // The warm-up is recorded but trimmed — preScenarioSec covers it.
+  const apiCache = new Map<
+    string,
+    { status: number; headers: Record<string, string>; body: Buffer }
+  >();
+  page.on('response', async response => {
+    if (response.url().includes('/api/')) {
+      try {
+        const body = await response.body();
+        apiCache.set(response.url(), {
+          status: response.status(),
+          headers: response.headers(),
+          body,
+        });
+      } catch {}
+    }
+  });
 
-  // Scenario handles its own navigation
-  await scenarioRun(page, baseUrl);
+  await scenarioRun(page, baseUrl).catch(() => {});
+
+  // Intercept API calls in the real run with cached responses
+  await page.route('**/api/**', async (route, request) => {
+    const cached = apiCache.get(request.url());
+    if (cached) {
+      await route.fulfill(cached);
+    } else {
+      await route.continue();
+    }
+  });
+
+  // Real run: API calls served instantly from cache
+  const scenarioStartMs = Date.now();
+  const scenarioResult = await scenarioRun(page, baseUrl);
 
   // Save video — saveAs waits for the page to close and video to finalize
   const video = page.video();
@@ -204,10 +228,48 @@ async function recordVariant(
   await video.saveAs(webmPath);
   await browser.close();
 
-  // Remux webm → mp4
+  // Trim loading time and remux webm → mp4
   const outputPath = join(OUTPUT_DIR, `${label}.mp4`);
+  const preScenarioSec = (scenarioStartMs - videoStartMs) / 1000;
+  const scenarioTrimSec =
+    scenarioResult &&
+    typeof scenarioResult === 'object' &&
+    'trimStart' in scenarioResult
+      ? (scenarioResult.trimStart ?? 0)
+      : 0;
+  const trimStart = preScenarioSec + scenarioTrimSec;
+  const ssFlag = trimStart > 0.5 ? `-ss ${trimStart.toFixed(2)}` : '';
+
+  // Build video filter: zoom + scale for desktop, passthrough for mobile
+  let vfFlag = '';
+  if (isDesktop) {
+    const zoomKeyframes =
+      scenarioResult &&
+      typeof scenarioResult === 'object' &&
+      'zoomKeyframes' in scenarioResult
+        ? (scenarioResult.zoomKeyframes as ZoomKeyframe[] | undefined)
+        : undefined;
+
+    const zpFilter = zoomKeyframes?.length
+      ? buildZoompanFilter(
+          zoomKeyframes,
+          scenarioTrimSec,
+          vp.width,
+          vp.height,
+          vp.width,
+          vp.height,
+          1, // scaleFactor: CSS pixels = recording pixels at 1x
+          RECORDING_FPS
+        )
+      : null;
+
+    if (zpFilter) {
+      vfFlag = `-vf "fps=${RECORDING_FPS},${zpFilter}"`;
+    }
+  }
+
   execSync(
-    `ffmpeg -y -i "${webmPath}" -c:v libx264 -crf 18 -preset fast -pix_fmt yuv420p "${outputPath}"`,
+    `ffmpeg -y ${ssFlag} -i "${webmPath}" ${vfFlag} -c:v libx264 -crf 18 -preset fast -pix_fmt yuv420p "${outputPath}"`,
     { stdio: 'pipe' }
   );
 
@@ -259,6 +321,14 @@ async function main() {
   const scenario = await import(`./scenarios/${scriptName}`);
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
+
+  // Clean previous outputs for this script
+  const { readdirSync, unlinkSync } = await import('fs');
+  for (const file of readdirSync(OUTPUT_DIR)) {
+    if (file.startsWith(`${scriptName}-`) && file.endsWith('.mp4')) {
+      unlinkSync(join(OUTPUT_DIR, file));
+    }
+  }
 
   const concurrency = serial ? 1 : DEFAULT_CONCURRENCY;
 
