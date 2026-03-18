@@ -20,7 +20,10 @@
     "enrich:color-ids": "tsx scripts/enrich-color-external-ids.ts",
     "backfill:rb-colors": "tsx scripts/backfill-rb-color-ids.ts",
     "ingest:bricklinkable-prices": "tsx scripts/ingest-bricklinkable-prices.ts",
-    "generate-types": "npx supabase gen types typescript --schema public --project-id nrrunazjjrwxaonlvvhh > supabase/types.ts"
+    "generate-types": "npx supabase gen types typescript --schema public --project-id nrrunazjjrwxaonlvvhh > supabase/types.ts",
+    "video": "tsx scripts/videos/record.ts",
+    "video:all": "for f in scripts/videos/scenarios/*.ts; do tsx scripts/videos/record.ts \"$(basename \"$f\" .ts)\"; done",
+    "video:save-auth": "tsx scripts/videos/save-auth.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",

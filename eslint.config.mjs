@@ -56,6 +56,7 @@ const eslintConfig = [
   // Typed ESLint rules (requires type information)
   {
     files: ['**/*.ts', '**/*.tsx'],
+    ignores: ['scripts/videos/**'],
     languageOptions: {
       parserOptions: {
         project: './tsconfig.json',
