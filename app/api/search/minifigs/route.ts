@@ -5,9 +5,10 @@ import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+// s-maxage controls CDN cache (30s); max-age controls browser cache (60s).
 const CACHE_CONTROL =
   process.env.NODE_ENV === 'production'
-    ? 'public, max-age=60, stale-while-revalidate=300'
+    ? 'public, s-maxage=30, max-age=60'
     : 'no-store';
 const allowedSizes = new Set([20, 40, 60, 80, 100]);
 const allowedSorts: MinifigSortOption[] = [

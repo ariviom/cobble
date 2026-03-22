@@ -203,7 +203,7 @@ describe('GET /api/search', () => {
       const res = await GET(req);
 
       expect(res.headers.get('Cache-Control')).toBe(
-        'public, max-age=60, stale-while-revalidate=300'
+        'public, s-maxage=30, max-age=60'
       );
     });
 

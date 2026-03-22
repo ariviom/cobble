@@ -8,7 +8,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 // Catalog data is the same for all users; short CDN TTL avoids redundant function invocations.
-const CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
+// s-maxage controls CDN cache (30s); max-age controls browser cache (60s).
+const CACHE_CONTROL = 'public, s-maxage=30, max-age=60';
 
 const allowedFilters: FilterType[] = ['all', 'set', 'theme', 'subtheme'];
 const allowedSizes = new Set([20, 50, 100]);
