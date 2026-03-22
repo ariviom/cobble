@@ -24,6 +24,8 @@ export type StatusToggleButtonProps =
     hideLabelOnMobile?: boolean;
     /** Hide the icon on mobile (text-only), useful for space-constrained layouts */
     hideIconOnMobile?: boolean;
+    /** Use container queries (@container) instead of viewport breakpoints for responsive hiding */
+    containerResponsive?: boolean;
   };
 
 const baseStyles =
@@ -107,6 +109,7 @@ export function StatusToggleButton({
   compact = false,
   hideLabelOnMobile = false,
   hideIconOnMobile = false,
+  containerResponsive = false,
   ...props
 }: StatusToggleButtonProps) {
   const resolvedColorScheme = color ?? colorScheme ?? inferColorScheme(label);
@@ -138,14 +141,22 @@ export function StatusToggleButton({
       {...props}
     >
       {icon && (
-        <span className={cn(hideIconOnMobile && 'hidden sm:inline')}>
+        <span
+          className={cn(
+            hideIconOnMobile &&
+              (containerResponsive
+                ? 'hidden @[250px]:inline'
+                : 'hidden sm:inline')
+          )}
+        >
           {icon}
         </span>
       )}
       <span
         className={cn(
           'flex min-w-0 flex-col items-start',
-          hideLabelOnMobile && 'hidden sm:flex'
+          hideLabelOnMobile &&
+            (containerResponsive ? 'hidden @[250px]:flex' : 'hidden sm:flex')
         )}
       >
         <span>{label}</span>

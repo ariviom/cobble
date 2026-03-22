@@ -122,7 +122,7 @@ export function SetDisplayCard({
   return (
     <div
       className={cn(
-        'group relative flex flex-col',
+        'group @container relative flex flex-col',
         cardVariants({
           variant: 'default',
           elevated: true,

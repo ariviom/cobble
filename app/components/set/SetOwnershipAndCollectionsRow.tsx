@@ -25,6 +25,8 @@ type SetOwnershipAndCollectionsRowProps = {
   bricklinkUrl?: string | null;
   rebrickableUrl?: string | null;
   setNumber?: string;
+  /** Use container queries instead of viewport breakpoints for responsive button layout */
+  containerResponsive?: boolean;
 };
 
 export function SetOwnershipAndCollectionsRow({
@@ -34,6 +36,7 @@ export function SetOwnershipAndCollectionsRow({
   bricklinkUrl,
   rebrickableUrl,
   setNumber,
+  containerResponsive = false,
 }: SetOwnershipAndCollectionsRowProps) {
   const {
     status,
@@ -123,17 +126,20 @@ export function SetOwnershipAndCollectionsRow({
           onClick={handleToggleOwned}
           variant={variant === 'dropdown' ? 'dropdown' : variant}
           color="green"
+          containerResponsive={containerResponsive}
           {...(variant !== 'dropdown' && {
             compact: true,
             hideLabelOnMobile: true,
-            className:
-              'size-12 justify-center sm:h-12 sm:w-auto sm:justify-start sm:gap-2.5 sm:px-2.5 sm:pr-4',
+            className: containerResponsive
+              ? 'size-12 justify-center @[250px]:h-12 @[250px]:w-auto @[250px]:justify-start @[250px]:gap-2.5 @[250px]:px-2.5 @[250px]:pr-4'
+              : 'size-12 justify-center sm:h-12 sm:w-auto sm:justify-start sm:gap-2.5 sm:px-2.5 sm:pr-4',
           })}
         />
         <StatusToggleButton
           icon={<List className="size-3.5" />}
           label="Collections"
           hideIconOnMobile={variant !== 'dropdown'}
+          containerResponsive={containerResponsive}
           sublabel={selectedCollectionNames}
           aria-busy={isAuthenticating}
           onClick={handleOpenCollections}

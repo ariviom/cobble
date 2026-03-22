@@ -26,7 +26,10 @@ export function SetDisplayCardWithControls(props: SetDisplayCardProps) {
 
   return (
     <SetDisplayCard {...props}>
-      <SetOwnershipAndCollectionsRow ownership={ownership} />
+      <SetOwnershipAndCollectionsRow
+        ownership={ownership}
+        containerResponsive
+      />
     </SetDisplayCard>
   );
 }
