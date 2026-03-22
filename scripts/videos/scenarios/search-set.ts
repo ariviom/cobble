@@ -84,7 +84,7 @@ export async function warmUp(
 
   // Grab set name for second search
   const setNameEl = page.locator('[data-video-target="set-card-name"]').first();
-  const setName = (await setNameEl.textContent()) ?? 'Galaxy Explorer';
+  const setName = ((await setNameEl.textContent()) ?? 'Galaxy Explorer').trim();
 
   // Clear and search by name
   await page.getByLabel('Clear search').click();
@@ -112,14 +112,9 @@ export async function warmUp(
 export async function run(
   ctx: ScenarioContext<SearchSetConfig>
 ): Promise<RunResult> {
-  const { page, baseUrl, config: c, viewport } = ctx;
+  const { page, baseUrl, config: c } = ctx;
   const t = c.timing;
   const z = c.zoom;
-
-  const modalCenter = {
-    x: viewport.width / 2,
-    y: viewport.height * (0.5 + z.modalCenterOffset),
-  };
 
   // --- Page load (trimmed from final video) ---
   if (!c.warmStart) {
@@ -154,7 +149,7 @@ export async function run(
 
   // Grab the set name for the second search
   const setNameEl = page.locator('[data-video-target="set-card-name"]').first();
-  const setName = (await setNameEl.textContent()) ?? 'Galaxy Explorer';
+  const setName = ((await setNameEl.textContent()) ?? 'Galaxy Explorer').trim();
 
   // Pan to first result card (stay zoomed)
   const cardCenter = await ctx.centerOf(resultCard.first());
@@ -163,17 +158,17 @@ export async function run(
   ctx.mark(z.searchInput, cardCenter);
   await ctx.wait(t.dwellOnCard);
 
-  // Click card to open modal
-  await resultCard.first().click();
-  await ctx.wait(300);
-
-  // Zoom out to modal framing
+  // Zoom out before opening card
   ctx.mark(z.searchInput, cardCenter);
   await ctx.wait(t.zoomToModal);
-  ctx.mark(z.modalFraming, modalCenter);
+  ctx.mark(1);
+  await ctx.wait(t.dwellOnCard);
+
+  // Click card to open modal
+  await resultCard.first().click();
   await ctx.wait(t.dwellOnModal);
 
-  // Mark as owned from the modal (requires --storage-state for auth)
+  // Mark as owned from the modal
   const ownedBtn = page
     .getByRole('dialog')
     .getByRole('button', { name: 'Owned' });
@@ -189,11 +184,8 @@ export async function run(
     await ctx.wait(300);
   }
 
-  // Zoom out to full view while closing
-  ctx.mark(z.modalFraming, modalCenter);
+  // Close modal
   await page.getByRole('dialog').getByLabel('Close').click();
-  await ctx.wait(t.postClose);
-  ctx.mark(1);
   await ctx.wait(t.postClose);
 
   // Clear search
@@ -223,21 +215,18 @@ export async function run(
   ctx.mark(z.searchInput, cardCenter2);
   await ctx.wait(t.dwellOnCard);
 
-  // Click card to open modal
-  await resultCard.first().click();
-  await ctx.wait(300);
-
-  // Zoom out to modal framing
+  // Zoom out before opening card
   ctx.mark(z.searchInput, cardCenter2);
   await ctx.wait(t.zoomToModal);
-  ctx.mark(z.modalFraming, modalCenter);
+  ctx.mark(1);
+  await ctx.wait(t.dwellOnCard);
+
+  // Click card to open modal
+  await resultCard.first().click();
   await ctx.wait(t.dwellOnModalView);
 
-  // Close and zoom to full view
-  ctx.mark(z.modalFraming, modalCenter);
+  // Close modal
   await page.getByLabel('Close').click();
-  await ctx.wait(t.postClose);
-  ctx.mark(1);
   await ctx.wait(t.postClose);
 
   // Clean up

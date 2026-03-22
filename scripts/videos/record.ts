@@ -13,11 +13,17 @@
  *   --url       Base URL (default: https://brick-party.com)
  *   --serial    Run variants one at a time (default: parallel, max 4)
  *
+ * Auth: Set VIDEO_AUTH_EMAIL and VIDEO_AUTH_PASSWORD in .env.local to
+ * automatically sign in before each recording.
+ *
  * Output: scripts/videos/output/<script>-<viewport>-<theme>-<color>.mp4
  */
 
+import { config as loadEnv } from 'dotenv';
 import { mkdirSync, readdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
+
+loadEnv({ path: join(__dirname, '../../.env.local') });
 
 import {
   recordVariant,
@@ -52,7 +58,6 @@ type ParsedArgs =
       variants: Variant[];
       serial: boolean;
       baseUrl: string;
-      storageState?: string;
     };
 
 function parseArgs(): ParsedArgs {
@@ -65,7 +70,7 @@ function parseArgs(): ParsedArgs {
   const scriptName = args.find(a => !a.startsWith('--'));
   if (!scriptName) {
     console.error(
-      'Usage: npx tsx scripts/videos/record.ts <script-name> [--viewport desktop|mobile|all] [--theme light|dark|all] [--color blue|yellow|...|all] [--url <base-url>] [--serial] [--list]'
+      'Usage: npx tsx scripts/videos/record.ts <script-name> [--viewport desktop|mobile|all] [--theme light|dark|all] [--color blue|yellow|...|all] [--url <base-url>] [--serial] [--list]\n\nAuth: Set VIDEO_AUTH_EMAIL and VIDEO_AUTH_PASSWORD in .env.local'
     );
     process.exit(1);
   }
@@ -74,9 +79,6 @@ function parseArgs(): ParsedArgs {
 
   const urlIdx = args.indexOf('--url');
   const baseUrl = urlIdx >= 0 ? args[urlIdx + 1] : DEFAULT_URL;
-
-  const ssIdx = args.indexOf('--storage-state');
-  const storageState = ssIdx >= 0 ? args[ssIdx + 1] : undefined;
 
   function flag(
     name: string,
@@ -121,7 +123,7 @@ function parseArgs(): ParsedArgs {
     }
   }
 
-  return { list: false, scriptName, variants, serial, baseUrl, storageState };
+  return { list: false, scriptName, variants, serial, baseUrl };
 }
 
 // ---------------------------------------------------------------------------
@@ -215,7 +217,7 @@ async function main() {
     return;
   }
 
-  const { scriptName, variants, serial, baseUrl, storageState } = parsed;
+  const { scriptName, variants, serial, baseUrl } = parsed;
   const scenario = await loadScenario(scriptName);
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -238,14 +240,7 @@ async function main() {
   console.log();
 
   const outputs = await mapWithConcurrency(variants, concurrency, variant =>
-    recordVariant(
-      scenario,
-      scriptName,
-      variant,
-      baseUrl,
-      OUTPUT_DIR,
-      storageState
-    )
+    recordVariant(scenario, scriptName, variant, baseUrl, OUTPUT_DIR)
   );
 
   console.log(
