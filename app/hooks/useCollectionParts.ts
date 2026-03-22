@@ -13,12 +13,13 @@ import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { setCachedInventory } from '@/app/lib/localDb/catalogCache';
 import { getAllLooseParts } from '@/app/lib/localDb/loosePartsStore';
 import { getOwnedForSet, setOwnedForSet } from '@/app/lib/localDb/ownedStore';
+import { flushPendingWritesAsync } from '@/app/store/owned';
 import type { CatalogPart, CatalogSetPart } from '@/app/lib/localDb/schema';
 import { getLocalDb, isIndexedDBAvailable } from '@/app/lib/localDb/schema';
-import { getWatermark } from '@/app/lib/localDb/watermarkStore';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { getTabCoordinator } from '@/app/lib/sync/tabCoordinator';
 import { useUserSetsStore } from '@/app/store/user-sets';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type SetInfo = { setNumber: string; setName: string };
 
@@ -193,17 +194,28 @@ async function loadPartMetadata(
 }
 
 /**
- * Pull owned data from Supabase into IndexedDB for sets that haven't been
- * synced yet on this device (watermark === 0). This ensures the "missing"
- * filter works on fresh devices before the user opens individual set pages.
+ * Pull owned data from Supabase and merge into IndexedDB.
  *
- * Watermarks are NOT advanced here — the per-set delta pull in
- * useSupabaseOwned handles that when the user opens individual sets.
+ * Runs each time the "missing" filter is activated or the page is refreshed,
+ * ensuring the missing-parts view reflects cross-device changes.
+ *
+ * Merge strategy: for each key, keep the max of local and cloud quantities.
+ * This is safe in both directions — cloud-ahead (cross-device edits) and
+ * local-ahead (changes not yet pushed by SyncWorker) are both preserved.
+ *
+ * Limitation: quantity *decreases* made on another device will not be
+ * reflected until this device's local data is cleared (e.g. cache reset).
+ * This is acceptable because decreases are rare (corrections only) and
+ * the per-set watermark-based delta sync in useSupabaseOwned handles the
+ * full bidirectional case when a set detail page is opened.
  */
-let _cloudSyncDoneForUser: string | null = null;
+let _lastCloudSyncAt = 0;
+const CLOUD_SYNC_COOLDOWN_MS = 30_000;
 
 async function syncOwnedFromCloud(userId: string): Promise<void> {
-  if (_cloudSyncDoneForUser === userId) return;
+  const now = Date.now();
+  if (now - _lastCloudSyncAt < CLOUD_SYNC_COOLDOWN_MS) return;
+  _lastCloudSyncAt = now;
 
   const supabase = getSupabaseBrowserClient();
 
@@ -215,11 +227,25 @@ async function syncOwnedFromCloud(userId: string): Promise<void> {
     .gt('owned_quantity', 0)
     .limit(10000);
 
-  if (error) return;
-
-  _cloudSyncDoneForUser = userId;
+  if (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        '[syncOwnedFromCloud] Supabase query failed:',
+        error.message
+      );
+    }
+    // Reset timestamp so next attempt isn't blocked by cooldown
+    _lastCloudSyncAt = 0;
+    return;
+  }
 
   if (!data || data.length === 0) return;
+
+  if (data.length === 10000 && process.env.NODE_ENV !== 'production') {
+    console.warn(
+      '[syncOwnedFromCloud] Hit 10K row limit — some owned data may be missing'
+    );
+  }
 
   // Group by set
   const bySet = new Map<string, { key: string; qty: number }[]>();
@@ -235,16 +261,24 @@ async function syncOwnedFromCloud(userId: string): Promise<void> {
     });
   }
 
-  // Write to IndexedDB only for sets that haven't been synced yet
+  // Merge cloud data with local data (max wins per key)
   for (const [setNum, entries] of bySet) {
-    const watermark = await getWatermark(userId, setNum);
-    if (watermark > 0) continue; // already synced on this device
+    const localQtys = await getOwnedForSet(setNum);
+    const merged: Record<string, number> = { ...localQtys };
+    let changed = false;
 
-    const quantities: Record<string, number> = {};
     for (const e of entries) {
-      quantities[e.key] = e.qty;
+      const cloudQty = e.qty;
+      const localQty = merged[e.key] ?? 0;
+      if (cloudQty > localQty) {
+        merged[e.key] = cloudQty;
+        changed = true;
+      }
     }
-    await setOwnedForSet(setNum, quantities);
+
+    if (changed) {
+      await setOwnedForSet(setNum, merged);
+    }
   }
 }
 
@@ -266,6 +300,10 @@ export function useCollectionParts(
   const userSets = useUserSetsStore(state => state.sets);
   const setsHydrated = useUserSetsStore(state => state.setsHydrated);
 
+  // Epoch counter to discard results from superseded loadParts calls.
+  // Same pattern as cacheEpoch in owned.ts.
+  const loadEpochRef = useRef(0);
+
   const ownedSetInfos: SetInfo[] = useMemo(() => {
     if (!setsHydrated) return [];
     return Object.values(userSets)
@@ -273,62 +311,97 @@ export function useCollectionParts(
       .map(s => ({ setNumber: s.setNumber, setName: s.name }));
   }, [userSets, setsHydrated]);
 
-  const loadParts = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      if (sourceFilter === 'missing') {
-        // Path B: only sets where the user has marked ≥1 piece owned
-        if (userId) await syncOwnedFromCloud(userId);
-        const allSetNums = await getAllSetNumbersWithOwnedData();
-        const catalog = await loadCatalogPartsForSets(allSetNums);
-        const partMeta = await loadPartMetadata(catalog);
+  /**
+   * Load and compute collection parts from IndexedDB (+ optional cloud sync).
+   * @param skipCloudSync - When true, only re-reads local IndexedDB without
+   *   querying Supabase. Used by the cross-tab pull listener since the pushing
+   *   tab already wrote to the shared IndexedDB.
+   */
+  const loadParts = useCallback(
+    async (skipCloudSync = false) => {
+      const myEpoch = ++loadEpochRef.current;
+      setIsLoading(true);
+      try {
+        // Ensure any in-flight owned-quantity writes have landed in IndexedDB
+        // before we read. The owned Zustand store uses fire-and-forget async
+        // writes, so switching filters can race against pending persistence.
+        await flushPendingWritesAsync();
 
-        const ownedData = await Promise.all(
-          allSetNums.map(async setNum => {
-            const ownedByKey = await getOwnedForSet(setNum);
-            const userSet = userSets[setNum.toLowerCase()];
-            return {
-              setNumber: setNum,
-              setName: userSet?.name ?? setNum,
-              ownedByKey,
-            };
-          })
-        );
+        if (sourceFilter === 'missing') {
+          // Path B: only sets where the user has marked ≥1 piece owned
+          if (userId && !skipCloudSync) await syncOwnedFromCloud(userId);
+          const allSetNums = await getAllSetNumbersWithOwnedData();
+          const catalog = await loadCatalogPartsForSets(allSetNums);
+          const partMeta = await loadPartMetadata(catalog);
 
-        setParts(computeMissingParts(catalog, ownedData, partMeta));
-      } else {
-        // Path A: owned sets + loose
-        const setInfos = syncPartsFromSets ? ownedSetInfos : [];
-        const catalog = await loadCatalogPartsForSets(
-          setInfos.map(s => s.setNumber)
-        );
-        const partMeta = await loadPartMetadata(catalog);
-        const looseParts = await getAllLooseParts();
+          const ownedData = await Promise.all(
+            allSetNums.map(async setNum => {
+              const ownedByKey = await getOwnedForSet(setNum);
+              const userSet = userSets[setNum.toLowerCase()];
+              return {
+                setNumber: setNum,
+                setName: userSet?.name ?? setNum,
+                ownedByKey,
+              };
+            })
+          );
 
-        const ownedData = await Promise.all(
-          setInfos.map(async ({ setNumber, setName }) => ({
-            setNumber,
-            setName,
-            ownedByKey: await getOwnedForSet(setNumber),
-          }))
-        );
+          if (myEpoch !== loadEpochRef.current) return;
+          setParts(computeMissingParts(catalog, ownedData, partMeta));
+        } else {
+          // Path A: owned sets + loose
+          const setInfos = syncPartsFromSets ? ownedSetInfos : [];
+          const catalog = await loadCatalogPartsForSets(
+            setInfos.map(s => s.setNumber)
+          );
+          const partMeta = await loadPartMetadata(catalog);
+          const looseParts = await getAllLooseParts();
 
-        setParts(aggregateOwnedParts(catalog, ownedData, looseParts, partMeta));
+          const ownedData = await Promise.all(
+            setInfos.map(async ({ setNumber, setName }) => ({
+              setNumber,
+              setName,
+              ownedByKey: await getOwnedForSet(setNumber),
+            }))
+          );
+
+          if (myEpoch !== loadEpochRef.current) return;
+          setParts(
+            aggregateOwnedParts(catalog, ownedData, looseParts, partMeta)
+          );
+        }
+      } catch (err) {
+        if (myEpoch !== loadEpochRef.current) return;
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('useCollectionParts: failed to load', err);
+        }
+        setParts([]);
+      } finally {
+        if (myEpoch === loadEpochRef.current) setIsLoading(false);
       }
-    } catch (err) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn('useCollectionParts: failed to load', err);
-      }
-      setParts([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [sourceFilter, syncPartsFromSets, ownedSetInfos, userSets, userId]);
+    },
+    [sourceFilter, syncPartsFromSets, ownedSetInfos, userSets, userId]
+  );
 
   useEffect(() => {
     if (!setsHydrated) return;
     loadParts();
   }, [setsHydrated, loadParts]);
+
+  // Re-read from IndexedDB when another tab pushes sync data.
+  // Skip cloud sync — the pushing tab already wrote to the shared IndexedDB.
+  // Use a ref so the listener always calls the latest loadParts without
+  // re-subscribing on every callback identity change.
+  const loadPartsRef = useRef(loadParts);
+  loadPartsRef.current = loadParts;
+
+  useEffect(() => {
+    const coordinator = getTabCoordinator();
+    if (!coordinator) return;
+    return coordinator.onPullRequested(() => {
+      loadPartsRef.current(true);
+    });
+  }, []);
 
   return { parts, isLoading, reload: loadParts };
 }
