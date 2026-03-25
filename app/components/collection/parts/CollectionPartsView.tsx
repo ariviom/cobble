@@ -145,11 +145,6 @@ export function CollectionPartsView({
       return { items: processedParts, totalPages: 1, currentPage: 1 };
     }
 
-    if (groupBy !== 'none') {
-      // When grouping, paginate after flattening (pagination applies to total)
-      return paginateParts(processedParts, page, pageSize);
-    }
-
     return paginateParts(processedParts, page, pageSize);
   }, [sourceFilter, processedParts, groupBy, page, pageSize]);
 

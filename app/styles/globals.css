@@ -594,12 +594,6 @@ body {
   height: var(--spacing-tab-bar-height);
 }
 
-/* Grid item optimization - skip painting off-screen items */
-@utility inventory-grid-item {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 200px;
-}
-
 /* Percentage-based grid sizing — auto-fill + minmax(max(Npx, M%), 1fr)
    Pixel floor prevents tiny cells; percentage caps max columns on wide screens.
    Each size produces distinct column counts at every viewport where differentiation

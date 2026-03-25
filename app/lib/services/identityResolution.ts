@@ -1,15 +1,11 @@
 import 'server-only';
 
 import type { InventoryRow } from '@/app/components/set/types';
-import {
-  getColorMaps,
-  getRbToBlColorMapFromDb,
-} from '@/app/lib/colors/colorMapping';
+import { getColorMaps } from '@/app/lib/colors/colorMapping';
 import {
   createCatalogPartIdentity,
   createMatchedSubpartIdentity,
   createMinifigParentIdentity,
-  createUnmatchedSubpartIdentity,
   type PartIdentity,
 } from '@/app/lib/domain/partIdentity';
 
@@ -25,13 +21,6 @@ export type ResolutionContext = {
   /** BL part ID → RB part ID (reverse) */
   blToRbPart: Map<string, string>;
 };
-
-// ---------------------------------------------------------------------------
-// RB → BL color map — re-export for backward compat
-// ---------------------------------------------------------------------------
-
-/** @deprecated Use `getColorMaps()` or `getRbToBlColorMapFromDb()` directly. */
-export const getRbToBlColorMap = getRbToBlColorMapFromDb;
 
 // ---------------------------------------------------------------------------
 // Build resolution context
@@ -107,67 +96,6 @@ export function resolveMinifigParentIdentity(
  * Resolve a BL minifig subpart to either a matched (catalog-backed) or
  * unmatched identity.
  *
- * @param blPartId - BrickLink part ID from bl_minifig_parts
- * @param blColorId - BrickLink color ID from bl_minifig_parts
- * @param catalogIndex - Map of canonical keys to row indices in enrichedRows
- * @param ctx - Resolution context with color/part maps
- *
- * @deprecated Use resolveRbMinifigSubpartIdentity for RB-native subpart data
- */
-export function resolveMinifigSubpartIdentity(
-  blPartId: string,
-  blColorId: number,
-  catalogIndex: Map<string, number>,
-  ctx: ResolutionContext,
-  rbColorIdFromDb?: number | null
-): PartIdentity {
-  // Try to reverse-map BL IDs to RB IDs
-  const rbPartId = ctx.blToRbPart.get(blPartId) ?? null;
-  const rbColorId = rbColorIdFromDb ?? ctx.blToRbColor.get(blColorId) ?? null;
-
-  if (rbPartId != null && rbColorId != null) {
-    // Check if this RB key exists in the catalog index
-    const rbKey = `${rbPartId}:${rbColorId}`;
-    if (catalogIndex.has(rbKey)) {
-      return createMatchedSubpartIdentity(
-        rbPartId,
-        rbColorId,
-        blPartId,
-        blColorId
-      );
-    }
-  }
-
-  // Also check if the BL part ID is the same as an RB part ID (common case)
-  if (rbColorId != null) {
-    const directKey = `${blPartId}:${rbColorId}`;
-    if (catalogIndex.has(directKey)) {
-      return createMatchedSubpartIdentity(
-        blPartId,
-        rbColorId,
-        blPartId,
-        blColorId
-      );
-    }
-  }
-
-  // Check if BL IDs directly match a catalog row (when IDs happen to be the same)
-  // This catches cases where the part ID is the same in both systems
-  const blKey = `${blPartId}:${blColorId}`;
-  if (catalogIndex.has(blKey)) {
-    // The catalog uses RB IDs, so if blKey matches, the IDs are the same
-    return createMatchedSubpartIdentity(
-      blPartId,
-      blColorId,
-      blPartId,
-      blColorId
-    );
-  }
-
-  // No match found — unmatched subpart
-  return createUnmatchedSubpartIdentity(blPartId, blColorId);
-}
-
 /**
  * Resolve an RB-native minifig subpart to a matched identity.
  * Used when subparts come from rb_minifig_parts (RB IDs are native).
