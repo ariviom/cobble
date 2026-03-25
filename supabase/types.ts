@@ -1630,7 +1630,7 @@ export type Database = {
         Returns: number;
       };
       get_tracked_set_progress: {
-        Args: { p_user_id: string };
+        Args: never;
         Returns: {
           found_count: number;
           image_url: string;
@@ -1662,10 +1662,7 @@ export type Database = {
           new_count: number;
         }[];
       };
-      update_found_count: {
-        Args: { p_set_num: string; p_user_id: string };
-        Returns: undefined;
-      };
+      update_found_count: { Args: { p_set_num: string }; Returns: undefined };
     };
     Enums: {
       collection_item_type: 'set' | 'minifig';

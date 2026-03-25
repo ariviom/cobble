@@ -87,7 +87,7 @@ export async function GET() {
         `
         )
         .eq('user_id', user.id as UserSetRow['user_id']),
-      supabase.rpc('get_tracked_set_progress', { p_user_id: user.id }),
+      supabase.rpc('get_tracked_set_progress'),
     ]);
 
     if (userSetsResult.error) {
