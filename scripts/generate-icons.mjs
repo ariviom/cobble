@@ -13,7 +13,7 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 
-const PWA_BG = '#016cb8';
+const PWA_BG = '#f2d300';
 const FAVICON_BG = '#f2d300'; // Yellow for Google SEO fallback
 const FAVICON_LOGO_FILL = '#1a1600'; // Dark text on yellow
 
@@ -98,14 +98,14 @@ async function generateFavicon(outputPath, { bgColor, logoFill }) {
 }
 
 async function main() {
-  // PWA icons: white logo on theme blue
+  // PWA icons: dark logo on theme yellow
   await generateIcon(192, join(root, 'public/logo/brickparty_logo_sm.png'), {
     bgColor: PWA_BG,
-    logoFill: '#ffffff',
+    logoFill: '#1a1600',
   });
   await generateIcon(512, join(root, 'public/logo/brickparty_logo.png'), {
     bgColor: PWA_BG,
-    logoFill: '#ffffff',
+    logoFill: '#1a1600',
   });
   // ICO favicon: dark logo on yellow (Google SEO fallback)
   await generateFavicon(join(root, 'app/favicon.ico'), {

@@ -4,8 +4,8 @@
   "description": "Track owned LEGO pieces and export missing parts lists for Rebrickable and BrickLink",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#016cb8",
-  "theme_color": "#016cb8",
+  "background_color": "#f2d300",
+  "theme_color": "#f2d300",
   "orientation": "portrait-primary",
   "icons": [
     {
