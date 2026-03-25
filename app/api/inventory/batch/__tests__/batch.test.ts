@@ -32,14 +32,21 @@ vi.mock('@/lib/metrics', () => ({
   },
 }));
 
+// Mock rate limiting
+vi.mock('@/lib/rateLimit', () => ({
+  consumeRateLimit: vi.fn(() => ({ allowed: true, retryAfterSeconds: 0 })),
+  getClientIp: vi.fn(() => '127.0.0.1'),
+}));
+
 import { getSetInventoriesBatchWithMeta } from '@/app/lib/services/inventory';
+import { NextRequest } from 'next/server';
 import { POST } from '../route';
 import { _resetVersionCache } from '../../versionCache';
 
 const mockBatchFetch = vi.mocked(getSetInventoriesBatchWithMeta);
 
 const createRequest = (body: unknown) =>
-  new Request('http://localhost/api/inventory/batch', {
+  new NextRequest('http://localhost/api/inventory/batch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

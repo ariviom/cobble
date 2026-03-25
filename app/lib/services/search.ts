@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { searchSetsLocal } from '@/app/lib/catalog';
 import {
   getAggregatedSearchResults,

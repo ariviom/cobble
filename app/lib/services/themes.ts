@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { getThemesLocal } from '@/app/lib/catalog';
 import { getThemes } from '@/app/lib/rebrickable';
 import { logger } from '@/lib/metrics';

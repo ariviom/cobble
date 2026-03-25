@@ -100,14 +100,16 @@ export async function getClientIp(req: {
   const realIp = req.headers.get('x-real-ip'); // Vercel
   if (realIp && realIp.trim().length > 0) return realIp.trim();
 
-  // Fallback: X-Forwarded-For is client-controlled and spoofable
+  // Fallback: X-Forwarded-For — use the rightmost (last) entry, which is
+  // the IP added by the most recent trusted proxy. The leftmost entry is
+  // fully client-controlled and trivially spoofable.
   const xff = req.headers.get('x-forwarded-for');
   if (xff && xff.trim().length > 0) {
     const parts = xff
       .split(',')
       .map(p => p.trim())
       .filter(Boolean);
-    if (parts.length > 0) return parts[0]!;
+    if (parts.length > 0) return parts[parts.length - 1]!;
   }
   return null;
 }

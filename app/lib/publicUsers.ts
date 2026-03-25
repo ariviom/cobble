@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import type { Tables } from '@/supabase/types';
 import { USERNAME_REGEX } from '@/app/lib/users';

@@ -1,3 +1,5 @@
+import 'server-only';
+
 import type { InventoryRow } from '@/app/components/set/types';
 import { getSetInventoryLocal } from '@/app/lib/catalog';
 import { getSetInventoriesLocalBatch } from '@/app/lib/catalog/batchInventory';

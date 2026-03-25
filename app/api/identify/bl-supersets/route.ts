@@ -5,11 +5,21 @@ import {
   BL_RATE_WINDOW_MS,
 } from '@/app/lib/bricklink/rateLimitConfig';
 import { getSetSummary, type PartInSet } from '@/app/lib/rebrickable';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(req: NextRequest) {
+  // Require authentication — this endpoint consumes the shared BrickLink quota
+  const supabase = await getSupabaseAuthServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return errorResponse('unauthorized');
+  }
+
   const { searchParams } = new URL(req.url);
   const blPart = searchParams.get('part');
   const blColorIdRaw = searchParams.get('blColorId');
@@ -26,17 +36,14 @@ export async function GET(req: NextRequest) {
   });
   if (!ipLimit.allowed) {
     incrementCounter('identify_supersets_rate_limited');
-    return NextResponse.json(
-      {
-        error: 'rate_limited',
+    return errorResponse('rate_limited', {
+      status: 429,
+      details: {
         scope: 'ip',
         retryAfterSeconds: ipLimit.retryAfterSeconds,
       },
-      {
-        status: 429,
-        headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
-      }
-    );
+      headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+    });
   }
   const blColorId =
     blColorIdRaw && blColorIdRaw.trim() !== ''

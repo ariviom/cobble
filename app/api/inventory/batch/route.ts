@@ -1,7 +1,8 @@
 import { errorResponse } from '@/app/lib/api/responses';
 import { getSetInventoriesBatchWithMeta } from '@/app/lib/services/inventory';
 import { incrementCounter, logEvent, logger } from '@/lib/metrics';
-import { NextResponse } from 'next/server';
+import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
+import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getInventoryVersion } from '../versionCache';
 
@@ -14,7 +15,20 @@ const bodySchema = z.object({
   includeMeta: z.boolean().optional(),
 });
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const clientIp = (await getClientIp(req)) ?? 'unknown';
+  const ipLimit = await consumeRateLimit(`inventory-batch:ip:${clientIp}`, {
+    windowMs: 60_000,
+    maxHits: 20,
+  });
+  if (!ipLimit.allowed) {
+    return errorResponse('rate_limited', {
+      status: 429,
+      details: { retryAfterSeconds: ipLimit.retryAfterSeconds },
+      headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+    });
+  }
+
   let body: unknown;
   try {
     body = await req.json();
