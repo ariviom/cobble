@@ -1,3 +1,4 @@
+import { errorResponse } from '@/app/lib/api/responses';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -16,10 +17,9 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
 
   if (!partNum) {
-    return NextResponse.json(
-      { results: [], nextPage: null, total: 0 },
-      { status: 400 }
-    );
+    return errorResponse('missing_required_field', {
+      message: 'partNum is required',
+    });
   }
 
   const supabase = getCatalogReadClient();

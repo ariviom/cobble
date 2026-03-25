@@ -1,3 +1,4 @@
+import { errorResponse } from '@/app/lib/api/responses';
 import { NextRequest, NextResponse } from 'next/server';
 
 const DEFAULT_ALLOWED_ORIGINS = [
@@ -83,7 +84,7 @@ export function withCsrfProtection<
 
     // If origin is explicitly invalid (cross-origin attack), always deny
     if (originStatus === 'invalid') {
-      return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+      return errorResponse('forbidden');
     }
 
     const csrfHeader = req.headers.get('x-csrf-token');
@@ -95,13 +96,13 @@ export function withCsrfProtection<
     // send cookies automatically on cross-site requests.
     if (originStatus === 'missing') {
       if (!csrfHeader || !csrfCookie || csrfHeader !== csrfCookie) {
-        return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+        return errorResponse('forbidden');
       }
     }
 
     // If CSRF header is provided, it must match the cookie (double-submit validation)
     if (csrfHeader && (!csrfCookie || csrfHeader !== csrfCookie)) {
-      return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+      return errorResponse('forbidden');
     }
 
     return handler(req, context);

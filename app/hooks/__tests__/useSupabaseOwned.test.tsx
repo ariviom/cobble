@@ -36,6 +36,10 @@ vi.mock('@/app/lib/supabaseClient', () => ({
     from: () => ({
       select: () => makeQueryChain(),
     }),
+    auth: {
+      getSession: () =>
+        Promise.resolve({ data: { session: null }, error: null }),
+    },
   }),
 }));
 

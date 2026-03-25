@@ -8,7 +8,7 @@ import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient'
 import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import { buildUserHandle } from '@/app/lib/users';
 import type { Metadata } from 'next';
-import type { Tables } from '@/supabase/types';
+import { getUserUsername } from '@/app/lib/server/getUserProfile';
 import { Lock } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -44,9 +44,6 @@ type RouteParams = {
 };
 
 type SearchParams = Record<string, string | string[] | undefined>;
-
-type UserProfileRow = Tables<'user_profiles'>;
-type UserId = UserProfileRow['user_id'];
 
 type PublicSetSummary = {
   set_num: string;
@@ -156,30 +153,7 @@ export default async function CollectionHandlePage({
 
     if (user) {
       currentUserId = user.id;
-
-      const { data: profile } = await (
-        supabaseAuth as unknown as {
-          from: (table: 'user_profiles') => {
-            select: (columns: 'user_id,username') => {
-              eq: (
-                column: 'user_id',
-                value: UserId
-              ) => {
-                maybeSingle: () => Promise<{
-                  data: Pick<UserProfileRow, 'user_id' | 'username'> | null;
-                  error: { message: string } | null;
-                }>;
-              };
-            };
-          };
-        }
-      )
-        .from('user_profiles')
-        .select('user_id,username')
-        .eq('user_id', user.id as UserId)
-        .maybeSingle();
-
-      currentUsername = profile?.username ?? null;
+      currentUsername = await getUserUsername(supabaseAuth, user.id);
     }
   } catch {
     // ignore auth errors

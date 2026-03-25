@@ -113,8 +113,7 @@ export function Inventory() {
 
     return {
       row,
-      pricingSource:
-        priceInfo?.pricingSource ?? priceInfo?.pricing_source ?? null,
+      pricingSource: priceInfo?.pricingSource ?? null,
       bricklinkColorId: priceInfo?.bricklinkColorId ?? null,
       isPricePending: pendingPriceKeys?.has(selectedItemKey) ?? false,
       hasPrice,

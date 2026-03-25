@@ -58,17 +58,12 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
 
     if (!userLimit.allowed) {
       incrementCounter('feedback_rate_limited');
-      return NextResponse.json(
-        {
-          error: 'rate_limited',
-          message: `Too many feedback submissions. Please try again in ${Math.ceil(userLimit.retryAfterSeconds / 60)} minutes.`,
-          retryAfterSeconds: userLimit.retryAfterSeconds,
-        },
-        {
-          status: 429,
-          headers: { 'Retry-After': String(userLimit.retryAfterSeconds) },
-        }
-      );
+      return errorResponse('rate_limited', {
+        status: 429,
+        message: `Too many feedback submissions. Please try again in ${Math.ceil(userLimit.retryAfterSeconds / 60)} minutes.`,
+        details: { retryAfterSeconds: userLimit.retryAfterSeconds },
+        headers: { 'Retry-After': String(userLimit.retryAfterSeconds) },
+      });
     }
 
     // IP-based rate limiting as additional protection
@@ -80,18 +75,12 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
 
     if (!ipLimit.allowed) {
       incrementCounter('feedback_ip_rate_limited');
-      return NextResponse.json(
-        {
-          error: 'rate_limited',
-          message:
-            'Too many requests from this network. Please try again later.',
-          retryAfterSeconds: ipLimit.retryAfterSeconds,
-        },
-        {
-          status: 429,
-          headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
-        }
-      );
+      return errorResponse('rate_limited', {
+        status: 429,
+        message: 'Too many requests from this network. Please try again later.',
+        details: { retryAfterSeconds: ipLimit.retryAfterSeconds },
+        headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+      });
     }
 
     // Validate request body

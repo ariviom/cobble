@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
   const body = await req.text();
   const signature = req.headers.get('stripe-signature');
   if (!signature) {
-    return NextResponse.json({ error: 'missing signature' }, { status: 400 });
+    return errorResponse('validation_failed', { message: 'missing signature' });
   }
 
   const stripe = getStripeClient();
@@ -273,7 +273,7 @@ export async function POST(req: NextRequest) {
   if (status === 'error') {
     // Return 500 so Stripe retries transient failures (DB errors, timeouts).
     // The idempotency check in recordEventIfNew allows reprocessing.
-    return NextResponse.json({ error: 'processing failed' }, { status: 500 });
+    return errorResponse('unknown_error', { message: 'processing failed' });
   }
 
   return NextResponse.json({ received: true });

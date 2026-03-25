@@ -40,7 +40,6 @@ export type PriceInfo = {
   maxPrice: number | null;
   currency: string | null;
   pricingSource?: 'real_time' | 'historical' | 'unavailable';
-  pricing_source?: 'real_time' | 'historical' | 'unavailable';
   lastUpdatedAt?: string | null;
   nextRefreshAt?: string | null;
   scopeLabel?: string | null;
@@ -426,9 +425,20 @@ export function InventoryProvider({
   const ownedByKeyStableRef = useRef(ownedByKey);
   ownedByKeyStableRef.current = ownedByKey;
 
+  // Build a stable Map for O(1) row lookups by inventory key
+  const rowByKey = useMemo(() => {
+    const map = new Map<string, InventoryRow>();
+    for (let i = 0; i < rows.length; i++) {
+      map.set(keys[i]!, rows[i]!);
+    }
+    return map;
+  }, [rows, keys]);
+  const rowByKeyRef = useRef(rowByKey);
+  rowByKeyRef.current = rowByKey;
+
   const handleOwnedChange = useCallback(
     (key: string, nextOwned: number) => {
-      const row = rows.find(r => r.inventoryKey === key);
+      const row = rowByKeyRef.current.get(key);
       const maxQty = row?.quantityRequired ?? 999;
       const clamped = clampOwned(nextOwned, maxQty);
       const prevOwned = ownedByKeyStableRef.current[key] ?? 0;
@@ -436,7 +446,7 @@ export function InventoryProvider({
       handleOwnedChangeBase(key, clamped);
       onAfterOwnedChange?.(key, clamped, prevOwned);
     },
-    [rows, handleOwnedChangeBase, onAfterOwnedChange]
+    [handleOwnedChangeBase, onAfterOwnedChange]
   );
 
   // -------------------------------------------------------------------------

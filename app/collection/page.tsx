@@ -1,10 +1,10 @@
 import { PageLayout } from '@/app/components/layout/PageLayout';
 import { CollectionHero } from './CollectionHero';
 import { SignInPrompt } from '@/app/components/ui/SignInPrompt';
+import { getUserUsername } from '@/app/lib/server/getUserProfile';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { buildUserHandle } from '@/app/lib/users';
 import type { Metadata } from 'next';
-import type { Tables } from '@/supabase/types';
 import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
@@ -13,9 +13,6 @@ export const metadata: Metadata = {
 };
 
 type SearchParams = Record<string, string | string[] | undefined>;
-
-type UserProfileRow = Tables<'user_profiles'>;
-type UserId = UserProfileRow['user_id'];
 
 function buildSearchQueryString(params: SearchParams): string {
   const qp = new URLSearchParams();
@@ -50,30 +47,7 @@ export default async function CollectionPage({
       userId = null;
     } else {
       userId = user.id;
-
-      const { data: profile } = await (
-        supabase as unknown as {
-          from: (table: 'user_profiles') => {
-            select: (columns: 'user_id,username') => {
-              eq: (
-                column: 'user_id',
-                value: UserId
-              ) => {
-                maybeSingle: () => Promise<{
-                  data: Pick<UserProfileRow, 'user_id' | 'username'> | null;
-                  error: { message: string } | null;
-                }>;
-              };
-            };
-          };
-        }
-      )
-        .from('user_profiles')
-        .select('user_id,username')
-        .eq('user_id', user.id as UserId)
-        .maybeSingle();
-
-      username = profile?.username ?? null;
+      username = await getUserUsername(supabase, user.id);
     }
   } catch {
     userId = null;
