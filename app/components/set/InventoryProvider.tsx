@@ -78,6 +78,8 @@ export type InventoryDataContextValue = {
   ownedByKey: Record<string, number>;
   handleOwnedChange: (key: string, nextOwned: number) => void;
   isOwnedHydrated: boolean;
+  /** Whether IndexedDB is available (false = in-memory only, data will be lost) */
+  isStorageAvailable: boolean;
   // Bulk actions
   markAllMissing: () => void;
   markAllComplete: () => void;
@@ -276,6 +278,7 @@ export function InventoryProvider({
     totalMissing,
     ownedTotal,
     isOwnedHydrated,
+    isStorageAvailable,
     sortKey,
     sortDir,
     filter,
@@ -508,6 +511,7 @@ export function InventoryProvider({
       ownedByKey,
       handleOwnedChange,
       isOwnedHydrated,
+      isStorageAvailable,
       markAllMissing,
       markAllComplete,
       isActive,
@@ -527,6 +531,7 @@ export function InventoryProvider({
       ownedByKey,
       handleOwnedChange,
       isOwnedHydrated,
+      isStorageAvailable,
       markAllMissing,
       markAllComplete,
       isActive,

@@ -635,11 +635,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          if (
-            res.status === 429 &&
-            (data?.error === 'feature_unavailable' ||
-              data?.reason === 'quota_exceeded')
-          ) {
+          if (res.status === 429 && data?.error === 'feature_unavailable') {
             setShowUpgradeModal(true);
             void refreshQuota();
             return;

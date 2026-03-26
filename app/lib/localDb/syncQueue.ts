@@ -8,6 +8,7 @@
 
 import { getLocalDb, isIndexedDBAvailable, type SyncQueueItem } from './schema';
 import { getStoredUserId } from './metaStore';
+import { logger } from '@/lib/metrics';
 
 // Maximum retries before an operation is considered failed
 const MAX_RETRY_COUNT = 5;
@@ -36,9 +37,12 @@ export async function enqueueSyncOperation(
       lastError: null,
     });
     return id;
-  } catch (error) {
-    console.warn('Failed to enqueue sync operation:', error);
-    return undefined;
+  } catch (err) {
+    logger.error('sync.enqueue_failed', {
+      error: String(err),
+      operation: operation.operation,
+    });
+    throw err;
   }
 }
 
@@ -80,9 +84,7 @@ export async function getPendingSyncOperations(
 
     return limit ? matched.slice(0, limit) : matched;
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to get pending sync operations:', error);
-    }
+    logger.warn('sync.get_pending_failed', { error: String(error) });
     return [];
   }
 }
@@ -98,9 +100,7 @@ export async function removeSyncOperations(ids: number[]): Promise<void> {
     const db = getLocalDb();
     await db.syncQueue.bulkDelete(ids);
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to remove sync operations:', error);
-    }
+    logger.warn('sync.remove_failed', { error: String(error) });
   }
 }
 
@@ -123,9 +123,7 @@ export async function markSyncOperationFailed(
       });
     }
   } catch (err) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to mark sync operation as failed:', err);
-    }
+    logger.warn('sync.mark_failed_error', { error: String(err) });
   }
 }
 
@@ -177,7 +175,7 @@ export async function clearFailedSyncOperations(): Promise<void> {
       .aboveOrEqual(MAX_RETRY_COUNT)
       .delete();
   } catch (error) {
-    console.warn('Failed to clear failed sync operations:', error);
+    logger.warn('sync.clear_failed_error', { error: String(error) });
   }
 }
 
@@ -191,9 +189,7 @@ export async function clearSyncQueue(): Promise<void> {
     const db = getLocalDb();
     await db.syncQueue.clear();
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to clear sync queue:', error);
-    }
+    logger.warn('sync.clear_queue_failed', { error: String(error) });
   }
 }
 
@@ -267,9 +263,12 @@ export async function enqueueOwnedChange(
         lastError: null,
       });
     }
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to enqueue owned change:', error);
-    }
+  } catch (err) {
+    logger.error('sync.enqueue_owned_failed', {
+      error: String(err),
+      setNumber,
+      partNum,
+    });
+    throw err;
   }
 }

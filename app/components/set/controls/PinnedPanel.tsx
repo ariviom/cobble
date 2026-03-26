@@ -31,12 +31,20 @@ export function PinnedPanelContent({
   itemSize,
 }: PinnedPanelContentProps) {
   const { handleOwnedChange: contextOwnedChange } = useInventoryData();
-  const pinnedState = usePinnedStore();
-  const { getPinnedKeysForSet, getPinnedSets, autoUnpin, showOtherSets } =
-    pinnedState;
 
-  const currentSetKeys = getPinnedKeysForSet(currentSetNumber);
-  const allPinnedSets = getPinnedSets();
+  // Targeted selectors — only re-render when the specific slice changes.
+  const pinned = usePinnedStore(state => state.pinned);
+  const autoUnpin = usePinnedStore(state => state.autoUnpin);
+  const showOtherSets = usePinnedStore(state => state.showOtherSets);
+  const setAutoUnpin = usePinnedStore(state => state.setAutoUnpin);
+  const setShowOtherSets = usePinnedStore(state => state.setShowOtherSets);
+  const getPinnedKeysForSet = usePinnedStore(
+    state => state.getPinnedKeysForSet
+  );
+
+  // Derive directly from `pinned` so changes trigger re-renders.
+  const currentSetKeys = Object.keys(pinned[currentSetNumber] ?? {});
+  const allPinnedSets = Object.keys(pinned);
   const otherSetNumbers = showOtherSets
     ? allPinnedSets.filter(setNum => setNum !== currentSetNumber)
     : [];
@@ -121,7 +129,7 @@ export function PinnedPanelContent({
             <Checkbox
               className="size-5"
               checked={autoUnpin}
-              onChange={e => pinnedState.setAutoUnpin(e.currentTarget.checked)}
+              onChange={e => setAutoUnpin(e.currentTarget.checked)}
             />
             <span>Automatically unpin completed pieces</span>
           </label>
@@ -129,9 +137,7 @@ export function PinnedPanelContent({
             <Checkbox
               className="size-5"
               checked={showOtherSets}
-              onChange={e =>
-                pinnedState.setShowOtherSets(e.currentTarget.checked)
-              }
+              onChange={e => setShowOtherSets(e.currentTarget.checked)}
             />
             <span>Show pinned pieces from other sets</span>
           </label>
@@ -173,13 +179,20 @@ function PinnedSetSection({
   onShowMoreInfo,
 }: PinnedSetSectionProps) {
   const { rows, keys, isLoading, error, ownedByKey } = useInventory(setNumber);
-  const ownedStore = useOwnedStore();
-  const pinnedState = usePinnedStore();
+
+  // Targeted selectors — only re-render when the specific slice changes.
+  // Zustand action references are stable across renders.
+  const setOwned = useOwnedStore(state => state.setOwned);
+  const autoUnpin = usePinnedStore(state => state.autoUnpin);
+  const isPinned = usePinnedStore(state => state.isPinned);
+  const setPinned = usePinnedStore(state => state.setPinned);
+  const togglePinned = usePinnedStore(state => state.togglePinned);
+  const getMetaForSet = usePinnedStore(state => state.getMetaForSet);
 
   const [visibleCount, setVisibleCount] = useState(24);
 
   const title = (() => {
-    const meta = pinnedState.getMetaForSet(setNumber);
+    const meta = getMetaForSet(setNumber);
     const nameFromMeta = meta?.setName ?? setName;
     if (nameFromMeta && nameFromMeta.length > 0) {
       return `${setNumber} — ${nameFromMeta}`;
@@ -253,19 +266,19 @@ function PinnedSetSection({
                 if (onOwnedChange) {
                   onOwnedChange(key, clamped);
                 } else {
-                  ownedStore.setOwned(setNumber, key, clamped);
+                  setOwned(setNumber, key, clamped);
                 }
                 if (
-                  pinnedState.autoUnpin &&
-                  pinnedState.isPinned(setNumber, key) &&
+                  autoUnpin &&
+                  isPinned(setNumber, key) &&
                   computeMissing(row.quantityRequired, clamped) === 0
                 ) {
-                  pinnedState.setPinned(setNumber, key, false);
+                  setPinned(setNumber, key, false);
                 }
               }}
-              isPinned={pinnedState.isPinned(setNumber, key)}
+              isPinned={isPinned(setNumber, key)}
               onTogglePinned={() =>
-                pinnedState.togglePinned({
+                togglePinned({
                   setNumber,
                   key,
                   ...(setName ? { setName } : {}),

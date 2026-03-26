@@ -990,14 +990,12 @@ async function fetchPriceGuide(
 
     priceGuideCache.set(key, pg);
     return pg;
-  })();
+  })().finally(() => {
+    priceGuideInFlight.delete(key);
+  });
 
   priceGuideInFlight.set(key, promise);
-  try {
-    return await promise;
-  } finally {
-    priceGuideInFlight.delete(key);
-  }
+  return promise;
 }
 
 export async function blGetPartPriceGuide(

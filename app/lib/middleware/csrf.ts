@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { errorResponse } from '@/app/lib/api/responses';
 import { NextRequest, NextResponse } from 'next/server';
 

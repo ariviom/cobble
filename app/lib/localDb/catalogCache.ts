@@ -7,9 +7,11 @@
  */
 
 import type { InventoryRow } from '@/app/components/set/types';
+import { logger } from '@/lib/metrics';
 import {
   getLocalDb,
   isIndexedDBAvailable,
+  isQuotaExceeded,
   type CatalogColor,
   type CatalogMinifig,
   type CatalogPart,
@@ -111,7 +113,10 @@ export async function getCachedInventory(
 
     return rows;
   } catch (error) {
-    console.warn('Failed to read inventory from cache:', error);
+    logger.warn('localdb.cache_read_failed', {
+      context: 'inventory',
+      error: String(error),
+    });
     return null;
   }
 }
@@ -128,84 +133,83 @@ export async function setCachedInventory(
   if (!isIndexedDBAvailable()) return;
   if (rows.length === 0) return;
 
-  try {
-    const db = getLocalDb();
-    const now = Date.now();
+  const now = Date.now();
 
-    // Extract unique parts and colors from rows
-    const partsMap = new Map<string, CatalogPart>();
-    const colorsMap = new Map<number, CatalogColor>();
-    const setParts: Omit<CatalogSetPart, 'id'>[] = [];
-    const minifigsMap = new Map<string, CatalogMinifig>();
+  // Extract unique parts and colors from rows (hoisted for retry access)
+  const partsMap = new Map<string, CatalogPart>();
+  const colorsMap = new Map<number, CatalogColor>();
+  const setParts: Omit<CatalogSetPart, 'id'>[] = [];
+  const minifigsMap = new Map<string, CatalogMinifig>();
 
-    for (const row of rows) {
-      // Collect part data
-      if (!partsMap.has(row.partId)) {
-        partsMap.set(row.partId, {
-          partNum: row.partId,
-          name: row.partName,
-          imageUrl: row.imageUrl,
-          categoryId: row.partCategoryId ?? null,
-          categoryName: row.partCategoryName ?? null,
-          parentCategory: row.parentCategory ?? null,
-          bricklinkPartId: row.bricklinkPartId ?? null,
-          cachedAt: now,
-        });
-      }
-
-      // Collect color data
-      if (!colorsMap.has(row.colorId)) {
-        colorsMap.set(row.colorId, {
-          id: row.colorId,
-          name: row.colorName,
-          cachedAt: now,
-        });
-      }
-
-      // Create set part entry (only include optional fields when present)
-      const setPart: Omit<CatalogSetPart, 'id'> = {
-        setNumber: row.setNumber,
+  for (const row of rows) {
+    // Collect part data
+    if (!partsMap.has(row.partId)) {
+      partsMap.set(row.partId, {
         partNum: row.partId,
-        colorId: row.colorId,
-        colorName: row.colorName,
-        quantityRequired: row.quantityRequired,
-        elementId: row.elementId ?? null,
-        inventoryKey: row.inventoryKey,
-        imageUrl: row.imageUrl ?? null,
-      };
-      if (row.bricklinkFigId) setPart.bricklinkFigId = row.bricklinkFigId;
-      if (row.parentRelations) setPart.parentRelations = row.parentRelations;
-      if (row.componentRelations)
-        setPart.componentRelations = row.componentRelations;
-      if (row.identity) setPart.identity = row.identity;
-      if (row.setCount != null) setPart.setCount = row.setCount;
-      setParts.push(setPart);
-
-      // Collect minifig metadata for cross-set reuse
-      if (
-        row.parentCategory === 'Minifigure' &&
-        typeof row.partId === 'string' &&
-        row.partId.startsWith('fig:')
-      ) {
-        const figNum = row.partId.replace(/^fig:/, '').trim();
-        if (figNum && !minifigsMap.has(figNum)) {
-          minifigsMap.set(figNum, {
-            figNum,
-            name: row.partName,
-            imageUrl: row.imageUrl ?? null,
-            numParts: null, // numParts not available in inventory rows
-            year: null,
-            themeName: null,
-            cachedAt: now,
-          });
-        } else if (figNum) {
-          // After BL migration, figNum IS the BL ID, no need to merge
-          // (This block is kept for clarity but is now a no-op)
-        }
-      }
+        name: row.partName,
+        imageUrl: row.imageUrl,
+        categoryId: row.partCategoryId ?? null,
+        categoryName: row.partCategoryName ?? null,
+        parentCategory: row.parentCategory ?? null,
+        bricklinkPartId: row.bricklinkPartId ?? null,
+        cachedAt: now,
+      });
     }
 
-    // Use a transaction to ensure consistency
+    // Collect color data
+    if (!colorsMap.has(row.colorId)) {
+      colorsMap.set(row.colorId, {
+        id: row.colorId,
+        name: row.colorName,
+        cachedAt: now,
+      });
+    }
+
+    // Create set part entry (only include optional fields when present)
+    const setPart: Omit<CatalogSetPart, 'id'> = {
+      setNumber: row.setNumber,
+      partNum: row.partId,
+      colorId: row.colorId,
+      colorName: row.colorName,
+      quantityRequired: row.quantityRequired,
+      elementId: row.elementId ?? null,
+      inventoryKey: row.inventoryKey,
+      imageUrl: row.imageUrl ?? null,
+    };
+    if (row.bricklinkFigId) setPart.bricklinkFigId = row.bricklinkFigId;
+    if (row.parentRelations) setPart.parentRelations = row.parentRelations;
+    if (row.componentRelations)
+      setPart.componentRelations = row.componentRelations;
+    if (row.identity) setPart.identity = row.identity;
+    if (row.setCount != null) setPart.setCount = row.setCount;
+    setParts.push(setPart);
+
+    // Collect minifig metadata for cross-set reuse
+    if (
+      row.parentCategory === 'Minifigure' &&
+      typeof row.partId === 'string' &&
+      row.partId.startsWith('fig:')
+    ) {
+      const figNum = row.partId.replace(/^fig:/, '').trim();
+      if (figNum && !minifigsMap.has(figNum)) {
+        minifigsMap.set(figNum, {
+          figNum,
+          name: row.partName,
+          imageUrl: row.imageUrl ?? null,
+          numParts: null, // numParts not available in inventory rows
+          year: null,
+          themeName: null,
+          cachedAt: now,
+        });
+      } else if (figNum) {
+        // After BL migration, figNum IS the BL ID, no need to merge
+        // (This block is kept for clarity but is now a no-op)
+      }
+    }
+  }
+
+  /** Write the prepared data to IndexedDB in a single transaction. */
+  async function writeToDb(db: ReturnType<typeof getLocalDb>): Promise<void> {
     await db.transaction(
       'rw',
       [
@@ -234,7 +238,7 @@ export async function setCachedInventory(
         // Update metadata
         await db.catalogSetMeta.put({
           setNumber,
-          inventoryCachedAt: now,
+          inventoryCachedAt: Date.now(),
           partCount: rows.filter(
             r =>
               !(
@@ -245,8 +249,26 @@ export async function setCachedInventory(
         });
       }
     );
+  }
+
+  try {
+    await writeToDb(getLocalDb());
   } catch (error) {
-    console.warn('Failed to cache inventory:', error);
+    if (isQuotaExceeded(error)) {
+      logger.warn('localdb.quota_exceeded', { context: 'set_inventory' });
+      // Prune stale entries and retry once
+      try {
+        await pruneStaleInventoryCache(new Set());
+        await writeToDb(getLocalDb());
+      } catch {
+        // Give up silently - this is just a cache
+      }
+    } else {
+      logger.warn('localdb.cache_write_failed', {
+        context: 'set_inventory',
+        error: String(error),
+      });
+    }
   }
 }
 
@@ -291,7 +313,10 @@ export async function invalidateInventoryCache(
       await db.catalogSetParts.clear();
     }
   } catch (error) {
-    console.warn('Failed to invalidate inventory cache:', error);
+    logger.warn('localdb.cache_invalidate_failed', {
+      context: 'inventory',
+      error: String(error),
+    });
   }
 }
 
@@ -338,7 +363,10 @@ export async function pruneStaleInventoryCache(
 
     return toPrune.length;
   } catch (error) {
-    console.warn('Failed to prune stale inventory cache:', error);
+    logger.warn('localdb.cache_prune_failed', {
+      context: 'stale_inventory',
+      error: String(error),
+    });
     return 0;
   }
 }
@@ -388,6 +416,14 @@ export async function setCachedSetSummary(
       cachedAt: Date.now(),
     });
   } catch (error) {
-    console.warn('Failed to cache set summary:', error);
+    if (isQuotaExceeded(error)) {
+      logger.warn('localdb.quota_exceeded', { context: 'set_summary' });
+      // Not worth retrying for a single summary entry
+    } else {
+      logger.warn('localdb.cache_write_failed', {
+        context: 'set_summary',
+        error: String(error),
+      });
+    }
   }
 }

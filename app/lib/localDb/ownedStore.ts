@@ -10,6 +10,18 @@
  */
 
 import { getLocalDb, isIndexedDBAvailable, type LocalOwned } from './schema';
+import { logger } from '@/lib/metrics';
+
+/**
+ * Detect IndexedDB QuotaExceededError.
+ * Defined locally until schema.ts exports this helper.
+ */
+function isQuotaExceeded(err: unknown): boolean {
+  return (
+    err instanceof DOMException &&
+    (err.name === 'QuotaExceededError' || err.code === 22)
+  );
+}
 
 // ============================================================================
 // Read Operations
@@ -39,7 +51,10 @@ export async function getOwnedForSet(
     }
     return result;
   } catch (error) {
-    console.warn('Failed to read owned quantities from IndexedDB:', error);
+    logger.warn('localdb.owned_read_failed', {
+      error: String(error),
+      setNumber,
+    });
     return {};
   }
 }
@@ -73,6 +88,7 @@ export async function getOwnedQuantity(
 /**
  * Set owned quantities for an entire set.
  * Replaces all existing quantities for the set.
+ * Uses a transaction so delete+insert is atomic — no data loss on crash.
  */
 export async function setOwnedForSet(
   setNumber: string,
@@ -105,12 +121,21 @@ export async function setOwnedForSet(
           });
         }
       }
-      if (entries.length > 0) await db.localOwned.bulkAdd(entries);
+      if (entries.length > 0) await db.localOwned.bulkPut(entries);
     });
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to write owned quantities to IndexedDB:', error);
+    if (isQuotaExceeded(error)) {
+      logger.error('localdb.quota_exceeded', {
+        context: 'setOwnedForSet',
+        setNumber,
+      });
+    } else {
+      logger.warn('localdb.owned_write_failed', {
+        error: String(error),
+        setNumber,
+      });
     }
+    throw error;
   }
 }
 
@@ -158,9 +183,20 @@ export async function setOwnedQuantity(
       }
     });
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to set owned quantity in IndexedDB:', error);
+    if (isQuotaExceeded(error)) {
+      logger.error('localdb.quota_exceeded', {
+        context: 'setOwnedQuantity',
+        setNumber,
+        inventoryKey,
+      });
+    } else {
+      logger.warn('localdb.owned_quantity_write_failed', {
+        error: String(error),
+        setNumber,
+        inventoryKey,
+      });
     }
+    throw error;
   }
 }
 
@@ -174,15 +210,17 @@ export async function clearOwnedForSet(setNumber: string): Promise<void> {
     const db = getLocalDb();
     await db.localOwned.where('setNumber').equals(setNumber).delete();
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to clear owned quantities from IndexedDB:', error);
-    }
+    logger.warn('localdb.owned_clear_failed', {
+      error: String(error),
+      setNumber,
+    });
   }
 }
 
 /**
  * Mark all parts as owned for a set (bulk operation).
  * Takes parallel arrays of keys and quantities for efficiency.
+ * Uses a transaction so delete+insert is atomic — no data loss on crash.
  */
 export async function markAllOwnedForSet(
   setNumber: string,
@@ -191,9 +229,10 @@ export async function markAllOwnedForSet(
 ): Promise<void> {
   if (!isIndexedDBAvailable()) return;
   if (keys.length !== quantities.length) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('markAllOwnedForSet: keys and quantities arrays must match');
-    }
+    logger.warn('localdb.mark_all_owned_mismatch', {
+      keysLength: keys.length,
+      quantitiesLength: quantities.length,
+    });
     return;
   }
 
@@ -218,13 +257,24 @@ export async function markAllOwnedForSet(
       // Delete existing entries for this set
       await db.localOwned.where('setNumber').equals(setNumber).delete();
 
-      // Insert new entries
+      // Insert new entries using bulkPut for crash-safe upsert
       if (entries.length > 0) {
-        await db.localOwned.bulkAdd(entries);
+        await db.localOwned.bulkPut(entries);
       }
     });
   } catch (error) {
-    console.warn('Failed to mark all owned in IndexedDB:', error);
+    if (isQuotaExceeded(error)) {
+      logger.error('localdb.quota_exceeded', {
+        context: 'markAllOwnedForSet',
+        setNumber,
+      });
+    } else {
+      logger.warn('localdb.mark_all_owned_failed', {
+        error: String(error),
+        setNumber,
+      });
+    }
+    throw error;
   }
 }
 
@@ -295,9 +345,10 @@ export async function migrateOwnedKeys(
 
     return migrated;
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to migrate owned keys:', error);
-    }
+    logger.warn('localdb.owned_migration_failed', {
+      error: String(error),
+      setNumber,
+    });
     return 0;
   }
 }

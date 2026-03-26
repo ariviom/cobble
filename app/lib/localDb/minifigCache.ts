@@ -5,9 +5,11 @@
  * subsequent lookups can avoid network/database round-trips.
  */
 
+import { logger } from '@/lib/metrics';
 import {
   getLocalDb,
   isIndexedDBAvailable,
+  isQuotaExceeded,
   type CatalogMinifig,
 } from './schema';
 
@@ -37,7 +39,10 @@ export async function getCachedMinifig(
     if (isFresh(row)) return row;
     return null;
   } catch (error) {
-    console.warn('Failed to read minifig from cache:', error);
+    logger.warn('localdb.cache_read_failed', {
+      context: 'minifig',
+      error: String(error),
+    });
     return null;
   }
 }
@@ -58,7 +63,10 @@ export async function getCachedMinifigByBlId(
     if (isFresh(row)) return row;
     return null;
   } catch (error) {
-    console.warn('Failed to read minifig by BL ID from cache:', error);
+    logger.warn('localdb.cache_read_failed', {
+      context: 'minifig_by_bl_id',
+      error: String(error),
+    });
     return null;
   }
 }
@@ -74,7 +82,14 @@ export async function setCachedMinifig(
     const db = getLocalDb();
     await db.catalogMinifigs.put({ ...minifig, cachedAt: Date.now() });
   } catch (error) {
-    console.warn('Failed to cache minifig:', error);
+    if (isQuotaExceeded(error)) {
+      logger.warn('localdb.quota_exceeded', { context: 'minifig' });
+    } else {
+      logger.warn('localdb.cache_write_failed', {
+        context: 'minifig',
+        error: String(error),
+      });
+    }
   }
 }
 
@@ -97,6 +112,13 @@ export async function bulkSetCachedMinifigs(
       }))
     );
   } catch (error) {
-    console.warn('Failed to bulk cache minifigs:', error);
+    if (isQuotaExceeded(error)) {
+      logger.warn('localdb.quota_exceeded', { context: 'bulk_minifigs' });
+    } else {
+      logger.warn('localdb.cache_write_failed', {
+        context: 'bulk_minifigs',
+        error: String(error),
+      });
+    }
   }
 }

@@ -61,12 +61,12 @@ describe('GET /api/colors', () => {
   });
 
   describe('error handling', () => {
-    it('returns 500 when color fetch fails', async () => {
+    it('returns 502 when color fetch fails', async () => {
       mockGetDbColors.mockRejectedValue(new Error('DB error'));
 
       const res = await GET();
 
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(502);
       const json = await res.json();
       expect(json.error).toBe('external_service_error');
       expect(json.message).toBe('Failed to fetch colors');

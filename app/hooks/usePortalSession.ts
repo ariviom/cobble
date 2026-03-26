@@ -14,6 +14,17 @@ export function usePortalSession() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
+      if (!res.ok) {
+        const errorData = (await res.json().catch(() => ({}))) as {
+          message?: string;
+          error?: string;
+        };
+        throw new Error(
+          errorData.message ||
+            errorData.error ||
+            'Failed to create portal session'
+        );
+      }
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;

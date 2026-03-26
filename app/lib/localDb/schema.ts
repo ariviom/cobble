@@ -12,6 +12,22 @@
  */
 
 import Dexie, { type EntityTable, type Table } from 'dexie';
+import { logger } from '@/lib/metrics';
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+/**
+ * Detect IndexedDB QuotaExceededError.
+ * Useful for triggering cache pruning on storage pressure.
+ */
+export function isQuotaExceeded(err: unknown): boolean {
+  if (err instanceof DOMException) {
+    return err.name === 'QuotaExceededError' || err.code === 22;
+  }
+  return false;
+}
 
 // ============================================================================
 // Catalog Types (read-only mirror of Supabase/Rebrickable)
@@ -463,6 +479,22 @@ export class BrickPartyDB extends Dexie {
       uiState: 'key',
       recentSets: 'setNumber, visitedAt',
     });
+
+    // Register lifecycle handlers for multi-tab resilience
+    this.on('blocked', () => {
+      logger.warn('localdb.blocked', {
+        message: 'Database upgrade blocked by another tab',
+      });
+    });
+
+    this.on('versionchange', () => {
+      logger.warn('localdb.versionchange', {
+        message: 'Another tab requested a version upgrade, closing connection',
+      });
+      // Close this connection so the other tab can proceed with the upgrade
+      this.close();
+      dbInstance = null;
+    });
   }
 }
 
@@ -472,8 +504,16 @@ let dbInstance: BrickPartyDB | null = null;
 /**
  * Get the singleton database instance.
  * Creates the database on first call.
+ * Re-opens the database if it was closed (e.g., browser reclaimed resources,
+ * versionchange event from another tab).
  */
 export function getLocalDb(): BrickPartyDB {
+  if (dbInstance && !dbInstance.isOpen()) {
+    logger.warn('localdb.reopening', { reason: 'database was closed' });
+    dbInstance.open().catch(err => {
+      logger.error('localdb.reopen_failed', { error: String(err) });
+    });
+  }
   if (!dbInstance) {
     dbInstance = new BrickPartyDB();
   }

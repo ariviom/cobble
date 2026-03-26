@@ -139,9 +139,14 @@ function fetchMinifigsDeduped(userId: string): Promise<UserMinifig[] | null> {
       if (res.status === 401) return [];
       if (!res.ok) {
         const payload = (await res.json().catch(() => null)) as {
+          message?: string;
           error?: string;
         } | null;
-        throw new Error(payload?.error ?? 'minifigs_fetch_failed');
+        throw new Error(
+          payload?.message ||
+            payload?.error ||
+            `Failed to fetch minifigs: ${res.status}`
+        );
       }
       const payload = (await res.json()) as { minifigs?: UserMinifig[] };
       const result = payload.minifigs ?? [];

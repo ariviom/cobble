@@ -80,22 +80,25 @@ export class SyncWorker {
     // Defer initialization to idle time / next tick
     return new Promise<void>(resolve => {
       const run = async () => {
-        if (this.isDestroyed) {
+        try {
+          if (this.isDestroyed) return;
+          await this.initializeDb();
+          this.registerEventListeners();
+          this.subscribeToLeader();
+          void this.pruneStaleCache();
+
+          // If userId was set before init finished, start sync loop now
+          if (this.userId) {
+            void this.performSync();
+            this.startSyncLoop();
+          }
+        } catch (error) {
+          logger.error('sync.init_failed', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        } finally {
           resolve();
-          return;
         }
-        await this.initializeDb();
-        this.registerEventListeners();
-        this.subscribeToLeader();
-        void this.pruneStaleCache();
-
-        // If userId was set before init finished, start sync loop now
-        if (this.userId) {
-          void this.performSync();
-          this.startSyncLoop();
-        }
-
-        resolve();
       };
 
       const win = window as Window & {
@@ -149,7 +152,11 @@ export class SyncWorker {
     }
 
     if (this.isAvailable && this.isReady) {
-      void setStoredUserId(userId);
+      void setStoredUserId(userId).catch(err => {
+        logger.warn('sync.store_userid_failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
     }
 
     if (userId && this.isReady) {
@@ -240,8 +247,13 @@ export class SyncWorker {
         if (!response.ok) {
           const errorData = (await response.json().catch(() => ({}))) as {
             error?: string;
+            message?: string;
           };
-          throw new Error(errorData.error || `Sync failed: ${response.status}`);
+          throw new Error(
+            errorData.message ||
+              errorData.error ||
+              `Sync failed: ${response.status}`
+          );
         }
 
         const result = (await response.json()) as {

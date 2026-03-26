@@ -418,7 +418,10 @@ export function useListMembership(
         });
 
         if (res.status === 403) {
-          const body = await res.json();
+          const body = (await res.json()) as {
+            error?: string;
+            message?: string;
+          };
           if (body.error === 'feature_unavailable') {
             optimisticUpdateUserLists(user.id, prev =>
               prev.filter(list => list.id !== tempId)
@@ -429,11 +432,12 @@ export function useListMembership(
         }
 
         if (!res.ok) {
-          const body = await res.json().catch(() => null);
+          const body = (await res.json().catch(() => null)) as {
+            error?: string;
+            message?: string;
+          } | null;
           console.error('Failed to create list', body);
-          setError(
-            (body as { message?: string })?.message ?? 'Failed to create list'
-          );
+          setError(body?.message || body?.error || 'Failed to create list');
           optimisticUpdateUserLists(user.id, prev =>
             prev.filter(list => list.id !== tempId)
           );

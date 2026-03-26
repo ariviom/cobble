@@ -193,7 +193,15 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
         }
 
         if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
+          const errorData = (await res.json().catch(() => ({}))) as {
+            message?: string;
+            error?: string;
+          };
+          throw new Error(
+            errorData.message ||
+              errorData.error ||
+              `Pricing request failed: ${res.status}`
+          );
         }
 
         const data = (await res.json()) as {

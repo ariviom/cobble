@@ -143,16 +143,16 @@ function CollectionPartCardComponent({
   );
 }
 
+// Callback props (onToggleSelection, onCheckboxDisabledClick, onShowModal) are
+// excluded — they are inline closures that change identity every render but always
+// dispatch the same stable action underneath.  Matches the InventoryItem pattern.
 function areEqual(prev: Props, next: Props) {
   return (
     prev.part === next.part &&
     prev.isSelected === next.isSelected &&
     prev.isCheckboxDisabled === next.isCheckboxDisabled &&
-    prev.onCheckboxDisabledClick === next.onCheckboxDisabledClick &&
     prev.view === next.view &&
     prev.itemSize === next.itemSize &&
-    prev.onShowModal === next.onShowModal &&
-    prev.onToggleSelection === next.onToggleSelection &&
     prev.needQuantity === next.needQuantity
   );
 }

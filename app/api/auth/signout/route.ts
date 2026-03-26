@@ -18,7 +18,10 @@ export const POST = withCsrfProtection(async (request: NextRequest) => {
 
   if (!supabaseUrl || !supabaseAnonKey) {
     return NextResponse.json(
-      { error: 'Missing Supabase environment configuration.' },
+      {
+        error: 'unknown_error' as const,
+        message: 'Missing Supabase environment configuration.',
+      },
       { status: 500 }
     );
   }
@@ -42,7 +45,9 @@ export const POST = withCsrfProtection(async (request: NextRequest) => {
     const { error } = await supabase.auth.signOut();
 
     const response = NextResponse.json(
-      error ? { error: 'Failed to sign out.' } : { success: true },
+      error
+        ? { error: 'unknown_error' as const, message: 'Failed to sign out.' }
+        : { success: true },
       {
         status: error ? 500 : 200,
       }
@@ -55,7 +60,10 @@ export const POST = withCsrfProtection(async (request: NextRequest) => {
     return response;
   } catch {
     const response = NextResponse.json(
-      { error: 'Unexpected error signing out.' },
+      {
+        error: 'unknown_error' as const,
+        message: 'Unexpected error signing out.',
+      },
       { status: 500 }
     );
 

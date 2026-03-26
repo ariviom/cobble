@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
+
+vi.mock('server-only', () => ({}));
 
 import { validateOrigin, withCsrfProtection } from '../csrf';
 

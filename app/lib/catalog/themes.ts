@@ -3,6 +3,7 @@ import 'server-only';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { normalizeText } from '@/app/lib/rebrickable';
 import { buildThemeHelpersFromMap } from '@/app/lib/themes';
+import { logger } from '@/lib/metrics';
 
 export type LocalTheme = {
   id: number;
@@ -18,29 +19,48 @@ type LocalThemesCache = {
 const LOCAL_THEMES_TTL_MS = 60 * 60 * 1000;
 
 let localThemesCache: LocalThemesCache = null;
+let localThemesInflight: Promise<LocalTheme[]> | null = null;
 
 export async function getThemesLocal(): Promise<LocalTheme[]> {
   const now = Date.now();
   if (localThemesCache && now - localThemesCache.at < LOCAL_THEMES_TTL_MS) {
     return localThemesCache.items;
   }
+  if (localThemesInflight) return localThemesInflight;
 
-  // rb_themes is publicly readable (anon SELECT policy)
-  const supabase = getCatalogReadClient();
-  const { data, error } = await supabase
-    .from('rb_themes')
-    .select('id, parent_id, name')
-    .limit(2000);
+  localThemesInflight = (async () => {
+    try {
+      // rb_themes is publicly readable (anon SELECT policy)
+      const supabase = getCatalogReadClient();
+      const { data, error } = await supabase
+        .from('rb_themes')
+        .select('id, parent_id, name')
+        .limit(2000);
 
-  if (error) {
-    throw new Error(
-      `Supabase getThemesLocal rb_themes failed: ${error.message}`
-    );
-  }
+      if (error) {
+        throw new Error(
+          `Supabase getThemesLocal rb_themes failed: ${error.message}`
+        );
+      }
 
-  const items = data ?? [];
-  localThemesCache = { at: now, items };
-  return items;
+      const items = data ?? [];
+      localThemesCache = { at: Date.now(), items };
+      return items;
+    } catch (err) {
+      if (localThemesCache) {
+        logger.warn('cache.stale_fallback', {
+          context: 'local_themes',
+          error: String(err),
+        });
+        return localThemesCache.items;
+      }
+      throw err;
+    } finally {
+      localThemesInflight = null;
+    }
+  })();
+
+  return localThemesInflight;
 }
 
 export type ThemeMeta = { themeName: string | null; themePath: string | null };

@@ -57,14 +57,14 @@ describe('GET /api/themes', () => {
   });
 
   describe('error handling', () => {
-    it('returns 500 when theme service throws', async () => {
+    it('returns 502 when theme service throws', async () => {
       mockFetchThemes.mockRejectedValue(
         new Error('Database connection failed')
       );
 
       const res = await GET();
 
-      expect(res.status).toBe(500);
+      expect(res.status).toBe(502);
       const json = await res.json();
       expect(json.error).toBe('external_service_error');
       expect(json.message).toBe('Failed to fetch themes');

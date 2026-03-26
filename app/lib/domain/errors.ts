@@ -18,7 +18,6 @@ export type AppErrorCode =
   | 'session_full'
   // External service errors
   | 'external_service_error'
-  | 'brickognize_failed'
   | 'rebrickable_failed'
   | 'rebrickable_circuit_open'
   | 'bricklink_circuit_open'

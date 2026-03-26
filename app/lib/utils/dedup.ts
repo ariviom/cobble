@@ -10,13 +10,9 @@ export function dedup<T>(key: string, factory: () => Promise<T>): Promise<T> {
   const existing = inFlight.get(key);
   if (existing) return existing as Promise<T>;
 
-  const promise = factory()
-    .catch(err => {
-      throw err;
-    })
-    .finally(() => {
-      inFlight.delete(key);
-    });
+  const promise = factory().finally(() => {
+    inFlight.delete(key);
+  });
 
   inFlight.set(key, promise);
   return promise;

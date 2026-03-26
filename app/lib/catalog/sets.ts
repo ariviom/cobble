@@ -30,6 +30,9 @@ let categoryCache: {
   at: number;
   map: Map<number, { id: number; name: string }>;
 } | null = null;
+let categoryInflight: Promise<
+  Map<number, { id: number; name: string }>
+> | null = null;
 
 export async function getCategoryMap(): Promise<
   Map<number, { id: number; name: string }>
@@ -38,25 +41,44 @@ export async function getCategoryMap(): Promise<
   if (categoryCache && now - categoryCache.at < CATEGORY_CACHE_TTL_MS) {
     return categoryCache.map;
   }
+  if (categoryInflight) return categoryInflight;
 
-  const supabase = getCatalogReadClient();
-  const { data, error } = await supabase
-    .from('rb_part_categories')
-    .select('id, name');
+  categoryInflight = (async () => {
+    try {
+      const supabase = getCatalogReadClient();
+      const { data, error } = await supabase
+        .from('rb_part_categories')
+        .select('id, name');
 
-  const map = new Map<number, { id: number; name: string }>();
-  if (error) {
-    logger.warn('catalog.category_cache_build_failed', {
-      error: error.message,
-    });
-    return map;
-  }
+      const map = new Map<number, { id: number; name: string }>();
+      if (error) {
+        logger.warn('catalog.category_cache_build_failed', {
+          error: error.message,
+        });
+        if (categoryCache) return categoryCache.map;
+        return map;
+      }
 
-  for (const cat of data ?? []) {
-    map.set(cat.id, cat);
-  }
-  categoryCache = { at: now, map };
-  return map;
+      for (const cat of data ?? []) {
+        map.set(cat.id, cat);
+      }
+      categoryCache = { at: Date.now(), map };
+      return map;
+    } catch (err) {
+      if (categoryCache) {
+        logger.warn('cache.stale_fallback', {
+          context: 'category_map',
+          error: String(err),
+        });
+        return categoryCache.map;
+      }
+      throw err;
+    } finally {
+      categoryInflight = null;
+    }
+  })();
+
+  return categoryInflight;
 }
 
 export async function searchSetsLocal(

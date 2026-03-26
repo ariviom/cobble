@@ -13,6 +13,7 @@ import {
   isIndexedDBAvailable,
   type LocalLoosePart,
 } from './schema';
+import { logger } from '@/lib/metrics';
 
 // Max retries before an operation is considered failed (matches syncQueue.ts)
 const MAX_RETRY_COUNT = 5;
@@ -31,9 +32,7 @@ export async function getAllLooseParts(): Promise<LocalLoosePart[]> {
     const db = getLocalDb();
     return await db.localLooseParts.toArray();
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to read loose parts from IndexedDB:', error);
-    }
+    logger.warn('localdb.loose_parts_read_failed', { error: String(error) });
     return [];
   }
 }
@@ -53,9 +52,7 @@ export async function getLoosePartsCount(): Promise<number> {
     });
     return total;
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to count loose parts in IndexedDB:', error);
-    }
+    logger.warn('localdb.loose_parts_count_failed', { error: String(error) });
     return 0;
   }
 }
@@ -77,9 +74,7 @@ export async function getLoosePart(
       .equals([partNum, colorId])
       .first();
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to read loose part from IndexedDB:', error);
-    }
+    logger.warn('localdb.loose_part_read_failed', { error: String(error) });
     return undefined;
   }
 }
@@ -141,9 +136,9 @@ export async function bulkUpsertLooseParts(
       }
     });
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to bulk upsert loose parts in IndexedDB:', error);
-    }
+    logger.warn('localdb.loose_parts_bulk_upsert_failed', {
+      error: String(error),
+    });
   }
 }
 
@@ -157,9 +152,7 @@ export async function clearAllLooseParts(): Promise<void> {
     const db = getLocalDb();
     await db.localLooseParts.clear();
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to clear loose parts from IndexedDB:', error);
-    }
+    logger.warn('localdb.loose_parts_clear_failed', { error: String(error) });
   }
 }
 
@@ -242,10 +235,9 @@ export async function bulkEnqueueLoosePartChanges(
         }
       }
     });
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to bulk enqueue loose part changes:', error);
-    }
+  } catch (err) {
+    logger.error('sync.bulk_enqueue_loose_failed', { error: String(err) });
+    throw err;
   }
 }
 
@@ -309,9 +301,12 @@ export async function enqueueLoosePartChange(
         lastError: null,
       });
     }
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Failed to enqueue loose part change:', error);
-    }
+  } catch (err) {
+    logger.error('sync.enqueue_loose_failed', {
+      error: String(err),
+      partNum,
+      colorId,
+    });
+    throw err;
   }
 }

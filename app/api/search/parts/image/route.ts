@@ -24,12 +24,18 @@ export async function GET(req: NextRequest) {
   const colorId = searchParams.get('colorId');
 
   if (!partNum || colorId == null) {
-    return NextResponse.json({ imageUrl: null }, { status: 400 });
+    return errorResponse('validation_failed', {
+      message: 'Missing part number or color ID',
+      status: 400,
+    });
   }
 
   const colorIdNum = Number(colorId);
   if (!Number.isFinite(colorIdNum)) {
-    return NextResponse.json({ imageUrl: null }, { status: 400 });
+    return errorResponse('invalid_format', {
+      message: 'Invalid color ID',
+      status: 400,
+    });
   }
 
   const supabase = getCatalogReadClient();

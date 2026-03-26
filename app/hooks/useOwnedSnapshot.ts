@@ -15,8 +15,9 @@ export type UseOwnedSnapshotResult = {
 
 export function useOwnedSnapshot(setNumber: string): UseOwnedSnapshotResult {
   const version = useOwnedStore((state: OwnedState) => state._version);
-  const hydratedSets = useOwnedStore(
-    (state: OwnedState) => state._hydratedSets
+  // Select a boolean for this specific set — avoids re-renders when other sets hydrate.
+  const isHydrated = useOwnedStore(
+    (state: OwnedState) => setNumber in state._hydratedSets
   );
   const storageAvailable = useOwnedStore(
     (state: OwnedState) => state._storageAvailable
@@ -24,8 +25,6 @@ export function useOwnedSnapshot(setNumber: string): UseOwnedSnapshotResult {
   const hydrateFromIndexedDB = useOwnedStore(
     (state: OwnedState) => state.hydrateFromIndexedDB
   );
-
-  const isHydrated = setNumber in hydratedSets;
 
   // Trigger IndexedDB hydration on mount (or retry after epoch abort).
   // Depends on `version` so that if hydration is aborted by an epoch change

@@ -453,16 +453,36 @@ export async function getSetsForPart(
 }
 
 let categoriesCache: { at: number; items: RebrickableCategory[] } | null = null;
+let categoriesInflight: Promise<RebrickableCategory[]> | null = null;
 
 export async function getPartCategories(): Promise<RebrickableCategory[]> {
   const now = Date.now();
   if (categoriesCache && now - categoriesCache.at < 60 * 60 * 1000) {
     return categoriesCache.items;
   }
-  const data = await rbFetch<{ results: RebrickableCategory[] }>(
-    '/lego/part_categories/',
-    { page_size: 1000 }
-  );
-  categoriesCache = { at: now, items: data.results };
-  return data.results;
+  if (categoriesInflight) return categoriesInflight;
+
+  categoriesInflight = (async () => {
+    try {
+      const data = await rbFetch<{ results: RebrickableCategory[] }>(
+        '/lego/part_categories/',
+        { page_size: 1000 }
+      );
+      categoriesCache = { at: Date.now(), items: data.results };
+      return data.results;
+    } catch (err) {
+      if (categoriesCache) {
+        logger.warn('cache.stale_fallback', {
+          context: 'rb_part_categories',
+          error: String(err),
+        });
+        return categoriesCache.items;
+      }
+      throw err;
+    } finally {
+      categoriesInflight = null;
+    }
+  })();
+
+  return categoriesInflight;
 }

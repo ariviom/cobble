@@ -35,6 +35,8 @@ const STATUS_MAP: Partial<Record<AppErrorCode, number>> = {
   webhook_processing_failed: 500,
   quota_exceeded: 429,
   feature_unavailable: 403,
+  external_service_error: 502,
+  rebrickable_failed: 502,
   unknown_error: 500,
 };
 
