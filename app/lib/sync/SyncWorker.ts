@@ -196,7 +196,10 @@ export class SyncWorker {
 
     const userId = this.userId ?? (await getStoredUserId());
     if (!userId) return;
-    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+    // Skip online check for forced unload flushes — sendBeacon may still work,
+    // and the queue persists in IndexedDB for retry on next session regardless.
+    if (!opts?.force && typeof navigator !== 'undefined' && !navigator.onLine)
+      return;
 
     this.isSyncing = true;
     this.lastSyncError = null;

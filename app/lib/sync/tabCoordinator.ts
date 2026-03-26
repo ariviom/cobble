@@ -23,6 +23,7 @@ type SyncMessage =
   | { type: 'heartbeat'; tabId: string; timestamp: number }
   | { type: 'claim_leader'; tabId: string; timestamp: number }
   | { type: 'leader_ack'; tabId: string }
+  | { type: 'leader_abdicate'; tabId: string }
   | { type: 'sync_request'; tabId: string }
   | { type: 'pull_request'; tabId: string };
 
@@ -113,6 +114,13 @@ class TabCoordinator {
         if (!this.isLeader && msg.tabId !== this.tabId) {
           this.leaderTabId = msg.tabId;
           this.lastLeaderHeartbeat = Date.now();
+        }
+        break;
+
+      case 'leader_abdicate':
+        if (msg.tabId === this.leaderTabId) {
+          this.leaderTabId = null;
+          this.claimLeadership();
         }
         break;
 
@@ -362,6 +370,18 @@ class TabCoordinator {
    * Clean up resources when the coordinator is no longer needed.
    */
   destroy(): void {
+    // Broadcast abdication before closing so other tabs can elect immediately
+    if (this.isLeader && this.channel) {
+      try {
+        this.channel.postMessage({
+          type: 'leader_abdicate',
+          tabId: this.tabId,
+        } satisfies SyncMessage);
+      } catch {
+        // Channel may already be closing
+      }
+    }
+
     this.isDestroyed = true;
 
     if (this.heartbeatInterval) {
