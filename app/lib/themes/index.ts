@@ -1,20 +1,9 @@
 import 'server-only';
 
-import { getThemes } from '@/app/lib/rebrickable/themes';
 import type { RebrickableTheme } from '@/app/lib/rebrickable/types';
 
 type ThemeLike = Pick<RebrickableTheme, 'id' | 'name' | 'parent_id'>;
 type ThemeId = number | null | undefined;
-
-let themeMapCache: Map<number, ThemeLike> | null = null;
-let themePathCache: Map<number, string> | null = null;
-
-async function ensureThemeMap(): Promise<Map<number, ThemeLike>> {
-  if (themeMapCache) return themeMapCache;
-  const themes = await getThemes();
-  themeMapCache = new Map(themes.map(t => [t.id, t]));
-  return themeMapCache;
-}
 
 function createThemeResolvers(themeById: Map<number, ThemeLike>) {
   const pathCache = new Map<number, string>();
@@ -71,46 +60,6 @@ function createThemeResolvers(themeById: Map<number, ThemeLike>) {
   };
 
   return { getThemePath, getRootTheme, getThemeMeta, themeById };
-}
-
-export async function getThemePath(themeId: number): Promise<string | null> {
-  if (!themePathCache) {
-    themePathCache = new Map<number, string>();
-  }
-  const map = await ensureThemeMap();
-  if (themePathCache.has(themeId)) return themePathCache.get(themeId) ?? null;
-
-  const theme = map.get(themeId);
-  if (!theme) return null;
-
-  const names: string[] = [];
-  const visited = new Set<number>();
-  let current: ThemeLike | null | undefined = theme;
-  while (current && !visited.has(current.id)) {
-    names.unshift(current.name);
-    visited.add(current.id);
-    current =
-      current.parent_id != null ? map.get(current.parent_id) : undefined;
-  }
-  const path = names.length > 0 ? names.join(' / ') : null;
-  if (path !== null) {
-    themePathCache.set(themeId, path);
-  }
-  return path;
-}
-
-export async function getRootTheme(themeId: number): Promise<ThemeLike | null> {
-  const map = await ensureThemeMap();
-  const { getRootTheme } = createThemeResolvers(map);
-  return getRootTheme(themeId);
-}
-
-export async function getThemeMeta(
-  themeId: ThemeId
-): Promise<{ themeName: string | null; themePath: string | null }> {
-  const map = await ensureThemeMap();
-  const { getThemeMeta } = createThemeResolvers(map);
-  return getThemeMeta(themeId);
 }
 
 export function buildThemeHelpers(themes: ThemeLike[]) {
