@@ -28,8 +28,13 @@ const STATUS_MAP: Partial<Record<AppErrorCode, number>> = {
   minifig_meta_failed: 500,
   catalog_version_failed: 500,
   mapping_fix_failed: 500,
+  database_error: 500,
+  server_error: 500,
+  inventory_batch_failed: 500,
   webhook_signature_invalid: 400,
   webhook_processing_failed: 500,
+  quota_exceeded: 429,
+  feature_unavailable: 403,
   unknown_error: 500,
 };
 
@@ -58,7 +63,7 @@ export function errorResponse(
   options?: ErrorResponseOptions
 ): NextResponse<ApiErrorResponse> {
   const status = options?.status ?? STATUS_MAP[code] ?? 500;
-  const requestId = options?.requestId ?? undefined;
+  const requestId = options?.requestId;
 
   logger.warn('api.error', {
     code,

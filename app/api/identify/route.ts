@@ -135,17 +135,16 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
           limit: 5,
         });
         if (usage.remaining === 0) {
-          return NextResponse.json(
-            {
-              error: 'feature_unavailable',
+          return errorResponse('feature_unavailable', {
+            status: 429,
+            details: {
               reason: 'quota_exceeded',
               limit: usage.limit,
               remaining: usage.remaining,
               resetAt: usage.resetAt,
               dedupe: true,
             },
-            { status: 429 }
-          );
+          });
         }
       }
       return NextResponse.json(cached.body, { status: cached.status });
@@ -160,17 +159,16 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
         limit: 5,
       });
       if (usage.remaining === 0) {
-        return NextResponse.json(
-          {
-            error: 'feature_unavailable',
+        return errorResponse('feature_unavailable', {
+          status: 429,
+          details: {
             reason: 'quota_exceeded',
             limit: usage.limit,
             remaining: usage.remaining,
             resetAt: usage.resetAt,
             dedupe: false,
           },
-          { status: 429 }
-        );
+        });
       }
     }
 

@@ -1,5 +1,3 @@
-import 'server-only';
-
 import { getRelatedSets } from '@/app/lib/catalog/relatedSets';
 import { getSetSummaryLocal } from '@/app/lib/catalog/sets';
 import { NextResponse, type NextRequest } from 'next/server';

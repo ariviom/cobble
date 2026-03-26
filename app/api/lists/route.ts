@@ -63,15 +63,13 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       }
 
       if ((count ?? 0) >= FREE_LIST_LIMIT) {
-        return NextResponse.json(
-          {
-            error: 'feature_unavailable',
+        return errorResponse('feature_unavailable', {
+          message: `You've reached the free limit of ${FREE_LIST_LIMIT} lists.`,
+          details: {
             reason: 'list_limit_reached',
-            message: `You've reached the free limit of ${FREE_LIST_LIMIT} lists.`,
             limit: FREE_LIST_LIMIT,
           },
-          { status: 403 }
-        );
+        });
       }
     }
 

@@ -9,6 +9,8 @@ export type AppErrorCode =
   // Rate limiting / budgets
   | 'rate_limited'
   | 'budget_exceeded'
+  | 'quota_exceeded'
+  | 'feature_unavailable'
   // Resource
   | 'not_found'
   | 'no_match'
@@ -29,6 +31,9 @@ export type AppErrorCode =
   | 'minifig_meta_failed'
   | 'catalog_version_failed'
   | 'mapping_fix_failed'
+  | 'database_error'
+  | 'server_error'
+  | 'inventory_batch_failed'
   | 'webhook_signature_invalid'
   | 'webhook_processing_failed'
   | 'unknown_error'
