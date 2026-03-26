@@ -65,7 +65,13 @@ export async function GET(
       includePricing,
     });
 
-    return NextResponse.json(result);
+    const headers: Record<string, string> = includePricing
+      ? { 'Cache-Control': 'private, max-age=300' }
+      : {
+          'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+        };
+
+    return NextResponse.json(result, { headers });
   } catch (err) {
     logger.error('minifig.unexpected_error', {
       inputMinifigId: inputId,

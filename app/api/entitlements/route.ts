@@ -1,11 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 import { errorResponse } from '@/app/lib/api/responses';
 import { getEntitlements } from '@/app/lib/services/entitlements';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { logger } from '@/lib/metrics';
+import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const clientIp = (await getClientIp(req)) ?? 'unknown';
+  const ipLimit = await consumeRateLimit(`entitlements:ip:${clientIp}`, {
+    windowMs: 60_000,
+    maxHits: 30,
+  });
+  if (!ipLimit.allowed) {
+    return errorResponse('rate_limited', {
+      status: 429,
+      headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+    });
+  }
+
   const supabase = await getSupabaseAuthServerClient();
   const {
     data: { user },

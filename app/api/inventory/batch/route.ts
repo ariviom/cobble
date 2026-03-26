@@ -1,4 +1,5 @@
 import { errorResponse } from '@/app/lib/api/responses';
+import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSetInventoriesBatchWithMeta } from '@/app/lib/services/inventory';
 import { incrementCounter, logEvent, logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
@@ -15,7 +16,7 @@ const bodySchema = z.object({
   includeMeta: z.boolean().optional(),
 });
 
-export async function POST(req: NextRequest) {
+export const POST = withCsrfProtection(async (req: NextRequest) => {
   const clientIp = (await getClientIp(req)) ?? 'unknown';
   const ipLimit = await consumeRateLimit(`inventory-batch:ip:${clientIp}`, {
     windowMs: 60_000,
@@ -101,4 +102,4 @@ export async function POST(req: NextRequest) {
     });
     return errorResponse('inventory_batch_failed');
   }
-}
+});

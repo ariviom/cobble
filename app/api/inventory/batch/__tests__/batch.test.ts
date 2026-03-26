@@ -3,6 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Mock server-only before importing the route
 vi.mock('server-only', () => ({}));
 
+// Mock CSRF middleware to passthrough
+vi.mock('@/app/lib/middleware/csrf', () => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  withCsrfProtection: (handler: any) => handler,
+}));
+
 // Mock the inventory service
 vi.mock('@/app/lib/services/inventory', () => ({
   getSetInventoriesBatchWithMeta: vi.fn(),
@@ -52,6 +58,9 @@ const createRequest = (body: unknown) =>
     body: JSON.stringify(body),
   });
 
+// Empty route context — the handler doesn't use it
+const ctx = {} as { params: Promise<Record<string, string>> };
+
 // Helper to create minimal valid InventoryRow
 const createMockRow = (overrides = {}) => ({
   setNumber: '75192-1',
@@ -78,7 +87,7 @@ describe('POST /api/inventory/batch', () => {
   describe('parameter validation', () => {
     it('returns 400 when body missing sets', async () => {
       const req = createRequest({});
-      const res = await POST(req);
+      const res = await POST(req, ctx);
 
       expect(res.status).toBe(400);
       const json = await res.json();
@@ -87,7 +96,7 @@ describe('POST /api/inventory/batch', () => {
 
     it('returns 400 when sets is empty array', async () => {
       const req = createRequest({ sets: [] });
-      const res = await POST(req);
+      const res = await POST(req, ctx);
 
       expect(res.status).toBe(400);
       const json = await res.json();
@@ -97,7 +106,7 @@ describe('POST /api/inventory/batch', () => {
     it('returns 400 when sets exceeds 50', async () => {
       const sets = Array.from({ length: 51 }, (_, i) => `set-${i}`);
       const req = createRequest({ sets });
-      const res = await POST(req);
+      const res = await POST(req, ctx);
 
       expect(res.status).toBe(400);
       const json = await res.json();
@@ -106,7 +115,7 @@ describe('POST /api/inventory/batch', () => {
 
     it('returns 400 when sets contains empty strings', async () => {
       const req = createRequest({ sets: [''] });
-      const res = await POST(req);
+      const res = await POST(req, ctx);
 
       expect(res.status).toBe(400);
       const json = await res.json();
@@ -121,7 +130,7 @@ describe('POST /api/inventory/batch', () => {
       mockBatchFetch.mockResolvedValue(resultsMap);
 
       const req = createRequest({ sets: ['75192-1'] });
-      const res = await POST(req);
+      const res = await POST(req, ctx);
 
       expect(res.status).toBe(200);
       const json = await res.json();
@@ -136,7 +145,7 @@ describe('POST /api/inventory/batch', () => {
       mockBatchFetch.mockResolvedValue(resultsMap);
 
       const req = createRequest({ sets: ['75192-1', '10300-1'] });
-      const res = await POST(req);
+      const res = await POST(req, ctx);
 
       expect(res.status).toBe(200);
       const json = await res.json();
@@ -153,7 +162,7 @@ describe('POST /api/inventory/batch', () => {
       mockBatchFetch.mockResolvedValue(resultsMap);
 
       const req = createRequest({ sets: ['75192-1'], includeMeta: true });
-      const res = await POST(req);
+      const res = await POST(req, ctx);
 
       expect(res.status).toBe(200);
       const json = await res.json();
@@ -168,7 +177,7 @@ describe('POST /api/inventory/batch', () => {
       mockBatchFetch.mockResolvedValue(resultsMap);
 
       const req = createRequest({ sets: ['75192-1'] });
-      const res = await POST(req);
+      const res = await POST(req, ctx);
 
       expect(res.status).toBe(200);
       const json = await res.json();
@@ -180,7 +189,7 @@ describe('POST /api/inventory/batch', () => {
       mockBatchFetch.mockResolvedValue(resultsMap);
 
       const req = createRequest({ sets: ['75192-1'] });
-      const res = await POST(req);
+      const res = await POST(req, ctx);
 
       expect(res.headers.get('Cache-Control')).toBe('private, max-age=300');
     });
@@ -191,7 +200,7 @@ describe('POST /api/inventory/batch', () => {
       mockBatchFetch.mockRejectedValue(new Error('Database error'));
 
       const req = createRequest({ sets: ['75192-1'] });
-      const res = await POST(req);
+      const res = await POST(req, ctx);
 
       expect(res.status).toBe(500);
       const json = await res.json();

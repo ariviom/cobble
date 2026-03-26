@@ -35,5 +35,9 @@ export async function GET(
 
   const result = await getRelatedSets(themeId, setNumber, year, limit, offset);
 
-  return NextResponse.json(result);
+  return NextResponse.json(result, {
+    headers: {
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+    },
+  });
 }

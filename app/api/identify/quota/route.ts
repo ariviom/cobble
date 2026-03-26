@@ -1,13 +1,26 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 import { errorResponse } from '@/app/lib/api/responses';
 import { getEntitlements, hasFeature } from '@/app/lib/services/entitlements';
 import { getUsageStatus } from '@/app/lib/services/usageCounters';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { logger } from '@/lib/metrics';
+import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const clientIp = (await getClientIp(req)) ?? 'unknown';
+    const ipLimit = await consumeRateLimit(`identify-quota:ip:${clientIp}`, {
+      windowMs: 60_000,
+      maxHits: 30,
+    });
+    if (!ipLimit.allowed) {
+      return errorResponse('rate_limited', {
+        status: 429,
+        headers: { 'Retry-After': String(ipLimit.retryAfterSeconds) },
+      });
+    }
+
     const supabase = await getSupabaseAuthServerClient();
     const {
       data: { user },

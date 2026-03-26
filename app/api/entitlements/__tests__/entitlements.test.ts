@@ -28,8 +28,17 @@ vi.mock('@/lib/metrics', () => ({
   },
 }));
 
+// Mock rate limiting
+vi.mock('@/lib/rateLimit', () => ({
+  consumeRateLimit: vi.fn(() => ({ allowed: true, retryAfterSeconds: 0 })),
+  getClientIp: vi.fn(() => '127.0.0.1'),
+}));
+
 import { getEntitlements } from '@/app/lib/services/entitlements';
+import { NextRequest } from 'next/server';
 import { GET } from '../route';
+
+const mockRequest = () => new NextRequest('http://localhost/api/entitlements');
 
 const mockGetEntitlements = vi.mocked(getEntitlements);
 
@@ -45,7 +54,7 @@ describe('GET /api/entitlements', () => {
         error: null,
       });
 
-      const res = await GET();
+      const res = await GET(mockRequest());
 
       expect(res.status).toBe(200);
       const json = await res.json();
@@ -59,7 +68,7 @@ describe('GET /api/entitlements', () => {
         error: { message: 'Invalid token' },
       });
 
-      const res = await GET();
+      const res = await GET(mockRequest());
 
       expect(res.status).toBe(401);
       const json = await res.json();
@@ -82,7 +91,7 @@ describe('GET /api/entitlements', () => {
         featureFlagsByKey: {},
       });
 
-      const res = await GET();
+      const res = await GET(mockRequest());
 
       expect(res.status).toBe(200);
       const json = await res.json();
@@ -103,7 +112,7 @@ describe('GET /api/entitlements', () => {
         featureFlagsByKey: {},
       });
 
-      const res = await GET();
+      const res = await GET(mockRequest());
 
       expect(res.status).toBe(200);
       const json = await res.json();
@@ -119,7 +128,7 @@ describe('GET /api/entitlements', () => {
 
       mockGetEntitlements.mockRejectedValue(new Error('Database error'));
 
-      const res = await GET();
+      const res = await GET(mockRequest());
 
       expect(res.status).toBe(500);
       const json = await res.json();
