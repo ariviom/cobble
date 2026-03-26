@@ -4,6 +4,7 @@ import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { Tables } from '@/supabase/types';
 import { useEffect, useState } from 'react';
+import { logger } from '@/lib/metrics';
 
 export type UserListSummary = {
   id: string;
@@ -105,7 +106,9 @@ function fetchUserListsDeduped(
     .then(({ data, error }) => {
       inflight = null;
       if (error) {
-        console.error('useUserLists failed', error);
+        logger.error('list.user_lists_load_failed', {
+          error: (error as Error)?.message ?? String(error),
+        });
         return null;
       }
       const rows = (data ?? []) as Array<Tables<'user_lists'>>;

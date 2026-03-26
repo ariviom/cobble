@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { logger } from '@/lib/metrics';
 
 export type MinifigSubpart = {
   partId: string;
@@ -127,7 +128,9 @@ export function useMinifigDetails(
         setDetails(data);
       } catch (err) {
         if (cancelled) return;
-        console.error('useMinifigDetails failed', err);
+        logger.error('minifig.details_load_failed', {
+          error: (err as Error)?.message ?? String(err),
+        });
         setError(
           err instanceof Error ? err.message : 'Failed to load minifig details'
         );

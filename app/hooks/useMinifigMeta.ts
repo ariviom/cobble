@@ -6,6 +6,7 @@ import {
   setCachedMinifig,
 } from '@/app/lib/localDb';
 import { useEffect, useState } from 'react';
+import { logger } from '@/lib/metrics';
 
 type MinifigMeta = {
   figNum: string;
@@ -91,7 +92,9 @@ export function useMinifigMeta(figNum: string): UseMinifigMetaResult {
         });
       } catch (err) {
         if (cancelled) return;
-        console.error('useMinifigMeta failed', err);
+        logger.error('minifig.meta_load_failed', {
+          error: (err as Error)?.message ?? String(err),
+        });
         setError(
           err instanceof Error ? err.message : 'Failed to load minifig meta'
         );

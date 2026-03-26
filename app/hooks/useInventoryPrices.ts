@@ -241,9 +241,9 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
 
         setPricesStatus('loaded');
       } catch (err) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('[InventoryPrices] load failed', err);
-        }
+        logger.error('inventory.prices_load_failed', {
+          error: (err as Error)?.message ?? String(err),
+        });
         setPricesStatus(prev =>
           prev === 'idle' && Object.keys(pricesByKeyRef.current).length === 0
             ? 'error'

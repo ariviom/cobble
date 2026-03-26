@@ -8,6 +8,7 @@ import {
   getWatermark,
   setWatermark as setWatermarkFn,
 } from '@/app/lib/localDb/watermarkStore';
+import { logger } from '@/lib/metrics';
 import { readOwnedCache } from '@/app/store/owned';
 import { getTabCoordinator } from '@/app/lib/sync/tabCoordinator';
 import { enqueueOwnedChangeIfPossible } from '@/app/lib/ownedSync';
@@ -285,7 +286,10 @@ export function useSupabaseOwned({
       if (error) {
         // Abort errors are expected during cleanup — don't log them
         if (signal?.aborted) return null;
-        console.error('Delta pull failed', { setNumber, error: error.message });
+        logger.error('sync.delta_pull_failed', {
+          setNumber,
+          error: error.message,
+        });
         return null;
       }
 

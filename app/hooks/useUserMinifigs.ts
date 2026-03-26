@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
+import { logger } from '@/lib/metrics';
 
 export type UserMinifig = {
   figNum: string;
@@ -155,7 +156,9 @@ function fetchMinifigsDeduped(userId: string): Promise<UserMinifig[] | null> {
     })
     .catch(err => {
       inflight = null;
-      console.error('useUserMinifigs fetch failed', err);
+      logger.error('minifig.user_minifigs_load_failed', {
+        error: (err as Error)?.message ?? String(err),
+      });
       return null;
     });
 

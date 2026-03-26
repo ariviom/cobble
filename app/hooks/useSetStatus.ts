@@ -8,6 +8,7 @@ import {
   useUserSetsStore,
 } from '@/app/store/user-sets';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { logger } from '@/lib/metrics';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 
 type UseSetStatusArgs = {
@@ -96,7 +97,9 @@ export function useSetStatus({
           method: 'POST',
         });
       } catch (err) {
-        console.error('Failed to sync minifigs from sets', err);
+        logger.error('set.sync_minifigs_failed', {
+          error: (err as Error)?.message ?? String(err),
+        });
       }
     })();
   };

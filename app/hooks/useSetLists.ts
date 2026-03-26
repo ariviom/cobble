@@ -8,6 +8,7 @@ import {
   type UseListMembershipResult,
 } from '@/app/hooks/useListMembership';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { logger } from '@/lib/metrics';
 
 export type { UserList } from '@/app/hooks/useListMembership';
 
@@ -101,7 +102,7 @@ async function syncSetMinifigsToList(
       });
 
     if (upsertErr) {
-      console.error('Failed to sync minifigs to list', upsertErr);
+      logger.error('list.sync_minifigs_failed', { error: upsertErr.message });
     }
   }
 }

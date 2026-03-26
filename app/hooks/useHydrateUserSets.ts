@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { logger } from '@/lib/metrics';
 import {
   type HydratedSetInput,
   type SetStatus,
@@ -56,7 +57,9 @@ async function syncLocalSetsToSupabase(
       .from('user_sets')
       .upsert(upserts, { onConflict: 'user_id,set_num' });
   } catch (error) {
-    console.error('syncLocalSetsToSupabase failed', error);
+    logger.error('hydrate.sync_local_sets_failed', {
+      error: (error as Error)?.message ?? String(error),
+    });
   }
 }
 
@@ -116,10 +119,9 @@ export function useHydrateUserSets() {
             markHydrated();
             return;
           }
-          console.error(
-            'useHydrateUserSets: API request failed',
-            response.status
-          );
+          logger.error('hydrate.api_request_failed', {
+            status: response.status,
+          });
           // Don't mark as completed so retry is possible
           hydrationByUser.delete(userId);
           return;
@@ -170,7 +172,9 @@ export function useHydrateUserSets() {
         const entry = hydrationByUser.get(userId);
         if (entry) entry.completed = true;
       } catch (err) {
-        console.error('useHydrateUserSets failed', err);
+        logger.error('hydrate.user_sets_failed', {
+          error: (err as Error)?.message ?? String(err),
+        });
         // Allow retry on error by removing the entry
         hydrationByUser.delete(userId);
       }
