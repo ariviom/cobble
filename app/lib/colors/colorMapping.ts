@@ -102,15 +102,27 @@ async function buildColorMapsFromDb(): Promise<ColorMaps> {
  *
  * Zero external API calls — purely DB-backed.
  */
+let cachePromise: Promise<ColorMaps> | null = null;
+
 export async function getColorMaps(): Promise<ColorMaps> {
   const now = Date.now();
   if (cache && now - cache.at < CACHE_TTL_MS) {
     return cache.maps;
   }
 
-  const maps = await buildColorMapsFromDb();
-  cache = { at: now, maps };
-  return maps;
+  if (!cachePromise) {
+    cachePromise = buildColorMapsFromDb()
+      .then(maps => {
+        cache = { at: Date.now(), maps };
+        cachePromise = null;
+        return maps;
+      })
+      .catch(err => {
+        cachePromise = null;
+        throw err;
+      });
+  }
+  return cachePromise;
 }
 
 /** Convenience: BL→RB direction only. */

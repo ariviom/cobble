@@ -3,6 +3,7 @@
 import { cva, type VariantProps } from 'class-variance-authority';
 import Link from 'next/link';
 import {
+  type Ref,
   ButtonHTMLAttributes,
   ComponentPropsWithoutRef,
   forwardRef,
@@ -10,7 +11,7 @@ import {
 import { cn } from './utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-md border-2 cursor-pointer font-semibold disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background select-none',
+  'inline-flex items-center justify-center gap-2 rounded-md border-2 cursor-pointer font-semibold disabled:opacity-50 disabled:pointer-events-none disabled:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background select-none',
   {
     variants: {
       variant: {
@@ -87,7 +88,7 @@ export const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, Props>(
       const { href, ...rest } = props;
       return (
         <Link
-          ref={ref as React.Ref<HTMLAnchorElement>}
+          ref={ref as Ref<HTMLAnchorElement>}
           href={href}
           className={classes}
           {...rest}
@@ -97,7 +98,7 @@ export const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, Props>(
 
     return (
       <button
-        ref={ref as React.Ref<HTMLButtonElement>}
+        ref={ref as Ref<HTMLButtonElement>}
         className={classes}
         {...props}
       />
