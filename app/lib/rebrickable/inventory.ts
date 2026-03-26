@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import { getMinifigPartsCached } from '@/app/lib/rebrickable/minifigs';
 import { getPartCategories } from '@/app/lib/rebrickable/parts';

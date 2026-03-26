@@ -4,6 +4,7 @@
  * This module re-exports the public surface from the refactored submodules to
  * keep existing import paths stable.
  */
+import 'server-only';
 
 // Types
 export type {

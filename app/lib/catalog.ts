@@ -1,3 +1,5 @@
+import 'server-only';
+
 // Backward-compat shim: explicitly re-export modular catalog implementation
 export {
   getSetInventoryLocal,

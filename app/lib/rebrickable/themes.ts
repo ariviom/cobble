@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import type { RebrickableTheme } from '@/app/lib/rebrickable/types';
 

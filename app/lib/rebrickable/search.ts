@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { LRUCache } from '@/app/lib/cache/lru';
 import { rbFetch, rbFetchAbsolute } from '@/app/lib/rebrickable/client';
 import { getThemes } from '@/app/lib/rebrickable/themes';
