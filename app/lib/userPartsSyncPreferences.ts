@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/supabase/types';
+import { logger } from '@/lib/metrics';
 
 export type PartSyncPreferences = {
   syncFromSets: boolean;
@@ -40,14 +41,10 @@ export async function loadUserPartsSyncPreferences(
     .maybeSingle();
 
   if (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      try {
-        console.warn('loadUserPartsSyncPreferences: failed', {
-          userId,
-          error: error.message,
-        });
-      } catch {}
-    }
+    logger.warn('loadUserPartsSyncPreferences: failed', {
+      userId,
+      error: error.message,
+    });
     return DEFAULT_PART_SYNC_PREFERENCES;
   }
 
@@ -70,13 +67,11 @@ export async function saveUserPartsSyncPreferences(
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (error && process.env.NODE_ENV !== 'production') {
-    try {
-      console.warn('saveUserPartsSyncPreferences: failed to load existing', {
-        userId,
-        error: error.message,
-      });
-    } catch {}
+  if (error) {
+    logger.warn('saveUserPartsSyncPreferences: failed to load existing', {
+      userId,
+      error: error.message,
+    });
   }
 
   const existingSettings =

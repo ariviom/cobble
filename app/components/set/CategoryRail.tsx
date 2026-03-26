@@ -1,7 +1,7 @@
 'use client';
 
+import { useScrollableRail } from '@/app/hooks/useScrollableRail';
 import { cx } from 'class-variance-authority';
-import { useEffect, useRef, useState } from 'react';
 
 type Props = {
   parents: string[];
@@ -55,43 +55,8 @@ export function CategoryRail({
   onSelectCategory,
   className,
 }: Props) {
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const [hasOverflow, setHasOverflow] = useState(false);
-
-  const updateScrollState = () => {
-    const el = listRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 0);
-    const canRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
-    setCanScrollRight(canRight);
-    setHasOverflow(el.scrollWidth > el.clientWidth + 1);
-  };
-
-  useEffect(() => {
-    updateScrollState();
-    const el = listRef.current;
-    if (!el) return;
-    const onScroll = () => updateScrollState();
-    el.addEventListener('scroll', onScroll, { passive: true });
-    const ro = new ResizeObserver(() => updateScrollState());
-    ro.observe(el);
-    return () => {
-      el.removeEventListener('scroll', onScroll);
-      ro.disconnect();
-    };
-  }, []);
-
-  function scrollByAmount(dir: 'left' | 'right') {
-    const el = listRef.current;
-    if (!el) return;
-    const amount = Math.round(el.clientWidth * 0.8);
-    el.scrollBy({
-      left: dir === 'left' ? -amount : amount,
-      behavior: 'smooth',
-    });
-  }
+  const { ref, canScrollLeft, canScrollRight, hasOverflow, scrollBy } =
+    useScrollableRail();
 
   // Build items based on filter
   const items: Array<{
@@ -163,11 +128,11 @@ export function CategoryRail({
         <ArrowButton
           side="left"
           disabled={!canScrollLeft}
-          onClick={() => scrollByAmount('left')}
+          onClick={() => scrollBy('left')}
         />
       )}
       <div
-        ref={listRef}
+        ref={ref}
         className={cx(
           'flex w-full overflow-x-auto scroll-smooth whitespace-nowrap no-scrollbar',
           hasOverflow ? 'px-8' : 'px-0'
@@ -197,7 +162,7 @@ export function CategoryRail({
         <ArrowButton
           side="right"
           disabled={!canScrollRight}
-          onClick={() => scrollByAmount('right')}
+          onClick={() => scrollBy('right')}
         />
       )}
     </div>

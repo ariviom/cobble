@@ -1,8 +1,8 @@
 'use client';
 
 import { cn } from '@/app/components/ui/utils';
+import { useScrollableRail } from '@/app/hooks/useScrollableRail';
 import type { ReactNode } from 'react';
-import { useEffect, useRef, useState } from 'react';
 
 type Props = {
   children: ReactNode;
@@ -40,42 +40,8 @@ function ArrowButton({
 }
 
 export function HorizontalCardRail({ children, className }: Props) {
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  const [hasOverflow, setHasOverflow] = useState(false);
-
-  const updateScrollState = () => {
-    const el = listRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 0);
-    const canRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
-    setCanScrollRight(canRight);
-    setHasOverflow(el.scrollWidth > el.clientWidth + 1);
-  };
-
-  useEffect(() => {
-    updateScrollState();
-    const el = listRef.current;
-    if (!el) return;
-    el.addEventListener('scroll', updateScrollState, { passive: true });
-    const ro = new ResizeObserver(() => updateScrollState());
-    ro.observe(el);
-    return () => {
-      el.removeEventListener('scroll', updateScrollState);
-      ro.disconnect();
-    };
-  }, []);
-
-  function scrollByAmount(dir: 'left' | 'right') {
-    const el = listRef.current;
-    if (!el) return;
-    const amount = Math.round(el.clientWidth * 0.8);
-    el.scrollBy({
-      left: dir === 'left' ? -amount : amount,
-      behavior: 'smooth',
-    });
-  }
+  const { ref, canScrollLeft, canScrollRight, hasOverflow, scrollBy } =
+    useScrollableRail();
 
   return (
     <div className={cn('relative', className)}>
@@ -83,11 +49,11 @@ export function HorizontalCardRail({ children, className }: Props) {
         <ArrowButton
           side="left"
           disabled={!canScrollLeft}
-          onClick={() => scrollByAmount('left')}
+          onClick={() => scrollBy('left')}
         />
       )}
       <div
-        ref={listRef}
+        ref={ref}
         className="flex snap-x snap-mandatory gap-4 overflow-x-auto overflow-y-visible scroll-smooth py-1 no-scrollbar"
       >
         {children}
@@ -96,7 +62,7 @@ export function HorizontalCardRail({ children, className }: Props) {
         <ArrowButton
           side="right"
           disabled={!canScrollRight}
-          onClick={() => scrollByAmount('right')}
+          onClick={() => scrollBy('right')}
         />
       )}
       {/* Fade overlays for clipped cards — desktop only */}

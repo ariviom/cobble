@@ -1,7 +1,8 @@
 'use client';
 
+import { useScrollableRail } from '@/app/hooks/useScrollableRail';
 import { cx } from 'class-variance-authority';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 
 export type TabDef = { key: string; label: string };
 
@@ -46,44 +47,11 @@ export function InventoryFilterTabs({
   onChange,
   className,
 }: Props) {
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-
-  const updateScrollState = () => {
-    const el = listRef.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 0);
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
-  };
-
-  useEffect(() => {
-    updateScrollState();
-    const el = listRef.current;
-    if (!el) return;
-    const onScroll = () => updateScrollState();
-    el.addEventListener('scroll', onScroll, { passive: true });
-    const ro = new ResizeObserver(() => updateScrollState());
-    ro.observe(el);
-    return () => {
-      el.removeEventListener('scroll', onScroll);
-      ro.disconnect();
-    };
-  }, []);
-
-  function scrollByAmount(dir: 'left' | 'right') {
-    const el = listRef.current;
-    if (!el) return;
-    const amount = Math.round(el.clientWidth * 0.8);
-    el.scrollBy({
-      left: dir === 'left' ? -amount : amount,
-      behavior: 'smooth',
-    });
-  }
+  const { ref, canScrollLeft, canScrollRight, scrollBy } = useScrollableRail();
 
   // Ensure selected tab is visible when value changes
   useEffect(() => {
-    const el = listRef.current;
+    const el = ref.current;
     if (!el) return;
     const idx = tabs.findIndex(t => t.key === value);
     if (idx < 0) return;
@@ -97,7 +65,7 @@ export function InventoryFilterTabs({
       el.scrollBy({ left: left - elLeft - 16, behavior: 'smooth' });
     else if (right > elRight)
       el.scrollBy({ left: right - elRight + 16, behavior: 'smooth' });
-  }, [value, tabs]);
+  }, [value, tabs, ref]);
 
   return (
     <div
@@ -106,10 +74,10 @@ export function InventoryFilterTabs({
       <TabsArrowButton
         side="left"
         disabled={!canScrollLeft}
-        onClick={() => scrollByAmount('left')}
+        onClick={() => scrollBy('left')}
       />
       <div
-        ref={listRef}
+        ref={ref}
         className={cx(
           'flex w-full overflow-x-auto scroll-smooth px-8 whitespace-nowrap no-scrollbar'
         )}
@@ -138,7 +106,7 @@ export function InventoryFilterTabs({
       <TabsArrowButton
         side="right"
         disabled={!canScrollRight}
-        onClick={() => scrollByAmount('right')}
+        onClick={() => scrollBy('right')}
       />
     </div>
   );

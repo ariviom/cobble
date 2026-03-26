@@ -202,8 +202,15 @@ export function useCompletionStats(isActive = true) {
   const [sets, setSets] = useState<EnrichedCompletionSet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Subscribe to user sets store to detect hydration completion
-  const userSets = useUserSetsStore(state => state.sets);
+  // Derive a stable key that only changes when owned sets or their counts change.
+  // This avoids re-running the expensive IDB pipeline when unrelated metadata updates.
+  const cloudOwnedKey = useUserSetsStore(state => {
+    const entries = Object.values(state.sets)
+      .filter(s => s.foundCount > 0 || s.numParts > 0)
+      .map(s => `${s.setNumber}:${s.foundCount}:${s.numParts}`);
+    entries.sort();
+    return entries.join(',');
+  });
 
   // Increment a fetch key each time isActive transitions to true,
   // so the effect re-runs for local data.
@@ -315,7 +322,7 @@ export function useCompletionStats(isActive = true) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userSets, fetchKey]);
+  }, [cloudOwnedKey, fetchKey]);
 
   return { sets, isLoading };
 }

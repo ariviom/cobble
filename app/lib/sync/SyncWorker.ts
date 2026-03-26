@@ -1,4 +1,5 @@
 import { SYNC_BATCH_SIZE, SYNC_INTERVAL_MS } from '@/app/config/timing';
+import { logger } from '@/lib/metrics';
 import {
   getLocalDb,
   getPendingSyncOperations,
@@ -282,7 +283,7 @@ export class SyncWorker {
         error instanceof Error ? error.message : 'Unknown sync error';
       this.lastSyncError = errorMessage;
       this.notify();
-      console.warn('Sync failed:', errorMessage);
+      logger.warn('sync.loop_failed', { error: errorMessage });
     } finally {
       this.isSyncing = false;
       this.notify();
@@ -323,7 +324,9 @@ export class SyncWorker {
       this.isReady = true;
       this.notify();
     } catch (error) {
-      console.error('Failed to initialize local database:', error);
+      logger.error('sync.db_init_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       this.isReady = true; // Still mark ready so app can function
       this.notify();
     }
@@ -396,7 +399,10 @@ export class SyncWorker {
             migratedKeys.push(storageKey);
           }
         } catch (e) {
-          console.warn(`Failed to migrate localStorage key ${storageKey}:`, e);
+          logger.warn('sync.migration_key_failed', {
+            key: storageKey,
+            error: e instanceof Error ? e.message : String(e),
+          });
         }
       }
 
@@ -412,7 +418,9 @@ export class SyncWorker {
         await setMigrationComplete(MIGRATION_LOCALSTORAGE_OWNED);
       }
     } catch (error) {
-      console.warn('localStorage → IndexedDB migration failed:', error);
+      logger.warn('sync.migration_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -436,7 +444,9 @@ export class SyncWorker {
 
       await pruneStaleInventoryCache(openSetNumbers);
     } catch (error) {
-      console.warn('Failed to prune stale cache:', error);
+      logger.warn('sync.prune_cache_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

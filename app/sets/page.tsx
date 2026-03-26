@@ -9,7 +9,7 @@ import { cn } from '@/app/components/ui/utils';
 import { useDynamicTitle } from '@/app/hooks/useDynamicTitle';
 import { useGatedOpenTab } from '@/app/hooks/useGatedOpenTab';
 import { useWakeLock } from '@/app/hooks/useWakeLock';
-import { useIsDesktop } from '@/app/hooks/useIsDesktop';
+import { useIsDesktop } from '@/app/hooks/useMediaQuery';
 import { readStorage } from '@/app/lib/persistence/storage';
 import {
   useOpenTabsStore,
@@ -366,8 +366,8 @@ export default function SetsPage() {
     }
   }, [activeTabId]);
 
-  // During SSR/hydration, isDesktop is undefined and tabs may be empty (no localStorage on server)
-  const isHydrating = isDesktop === undefined || !hasMounted;
+  // During SSR/hydration, tabs may be empty (no localStorage on server)
+  const isHydrating = !hasMounted;
 
   // During SSR/hydration, always show skeleton so server and client match
   // (Zustand persist can hydrate tabs from localStorage before useEffect,

@@ -127,7 +127,7 @@ export async function setOwnedQuantity(
   try {
     const db = getLocalDb();
     const now = Date.now();
-    const normalizedQty = Math.max(0, Math.floor(quantity || 0));
+    const normalizedQty = Math.max(0, Math.floor(quantity ?? 0));
 
     await db.transaction('rw', db.localOwned, async () => {
       // Find existing entry

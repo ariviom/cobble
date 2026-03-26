@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/supabase/types';
+import { logger } from '@/lib/metrics';
 
 export type MinifigSyncScope = 'collection' | 'owned';
 
@@ -71,14 +72,10 @@ export async function loadUserMinifigSyncPreferences(
     .maybeSingle();
 
   if (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      try {
-        console.warn('loadUserMinifigSyncPreferences: failed to load', {
-          userId,
-          error: error.message,
-        });
-      } catch {}
-    }
+    logger.warn('loadUserMinifigSyncPreferences: failed to load', {
+      userId,
+      error: error.message,
+    });
     return DEFAULT_MINIFIG_SYNC_PREFERENCES;
   }
 
@@ -104,13 +101,11 @@ export async function saveUserMinifigSyncPreferences(
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (error && process.env.NODE_ENV !== 'production') {
-    try {
-      console.warn('saveUserMinifigSyncPreferences: failed to load existing', {
-        userId,
-        error: error.message,
-      });
-    } catch {}
+  if (error) {
+    logger.warn('saveUserMinifigSyncPreferences: failed to load existing', {
+      userId,
+      error: error.message,
+    });
   }
 
   const existingSettings =

@@ -261,9 +261,18 @@ async function syncOwnedFromCloud(userId: string): Promise<void> {
     });
   }
 
+  // Read all local data in parallel
+  const localQtysMap = new Map(
+    await Promise.all(
+      Array.from(bySet.keys()).map(
+        async setNum => [setNum, await getOwnedForSet(setNum)] as const
+      )
+    )
+  );
+
   // Merge cloud data with local data (max wins per key)
   for (const [setNum, entries] of bySet) {
-    const localQtys = await getOwnedForSet(setNum);
+    const localQtys = localQtysMap.get(setNum) ?? {};
     const merged: Record<string, number> = { ...localQtys };
     let changed = false;
 

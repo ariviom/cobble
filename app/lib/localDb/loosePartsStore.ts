@@ -108,7 +108,7 @@ export async function bulkUpsertLooseParts(
 
     await db.transaction('rw', db.localLooseParts, async () => {
       for (const part of parts) {
-        const normalizedQty = Math.max(0, Math.floor(part.quantity || 0));
+        const normalizedQty = Math.max(0, Math.floor(part.quantity ?? 0));
 
         const existing = await db.localLooseParts
           .where('[partNum+colorId]')

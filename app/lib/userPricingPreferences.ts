@@ -5,6 +5,7 @@ import {
   normalizePricingPreferences,
 } from '@/app/lib/pricing';
 import type { PricingPreferences } from '@/app/lib/pricing';
+import { logger } from '@/lib/metrics';
 
 export type SupabaseDbClient = SupabaseClient<Database>;
 
@@ -44,14 +45,10 @@ export async function loadUserPricingPreferences(
     .maybeSingle();
 
   if (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      try {
-        console.warn('loadUserPricingPreferences: failed to load', {
-          userId,
-          error: error.message,
-        });
-      } catch {}
-    }
+    logger.warn('loadUserPricingPreferences: failed to load', {
+      userId,
+      error: error.message,
+    });
     return DEFAULT_PRICING_PREFERENCES;
   }
 
@@ -74,13 +71,11 @@ export async function saveUserPricingPreferences(
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (error && process.env.NODE_ENV !== 'production') {
-    try {
-      console.warn('saveUserPricingPreferences: failed to load existing', {
-        userId,
-        error: error.message,
-      });
-    } catch {}
+  if (error) {
+    logger.warn('saveUserPricingPreferences: failed to load existing', {
+      userId,
+      error: error.message,
+    });
   }
 
   const existingSettings =

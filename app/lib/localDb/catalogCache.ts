@@ -332,12 +332,7 @@ export async function pruneStaleInventoryCache(
       [db.catalogSetMeta, db.catalogSetParts],
       async () => {
         await db.catalogSetMeta.bulkDelete(setNumbers);
-        for (const setNumber of setNumbers) {
-          await db.catalogSetParts
-            .where('setNumber')
-            .equals(setNumber)
-            .delete();
-        }
+        await db.catalogSetParts.where('setNumber').anyOf(setNumbers).delete();
       }
     );
 
