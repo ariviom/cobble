@@ -7,6 +7,10 @@ import {
   TOP_LEVEL_IDS,
   type TourItemId,
 } from '@/app/components/onboarding/tourConfig';
+import {
+  readStorage as readStorageRaw,
+  writeStorage as writeStorageRaw,
+} from '@/app/lib/persistence/storage';
 
 const STORAGE_KEY = 'onboarding:progress';
 
@@ -22,23 +26,18 @@ function persistKey(userId?: string): string {
   return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
 }
 
-function readStorage(userId?: string): LocalState | null {
-  if (typeof window === 'undefined') return null;
+function readOnboardingState(userId?: string): LocalState | null {
+  const raw = readStorageRaw(persistKey(userId));
+  if (!raw) return null;
   try {
-    const raw = window.localStorage.getItem(persistKey(userId));
-    return raw ? JSON.parse(raw) : null;
+    return JSON.parse(raw);
   } catch {
     return null;
   }
 }
 
-function writeStorage(state: LocalState, userId?: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(persistKey(userId), JSON.stringify(state));
-  } catch {
-    // Ignore storage errors
-  }
+function writeOnboardingState(state: LocalState, userId?: string): void {
+  writeStorageRaw(persistKey(userId), JSON.stringify(state));
 }
 
 type OnboardingState = {
@@ -82,7 +81,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     }
 
     set({ completedSteps: next });
-    writeStorage(
+    writeOnboardingState(
       {
         completedSteps: next,
         dismissed: get().dismissed,
@@ -95,13 +94,16 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   dismiss: () => {
     const { _userId, completedSteps, collapsed } = get();
     set({ dismissed: true });
-    writeStorage({ completedSteps, dismissed: true, collapsed }, _userId);
+    writeOnboardingState(
+      { completedSteps, dismissed: true, collapsed },
+      _userId
+    );
   },
 
   reEnable: () => {
     const { _userId, completedSteps } = get();
     set({ dismissed: false, collapsed: false });
-    writeStorage(
+    writeOnboardingState(
       { completedSteps, dismissed: false, collapsed: false },
       _userId
     );
@@ -110,16 +112,22 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   collapse: () => {
     const { _userId, completedSteps, dismissed } = get();
     set({ collapsed: true });
-    writeStorage({ completedSteps, dismissed, collapsed: true }, _userId);
+    writeOnboardingState(
+      { completedSteps, dismissed, collapsed: true },
+      _userId
+    );
   },
   expand: () => {
     const { _userId, completedSteps, dismissed } = get();
     set({ collapsed: false });
-    writeStorage({ completedSteps, dismissed, collapsed: false }, _userId);
+    writeOnboardingState(
+      { completedSteps, dismissed, collapsed: false },
+      _userId
+    );
   },
 
   hydrate: (userId?: string) => {
-    const stored = readStorage(userId);
+    const stored = readOnboardingState(userId);
     if (stored) {
       set({
         completedSteps: stored.completedSteps,
@@ -163,7 +171,7 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
     // OR so a local dismiss isn't overwritten by a stale remote value
     const dismissed = localDismissed || remote.dismissed;
     set({ completedSteps: merged, dismissed });
-    writeStorage(
+    writeOnboardingState(
       { completedSteps: merged, dismissed, collapsed: get().collapsed },
       _userId
     );

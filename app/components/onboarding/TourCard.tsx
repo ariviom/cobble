@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import { Button } from '@/app/components/ui/Button';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { useOnboarding } from '@/app/hooks/useOnboarding';
 import { useOnboardingSync } from '@/app/hooks/useOnboardingSync';
@@ -58,13 +59,9 @@ export function TourCard() {
           <p className="text-sm font-medium text-foreground">
             You&apos;re all set!
           </p>
-          <button
-            type="button"
-            onClick={dismiss}
-            className="text-xs text-foreground-muted hover:text-foreground"
-          >
+          <Button variant="ghost" size="xs" onClick={dismiss}>
             Dismiss
-          </button>
+          </Button>
         </div>
       </TourCardShell>
     );
@@ -79,13 +76,13 @@ export function TourCard() {
           <p className="text-xs text-foreground-muted">
             Re-enable the tour in Account Settings.
           </p>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="xs"
             onClick={() => setShowDismissedNote(false)}
-            className="text-xs text-foreground-muted hover:text-foreground"
           >
             Got it
-          </button>
+          </Button>
         </div>
       </TourCardShell>
     );

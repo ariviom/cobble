@@ -337,34 +337,28 @@ export function CollectionPartsControlBar({
       </div>
 
       {/* Export */}
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={onExport}
         disabled={isExportDisabled || selectionCount === 0}
-        className="min-w-max shrink-0 cursor-pointer rounded-md border-2 border-subtle bg-card px-4 py-2 text-sm font-semibold transition-all duration-150 hover:border-theme-primary/30 hover:bg-theme-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+        className="min-w-max shrink-0"
       >
-        <span className="inline-flex items-center gap-2">
-          <Download size={16} />
-          <span>
-            {selectionCount > 0 ? `Export (${selectionCount})` : 'Export'}
-          </span>
-        </span>
-      </button>
+        <Download size={16} />
+        {selectionCount > 0 ? `Export (${selectionCount})` : 'Export'}
+      </Button>
 
       {/* Clear Selections */}
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={() => setConfirmClearOpen(true)}
         disabled={selectionCount === 0}
-        className="min-w-max shrink-0 cursor-pointer rounded-md border-2 border-subtle bg-card px-4 py-2 text-sm font-semibold transition-all duration-150 hover:border-theme-primary/30 hover:bg-theme-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+        className="min-w-max shrink-0"
       >
-        <span className="inline-flex items-center gap-2">
-          <X size={16} />
-          <span>
-            {selectionCount > 0 ? `Clear (${selectionCount})` : 'Clear'}
-          </span>
-        </span>
-      </button>
+        <X size={16} />
+        {selectionCount > 0 ? `Clear (${selectionCount})` : 'Clear'}
+      </Button>
 
       {/* Clear confirmation modal */}
       <Modal

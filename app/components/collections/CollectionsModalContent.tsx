@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@/app/components/ui/Button';
+import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
 import { cn } from '@/app/components/ui/utils';
 import {
@@ -192,7 +193,7 @@ export function CollectionsModalContent({
                       )}
                     >
                       <Icon className="h-4 w-4 shrink-0 text-foreground-muted" />
-                      <input
+                      <Input
                         ref={editInputRef}
                         type="text"
                         value={editingName}
@@ -201,7 +202,7 @@ export function CollectionsModalContent({
                           if (e.key === 'Enter') confirmRename();
                           if (e.key === 'Escape') cancelRename();
                         }}
-                        className="min-w-0 flex-1 bg-transparent text-sm font-bold text-foreground outline-none"
+                        className="min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-sm font-bold shadow-none focus:ring-0"
                       />
                       <button
                         type="button"
@@ -350,11 +351,7 @@ export function CollectionsModalContent({
           Create
         </Button>
       </div>
-      {error && (
-        <div className="rounded-lg border border-danger/30 bg-danger-muted px-3 py-2 text-sm font-medium text-danger">
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
     </div>
   );
 }

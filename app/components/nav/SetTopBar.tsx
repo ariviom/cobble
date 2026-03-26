@@ -517,7 +517,7 @@ export function SetTopBar({
                       >
                         {copiedLink ? (
                           <>
-                            <Check className="size-3.5 text-green-600" />
+                            <Check className="size-3.5 text-success" />
                             Copied!
                           </>
                         ) : (

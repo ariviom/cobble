@@ -31,13 +31,9 @@ export function TourSignupPrompt({ onDismiss }: Props) {
       <Button variant="primary" onClick={handleSignUp}>
         Create account
       </Button>
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="text-xs text-foreground-muted hover:text-foreground"
-      >
+      <Button variant="ghost" size="xs" onClick={onDismiss}>
         Skip
-      </button>
+      </Button>
     </div>
   );
 }

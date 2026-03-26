@@ -1,5 +1,6 @@
 'use client';
 
+import { Badge } from '@/app/components/ui/Badge';
 import { Button } from '@/app/components/ui/Button';
 import { usePortalSession } from '@/app/hooks/usePortalSession';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
@@ -36,8 +37,6 @@ const features: Feature[] = [
   { name: 'Cloud sync', free: '', plus: 'Included' },
 ];
 
-const DARK_YELLOW = '#996f00';
-
 function FeatureValue({ value }: { value: string }) {
   if (value === '') {
     return (
@@ -48,10 +47,7 @@ function FeatureValue({ value }: { value: string }) {
   }
   if (value === 'Unlimited' || value === 'Included') {
     return (
-      <span
-        className="flex items-center justify-center gap-1.5 font-medium"
-        style={{ color: DARK_YELLOW }}
-      >
+      <span className="flex items-center justify-center gap-1.5 font-medium text-brand-yellow-dark">
         <Check className="h-4 w-4 shrink-0" />
         <span className="hidden sm:inline">{value}</span>
       </span>
@@ -170,9 +166,9 @@ export function PricingSection({
     }
     if (isActiveSubscription && (tier === 'plus' || tier === 'pro')) {
       return (
-        <span className="inline-flex w-full items-center justify-center rounded-md border-2 border-success bg-success-muted px-4 py-2.5 text-base font-semibold text-success">
+        <Button variant="success" className="w-full" disabled>
           Current plan
-        </span>
+        </Button>
       );
     }
     if (isPastDue) {
@@ -231,13 +227,10 @@ export function PricingSection({
             <span className="mt-0.5 text-2xs text-foreground-muted">$0/mo</span>
           </div>
           <div className="flex flex-col items-center justify-center border-l border-subtle bg-theme-primary/10 px-3 py-4 text-center">
-            <span className="text-sm font-bold" style={{ color: DARK_YELLOW }}>
+            <span className="text-sm font-bold text-brand-yellow-dark">
               Plus
             </span>
-            <span
-              className="mt-0.5 text-2xs font-medium"
-              style={{ color: DARK_YELLOW }}
-            >
+            <span className="mt-0.5 text-2xs font-medium text-brand-yellow-dark">
               {headerPrice}
             </span>
           </div>
@@ -296,14 +289,16 @@ export function PricingSection({
               />
             </div>
           ) : (
-            <div className="absolute -top-3 right-4 rounded-full bg-theme-primary px-3 py-0.5 text-2xs font-bold text-theme-primary-contrast">
+            <Badge
+              variant="accent"
+              size="xs"
+              className="absolute -top-3 right-4"
+            >
               RECOMMENDED
-            </div>
+            </Badge>
           )}
           <div className={showToggle ? 'mt-2' : ''}>
-            <h2 className="text-card-title" style={{ color: DARK_YELLOW }}>
-              Plus
-            </h2>
+            <h2 className="text-card-title text-brand-yellow-dark">Plus</h2>
             <p className="mt-1 text-sm text-foreground-muted">
               Unlimited everything, cloud sync, and part rarity.
             </p>

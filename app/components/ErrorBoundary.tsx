@@ -2,6 +2,7 @@
 
 import * as Sentry from '@sentry/nextjs';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Button } from '@/app/components/ui/Button';
 
 type Props = {
   children: ReactNode;
@@ -44,12 +45,14 @@ export class ErrorBoundary extends Component<Props, State> {
             <p className="mb-4 text-sm text-foreground">
               An unexpected error occurred. Please refresh the page.
             </p>
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => window.location.reload()}
-              className="rounded-lg border border-danger bg-card px-4 py-2 text-sm text-danger hover:bg-card-muted"
+              className="border-danger text-danger"
             >
               Refresh page
-            </button>
+            </Button>
           </div>
         </div>
       );

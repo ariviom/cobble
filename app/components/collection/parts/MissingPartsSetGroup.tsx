@@ -1,6 +1,7 @@
 'use client';
 
 import { SetDetailModal } from '@/app/components/set/SetDetailModal';
+import { Badge } from '@/app/components/ui/Badge';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import MobileButtonHitArea from '@/app/components/ui/MobileButtonHitArea';
 import { cn } from '@/app/components/ui/utils';
@@ -12,7 +13,7 @@ import {
   SquareCheck,
   SquareMinus,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CollectionPartCard } from './CollectionPartCard';
 import { getGridClassName } from './gridClassName';
 import { groupParts } from './sorting';
@@ -66,9 +67,11 @@ export function MissingPartsSetGroup({
   if (userSet?.numParts) metaSegments.push(`${userSet.numParts} pieces`);
 
   // Compute tri-state selection
-  const selectedCount = missingParts.filter(p =>
-    isSelected(p.canonicalKey, setNumber)
-  ).length;
+  const selectedCount = useMemo(
+    () =>
+      missingParts.filter(p => isSelected(p.canonicalKey, setNumber)).length,
+    [missingParts, isSelected, setNumber]
+  );
   const allSelected =
     selectedCount === missingParts.length && missingParts.length > 0;
   const someSelected = selectedCount > 0 && !allSelected;
@@ -94,10 +97,14 @@ export function MissingPartsSetGroup({
     }
   };
 
-  const missingCount = missingParts.reduce((sum, p) => {
-    const entry = p.missingFromSets.find(m => m.setNumber === setNumber);
-    return sum + (entry?.quantityMissing ?? 0);
-  }, 0);
+  const missingCount = useMemo(
+    () =>
+      missingParts.reduce((sum, p) => {
+        const entry = p.missingFromSets.find(m => m.setNumber === setNumber);
+        return sum + (entry?.quantityMissing ?? 0);
+      }, 0),
+    [missingParts, setNumber]
+  );
 
   const gridClassName = getGridClassName(view, itemSize);
 
@@ -207,9 +214,13 @@ export function MissingPartsSetGroup({
           <p className="mt-0.5 text-xs text-foreground-muted lg:text-sm">
             {metaSegments.join(' | ')}
           </p>
-          <span className="mt-2 inline-block rounded-full bg-danger/10 px-2 py-0.5 text-2xs font-medium text-danger">
+          <Badge
+            variant="error"
+            size="xs"
+            className="mt-2 bg-danger/10 text-danger"
+          >
             {missingCount} missing
-          </span>
+          </Badge>
         </div>
 
         {/* Expand/collapse toggle */}

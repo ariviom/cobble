@@ -1,5 +1,6 @@
 'use client';
 
+import { Button } from '@/app/components/ui/Button';
 import { InventoryItem } from '@/app/components/set/items/InventoryItem';
 import {
   InventoryItemModal,
@@ -279,9 +280,9 @@ function PinnedSetSection({
       </div>
       {pinnedItems.length > visibleCount && (
         <div className="mt-1 flex justify-center">
-          <button
-            type="button"
-            className="rounded border border-subtle bg-card px-3 py-1 text-xs hover:bg-card-muted"
+          <Button
+            variant="secondary"
+            size="xs"
             onClick={() =>
               setVisibleCount(current =>
                 Math.min(current + 24, pinnedItems.length)
@@ -289,7 +290,7 @@ function PinnedSetSection({
             }
           >
             Load more pieces
-          </button>
+          </Button>
         </div>
       )}
     </section>

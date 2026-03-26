@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 
+import { Button } from '@/app/components/ui/Button';
 import { Modal } from '@/app/components/ui/Modal';
 import { useOpenTabsStore, isSetTab } from '@/app/store/open-tabs';
 import { FREE_TAB_LIMIT } from '@/app/lib/domain/limits';
@@ -94,27 +94,33 @@ export function UpgradeModal({ open, feature, onClose }: Props) {
           </ul>
         </div>
         <div className="flex gap-3">
-          <Link
+          <Button
+            variant="primary"
             href="/pricing"
-            className="flex-1 rounded-lg bg-theme-primary px-4 py-2 text-center text-sm font-medium text-theme-primary-contrast hover:opacity-90"
+            size="sm"
+            className="flex-1"
           >
             View Plans
-          </Link>
+          </Button>
           {feature === 'tabs.unlimited' ? (
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={onClose}
               disabled={setTabs.length >= FREE_TAB_LIMIT}
-              className="flex-1 rounded-lg border border-subtle px-4 py-2 text-center text-sm font-medium text-foreground-muted hover:bg-card-muted disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex-1"
             >
               Continue
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={onClose}
-              className="flex-1 rounded-lg border border-subtle px-4 py-2 text-center text-sm font-medium text-foreground-muted hover:bg-card-muted"
+              className="flex-1"
             >
               Maybe Later
-            </button>
+            </Button>
           )}
         </div>
       </div>

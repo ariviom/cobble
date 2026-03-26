@@ -3,6 +3,7 @@
 import { MinifigSearchResultItem } from '@/app/components/minifig/MinifigSearchResultItem';
 import { useAuth } from '@/app/components/providers/auth-provider';
 import { BrickLoader } from '@/app/components/ui/BrickLoader';
+import { Button } from '@/app/components/ui/Button';
 import { CollectionGroupHeading } from '@/app/components/ui/CollectionGroupHeading';
 import { EmptyState } from '@/app/components/ui/EmptyState';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
@@ -427,13 +428,14 @@ export function SearchResults() {
               </div>
               {hasNextPartPage && (
                 <div className="mb-8 flex justify-center py-4">
-                  <button
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => fetchNextPartPage()}
                     disabled={isFetchingNextPartPage}
-                    className="rounded-lg border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
                   >
                     {isFetchingNextPartPage ? 'Loading…' : 'Load More'}
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -502,13 +504,14 @@ export function SearchResults() {
               </div>
               {hasNextMinifigPage && (
                 <div className="mb-8 flex justify-center py-4">
-                  <button
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => fetchNextMinifigPage()}
                     disabled={isFetchingNextMinifigPage}
-                    className="rounded-lg border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
                   >
                     {isFetchingNextMinifigPage ? 'Loading…' : 'Load More'}
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -587,13 +590,14 @@ export function SearchResults() {
             </div>
             {hasNextSetPage && (
               <div className="mb-8 flex justify-center py-4">
-                <button
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => fetchNextSetPage()}
                   disabled={isFetchingNextSetPage}
-                  className="rounded-lg border border-subtle bg-card px-3 py-2 text-sm hover:bg-card-muted"
                 >
                   {isFetchingNextSetPage ? 'Loading…' : 'Load More'}
-                </button>
+                </Button>
               </div>
             )}
           </div>

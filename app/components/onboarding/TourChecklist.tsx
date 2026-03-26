@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Button } from '@/app/components/ui/Button';
 import { TOUR_ITEMS, type TourItem } from './tourConfig';
 import { useOnboarding } from '@/app/hooks/useOnboarding';
 
@@ -32,7 +33,7 @@ function ChecklistItem({
       <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
         {isComplete ? (
           <svg
-            className="h-5 w-5 text-green-500"
+            className="h-5 w-5 text-success"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -156,13 +157,14 @@ export function TourChecklist({ onItemClick, onDismiss, onCollapse }: Props) {
       </div>
 
       {/* Dismiss link */}
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="xs"
         onClick={onDismiss}
-        className="-mt-1 self-start px-4 pb-3 text-xs text-foreground-muted hover:text-foreground"
+        className="-mt-1 self-start px-4 pb-3"
       >
         Skip tour
-      </button>
+      </Button>
     </div>
   );
 }

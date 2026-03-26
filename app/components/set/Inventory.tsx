@@ -205,7 +205,7 @@ export function Inventory() {
         !sp?.sessionEnded &&
         sp?.hasConnectedOnce &&
         sp?.connectionState !== 'connected' && (
-          <div className="flex items-center gap-2 border-b border-subtle bg-amber-50 px-4 py-2 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+          <div className="flex items-center gap-2 border-b border-subtle bg-warning-muted px-4 py-2 text-xs text-warning">
             <span className="animate-pulse">●</span>
             <span>Reconnecting to Search Party...</span>
           </div>

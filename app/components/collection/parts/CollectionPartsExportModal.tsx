@@ -149,7 +149,7 @@ export function CollectionPartsExportModal({
               LEGO Pick-a-Brick format. Only parts with LEGO Element IDs are
               included.
               {missingElementId > 0 && (
-                <span className="ml-1 text-amber-600">
+                <span className="ml-1 text-warning">
                   {partsWithElementId} of {totalParts} selected part
                   {totalParts !== 1 ? 's' : ''} have element IDs for
                   Pick-a-Brick.

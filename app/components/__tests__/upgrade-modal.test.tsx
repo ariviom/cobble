@@ -4,6 +4,20 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { UpgradeModal } from '../upgrade-modal';
 
+// Mock next/link as a simple anchor
+vi.mock('next/link', () => ({
+  default: React.forwardRef(function MockLink(
+    {
+      href,
+      children,
+      ...rest
+    }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string },
+    ref: React.Ref<HTMLAnchorElement>
+  ) {
+    return React.createElement('a', { ...rest, href, ref }, children);
+  }),
+}));
+
 // Mock the open-tabs store with 3 set tabs
 vi.mock('@/app/store/open-tabs', () => {
   const tabs = [
