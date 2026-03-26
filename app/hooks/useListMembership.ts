@@ -11,6 +11,7 @@ import { FREE_LIST_LIMIT } from '@/app/lib/domain/limits';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import type { Tables } from '@/supabase/types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { logger } from '@/lib/metrics';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -262,7 +263,9 @@ export function useListMembership(
         if (cancelled) return;
 
         if (membershipError) {
-          console.error('useListMembership query error', membershipError);
+          logger.error('list.membership_query_failed', {
+            error: membershipError.message,
+          });
           setError(membershipError.message ?? 'Failed to load list membership');
           return;
         }
@@ -282,7 +285,9 @@ export function useListMembership(
         updatePersistedMembership(user.id, persistKey, selected);
       } catch (err) {
         if (!cancelled) {
-          console.error('useListMembership load failed', err);
+          logger.error('list.membership_load_failed', {
+            error: (err as Error)?.message ?? String(err),
+          });
           const message =
             (err as { message?: string })?.message ?? 'Failed to load lists';
           setError(message);
@@ -341,6 +346,7 @@ export function useListMembership(
 
     const supabase = getSupabaseBrowserClient();
     const isSelected = selectedListIds.includes(listId);
+    const prevSelected = selectedListIds;
     const nextSelected = isSelected
       ? selectedListIds.filter(id => id !== listId)
       : [...selectedListIds, listId];
@@ -358,7 +364,13 @@ export function useListMembership(
         .eq(itemColumn, normItemId)
         .then(({ error: err }) => {
           if (err) {
-            console.error(`Failed to remove ${itemType} from list`, err);
+            logger.error('list.toggle_remove_failed', {
+              listId,
+              itemType,
+              error: err.message,
+            });
+            setSelectedListIds(prevSelected);
+            updateCaches(prevSelected);
             setError('Failed to update lists');
           } else {
             onToggleRemove?.(user.id, normItemId, listId);
@@ -372,7 +384,13 @@ export function useListMembership(
         })
         .then(({ error: err }) => {
           if (err) {
-            console.error(`Failed to add ${itemType} to list`, err);
+            logger.error('list.toggle_add_failed', {
+              listId,
+              itemType,
+              error: err.message,
+            });
+            setSelectedListIds(prevSelected);
+            updateCaches(prevSelected);
             setError('Failed to update lists');
           } else {
             onToggleAdd?.(user.id, normItemId, listId);
@@ -436,7 +454,9 @@ export function useListMembership(
             error?: string;
             message?: string;
           } | null;
-          console.error('Failed to create list', body);
+          logger.error('list.create_failed', {
+            error: body?.message || body?.error,
+          });
           setError(body?.message || body?.error || 'Failed to create list');
           optimisticUpdateUserLists(user.id, prev =>
             prev.filter(list => list.id !== tempId)
@@ -474,17 +494,19 @@ export function useListMembership(
           })
           .then(({ error: membershipError }) => {
             if (membershipError) {
-              console.error(
-                `Failed to add ${itemType} to new list`,
-                membershipError
-              );
+              logger.error('list.add_to_new_list_failed', {
+                itemType,
+                error: membershipError.message,
+              });
               setError(`Failed to add ${itemType} to new list`);
             } else {
               onToggleAdd?.(user.id, normItemId, created.id);
             }
           });
       } catch (err) {
-        console.error('Failed to create list', err);
+        logger.error('list.create_failed', {
+          error: (err as Error)?.message ?? String(err),
+        });
         setError('Failed to create list');
         optimisticUpdateUserLists(user.id, prev =>
           prev.filter(list => list.id !== tempId)
@@ -505,6 +527,8 @@ export function useListMembership(
       return;
     }
 
+    const prevName = lists.find(l => l.id === listId)?.name;
+
     optimisticUpdateUserLists(user.id, prev =>
       prev.map(l => (l.id === listId ? { ...l, name: trimmed } : l))
     );
@@ -517,7 +541,12 @@ export function useListMembership(
       .eq('user_id', user.id)
       .then(({ error: err }) => {
         if (err) {
-          console.error('Failed to rename list', err);
+          logger.error('list.rename_failed', { listId, error: err.message });
+          if (prevName !== undefined) {
+            optimisticUpdateUserLists(user.id, prev =>
+              prev.map(l => (l.id === listId ? { ...l, name: prevName } : l))
+            );
+          }
           setError('Failed to rename list');
         }
       });
@@ -525,6 +554,10 @@ export function useListMembership(
 
   const deleteList = (listId: string) => {
     if (!user) return;
+
+    // Snapshot for rollback
+    const prevLists = allLists;
+    const prevSelected = selectedListIds;
 
     optimisticUpdateUserLists(user.id, prev =>
       prev.filter(l => l.id !== listId)
@@ -556,7 +589,10 @@ export function useListMembership(
       .eq('user_id', user.id)
       .then(({ error: err }) => {
         if (err) {
-          console.error('Failed to delete list', err);
+          logger.error('list.delete_failed', { listId, error: err.message });
+          optimisticUpdateUserLists(user.id, () => prevLists);
+          setSelectedListIds(prevSelected);
+          updateCaches(prevSelected);
           setError('Failed to delete list');
         }
       });

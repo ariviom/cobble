@@ -7,6 +7,7 @@ import {
   optimisticUpdateUserMinifigs,
 } from '@/app/hooks/useUserMinifigs';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { logger } from '@/lib/metrics';
 
 type UseMinifigStatusArgs = {
   figNum: string;
@@ -35,6 +36,9 @@ export function useMinifigStatus({
     const supabase = getSupabaseBrowserClient();
 
     if (status.owned) {
+      // Snapshot for rollback
+      const snapshot = minifigs;
+
       // Optimistic: remove from local state immediately
       optimisticUpdateUserMinifigs(user.id, prev =>
         prev.filter(fig => fig.figNum !== figNum)
@@ -47,11 +51,18 @@ export function useMinifigStatus({
         .eq('fig_num', figNum)
         .then(({ error: err }) => {
           if (err) {
-            console.error('Failed to remove minifig ownership', err);
+            logger.error('minifig.remove_failed', {
+              figNum,
+              error: err.message,
+            });
+            optimisticUpdateUserMinifigs(user.id, () => snapshot);
           }
         });
       return;
     }
+
+    // Snapshot for rollback
+    const snapshot = minifigs;
 
     // Optimistic: add to local state immediately
     optimisticUpdateUserMinifigs(user.id, prev => {
@@ -90,10 +101,11 @@ export function useMinifigStatus({
       )
       .then(({ error: err }) => {
         if (err) {
-          console.error('Failed to set minifig ownership', err);
+          logger.error('minifig.add_failed', { figNum, error: err.message });
+          optimisticUpdateUserMinifigs(user.id, () => snapshot);
         }
       });
-  }, [user, figNum, status.owned]);
+  }, [user, figNum, status.owned, minifigs]);
 
   return {
     status,
