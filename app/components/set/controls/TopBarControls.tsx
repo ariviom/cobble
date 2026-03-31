@@ -22,6 +22,7 @@ import {
   Grid,
   LayoutGrid,
   List,
+  Lock,
   Palette,
   Pin,
   SortAsc,
@@ -255,20 +256,12 @@ export function TopBarControls({
           id="rarity-trigger"
           panelId="rarity-panel"
           label={
-            <span className="inline-flex items-center gap-1">
-              <span>
-                {filter.rarityTiers?.length
-                  ? `Rarity (${filter.rarityTiers.length})`
-                  : 'Rarity'}
-              </span>
-              {!rarityEnabled && (
-                <span className="text-xs font-medium text-theme-primary">
-                  (Plus)
-                </span>
-              )}
-            </span>
+            filter.rarityTiers?.length
+              ? `Rarity (${filter.rarityTiers.length})`
+              : 'Rarity'
           }
-          labelIcon={<Diamond size={16} />}
+          labelIcon={rarityEnabled ? <Diamond size={16} /> : <Lock size={16} />}
+          {...(!rarityEnabled && { className: 'opacity-40' })}
           isOpen={rarityEnabled && openDropdownId === 'rarity'}
           onToggle={() => {
             if (!rarityEnabled) {
@@ -364,7 +357,10 @@ export function TopBarControls({
                     { key: 'quantity', text: 'Quantity' },
                     {
                       key: 'rarity',
-                      text: rarityEnabled ? 'Rarity' : 'Rarity (Plus)',
+                      text: 'Rarity',
+                      ...(!rarityEnabled && {
+                        icon: <Lock size={14} className="text-foreground" />,
+                      }),
                     },
                   ],
                   selectedKey: sortKey,
@@ -400,7 +396,10 @@ export function TopBarControls({
                     { key: 'category', text: 'Category' },
                     {
                       key: 'rarity',
-                      text: rarityEnabled ? 'Rarity' : 'Rarity (Plus)',
+                      text: 'Rarity',
+                      ...(!rarityEnabled && {
+                        icon: <Lock size={14} className="text-foreground" />,
+                      }),
                     },
                   ],
                   selectedKey: groupBy,
