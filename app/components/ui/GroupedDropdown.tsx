@@ -49,7 +49,7 @@ const triggerVariants = cva(
         default: '',
         // min-w-0 overrides base min-w-max to allow truncation within fixed sidebar width
         sidebar:
-          'lg:sidebar:rounded-none lg:sidebar:border-x-0 lg:sidebar:border-t-0 lg:sidebar:border-b-2 lg:sidebar:border-subtle lg:sidebar:text-base lg:sidebar:w-full lg:sidebar:min-w-0 lg:sidebar:py-3.5 lg:sidebar:px-4 text-left lg:sidebar:hover:bg-theme-primary/10',
+          'lg:sidebar:rounded-none lg:sidebar:border-x-0 lg:sidebar:border-t-0 lg:sidebar:border-b-2 lg:sidebar:border-subtle lg:sidebar:text-base lg:sidebar:w-full lg:sidebar:min-w-0 lg:sidebar:h-13 lg:sidebar:flex lg:sidebar:items-center lg:sidebar:px-4 text-left lg:sidebar:hover:bg-theme-primary/10',
       },
     },
     defaultVariants: {

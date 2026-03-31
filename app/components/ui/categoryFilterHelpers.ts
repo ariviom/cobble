@@ -104,5 +104,9 @@ export function clearParentSubcategories<T extends CategoryFilterFields>(
   if (!(filter.parents || []).includes(parent)) return filter;
   const nextSubs = { ...(filter.subcategoriesByParent || {}) };
   delete nextSubs[parent];
-  return { ...filter, subcategoriesByParent: nextSubs };
+  return {
+    ...filter,
+    parents: (filter.parents || []).filter(p => p !== parent),
+    subcategoriesByParent: nextSubs,
+  };
 }

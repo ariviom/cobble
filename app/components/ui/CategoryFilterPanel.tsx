@@ -114,6 +114,7 @@ export function CategoryFilterPanel<T extends CategoryFilterFields>({
           const state = getParentState(filter, subcategoriesByParent, parent);
           const selected = (filter.parents || []).includes(parent);
           const subCount = (subcategoriesByParent[parent] || []).length;
+          const isMuted = !!parentCounts && !parentCounts[parent] && !selected;
           return (
             <div
               key={parent}
@@ -123,12 +124,14 @@ export function CategoryFilterPanel<T extends CategoryFilterFields>({
                 selected={selected}
                 onClick={() => onFilterChange(toggleParent(filter, parent))}
                 className="flex-1"
+                muted={isMuted}
               >
                 <RowCheckbox
                   checked={state === 'all'}
                   indeterminate={state === 'some'}
+                  muted={isMuted}
                 />
-                <span>
+                <span className={isMuted ? 'opacity-40' : ''}>
                   {parent}
                   {typeof parentCounts?.[parent] === 'number' ? (
                     <span className="ml-1 text-foreground-muted">
@@ -140,7 +143,7 @@ export function CategoryFilterPanel<T extends CategoryFilterFields>({
               {subCount > 1 && (
                 <button
                   type="button"
-                  className="flex h-14 w-14 cursor-pointer items-center justify-center border-l border-foreground-accent text-foreground-muted hover:bg-card-muted hover:text-foreground"
+                  className={`flex h-14 w-14 cursor-pointer items-center justify-center border-l border-foreground-accent text-foreground-muted hover:bg-card-muted hover:text-foreground${isMuted ? 'opacity-40' : ''}`}
                   onClick={e => {
                     e.stopPropagation();
                     setActiveParent(parent);

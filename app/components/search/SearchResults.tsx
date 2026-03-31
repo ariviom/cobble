@@ -50,7 +50,7 @@ async function fetchSearchPage(
   )}&sort=${sort}&page=${page}&pageSize=${pageSize}&filter=${encodeURIComponent(
     filter
   )}&exact=${exact ? '1' : '0'}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) {
     await throwAppErrorFromResponse(res, 'search_failed');
   }
@@ -68,7 +68,7 @@ async function fetchMinifigSearchPage(
   const url = `/api/search/minifigs?q=${encodeURIComponent(
     q
   )}&page=${page}&pageSize=${pageSize}&sort=${encodeURIComponent(sort)}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) {
     await throwAppErrorFromResponse(res, 'search_failed');
   }
@@ -83,7 +83,7 @@ async function fetchPartSearchPage(
 ): Promise<PartSearchPage> {
   if (!q) return { results: [], nextPage: null };
   const url = `/api/search/parts?q=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) {
     await throwAppErrorFromResponse(res, 'search_failed');
   }

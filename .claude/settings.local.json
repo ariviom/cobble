@@ -4,7 +4,12 @@
       "Bash(wsl -e bash -c \"cd ~/cobble && git log --oneline -20\")",
       "Bash(wsl -e bash -c \"cd ~/cobble && git log --all --oneline --diff-filter=A -- instrumentation.ts\")",
       "Bash(wsl -e bash -c \"cd ~/cobble && git log --oneline --all -- instrumentation.ts\")",
-      "Bash(wsl -e bash -c \"cd ~/cobble && git show 1d35396 -- instrumentation.ts\")"
+      "Bash(wsl -e bash -c \"cd ~/cobble && git show 1d35396 -- instrumentation.ts\")",
+      "Bash(node -e \"const p = require\\(''next/package.json''\\); console.log\\(p.version\\)\")",
+      "Bash(npx tsc:*)",
+      "Bash(./node_modules/.bin/tsc --noEmit --pretty)",
+      "Read(//home/drew/.nvm/versions/node/**)",
+      "Bash(source ~/.nvm/nvm.sh)"
     ]
   }
 }
