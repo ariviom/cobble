@@ -13,9 +13,9 @@ import {
   getBricklinkSetUrl,
   getRebrickableSetUrl,
 } from '@/app/lib/utils/externalUrls';
+import { useSetPrice } from '@/app/hooks/useSetPrice';
 import { DollarSign, ExternalLink, Info, ArrowRight, Eye } from 'lucide-react';
 import Image from 'next/image';
-import { useEffect, useRef, useState } from 'react';
 
 type SetDetailModalProps = {
   open: boolean;
@@ -31,20 +31,6 @@ type SetDetailModalProps = {
   activeSetNumber?: string | null;
 };
 
-type SetPriceData = {
-  total: number | null;
-  minPrice: number | null;
-  maxPrice: number | null;
-  currency: string | null;
-  pricingSource: string | null;
-};
-
-type PriceState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'loaded'; data: SetPriceData }
-  | { status: 'error' };
-
 export function SetDetailModal({
   open,
   onClose,
@@ -57,9 +43,6 @@ export function SetDetailModal({
   themeName,
   activeSetNumber,
 }: SetDetailModalProps) {
-  const [priceState, setPriceState] = useState<PriceState>({ status: 'idle' });
-  const fetchedRef = useRef(false);
-
   const { openSet, showUpgradeModal, dismissUpgradeModal, gateFeature } =
     useOpenSet();
   const isCurrentSet =
@@ -78,52 +61,17 @@ export function SetDetailModal({
   const bricklinkSetUrl = getBricklinkSetUrl(setNumber);
   const rebrickableSetUrl = getRebrickableSetUrl(setNumber);
 
-  // Fetch set price when modal opens
-  useEffect(() => {
-    if (!open || fetchedRef.current) return;
-    fetchedRef.current = true;
+  const {
+    data: priceData,
+    isLoading: priceLoading,
+    isError: priceError,
+  } = useSetPrice(setNumber, open);
 
-    let cancelled = false;
-    setPriceState({ status: 'loading' });
-
-    fetch('/api/prices/bricklink-set', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ setNumber }),
-    })
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data: SetPriceData) => {
-        if (cancelled) return;
-        setPriceState({ status: 'loaded', data });
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setPriceState({ status: 'error' });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, setNumber]);
-
-  // Reset fetch ref when modal closes
-  useEffect(() => {
-    if (!open) {
-      fetchedRef.current = false;
-      setPriceState({ status: 'idle' });
-    }
-  }, [open]);
-
-  const hasPrice =
-    priceState.status === 'loaded' && priceState.data.total != null;
+  const hasPrice = priceData?.total != null;
   const hasRange =
-    priceState.status === 'loaded' &&
-    priceState.data.minPrice != null &&
-    priceState.data.maxPrice != null &&
-    priceState.data.minPrice !== priceState.data.maxPrice;
+    priceData?.minPrice != null &&
+    priceData?.maxPrice != null &&
+    priceData.minPrice !== priceData.maxPrice;
 
   return (
     <>
@@ -151,32 +99,28 @@ export function SetDetailModal({
               <DollarSign className="size-4 shrink-0 text-foreground-muted" />
               <div className="min-w-0">
                 <div className="text-xs text-foreground-muted">Used Price</div>
-                {hasPrice && priceState.status === 'loaded' ? (
+                {hasPrice ? (
                   <>
                     <div className="text-sm font-medium">
-                      {formatCurrency(
-                        priceState.data.total!,
-                        priceState.data.currency
-                      )}
+                      {formatCurrency(priceData.total!, priceData.currency)}
                     </div>
                     {hasRange && (
                       <div className="text-xs text-foreground-muted">
                         {formatCurrency(
-                          priceState.data.minPrice!,
-                          priceState.data.currency
+                          priceData.minPrice!,
+                          priceData.currency
                         )}{' '}
                         –{' '}
                         {formatCurrency(
-                          priceState.data.maxPrice!,
-                          priceState.data.currency
+                          priceData.maxPrice!,
+                          priceData.currency
                         )}
                       </div>
                     )}
                   </>
-                ) : priceState.status === 'loading' ||
-                  priceState.status === 'idle' ? (
+                ) : priceLoading ? (
                   <div className="text-sm text-foreground-muted">Loading…</div>
-                ) : priceState.status === 'error' ? (
+                ) : priceError ? (
                   <div className="text-sm text-foreground-muted">
                     Unavailable
                   </div>

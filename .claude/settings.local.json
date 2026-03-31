@@ -9,7 +9,9 @@
       "Bash(npx tsc:*)",
       "Bash(./node_modules/.bin/tsc --noEmit --pretty)",
       "Read(//home/drew/.nvm/versions/node/**)",
-      "Bash(source ~/.nvm/nvm.sh)"
+      "Bash(source ~/.nvm/nvm.sh)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(grep -n \"fetch.*prices/bricklink\" /home/drew/cobble/app/components/set/*.tsx /home/drew/cobble/app/hooks/*.ts)"
     ]
   }
 }

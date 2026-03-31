@@ -24,7 +24,8 @@ import {
   Puzzle,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSetPrice } from '@/app/hooks/useSetPrice';
+import { useCallback, useState } from 'react';
 
 type SetMinifigDisplay = {
   figNum: string;
@@ -48,12 +49,6 @@ type SetOverviewClientProps = {
   initialRelatedSets: RelatedSet[];
   relatedSetsTotal: number;
 };
-
-type PriceState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'loaded'; total: number | null; currency: string | null }
-  | { status: 'error' };
 
 export function SetOverviewClient({
   setNumber,
@@ -81,34 +76,7 @@ export function SetOverviewClient({
   });
 
   // Price fetch
-  const [priceState, setPriceState] = useState<PriceState>({ status: 'idle' });
-  const priceFetched = useRef(false);
-
-  useEffect(() => {
-    if (priceFetched.current) return;
-    priceFetched.current = true;
-
-    setPriceState({ status: 'loading' });
-    fetch('/api/prices/bricklink-set', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ setNumber }),
-    })
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((data: { total: number | null; currency: string | null }) => {
-        setPriceState({
-          status: 'loaded',
-          total: data.total,
-          currency: data.currency,
-        });
-      })
-      .catch(() => {
-        setPriceState({ status: 'error' });
-      });
-  }, [setNumber]);
+  const { data: priceData, isLoading: priceLoading } = useSetPrice(setNumber);
 
   // Related sets pagination
   const [relatedSets, setRelatedSets] = useState(initialRelatedSets);
@@ -196,12 +164,11 @@ export function SetOverviewClient({
             <DollarSign className="size-4 shrink-0 text-foreground-muted" />
             <div className="min-w-0">
               <div className="text-xs text-foreground-muted">Used Price</div>
-              {priceState.status === 'loaded' && priceState.total != null ? (
+              {priceData?.total != null ? (
                 <div className="text-sm font-medium">
-                  {formatCurrency(priceState.total, priceState.currency)}
+                  {formatCurrency(priceData.total, priceData.currency)}
                 </div>
-              ) : priceState.status === 'loading' ||
-                priceState.status === 'idle' ? (
+              ) : priceLoading ? (
                 <div className="text-sm text-foreground-muted">Loading…</div>
               ) : (
                 <div className="text-sm text-foreground-muted">Unavailable</div>
