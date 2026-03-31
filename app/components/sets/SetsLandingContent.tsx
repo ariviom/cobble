@@ -292,26 +292,6 @@ export function SetsLandingContent({
           )}
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="mt-8 mb-8 border-t border-subtle px-4 pt-8">
-        <div className="container-default flex flex-col items-center gap-4">
-          <div className="flex gap-6 text-xs text-foreground-muted">
-            <Link
-              href="/terms"
-              className="underline underline-offset-2 transition-colors hover:text-foreground"
-            >
-              Terms of Service
-            </Link>
-            <Link
-              href="/privacy"
-              className="underline underline-offset-2 transition-colors hover:text-foreground"
-            >
-              Privacy Policy
-            </Link>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

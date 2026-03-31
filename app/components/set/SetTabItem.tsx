@@ -74,7 +74,7 @@ export function SetTabItem({
       <>
         <div
           className={cn(
-            'flex h-11 max-w-40 min-w-36 flex-1 items-end lg:h-9 lg:max-w-60 lg:min-w-20',
+            'flex h-11 max-w-40 min-w-36 flex-1 items-end lg:h-9 lg:max-w-60 lg:min-w-36 lg:flex-none',
             isActive
               ? 'fixed left-0 z-10 w-36 pt-1 lg:static lg:w-auto'
               : 'py-1.5'
