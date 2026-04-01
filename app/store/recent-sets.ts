@@ -13,11 +13,28 @@ export type RecentSetEntry = {
   lastViewedAt: number;
 };
 
-const STORAGE_KEY = 'brick_party_recent_sets_v1';
+const STORAGE_KEY_PREFIX = 'brick_party_recent_sets_v1';
+const LEGACY_STORAGE_KEY = 'brick_party_recent_sets_v1';
 const MAX_RECENT = 100;
 
+let activeUserId: string | null = null;
+
+function storageKey(): string {
+  return activeUserId
+    ? `${STORAGE_KEY_PREFIX}:${activeUserId}`
+    : LEGACY_STORAGE_KEY;
+}
+
+/**
+ * Set the active user ID so recent-sets storage is user-scoped.
+ * Call with `null` on sign-out.
+ */
+export function setRecentSetsUserId(userId: string | null): void {
+  activeUserId = userId;
+}
+
 function loadRecentSetsUnsafe(): RecentSetEntry[] {
-  const raw = readStorage(STORAGE_KEY);
+  const raw = readStorage(storageKey());
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw) as unknown;
@@ -106,7 +123,7 @@ export function addRecentSet(entry: {
       },
       ...filtered,
     ].slice(0, MAX_RECENT);
-    writeStorage(STORAGE_KEY, JSON.stringify(next));
+    writeStorage(storageKey(), JSON.stringify(next));
   } catch {
     // ignore storage errors
   }
@@ -114,7 +131,7 @@ export function addRecentSet(entry: {
 
 export function saveRecentSets(entries: RecentSetEntry[]): void {
   try {
-    writeStorage(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_RECENT)));
+    writeStorage(storageKey(), JSON.stringify(entries.slice(0, MAX_RECENT)));
   } catch {
     // ignore storage errors
   }
@@ -126,7 +143,7 @@ export function removeRecentSet(setNumber: string): void {
     const next = existing.filter(
       it => it.setNumber.toLowerCase() !== setNumber.toLowerCase()
     );
-    writeStorage(STORAGE_KEY, JSON.stringify(next));
+    writeStorage(storageKey(), JSON.stringify(next));
   } catch {
     // ignore storage errors
   }

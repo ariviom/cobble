@@ -1,6 +1,7 @@
 'use client';
 
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
+import { setRecentSetsUserId } from '@/app/store/recent-sets';
 import type { User } from '@supabase/supabase-js';
 import {
   createContext,
@@ -71,8 +72,9 @@ export function AuthProvider({
   children,
 }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(() => {
-    if (initialUser) return initialUser;
-    return readCachedUser();
+    const u = initialUser ?? readCachedUser();
+    setRecentSetsUserId(u?.id ?? null);
+    return u;
   });
 
   const [handle, setHandle] = useState<string | null>(
@@ -150,6 +152,11 @@ export function AuthProvider({
       subscription.unsubscribe();
     };
   }, [initialHandle, initialUser]);
+
+  // Keep recent-sets storage scoped to the active user
+  useEffect(() => {
+    setRecentSetsUserId(user?.id ?? null);
+  }, [user]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
