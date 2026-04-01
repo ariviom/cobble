@@ -11,16 +11,16 @@ import { Input } from '@/app/components/ui/Input';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
 import { Select } from '@/app/components/ui/Select';
 import { Switch } from '@/app/components/ui/Switch';
-import { getKeepAwake } from '@/app/hooks/useWakeLock';
 import { useOnboarding } from '@/app/hooks/useOnboarding';
 import { useOrigin } from '@/app/hooks/useOrigin';
 import { useTheme } from '@/app/hooks/useTheme';
+import { getKeepAwake } from '@/app/hooks/useWakeLock';
+import { writeStorage } from '@/app/lib/persistence/storage';
 import {
   BRICKLINK_COUNTRY_OPTIONS,
   BRICKLINK_CURRENCY_OPTIONS,
 } from '@/app/lib/pricing';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import { writeStorage } from '@/app/lib/persistence/storage';
 import { saveUserPricingPreferences } from '@/app/lib/userPricingPreferences';
 import { buildUserHandle } from '@/app/lib/users';
 import type { User } from '@supabase/supabase-js';
@@ -445,7 +445,12 @@ export function DisplayTab({
                   Re-enable the guided tour of Brick Party
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={reEnableTour}>
+              <Button
+                className="min-w-min"
+                variant="outline"
+                size="sm"
+                onClick={reEnableTour}
+              >
                 Show tour
               </Button>
             </div>
@@ -520,6 +525,7 @@ export function DisplayTab({
                 Applies to future BrickLink price lookups.
               </p>
               <Button
+                className="min-w-min"
                 type="button"
                 size="sm"
                 disabled={!isLoggedIn || isSavingPricing}

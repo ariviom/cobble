@@ -23,7 +23,6 @@ export function SearchPartyProvider({
   value: SearchPartyContextValue | null;
   children: ReactNode;
 }) {
-  if (!value) return <>{children}</>;
   return (
     <SearchPartyContext.Provider value={value}>
       {children}

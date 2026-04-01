@@ -97,6 +97,9 @@ export function SetTopBar({
   const [hasTriedRefresh, setHasTriedRefresh] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [selectedColor, setSelectedColor] = useState<number | null>(1);
+  const [loadingAction, setLoadingAction] = useState<
+    'start' | 'continue' | null
+  >(null);
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [quotaInfo, setQuotaInfo] = useState<{
     canHost: boolean;
@@ -156,12 +159,14 @@ export function SetTopBar({
   const handleStartSearchTogether = async () => {
     if (!searchParty) return;
     if (searchParty.loading || searchParty.active) return;
+    setLoadingAction('start');
     await searchParty.onStart?.(selectedColor ?? undefined);
   };
 
   const handleContinuePreviousSession = async () => {
     if (!searchParty || !previousSession) return;
     if (searchParty.loading || searchParty.active) return;
+    setLoadingAction('continue');
     await searchParty.onContinue?.(
       previousSession.slug,
       selectedColor ?? undefined
@@ -352,7 +357,7 @@ export function SetTopBar({
                   <Users className="size-3.5" />
                   Search Party
                   {searchParty.active && (
-                    <div className="absolute -top-2.5 right-[-14px] flex size-6 items-center justify-center rounded-full border-2 border-white bg-brand-yellow text-2xs font-extrabold text-neutral-900 shadow-sm">
+                    <div className="absolute -top-2.5 right-[-14px] flex size-6 items-center justify-center rounded-full border-2 border-card bg-brand-yellow text-2xs font-extrabold text-neutral-900 shadow-sm">
                       {participantCount.toLocaleString()}
                     </div>
                   )}
@@ -446,7 +451,7 @@ export function SetTopBar({
                             onClick={() => void handleContinuePreviousSession()}
                             disabled={searchParty.loading}
                           >
-                            {searchParty.loading
+                            {searchParty.loading && loadingAction === 'continue'
                               ? 'Continuing…'
                               : 'Continue Previous Session'}
                           </Button>
@@ -460,7 +465,7 @@ export function SetTopBar({
                             onClick={() => void handleStartSearchTogether()}
                             disabled={searchParty.loading}
                           >
-                            {searchParty.loading && !previousSession
+                            {searchParty.loading && loadingAction === 'start'
                               ? 'Starting…'
                               : 'Start New Session'}
                           </Button>
