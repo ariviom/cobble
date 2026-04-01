@@ -446,7 +446,7 @@ export function DisplayTab({
                 </p>
               </div>
               <Button
-                className="min-w-min"
+                className="min-w-fit"
                 variant="outline"
                 size="sm"
                 onClick={reEnableTour}
@@ -525,7 +525,7 @@ export function DisplayTab({
                 Applies to future BrickLink price lookups.
               </p>
               <Button
-                className="min-w-min"
+                className="min-w-fit"
                 type="button"
                 size="sm"
                 disabled={!isLoggedIn || isSavingPricing}
