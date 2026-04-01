@@ -5,13 +5,15 @@ import type { ThemeColor } from '@/app/components/theme/constants';
 
 /**
  * Brand color to Tailwind class mapping.
+ * In dark mode, hero backgrounds use darkened variants so they feel
+ * cohesive with dark surfaces instead of blasting full-brightness color.
  */
 const COLOR_CLASSES: Record<ThemeColor, string> = {
-  blue: 'bg-brand-blue',
-  purple: 'bg-brand-purple',
-  green: 'bg-brand-green',
-  red: 'bg-brand-red',
-  yellow: 'bg-brand-yellow',
+  blue: 'bg-brand-blue dark:bg-[var(--color-brand-blue-hero)]',
+  purple: 'bg-brand-purple dark:bg-[var(--color-brand-purple-hero)]',
+  green: 'bg-brand-green dark:bg-[var(--color-brand-green-hero)]',
+  red: 'bg-brand-red dark:bg-[var(--color-brand-red-hero)]',
+  yellow: 'bg-brand-yellow dark:bg-[var(--color-brand-yellow-hero)]',
 };
 
 /**

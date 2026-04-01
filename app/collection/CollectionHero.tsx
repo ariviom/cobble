@@ -33,7 +33,7 @@ export function CollectionHero({
           </div>
 
           {collectionType && onCollectionTypeChange && (
-            <div className="mx-auto w-full max-w-xs hero-input-light">
+            <div className="mx-auto w-full max-w-xs dark:hero-input-dark">
               <SegmentedControl
                 segments={typeSegments}
                 value={collectionType}

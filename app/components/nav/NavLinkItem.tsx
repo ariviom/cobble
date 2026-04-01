@@ -28,10 +28,10 @@ export function NavLinkItem({
   const classes = cn(
     'relative flex flex-1 flex-col items-center gap-0.5 rounded-md px-1.5 py-1.5 transition-all duration-150 select-none lg:flex-initial lg:flex-row lg:gap-2 lg:px-4 lg:py-2.5',
     active
-      ? // Active: White pill with warm shadow - use fixed dark text color (doesn't invert in dark mode)
-        'bg-white font-bold text-on-white shadow-[inset_0_-2px_0_0_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.1)]'
-      : // Inactive: Contrast text on theme background, subtle overlay on hover/press (keeps contrast text color)
-        'font-semibold text-theme-primary-contrast hover:bg-white/50 active:bg-black/10',
+      ? // Active: White pill with warm shadow; dark mode uses a dark pill
+        'bg-white font-bold text-on-white shadow-[inset_0_-2px_0_0_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.1)] dark:bg-card dark:text-white dark:shadow-[inset_0_-2px_0_0_rgba(255,255,255,0.06),0_2px_4px_rgba(0,0,0,0.2)]'
+      : // Inactive: Contrast text on theme background, subtle overlay on hover/press
+        'font-semibold text-theme-primary-contrast hover:bg-white/50 active:bg-black/10 dark:hover:bg-white/15 dark:active:bg-white/10',
     className
   );
 

@@ -308,6 +308,14 @@ summary,
   /* Link colors - lighter blue for readability on dark backgrounds */
   --color-link: #60a5fa;
   --color-link-hover: #93bbfd;
+
+  /* Darkened brand colors for hero backgrounds — retains hue but reduces
+     brightness so colored sections feel cohesive with dark surfaces. */
+  --color-brand-blue-hero: oklch(38% 0.12 255);
+  --color-brand-green-hero: oklch(38% 0.12 155);
+  --color-brand-purple-hero: oklch(30% 0.12 295);
+  --color-brand-red-hero: oklch(38% 0.15 25);
+  --color-brand-yellow-hero: oklch(55% 0.14 85);
 }
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -372,16 +380,16 @@ summary,
   }
 }
 
-/* Force light-mode semantic tokens on hero inputs so they stay readable
-   on colored backgrounds regardless of dark mode. Apply to a wrapper element. */
-@utility hero-input-light {
-  --color-card: oklch(100% 0 0);
-  --color-card-muted: oklch(98.5% 0 0);
-  --color-background-muted: oklch(92.2% 0 0);
-  --color-subtle: oklch(92.2% 0 0);
-  --color-strong: oklch(87% 0 0);
-  --color-foreground: oklch(20.5% 0 0);
-  --color-foreground-muted: oklch(37.1% 0 0);
+/* Dark-mode hero input overrides — on darkened hero backgrounds the default
+   dark-mode tokens are appropriate, but we lighten borders/text slightly so
+   inputs have enough contrast against the colored surface. */
+@utility hero-input-dark {
+  --color-card: oklch(22% 0 0);
+  --color-card-muted: oklch(27% 0 0);
+  --color-subtle: oklch(35% 0 0);
+  --color-strong: oklch(42% 0 0);
+  --color-foreground: oklch(95% 0 0);
+  --color-foreground-muted: oklch(72% 0 0);
 }
 
 input.hide-arrows::-webkit-outer-spin-button,

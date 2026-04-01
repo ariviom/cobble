@@ -70,7 +70,7 @@ export function Navigation({
         >
           <svg
             viewBox="0 0 512 512"
-            className="size-12 text-white drop-shadow-sm transition-transform duration-150 group-hover:rotate-6"
+            className="size-12 text-theme-primary-contrast drop-shadow-sm transition-transform duration-150 group-hover:rotate-6"
             aria-hidden="true"
           >
             <path

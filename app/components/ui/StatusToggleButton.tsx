@@ -161,7 +161,7 @@ export function StatusToggleButton({
       >
         <span>{label}</span>
         {sublabel && (
-          <span className="max-w-[120px] truncate text-[10px] font-medium text-neutral-400">
+          <span className="max-w-[120px] truncate text-[10px] font-medium text-foreground-muted">
             {sublabel}
           </span>
         )}

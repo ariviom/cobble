@@ -57,7 +57,7 @@ export function PartCard({
     <div className="grid-collision-container relative flex h-full w-full justify-start gap-6 rounded-lg border border-subtle bg-card p-3 grid:flex-col grid:justify-between micro:flex-col micro:justify-between micro:gap-1 micro:rounded-md micro:p-1.5">
       <MoreDropdown
         ariaLabel="More actions"
-        className="absolute top-3 right-3 rounded-full grid:top-4 grid:right-4 grid:z-10 grid:border grid:border-subtle grid:bg-card grid:text-foreground grid:shadow grid:hero-input-light micro:hidden"
+        className="absolute top-3 right-3 rounded-full grid:top-4 grid:right-4 grid:z-10 grid:border grid:border-subtle grid:bg-card grid:text-foreground grid:shadow micro:hidden"
       >
         {() => (
           <div className="min-w-min rounded-lg border border-subtle bg-card p-2 text-xs shadow-lg">

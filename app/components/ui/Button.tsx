@@ -32,10 +32,10 @@ const buttonVariants = cva(
           'bg-card text-foreground border-subtle brick-button-depth-sm focus-visible:ring-theme-primary',
         // Google - for OAuth
         google:
-          'bg-neutral-00 text-foreground border-subtle brick-button-depth-sm hover:bg-neutral-50 focus-visible:ring-theme-primary',
+          'bg-card text-foreground border-subtle brick-button-depth-sm hover:bg-card-muted focus-visible:ring-theme-primary',
         // Ghost - minimal
         ghost:
-          'bg-transparent text-foreground border-transparent hover:bg-background-muted active:bg-neutral-200 focus-visible:ring-theme-primary',
+          'bg-transparent text-foreground border-transparent hover:bg-background-muted active:bg-card-muted focus-visible:ring-theme-primary',
         // Outline - border only
         outline:
           'bg-transparent text-foreground border-strong hover:bg-card-muted active:bg-card focus-visible:ring-theme-primary',
@@ -45,9 +45,9 @@ const buttonVariants = cva(
         // Hero primary - yellow on colored backgrounds (stays fixed, won't conflict with theme)
         'hero-primary':
           'bg-brand-yellow text-on-yellow border-transparent brick-button-depth [--brick-shadow-color:color-mix(in_oklch,var(--color-brand-yellow)_70%,black)] focus-visible:ring-brand-yellow',
-        // Hero secondary - white on colored backgrounds
+        // Hero secondary - white on colored backgrounds, muted in dark mode
         'hero-secondary':
-          'bg-white text-on-white border-transparent brick-button-depth [--brick-shadow-color:rgba(0,0,0,0.2)] focus-visible:ring-white',
+          'bg-white text-on-white border-transparent brick-button-depth [--brick-shadow-color:rgba(0,0,0,0.2)] focus-visible:ring-white dark:bg-white/15 dark:text-white dark:[--brick-shadow-color:rgba(0,0,0,0.3)] dark:focus-visible:ring-white/30',
         // Link - text link styling
         link: 'bg-transparent text-link border-transparent underline hover:text-link-hover p-0! h-auto font-normal focus-visible:ring-link',
       },

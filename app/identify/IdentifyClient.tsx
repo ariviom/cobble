@@ -1145,7 +1145,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             </div>
 
             {/* Controls panel */}
-            <div className="mx-auto w-full max-w-md hero-input-light">
+            <div className="mx-auto w-full max-w-md dark:hero-input-dark">
               <SegmentedControl
                 segments={[
                   { key: 'camera', label: 'Camera' },
@@ -1330,7 +1330,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           className={`border-b px-4 py-2.5 text-center text-sm ${
             isQuotaExhausted
               ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200'
-              : 'border-neutral-200 bg-neutral-50 text-foreground-muted dark:border-neutral-700 dark:bg-neutral-900'
+              : 'border-subtle bg-card-muted text-foreground-muted'
           }`}
         >
           {isQuotaExhausted ? (

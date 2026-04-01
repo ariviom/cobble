@@ -81,7 +81,7 @@ export function SearchBar({
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl hero-input-light">
+    <div className="mx-auto w-full max-w-3xl dark:hero-input-dark">
       <form
         onSubmit={onSubmit}
         className="flex flex-col gap-3 sm:flex-row sm:items-stretch"
