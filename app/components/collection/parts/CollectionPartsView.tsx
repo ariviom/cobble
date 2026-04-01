@@ -193,37 +193,39 @@ export function CollectionPartsView({
   return (
     <div className="flex flex-col gap-3">
       {/* Control bar — edge-to-edge, no horizontal padding */}
-      <CollectionPartsControlBar
-        sourceFilter={sourceFilter}
-        onSourceFilterChange={setSourceFilter}
-        sortKey={sortKey}
-        onSortKeyChange={setSortKey}
-        sortDir={sortDir}
-        onToggleSortDir={toggleSortDir}
-        groupBy={groupBy}
-        onGroupByChange={setGroupBy}
-        view={view}
-        onViewChange={setView}
-        selectionCount={selectionCount}
-        onExport={handleExport}
-        onClearSelections={clearAll}
-        isExportDisabled={false}
-        // Export button is always clickable; entitlement check happens in handleExport
-        parentOptions={categoryOptions}
-        subcategoriesByParent={subcategoriesByParent}
-        colorOptions={colorOptions}
-        filter={filter}
-        onFilterChange={setFilter}
-      />
+      {parts.length > 0 && (
+        <CollectionPartsControlBar
+          sourceFilter={sourceFilter}
+          onSourceFilterChange={setSourceFilter}
+          sortKey={sortKey}
+          onSortKeyChange={setSortKey}
+          sortDir={sortDir}
+          onToggleSortDir={toggleSortDir}
+          groupBy={groupBy}
+          onGroupByChange={setGroupBy}
+          view={view}
+          onViewChange={setView}
+          selectionCount={selectionCount}
+          onExport={handleExport}
+          onClearSelections={clearAll}
+          isExportDisabled={false}
+          // Export button is always clickable; entitlement check happens in handleExport
+          parentOptions={categoryOptions}
+          subcategoriesByParent={subcategoriesByParent}
+          colorOptions={colorOptions}
+          filter={filter}
+          onFilterChange={setFilter}
+        />
+      )}
 
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4">
-        {/* Empty state when no parts at all for this source */}
+        {/* Empty state when no parts at all */}
         {parts.length === 0 && (
-          <p className="mt-2 text-center text-sm text-foreground-muted">
-            No parts found.{' '}
-            {sourceFilter !== 'all' &&
-              'Try changing the source filter to "All Parts".'}
-          </p>
+          <div className="mt-2 text-center text-sm text-foreground-muted">
+            You have no tracked parts yet. Once you mark sets as{' '}
+            <span className="font-medium">Owned</span> and track pieces found,
+            your parts will appear here.
+          </div>
         )}
 
         {/* Parts summary */}
@@ -250,7 +252,7 @@ export function CollectionPartsView({
           </p>
         )}
 
-        {processedParts.length === 0 && (
+        {parts.length > 0 && processedParts.length === 0 && (
           <p className="mt-2 text-center text-sm text-foreground-muted">
             No parts match the current filters.
           </p>

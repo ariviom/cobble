@@ -754,31 +754,32 @@ export function UserCollectionOverview({
         collectionType={collectionType}
         onCollectionTypeChange={handleCollectionTypeChange}
       />
-      {collectionType !== 'parts' && (
-        <CollectionControlBar
-          collectionType={collectionType}
-          listFilter={listFilter}
-          onListFilterChange={handleListFilterChange}
-          lists={lists}
-          listsLoading={listsLoading}
-          hasAnySets={hasAnySets}
-          themeFilter={themeFilter}
-          onThemeFilterChange={setThemeFilter}
-          themeOptions={themeOptions}
-          sortField={sortField}
-          onSortFieldChange={setSortField}
-          sortDir={sortDir}
-          onSortDirChange={setSortDir}
-          hasAnyMinifigs={hasAnyMinifigs}
-          categoryFilter={categoryFilter}
-          onCategoryFilterChange={setCategoryFilter}
-          categoryOptions={categoryOptions}
-          minifigSortField={minifigSortField}
-          onMinifigSortFieldChange={setMinifigSortField}
-          minifigSortDir={minifigSortDir}
-          onMinifigSortDirChange={setMinifigSortDir}
-        />
-      )}
+      {collectionType !== 'parts' &&
+        (collectionType === 'sets' ? hasAnySets : hasAnyMinifigs) && (
+          <CollectionControlBar
+            collectionType={collectionType}
+            listFilter={listFilter}
+            onListFilterChange={handleListFilterChange}
+            lists={lists}
+            listsLoading={listsLoading}
+            hasAnySets={hasAnySets}
+            themeFilter={themeFilter}
+            onThemeFilterChange={setThemeFilter}
+            themeOptions={themeOptions}
+            sortField={sortField}
+            onSortFieldChange={setSortField}
+            sortDir={sortDir}
+            onSortDirChange={setSortDir}
+            hasAnyMinifigs={hasAnyMinifigs}
+            categoryFilter={categoryFilter}
+            onCategoryFilterChange={setCategoryFilter}
+            categoryOptions={categoryOptions}
+            minifigSortField={minifigSortField}
+            onMinifigSortFieldChange={setMinifigSortField}
+            minifigSortDir={minifigSortDir}
+            onMinifigSortDirChange={setMinifigSortDir}
+          />
+        )}
 
       {collectionType === 'parts' && (
         <CollectionPartsView

@@ -19,6 +19,8 @@ export type TourItem = {
   subtasks?: TourItem[];
   /** For mark_piece: use recent set route if available */
   dynamicRoute?: boolean;
+  /** Video file prefix in /tour-videos/ (e.g. "search" → search_desktop.mp4 / search_mobile.mp4) */
+  videoKey?: string;
 };
 
 export const TOUR_ITEMS: TourItem[] = [
@@ -29,6 +31,7 @@ export const TOUR_ITEMS: TourItem[] = [
     route: '/search',
     routeLabel: 'Go to Search',
     requiresAuth: false,
+    videoKey: 'search',
   },
   {
     id: 'add_set',
@@ -37,6 +40,7 @@ export const TOUR_ITEMS: TourItem[] = [
     route: '/sets',
     routeLabel: 'Go to Sets',
     requiresAuth: true,
+    videoKey: 'collection',
   },
   {
     id: 'identify_part',
@@ -45,6 +49,7 @@ export const TOUR_ITEMS: TourItem[] = [
     route: '/identify',
     routeLabel: 'Go to Identify',
     requiresAuth: true,
+    videoKey: 'identify',
   },
   {
     id: 'mark_piece',
@@ -54,6 +59,7 @@ export const TOUR_ITEMS: TourItem[] = [
     routeLabel: 'Go to Search',
     requiresAuth: true,
     dynamicRoute: true,
+    videoKey: 'inventory',
     subtasks: [
       {
         id: 'mark_piece_select',
@@ -88,6 +94,7 @@ export const TOUR_ITEMS: TourItem[] = [
     route: '/sets',
     routeLabel: 'Go to Sets',
     requiresAuth: true,
+    videoKey: 'search-party',
   },
   {
     id: 'review_settings',
@@ -96,6 +103,7 @@ export const TOUR_ITEMS: TourItem[] = [
     route: '/account',
     routeLabel: 'Go to Account',
     requiresAuth: true,
+    videoKey: 'account-settings',
   },
 ];
 

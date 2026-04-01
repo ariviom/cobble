@@ -10,7 +10,8 @@ import { useOnboardingStore } from '@/app/store/onboarding';
 import { TourSignupPrompt } from './TourSignupPrompt';
 import { TourChecklist } from './TourChecklist';
 import { TourItemModal } from './TourItemModal';
-import type { TourItem } from './tourConfig';
+import { TOUR_ITEMS, type TourItem } from './tourConfig';
+import { getTourVideoUrl } from './tourVideos';
 
 /** Routes where the tour card should never appear. */
 const HIDDEN_ROUTES = new Set([
@@ -47,6 +48,23 @@ export function TourCard() {
 
   const [selectedItem, setSelectedItem] = useState<TourItem | null>(null);
   const [showDismissedNote, setShowDismissedNote] = useState(false);
+
+  // Prefetch tour videos after idle so they're cached when modals open
+  useEffect(() => {
+    if (dismissed || isComplete()) return;
+    const timeout = setTimeout(() => {
+      const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+      TOUR_ITEMS.forEach(item => {
+        if (!item.videoKey) return;
+        const link = document.createElement('link');
+        link.rel = 'prefetch';
+        link.as = 'video';
+        link.href = getTourVideoUrl(item.videoKey, isDesktop);
+        document.head.appendChild(link);
+      });
+    }, 2000);
+    return () => clearTimeout(timeout);
+  }, [dismissed, isComplete]);
 
   // Don't render on hidden routes (e.g. marketing landing page)
   if (HIDDEN_ROUTES.has(pathname)) return null;
