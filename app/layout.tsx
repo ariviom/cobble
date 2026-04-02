@@ -14,6 +14,7 @@ import { resolveThemePreference } from '@/app/lib/theme/resolve';
 import { buildUserHandle } from '@/app/lib/users';
 import type { User } from '@supabase/supabase-js';
 import type { Metadata, Viewport } from 'next';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import {
   DEFAULT_THEME_COLOR,
   THEME_COLOR_HEX,
@@ -25,6 +26,12 @@ import {
   type ThemePreference,
 } from './components/theme/constants';
 import './styles/globals.css';
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-plus-jakarta',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Brick Party — LEGO Set Piece Picker',
@@ -176,7 +183,7 @@ export default async function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={resolved === 'dark' ? 'dark' : undefined}
+      className={`${plusJakartaSans.variable} ${resolved === 'dark' ? 'dark' : ''}`}
       style={themeStyles}
     >
       <head>
