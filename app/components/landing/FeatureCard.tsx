@@ -7,6 +7,7 @@ type FeatureCardProps = {
   title: string;
   description: string;
   videoSrc?: string;
+  imageSrc?: string;
   variant?: 'default' | 'plus';
 };
 
@@ -15,6 +16,7 @@ export function FeatureCard({
   title,
   description,
   videoSrc,
+  imageSrc,
   variant = 'default',
 }: FeatureCardProps) {
   const isPlus = variant === 'plus';
@@ -43,6 +45,13 @@ export function FeatureCard({
           >
             <source src={videoSrc} type="video/mp4" />
           </video>
+        ) : imageSrc ? (
+          <img
+            src={imageSrc}
+            alt={title}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <Icon

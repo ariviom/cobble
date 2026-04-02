@@ -14,42 +14,42 @@ const features = [
     title: 'Search any set',
     description:
       'Look up any LEGO set by number or name and instantly see its full parts inventory.',
-    videoKey: 'search',
+    imageSrc: '/landing/standard/search.webp',
   },
   {
     icon: Filter,
     title: 'Filter & Sort',
     description:
       'Narrow down pieces by color, size, and category to find what you need fast.',
-    videoKey: 'filter-sort',
+    imageSrc: '/landing/standard/filter.webp',
   },
   {
     icon: Package,
     title: 'Track owned pieces',
     description:
       "Mark which pieces you've found. Your progress is saved locally — no account needed.",
-    videoKey: 'inventory',
+    imageSrc: '/landing/standard/track.webp',
   },
   {
     icon: Camera,
     title: 'Identify parts by photo',
     description:
       'Snap a photo of a mystery piece and let AI identify the part number.',
-    videoKey: 'identify',
+    imageSrc: '/landing/standard/identify.webp',
   },
   {
     icon: Users,
     title: 'Search Party',
     description:
       'Invite friends or family to help sort through a pile together in real time.',
-    videoKey: 'search-party',
+    imageSrc: '/landing/standard/search-party.webp',
   },
   {
     icon: Download,
     title: 'Export missing pieces',
     description:
       'Export your missing parts as a Rebrickable CSV or BrickLink wanted list.',
-    videoKey: 'export',
+    imageSrc: '/landing/standard/export.webp',
   },
 ];
 
@@ -195,6 +195,7 @@ export function LandingPage({
                 icon={feature.icon}
                 title={feature.title}
                 description={feature.description}
+                imageSrc={feature.imageSrc}
               />
             ))}
           </div>
