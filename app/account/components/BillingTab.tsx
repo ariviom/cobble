@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/app/components/ui/Card';
+import { PromoCodeInput } from '@/app/components/PromoCodeInput';
 import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import { usePortalSession } from '@/app/hooks/usePortalSession';
 import type { Tables } from '@/supabase/types';
@@ -81,9 +82,8 @@ export function BillingTab({ subscription }: BillingTabProps) {
     <div className="space-y-6">
       {/* Past Due Warning */}
       {state === 'past_due' && (
-        <Alert variant="warning" title="Payment issue">
-          Your last payment failed. Update your payment method to keep Plus
-          features.
+        <Alert variant="warning" title="Action needed">
+          Add a payment method to continue using Plus features.
         </Alert>
       )}
 
@@ -105,6 +105,7 @@ export function BillingTab({ subscription }: BillingTabProps) {
               <Button href="/pricing" variant="primary" size="sm">
                 Upgrade to Plus
               </Button>
+              <PromoCodeInput />
             </div>
           )}
 
@@ -171,8 +172,7 @@ export function BillingTab({ subscription }: BillingTabProps) {
                 <PlanBadge label={tierLabel} variant="warning" />
               </div>
               <p className="text-sm text-foreground-muted">
-                Your payment is past due. Please update your payment method to
-                continue using Plus features.
+                A payment method is needed to continue using Plus features.
               </p>
               <Button
                 onClick={openPortal}
