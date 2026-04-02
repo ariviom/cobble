@@ -67,7 +67,6 @@ const steps = [
     description:
       'Filter and sort by color, size, and category to dig through your pile efficiently.',
     image: '/landing/find.webp',
-    coverImage: true,
   },
   {
     number: '3',
@@ -142,7 +141,7 @@ export function LandingPage({
       >
         <div className="mx-auto max-w-4xl">
           <div className="text-center">
-            <span className="text-sm font-bold tracking-widest text-brand-red uppercase">
+            <span className="text-sm font-bold tracking-widest text-brand-blue uppercase dark:text-link">
               How it works
             </span>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
@@ -161,11 +160,7 @@ export function LandingPage({
                   <img
                     src={step.image}
                     alt={step.title}
-                    className={
-                      step.coverImage
-                        ? 'h-full w-full object-cover'
-                        : 'max-h-full max-w-full object-contain'
-                    }
+                    className="max-h-full max-w-full object-contain"
                     loading="lazy"
                   />
                 </div>
@@ -185,7 +180,7 @@ export function LandingPage({
       <section id="features" className="px-4 py-20 sm:px-6 sm:py-28">
         <div className="mx-auto max-w-6xl">
           <div className="text-center">
-            <span className="text-sm font-bold tracking-widest text-brand-blue uppercase dark:text-link">
+            <span className="text-sm font-bold tracking-widest text-brand-red uppercase">
               Features
             </span>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
