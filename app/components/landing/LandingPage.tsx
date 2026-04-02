@@ -67,6 +67,7 @@ const steps = [
     description:
       'Filter and sort by color, size, and category to dig through your pile efficiently.',
     image: '/landing/find.webp',
+    coverImage: true,
   },
   {
     number: '3',
@@ -160,7 +161,11 @@ export function LandingPage({
                   <img
                     src={step.image}
                     alt={step.title}
-                    className="max-h-full max-w-full object-contain"
+                    className={
+                      step.coverImage
+                        ? 'h-full w-full object-cover'
+                        : 'max-h-full max-w-full object-contain'
+                    }
                     loading="lazy"
                   />
                 </div>
