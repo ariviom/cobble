@@ -19,7 +19,8 @@
       "Bash(curl -s https://packages.stripe.dev/api/security/keypair/stripe-cli-gpg/public)",
       "Bash(gpg --dearmor)",
       "Bash(sudo tee:*)",
-      "Bash(sudo apt:*)"
+      "Bash(sudo apt:*)",
+      "mcp__plugin_stripe_stripe__search_stripe_documentation"
     ]
   }
 }

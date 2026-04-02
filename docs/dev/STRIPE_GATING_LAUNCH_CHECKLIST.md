@@ -24,12 +24,12 @@ See `docs/plans/2026-02-26-feature-gating-billing-ui-design.md` for the full des
 
 ### 1. Stripe Configuration
 
-- [ ] **Verify price IDs match env vars** — The `.env.local` price IDs (`price_1SdNbOK4zX1Prn4x5m0MUuxu` for Plus monthly) don't match the IDs returned by the Stripe API (`price_1SdNEQK4zX1Prn4xdKwTRiB4`). Confirm which are correct (test mode vs live mode, or duplicate prices). Update env vars to match.
+- [x] **Verify price IDs match env vars** — Confirmed: `.env.local` uses test-mode IDs, Stripe live-mode has separate IDs. No mismatch — just use live IDs in production env.
 
-  | Env Var                     | Current `.env.local` Value       | Stripe API Value                 |
-  | --------------------------- | -------------------------------- | -------------------------------- |
-  | `STRIPE_PRICE_PLUS_MONTHLY` | `price_1SdNbOK4zX1Prn4x5m0MUuxu` | `price_1SdNEQK4zX1Prn4xdKwTRiB4` |
-  | `STRIPE_PRICE_PLUS_YEARLY`  | `price_1SdNgwK4zX1Prn4x5SsYJKdP` | `price_1SdNH5K4zX1Prn4x4v1oI6Me` |
+  | Tier | Interval | Test Mode (`.env.local`)         | Live Mode (production)           | Amount |
+  | ---- | -------- | -------------------------------- | -------------------------------- | ------ |
+  | Plus | Monthly  | `price_1SdNbOK4zX1Prn4x5m0MUuxu` | `price_1SdNEQK4zX1Prn4xdKwTRiB4` | $8/mo  |
+  | Plus | Yearly   | `price_1SdNgwK4zX1Prn4x5SsYJKdP` | `price_1SdNH5K4zX1Prn4x4v1oI6Me` | $80/yr |
 
 - [ ] **Configure Stripe Billing Portal** — In Stripe Dashboard > Settings > Billing > Customer Portal:
   - Enable subscription cancellation
@@ -44,7 +44,7 @@ See `docs/plans/2026-02-26-feature-gating-billing-ui-design.md` for the full des
   - `customer.subscription.trial_will_end`
   - Test locally: `stripe listen --forward-to localhost:3000/api/stripe/webhook`
 
-- [ ] **Enable Stripe Tax** — In Stripe Dashboard, enable automatic tax collection if not already done. The checkout session has `automatic_tax: { enabled: true }`.
+- [x] **Enable Stripe Tax** — Origin address set to Oregon (no sales tax). Tax engine is activated; `automatic_tax: { enabled: true }` works. No registrations needed until economic nexus is reached in other states.
 
 ### 2. Environment Variables
 

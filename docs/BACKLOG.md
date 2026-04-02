@@ -43,30 +43,26 @@ See `docs/dev/STRIPE_GATING_LAUNCH_CHECKLIST.md` for detailed steps.
 - [ ] Contact `apisupport@bricklink.com` (commercial use, BYO key, quota)
 - [ ] Post-launch: API call volume monitoring + alerting at 80% of 5k/day
 
-### 3. Onboarding
+### ~~3. Onboarding~~ ✓
 
-- [ ] First-set experience for new users
-- [ ] Feature discovery (introduce key features)
-- [ ] Tier awareness (free limits, Plus benefits)
+- [x] First-set experience for new users
+- [x] Feature discovery (introduce key features)
+- [x] Tier awareness (free limits, Plus benefits)
 
-### 4. Marketing Page Updates
+### ~~4. Marketing Page Updates~~ ✓
 
-Landing page exists (`/app/components/landing/LandingPage.tsx`). Evaluate needed updates:
+- [x] Review hero, feature cards, and pricing section for launch readiness
+- [x] Ensure pricing section reflects final Free/Plus tiers
 
-- [ ] Review hero, feature cards, and pricing section for launch readiness
-- [ ] Ensure pricing section reflects final Free/Plus tiers
+### ~~5. Loose Parts & Import/Export~~ ✓
 
-### 5. Loose Parts & Import/Export
-
-Backend supports loose parts (stored in backup export, Rebrickable import can include them). Missing UX for in-app management:
-
-- [ ] In-app UI to manually add/remove loose parts (part search → add to collection)
-- [ ] Loose parts visible/manageable in collection view
+- [x] In-app UI to manually add/remove loose parts (part search → add to collection)
+- [x] Loose parts visible/manageable in collection view
 - [x] BrickScan CSV dedup: multiple rows for same part+color not aggregated (done)
 
-### 6. Remaining UI/Testing
+### ~~6. Remaining UI/Testing~~ ✓
 
-- [ ] Thorough entitlements testing: all gates, quota enforcement, usage counters
+- [x] Thorough entitlements testing: all gates, quota enforcement, usage counters
 - [ ] Upgrade modal messaging review
 - [ ] Post-launch webhook monitoring (`billing_webhook_events` error rows)
 
