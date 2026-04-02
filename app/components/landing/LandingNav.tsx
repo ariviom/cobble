@@ -23,7 +23,7 @@ export function LandingNav() {
             />
           </svg>
           <span className="text-xl font-extrabold tracking-tight text-foreground">
-            Brick<span className="text-foreground-muted">Party</span>
+            Brick <span className="text-foreground-muted">Party</span>
           </span>
         </Link>
 
