@@ -22,7 +22,8 @@
       "Bash(sudo apt:*)",
       "mcp__plugin_stripe_stripe__search_stripe_documentation",
       "Bash(node:*)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "WebFetch(domain:brick-party.com)"
     ]
   }
 }

@@ -73,7 +73,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
       {/* Results — control bar is full-width, content uses container-wide internally */}
       <Suspense key={`${initialQuery}:${initialType}`} fallback={null}>
-        <SearchResults />
+        <SearchResults query={initialQuery} searchType={initialType} />
       </Suspense>
     </>
   );

@@ -147,12 +147,6 @@ function parseMinifigSort(value: string | null): MinifigSortOption {
   return 'relevance';
 }
 
-function parseTypeParam(value: string | null): SearchType {
-  if (value === 'minifig') return 'minifig';
-  if (value === 'part') return 'part';
-  return 'set';
-}
-
 /** Replace a URL search param, removing it when it matches the default. */
 function setParam(
   sp: URLSearchParams,
@@ -241,14 +235,20 @@ function groupSearchResults(
 // Component
 // ---------------------------------------------------------------------------
 
-export function SearchResults() {
+type SearchResultsProps = {
+  query: string;
+  searchType: SearchType;
+};
+
+export function SearchResults({ query, searchType }: SearchResultsProps) {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading: authLoading } = useAuth();
-  const q = params.get('q') ?? '';
+  // q and searchType come from server-rendered props (always fresh),
+  // not useSearchParams() which can go stale during client navigations.
+  const q = query;
   const hasQuery = q.trim().length > 0;
-  const searchType = parseTypeParam(params.get('type'));
 
   // Derive all controls from URL params
   const sort = parseSortParam(params.get('sort'));
