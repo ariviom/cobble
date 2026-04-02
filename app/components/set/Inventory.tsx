@@ -37,6 +37,8 @@ function formatGroupLabel(groupKey: string): string {
     if (asNum < 0) return 'Unknown Size';
     return `${asNum} stud${asNum === 1 ? '' : 's'}`;
   }
+  // Minifig parent rows use "—" as color name
+  if (groupKey === '—' || groupKey === '-') return 'Minifigures';
   // Color / category — already human-readable
   return groupKey;
 }
