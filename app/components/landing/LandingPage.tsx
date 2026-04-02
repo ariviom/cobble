@@ -167,7 +167,7 @@ export function LandingPage({
       <section id="features" className="px-4 py-20 sm:px-6 sm:py-28">
         <div className="mx-auto max-w-6xl">
           <div className="text-center">
-            <span className="text-sm font-bold tracking-widest text-brand-yellow uppercase">
+            <span className="text-sm font-bold tracking-widest text-brand-blue uppercase dark:text-link">
               Features
             </span>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
@@ -195,7 +195,7 @@ export function LandingPage({
       <section className="bg-neutral-50 px-4 py-20 sm:px-6 sm:py-28 dark:bg-background-muted">
         <div className="mx-auto max-w-3xl">
           <div className="mb-10 text-center">
-            <span className="text-sm font-bold tracking-widest text-brand-yellow uppercase">
+            <span className="text-sm font-bold tracking-widest text-brand-blue uppercase dark:text-link">
               Pricing
             </span>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
