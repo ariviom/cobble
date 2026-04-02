@@ -10,40 +10,40 @@ const plusFeatures = [
     title: 'Cloud sync',
     description:
       'Your collection and tracked sets on any device. Pick up right where you left off.',
-    videoKey: 'cloud-sync',
+    imageSrc: '/landing/plus/cloud-sync.webp',
   },
   {
     icon: Diamond,
     title: 'Part rarity insights',
     description:
       'See which pieces are rare or hard to find so you can prioritize your search.',
-    videoKey: 'rarity',
+    imageSrc: '/landing/plus/rarity.webp',
   },
   {
     icon: ScanSearch,
     title: 'Unlimited identifications',
     description: 'Identify as many parts as you want — no daily limits.',
-    videoKey: 'identify-unlimited',
+    imageSrc: '/landing/plus/identifications.webp',
   },
   {
     icon: Users,
     title: 'Unlimited Search Parties',
     description: 'Host as many group sorting sessions as you need.',
-    videoKey: 'search-party-unlimited',
+    imageSrc: '/landing/plus/search-parties.webp',
   },
   {
     icon: Layers,
     title: 'Unlimited tabs',
     description:
       'Open as many sets as you want and switch between them freely.',
-    videoKey: 'tabs-unlimited',
+    imageSrc: '/landing/plus/tabs.webp',
   },
   {
     icon: List,
     title: 'Unlimited lists',
     description:
       'Create as many custom lists as you need to organize your collection.',
-    videoKey: 'lists-unlimited',
+    imageSrc: '/landing/plus/lists.webp',
   },
 ];
 
@@ -83,6 +83,7 @@ export function PlusSection() {
               icon={feature.icon}
               title={feature.title}
               description={feature.description}
+              imageSrc={feature.imageSrc}
               variant="plus"
             />
           ))}
