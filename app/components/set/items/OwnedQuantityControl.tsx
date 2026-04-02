@@ -29,7 +29,7 @@ export function OwnedQuantityControl({
       min={0}
       max={required}
       className={cn(
-        'list:sm:max-w-min grid:w-full micro:h-11 micro:w-full micro:min-w-0',
+        'list:sm:max-w-fit grid:w-full micro:h-11 micro:w-full micro:min-w-0',
         className
       )}
       buttonClassName="micro:h-11 micro:min-w-0 micro:flex-1 micro:text-lg"
