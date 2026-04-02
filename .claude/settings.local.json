@@ -15,7 +15,11 @@
       "Bash(npm test:*)",
       "Bash(source ~/.bashrc)",
       "Bash(find /home/drew/cobble/app/components -type f -name *.tsx)",
-      "Bash(find /home/drew/cobble -type f -name *tour* -o -name *onboard* -o -name *guide* -o -name *walkthrough*)"
+      "Bash(find /home/drew/cobble -type f -name *tour* -o -name *onboard* -o -name *guide* -o -name *walkthrough*)",
+      "Bash(curl -s https://packages.stripe.dev/api/security/keypair/stripe-cli-gpg/public)",
+      "Bash(gpg --dearmor)",
+      "Bash(sudo tee:*)",
+      "Bash(sudo apt:*)"
     ]
   }
 }
