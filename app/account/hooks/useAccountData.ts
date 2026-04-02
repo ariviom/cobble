@@ -66,14 +66,7 @@ export function useAccountData({
           error: userError,
         } = await supabase.auth.getUser();
 
-        if (userError) {
-          setError(userError.message);
-          setUser(null);
-          setProfile(null);
-          return;
-        }
-
-        if (!fetchedUser) {
+        if (userError || !fetchedUser) {
           setUser(null);
           setProfile(null);
           return;

@@ -11,23 +11,20 @@ import {
 } from './statusIcons';
 import { cn } from './utils';
 
-const alertVariants = cva(
-  'relative rounded-lg border border-subtle border-l-4 px-4 py-3 text-sm',
-  {
-    variants: {
-      variant: {
-        info: '',
-        success: '',
-        warning: '',
-        error: '',
-        neutral: '',
-      },
+const alertVariants = cva('relative rounded-lg border px-4 py-3 text-sm', {
+  variants: {
+    variant: {
+      info: '',
+      success: '',
+      warning: '',
+      error: '',
+      neutral: '',
     },
-    defaultVariants: {
-      variant: 'info',
-    },
-  }
-);
+  },
+  defaultVariants: {
+    variant: 'info',
+  },
+});
 
 export type AlertProps = PropsWithChildren<
   HTMLAttributes<HTMLDivElement> &
