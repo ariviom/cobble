@@ -5,6 +5,7 @@ import { AuthProvider } from '@/app/components/providers/auth-provider';
 import { EntitlementsProvider } from '@/app/components/providers/entitlements-provider';
 import { ReactQueryProvider } from '@/app/components/providers/react-query-provider';
 import { SentryUserContext } from '@/app/components/providers/sentry-user-context';
+import { PostHogProvider } from '@/app/components/providers/posthog-provider';
 import { SyncProvider } from '@/app/components/providers/sync-provider';
 import { ThemeProvider } from '@/app/components/providers/theme-provider';
 import type { ClientEntitlements } from '@/app/components/providers/entitlements-provider';
@@ -211,24 +212,26 @@ export default async function RootLayout({
       </head>
       <body className="bg-background text-foreground antialiased">
         <AuthProvider initialUser={initialUser} initialHandle={initialHandle}>
-          <EntitlementsProvider initialEntitlements={initialEntitlements}>
-            <SentryUserContext />
-            <DunningBanner subscriptionStatus={subscriptionStatus} />
-            <SyncProvider>
-              <ThemeProvider
-                initialTheme={initialTheme}
-                initialThemeColor={dbThemeColor ?? undefined}
-                isAuthenticated={!!initialUser}
-              >
-                <ReactQueryProvider>
-                  <ErrorBoundary>
-                    {children}
-                    <TourCard />
-                  </ErrorBoundary>
-                </ReactQueryProvider>
-              </ThemeProvider>
-            </SyncProvider>
-          </EntitlementsProvider>
+          <PostHogProvider>
+            <EntitlementsProvider initialEntitlements={initialEntitlements}>
+              <SentryUserContext />
+              <DunningBanner subscriptionStatus={subscriptionStatus} />
+              <SyncProvider>
+                <ThemeProvider
+                  initialTheme={initialTheme}
+                  initialThemeColor={dbThemeColor ?? undefined}
+                  isAuthenticated={!!initialUser}
+                >
+                  <ReactQueryProvider>
+                    <ErrorBoundary>
+                      {children}
+                      <TourCard />
+                    </ErrorBoundary>
+                  </ReactQueryProvider>
+                </ThemeProvider>
+              </SyncProvider>
+            </EntitlementsProvider>
+          </PostHogProvider>
         </AuthProvider>
       </body>
     </html>
