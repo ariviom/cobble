@@ -21,7 +21,7 @@ export function FeatureCard({
 
   return (
     <div
-      className={`group flex flex-col overflow-hidden rounded-xl border shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md ${
+      className={`group flex flex-col overflow-hidden rounded-lg border shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md ${
         isPlus
           ? 'border-white/20 bg-white/10 backdrop-blur-sm'
           : 'border-subtle bg-card'

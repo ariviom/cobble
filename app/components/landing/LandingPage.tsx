@@ -153,7 +153,7 @@ export function LandingPage({
             {steps.map(step => (
               <div key={step.number} className="text-center">
                 <div
-                  className={`mx-auto mb-5 flex aspect-square items-center justify-center overflow-hidden rounded border border-subtle bg-white shadow-sm ${
+                  className={`mx-auto mb-5 flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-subtle bg-white shadow-sm ${
                     step.padImage ? 'p-4' : ''
                   }`}
                 >
