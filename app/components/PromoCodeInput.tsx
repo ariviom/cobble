@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/app/components/ui/Button';
+import { Input } from '@/app/components/ui/Input';
 import { useRedeemPromo } from '@/app/hooks/useRedeemPromo';
 
 export function PromoCodeInput() {
@@ -24,13 +25,15 @@ export function PromoCodeInput() {
 
   if (!expanded) {
     return (
-      <button
-        type="button"
-        onClick={() => setExpanded(true)}
-        className="text-sm text-foreground-muted underline underline-offset-2 hover:text-foreground"
-      >
-        Have a promo code?
-      </button>
+      <div>
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="text-sm text-foreground-muted underline underline-offset-2 hover:text-foreground"
+        >
+          Have a promo code?
+        </button>
+      </div>
     );
   }
 
@@ -44,13 +47,14 @@ export function PromoCodeInput() {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
       <div className="flex gap-2">
-        <input
+        <Input
           type="text"
           value={code}
           onChange={e => setCode(e.target.value)}
           placeholder="Enter promo code"
           disabled={loading}
-          className="flex-1 rounded-lg border border-subtle bg-background px-3 py-1.5 text-sm text-foreground placeholder:text-foreground-muted focus:border-theme-primary focus:outline-none"
+          size="sm"
+          className="flex-1"
         />
         <Button
           type="submit"
