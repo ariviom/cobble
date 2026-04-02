@@ -56,12 +56,14 @@ describe('validatePromoCode', () => {
         {
           id: 'promo_123',
           active: true,
-          coupon: {
-            id: 'AVtCbgeC',
-            valid: true,
-            percent_off: 100,
-            duration: 'repeating',
-            duration_in_months: 3,
+          promotion: {
+            coupon: {
+              id: 'AVtCbgeC',
+              valid: true,
+              percent_off: 100,
+              duration: 'repeating',
+              duration_in_months: 3,
+            },
           },
         },
       ],
@@ -93,7 +95,9 @@ describe('validatePromoCode', () => {
         {
           id: 'promo_456',
           active: true,
-          coupon: { id: 'coupon_expired', valid: false },
+          promotion: {
+            coupon: { id: 'coupon_expired', valid: false },
+          },
         },
       ],
     });
@@ -105,6 +109,7 @@ describe('validatePromoCode', () => {
 
 describe('redeemPromoCode', () => {
   it('creates a subscription with the coupon when user has no active sub', async () => {
+    process.env.STRIPE_PRICE_PLUS_MONTHLY = 'price_plus_monthly';
     mockSupabase.maybeSingle.mockResolvedValue({ data: null, error: null });
 
     mockStripe.subscriptions.create.mockResolvedValue({
@@ -121,8 +126,8 @@ describe('redeemPromoCode', () => {
     expect(result).toEqual({ success: true });
     expect(mockStripe.subscriptions.create).toHaveBeenCalledWith({
       customer: 'cus_123',
-      items: [{ price: process.env.STRIPE_PRICE_PLUS_MONTHLY }],
-      coupon: 'AVtCbgeC',
+      items: [{ price: 'price_plus_monthly' }],
+      discounts: [{ coupon: 'AVtCbgeC' }],
       metadata: { user_id: 'user-1', promo_redemption: 'true' },
     });
   });

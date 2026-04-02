@@ -23,13 +23,14 @@ export async function validatePromoCode(
     });
 
     const promo = promos.data[0];
-    if (!promo || !promo.coupon.valid) {
+    const coupon = promo?.promotion?.coupon;
+    if (!promo || !coupon || typeof coupon === 'string' || !coupon.valid) {
       return { valid: false };
     }
 
     return {
       valid: true,
-      couponId: promo.coupon.id,
+      couponId: coupon.id,
       promoCodeId: promo.id,
     };
   } catch (err) {
@@ -68,10 +69,15 @@ export async function redeemPromoCode(params: {
   }
 
   try {
+    const priceId = process.env.STRIPE_PRICE_PLUS_MONTHLY;
+    if (!priceId) {
+      throw new Error('STRIPE_PRICE_PLUS_MONTHLY env var is not set');
+    }
+
     await stripe.subscriptions.create({
       customer: stripeCustomerId,
-      items: [{ price: process.env.STRIPE_PRICE_PLUS_MONTHLY }],
-      coupon: couponId,
+      items: [{ price: priceId }],
+      discounts: [{ coupon: couponId }],
       metadata: { user_id: userId, promo_redemption: 'true' },
     });
 
