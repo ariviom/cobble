@@ -30,7 +30,8 @@ export function LandingNav() {
         <div className="hidden items-center gap-6 lg:flex">
           {[
             { label: 'Features', href: '#features' },
-            { label: 'How it works', href: '#plus' },
+            { label: 'How it works', href: '#how-it-works' },
+            { label: 'Plus', href: '#plus' },
             { label: 'Pricing', href: '#pricing' },
           ].map(link => (
             <a
