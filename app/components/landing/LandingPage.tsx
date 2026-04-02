@@ -100,7 +100,9 @@ export function LandingPage({
 
         <div className="relative mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 sm:py-28 lg:py-36">
           <h1 className="text-4xl font-extrabold tracking-tight text-on-yellow sm:text-5xl lg:text-6xl">
-            Turn your pile of bricks back into sets
+            Turn your pile of bricks
+            <br />
+            back into sets
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-on-yellow/80 sm:text-xl">
             Pick a set, find the pieces, track your progress.

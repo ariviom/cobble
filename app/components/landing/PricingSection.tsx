@@ -29,14 +29,14 @@ const features: Feature[] = [
   { name: 'Track owned pieces', free: 'Unlimited', plus: 'Unlimited' },
   { name: 'BrickLink pricing', free: 'Included', plus: 'Included' },
   { name: 'Export to CSV', free: 'Unlimited', plus: 'Unlimited' },
+  { name: 'Mobile-friendly', free: 'Included', plus: 'Included' },
+  { name: 'Dark mode', free: 'Included', plus: 'Included' },
   { name: 'Open tabs', free: '3', plus: 'Unlimited' },
   { name: 'Custom lists', free: '5', plus: 'Unlimited' },
   { name: 'Identify parts', free: '5/day', plus: 'Unlimited' },
   { name: 'Host Search Party', free: '2/month', plus: 'Unlimited' },
   { name: 'Part rarity insights', free: '', plus: 'Included' },
   { name: 'Cloud sync', free: '', plus: 'Included' },
-  { name: 'Mobile-friendly', free: 'Included', plus: 'Included' },
-  { name: 'Dark mode', free: 'Included', plus: 'Included' },
 ];
 
 function FeatureValue({ value }: { value: string }) {
@@ -226,7 +226,6 @@ export function PricingSection({
           </div>
           <div className="flex flex-col items-center justify-center border-l border-subtle px-3 py-4 text-center">
             <span className="text-sm font-bold text-foreground">Free</span>
-            <span className="mt-0.5 text-2xs text-foreground-muted">$0/mo</span>
           </div>
           <div className="flex flex-col items-center justify-center border-l border-subtle bg-theme-primary/10 px-3 py-4 text-center">
             <span className="text-sm font-bold text-brand-yellow-dark">
