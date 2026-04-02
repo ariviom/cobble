@@ -35,6 +35,8 @@ const features: Feature[] = [
   { name: 'Host Search Party', free: '2/month', plus: 'Unlimited' },
   { name: 'Part rarity insights', free: '', plus: 'Included' },
   { name: 'Cloud sync', free: '', plus: 'Included' },
+  { name: 'Mobile-friendly', free: 'Included', plus: 'Included' },
+  { name: 'Dark mode', free: 'Included', plus: 'Included' },
 ];
 
 function FeatureValue({ value }: { value: string }) {
@@ -139,7 +141,7 @@ export function PricingSection({
   function renderFreeCta() {
     return (
       <Button href="/signup" variant="outline" className="w-full">
-        Sign up free
+        Get started
       </Button>
     );
   }
@@ -154,13 +156,13 @@ export function PricingSection({
             variant="primary"
             className="w-full"
           >
-            {loading ? 'Redirecting...' : 'Get Brick Party Plus'}
+            {loading ? 'Redirecting...' : 'Get Plus'}
           </Button>
         );
       }
       return (
         <Button href="/signup" variant="primary" className="w-full">
-          Get Brick Party Plus
+          Get Plus
         </Button>
       );
     }
