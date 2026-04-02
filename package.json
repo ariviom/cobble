@@ -10,6 +10,10 @@
     "format": "prettier --write . && eslint --ext .ts,.tsx --ignore-pattern \"scripts/**\" --ignore-pattern \"coverage/**\" .",
     "format:check": "prettier --check . && eslint --ext .ts,.tsx --ignore-pattern \"scripts/**\" --ignore-pattern \"coverage/**\" .",
     "test": "vitest",
+    "e2e": "npx playwright test",
+    "e2e:ui": "npx playwright test --ui",
+    "e2e:headed": "npx playwright test --headed",
+    "e2e:server": "NODE_ENV=test npx next dev --port 3001",
     "prepare": "simple-git-hooks",
     "ingest:rebrickable": "tsx scripts/ingest-rebrickable.ts",
     "ingest:bricklink-categories": "tsx scripts/ingest-bricklink-categories.ts",
@@ -53,6 +57,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@tanstack/eslint-plugin-query": "^5.91.0",
     "@testing-library/jest-dom": "^6.6.3",
@@ -66,6 +71,7 @@
     "eslint-config-next": "15.5.4",
     "jsdom": "^27.0.1",
     "lint-staged": "^15.2.10",
+    "@playwright/test": "^1.58.2",
     "playwright": "^1.58.2",
     "prettier": "^3.6.2",
     "simple-git-hooks": "^2.11.1",
@@ -78,7 +84,7 @@
   "lint-staged": {
     "*.{ts,tsx}": [
       "prettier --write --ignore-unknown",
-      "eslint --ext .ts,.tsx --ignore-pattern \"scripts/**\" --ignore-pattern \"coverage/**\" --fix"
+      "eslint --ext .ts,.tsx --ignore-pattern \"scripts/**\" --ignore-pattern \"coverage/**\" --ignore-pattern \"e2e/**\" --ignore-pattern \"playwright.config.ts\" --fix"
     ],
     "*.{js,jsx,css,scss,md,mdx,json,yaml,yml,html}": "prettier --write --ignore-unknown"
   },

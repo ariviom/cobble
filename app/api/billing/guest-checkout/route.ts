@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
       cancel_url: getEnvOrThrow('STRIPE_CHECKOUT_CANCEL_URL'),
       allow_promotion_codes: false,
       automatic_tax: { enabled: true },
+      customer_update: { address: 'auto' },
       subscription_data: {
         trial_period_days: 14,
         metadata: { guest: 'true' },

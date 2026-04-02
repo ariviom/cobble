@@ -56,6 +56,17 @@ node_modules
 
 /catalyst-uisupabase-push.sh
 
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/e2e/.auth/
+/e2e/.test-user-ids.json
+
+# E2E env (contains Stripe test-mode keys — use .env.test.example as template)
+.env.test
+
 # Claude Code memory
 .memory/
 

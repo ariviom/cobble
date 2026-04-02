@@ -147,22 +147,24 @@ CREATE POLICY "Service role full access"
   WITH CHECK (true);
 
 -- Policy: bl_part_sets (BrickLink part→set mappings from identify)
-DROP POLICY IF EXISTS "Service role full access" ON public.bl_part_sets;
-CREATE POLICY "Service role full access"
-  ON public.bl_part_sets
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+-- Table may not exist in fresh local DBs.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'bl_part_sets' AND relnamespace = 'public'::regnamespace) THEN
+    DROP POLICY IF EXISTS "Service role full access" ON public.bl_part_sets;
+    CREATE POLICY "Service role full access"
+      ON public.bl_part_sets FOR ALL TO service_role USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- Policy: bl_parts (BrickLink parts cache)
-DROP POLICY IF EXISTS "Service role full access" ON public.bl_parts;
-CREATE POLICY "Service role full access"
-  ON public.bl_parts
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+-- Table may not exist in fresh local DBs.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'bl_parts' AND relnamespace = 'public'::regnamespace) THEN
+    DROP POLICY IF EXISTS "Service role full access" ON public.bl_parts;
+    CREATE POLICY "Service role full access"
+      ON public.bl_parts FOR ALL TO service_role USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- Policy: bl_set_minifigs (BrickLink set→minifig mappings)
 DROP POLICY IF EXISTS "Service role full access" ON public.bl_set_minifigs;
@@ -174,58 +176,64 @@ CREATE POLICY "Service role full access"
   WITH CHECK (true);
 
 -- Policy: bl_sets (BrickLink sets metadata and sync status)
-DROP POLICY IF EXISTS "Service role full access" ON public.bl_sets;
-CREATE POLICY "Service role full access"
-  ON public.bl_sets
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+-- Table may not exist in fresh local DBs.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'bl_sets' AND relnamespace = 'public'::regnamespace) THEN
+    DROP POLICY IF EXISTS "Service role full access" ON public.bl_sets;
+    CREATE POLICY "Service role full access"
+      ON public.bl_sets FOR ALL TO service_role USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- Policy: bricklink_minifig_mappings (Global minifig RB→BL mappings)
-DROP POLICY IF EXISTS "Service role full access" ON public.bricklink_minifig_mappings;
-CREATE POLICY "Service role full access"
-  ON public.bricklink_minifig_mappings
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+-- Table may not exist in fresh local DBs.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'bricklink_minifig_mappings' AND relnamespace = 'public'::regnamespace) THEN
+    DROP POLICY IF EXISTS "Service role full access" ON public.bricklink_minifig_mappings;
+    CREATE POLICY "Service role full access"
+      ON public.bricklink_minifig_mappings FOR ALL TO service_role USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- Policy: bricklink_minifigs (BrickLink minifig catalog)
-DROP POLICY IF EXISTS "Service role full access" ON public.bricklink_minifigs;
-CREATE POLICY "Service role full access"
-  ON public.bricklink_minifigs
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+-- Table may not exist in fresh local DBs (was created outside migrations on remote).
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'bricklink_minifigs' AND relnamespace = 'public'::regnamespace) THEN
+    DROP POLICY IF EXISTS "Service role full access" ON public.bricklink_minifigs;
+    CREATE POLICY "Service role full access"
+      ON public.bricklink_minifigs FOR ALL TO service_role USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- Policy: part_id_mappings (RB→BL part ID mappings)
-DROP POLICY IF EXISTS "Service role full access" ON public.part_id_mappings;
-CREATE POLICY "Service role full access"
-  ON public.part_id_mappings
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+-- Table may not exist in fresh local DBs (was created outside migrations on remote).
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'part_id_mappings' AND relnamespace = 'public'::regnamespace) THEN
+    DROP POLICY IF EXISTS "Service role full access" ON public.part_id_mappings;
+    CREATE POLICY "Service role full access"
+      ON public.part_id_mappings FOR ALL TO service_role USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- Policy: rate_limits (API rate limiting state)
-DROP POLICY IF EXISTS "Service role full access" ON public.rate_limits;
-CREATE POLICY "Service role full access"
-  ON public.rate_limits
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+-- Table may not exist in fresh local DBs.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'rate_limits' AND relnamespace = 'public'::regnamespace) THEN
+    DROP POLICY IF EXISTS "Service role full access" ON public.rate_limits;
+    CREATE POLICY "Service role full access"
+      ON public.rate_limits FOR ALL TO service_role USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 -- Policy: rb_download_versions (Catalog ingestion version tracking)
-DROP POLICY IF EXISTS "Service role full access" ON public.rb_download_versions;
-CREATE POLICY "Service role full access"
-  ON public.rb_download_versions
-  FOR ALL
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+-- Table may not exist in fresh local DBs.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'rb_download_versions' AND relnamespace = 'public'::regnamespace) THEN
+    DROP POLICY IF EXISTS "Service role full access" ON public.rb_download_versions;
+    CREATE POLICY "Service role full access"
+      ON public.rb_download_versions FOR ALL TO service_role USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 
 
 -- =============================================================================
