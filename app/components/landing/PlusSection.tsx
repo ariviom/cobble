@@ -51,7 +51,7 @@ export function PlusSection() {
   return (
     <section
       id="plus"
-      className="relative overflow-hidden bg-brand-purple px-4 py-20 sm:px-6 sm:py-28"
+      className="dark:bg-brand-purple-hero relative overflow-hidden bg-brand-purple px-4 py-20 sm:px-6 sm:py-28"
     >
       {/* Stud pattern overlay */}
       <div

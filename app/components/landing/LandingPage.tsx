@@ -83,11 +83,11 @@ export function LandingPage({
   plusYearlyPriceId,
 }: LandingPageProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-white text-neutral-900">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       <LandingNav />
 
       {/* Hero */}
-      <section className="relative overflow-hidden bg-brand-yellow">
+      <section className="dark:bg-brand-yellow-hero relative overflow-hidden bg-brand-yellow">
         {/* Stud pattern overlay */}
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.07]"
@@ -110,9 +110,6 @@ export function LandingPage({
               Get started
             </Button>
           </div>
-          <p className="mt-4 text-sm text-on-yellow/60">
-            Free to use — no account required
-          </p>
         </div>
 
         {/* Angled divider */}
@@ -123,7 +120,7 @@ export function LandingPage({
             preserveAspectRatio="none"
             className="block h-8 w-full sm:h-12"
           >
-            <path d="M0 48h1440V0L0 48Z" fill="white" />
+            <path d="M0 48h1440V0L0 48Z" className="fill-background" />
           </svg>
         </div>
       </section>
@@ -131,14 +128,14 @@ export function LandingPage({
       {/* How it works */}
       <section
         id="how-it-works"
-        className="bg-neutral-50 px-4 py-20 sm:px-6 sm:py-28"
+        className="bg-neutral-50 px-4 py-20 sm:px-6 sm:py-28 dark:bg-background-muted"
       >
         <div className="mx-auto max-w-4xl">
           <div className="text-center">
             <span className="text-sm font-bold tracking-widest text-brand-red uppercase">
               How it works
             </span>
-            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-neutral-900 sm:text-4xl">
+            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
               From pile to built set in three steps
             </h2>
           </div>
@@ -149,10 +146,10 @@ export function LandingPage({
                 <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-brand-red text-2xl font-extrabold text-white shadow-sm">
                   {step.number}
                 </div>
-                <h3 className="mt-5 text-lg font-bold text-neutral-900">
+                <h3 className="mt-5 text-lg font-bold text-foreground">
                   {step.title}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-neutral-600">
+                <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
                   {step.description}
                 </p>
               </div>
@@ -168,7 +165,7 @@ export function LandingPage({
             <span className="text-sm font-bold tracking-widest text-brand-yellow uppercase">
               Features
             </span>
-            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-neutral-900 sm:text-4xl">
+            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
               Everything you need for LEGO inventory
             </h2>
           </div>
@@ -190,16 +187,16 @@ export function LandingPage({
       <PlusSection />
 
       {/* Pricing */}
-      <section className="bg-neutral-50 px-4 py-20 sm:px-6 sm:py-28">
+      <section className="bg-neutral-50 px-4 py-20 sm:px-6 sm:py-28 dark:bg-background-muted">
         <div className="mx-auto max-w-3xl">
           <div className="mb-10 text-center">
             <span className="text-sm font-bold tracking-widest text-brand-yellow uppercase">
               Pricing
             </span>
-            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-neutral-900 sm:text-4xl">
+            <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
               Pick the plan that fits
             </h2>
-            <p className="mx-auto mt-3 max-w-xl text-base text-neutral-600">
+            <p className="mx-auto mt-3 max-w-xl text-base text-foreground-muted">
               Everything you need to track LEGO sets is free. Upgrade to Plus
               for unlimited power.
             </p>
@@ -218,7 +215,7 @@ export function LandingPage({
       </section>
 
       {/* Bottom CTA */}
-      <section className="relative overflow-hidden bg-brand-blue px-4 py-20 sm:px-6 sm:py-28">
+      <section className="dark:bg-brand-blue-hero relative overflow-hidden bg-brand-blue px-4 py-20 sm:px-6 sm:py-28">
         {/* Stud pattern */}
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.06]"

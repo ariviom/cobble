@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 export function LandingNav() {
   return (
-    <nav className="sticky top-0 z-50 border-b border-neutral-200/60 bg-white/90 backdrop-blur-md">
+    <nav className="sticky top-0 z-50 border-b border-subtle bg-card/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="group flex items-center gap-2">
           <svg
@@ -22,8 +22,8 @@ export function LandingNav() {
               d="M256 183.72c-49.38 0-86.29 21.4-86.29 40.54s36.9 40.54 86.29 40.54 86.29-21.4 86.29-40.54-36.9-40.54-86.29-40.54Z"
             />
           </svg>
-          <span className="text-xl font-extrabold tracking-tight text-neutral-900">
-            Brick<span className="text-neutral-500">Party</span>
+          <span className="text-xl font-extrabold tracking-tight text-foreground">
+            Brick<span className="text-foreground-muted">Party</span>
           </span>
         </Link>
 
@@ -44,7 +44,7 @@ export function LandingNav() {
                   el.scrollIntoView({ behavior: 'smooth' });
                 }
               }}
-              className="text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900"
+              className="text-sm font-medium text-foreground-muted transition-colors hover:text-foreground"
             >
               {link.label}
             </a>
