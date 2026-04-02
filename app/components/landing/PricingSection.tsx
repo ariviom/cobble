@@ -4,6 +4,7 @@ import { Badge } from '@/app/components/ui/Badge';
 import { Button } from '@/app/components/ui/Button';
 import { usePortalSession } from '@/app/hooks/usePortalSession';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
+import { PromoCodeInput } from '@/app/components/PromoCodeInput';
 import { Check, Minus } from 'lucide-react';
 import { useState } from 'react';
 
@@ -310,8 +311,13 @@ export function PricingSection({
               </span>
             </p>
           </div>
-          <div className="mt-auto">
+          <div className="mt-auto flex flex-col gap-3">
             {renderPlusCta()}
+            {isAuthenticated &&
+              tier === 'free' &&
+              !isActiveSubscription &&
+              !isCanceled &&
+              !isPastDue && <PromoCodeInput />}
             {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
           </div>
         </div>
