@@ -58,18 +58,21 @@ const steps = [
     number: '1',
     title: 'Pick a set',
     description: 'Search by set number or name from our complete LEGO catalog.',
+    image: '/landing/pick.webp',
   },
   {
     number: '2',
     title: 'Find your pieces',
     description:
       'Filter and sort by color, size, and category to dig through your pile efficiently.',
+    image: '/landing/find.webp',
   },
   {
     number: '3',
     title: 'Track your progress',
     description:
       'Mark pieces as you find them and watch your build come together.',
+    image: '/landing/track.webp',
   },
 ];
 
@@ -148,10 +151,15 @@ export function LandingPage({
           <div className="mt-14 grid gap-10 sm:grid-cols-3">
             {steps.map(step => (
               <div key={step.number} className="text-center">
-                <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-brand-red text-2xl font-extrabold text-white shadow-sm">
-                  {step.number}
+                <div className="mx-auto mb-5 overflow-hidden rounded-xl border border-subtle shadow-sm">
+                  <img
+                    src={step.image}
+                    alt={step.title}
+                    className="w-full"
+                    loading="lazy"
+                  />
                 </div>
-                <h3 className="mt-5 text-lg font-bold text-foreground">
+                <h3 className="text-lg font-bold text-foreground">
                   {step.title}
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
