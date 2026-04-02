@@ -3,6 +3,7 @@
 import { Button } from '@/app/components/ui/Button';
 import { Input } from '@/app/components/ui/Input';
 import { Select } from '@/app/components/ui/Select';
+import { X } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { SearchType } from '@/app/types/search';
@@ -119,7 +120,7 @@ export function SearchBar({
                 className="absolute top-1/2 left-1/2 size-[max(100%,2.75rem)] -translate-x-1/2 -translate-y-1/2 pointer-fine:hidden"
                 aria-hidden="true"
               />
-              ×
+              <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>

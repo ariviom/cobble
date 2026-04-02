@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useScrollLock } from '@/app/hooks/useScrollLock';
+import { X } from 'lucide-react';
 
 type Props = {
   mobileSrc: string;
@@ -45,7 +46,7 @@ export function VideoLightbox({ mobileSrc, desktopSrc, open, onClose }: Props) {
           aria-label="Close"
           className="absolute -top-10 right-0 flex h-8 w-8 items-center justify-center rounded-sm text-white/80 transition-colors hover:text-white"
         >
-          ✕
+          <X className="h-4 w-4" />
         </button>
         <video
           autoPlay

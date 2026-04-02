@@ -3,6 +3,7 @@
 import React from 'react';
 
 import { Button } from '@/app/components/ui/Button';
+import { X } from 'lucide-react';
 import { Modal } from '@/app/components/ui/Modal';
 import { useOpenTabsStore, isSetTab } from '@/app/store/open-tabs';
 import { FREE_TAB_LIMIT } from '@/app/lib/domain/limits';
@@ -73,7 +74,7 @@ export function UpgradeModal({ open, feature, onClose }: Props) {
                     className="shrink-0 rounded p-1 text-foreground-muted hover:bg-foreground/10 hover:text-foreground"
                     aria-label={`Close ${tab.name}`}
                   >
-                    ✕
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 </li>
               ))}

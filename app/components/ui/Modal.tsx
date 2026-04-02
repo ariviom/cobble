@@ -3,6 +3,7 @@
 import React, { ReactNode, useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { useScrollLock } from '@/app/hooks/useScrollLock';
+import { X } from 'lucide-react';
 
 type Props = {
   open: boolean;
@@ -58,7 +59,7 @@ export function Modal({ open, title, onClose, children }: Props) {
             aria-label="Close"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-foreground-muted transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-theme-primary focus-visible:outline-none"
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
