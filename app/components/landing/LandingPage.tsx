@@ -122,7 +122,10 @@ export function LandingPage({
             preserveAspectRatio="none"
             className="block h-8 w-full sm:h-12"
           >
-            <path d="M0 48h1440V0L0 48Z" className="fill-background" />
+            <path
+              d="M0 48h1440V0L0 48Z"
+              className="fill-neutral-50 dark:fill-background-muted"
+            />
           </svg>
         </div>
       </section>
