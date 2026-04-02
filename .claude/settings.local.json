@@ -20,7 +20,9 @@
       "Bash(gpg --dearmor)",
       "Bash(sudo tee:*)",
       "Bash(sudo apt:*)",
-      "mcp__plugin_stripe_stripe__search_stripe_documentation"
+      "mcp__plugin_stripe_stripe__search_stripe_documentation",
+      "Bash(node:*)",
+      "Bash(git show:*)"
     ]
   }
 }
