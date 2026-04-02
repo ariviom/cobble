@@ -59,6 +59,7 @@ const steps = [
     title: 'Pick a set',
     description: 'Search by set number or name from our complete LEGO catalog.',
     image: '/landing/pick.webp',
+    padImage: true,
   },
   {
     number: '2',
@@ -151,7 +152,11 @@ export function LandingPage({
           <div className="mt-14 grid gap-10 sm:grid-cols-3">
             {steps.map(step => (
               <div key={step.number} className="text-center">
-                <div className="mx-auto mb-5 flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-subtle bg-white p-4 shadow-sm">
+                <div
+                  className={`mx-auto mb-5 flex aspect-square items-center justify-center overflow-hidden rounded border border-subtle bg-white shadow-sm ${
+                    step.padImage ? 'p-4' : ''
+                  }`}
+                >
                   <img
                     src={step.image}
                     alt={step.title}
