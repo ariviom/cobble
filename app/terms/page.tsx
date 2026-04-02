@@ -2,7 +2,8 @@ import { PageLayout } from '@/app/components/layout/PageLayout';
 
 export const metadata = {
   title: 'Terms of Service — Brick Party',
-  description: 'Terms of Service for Brick Party LEGO Set Piece Picker',
+  description:
+    'Terms of Service for Brick Party — rules and guidelines for using our LEGO inventory tracking service.',
 };
 
 export default function TermsPage() {
@@ -10,8 +11,11 @@ export default function TermsPage() {
     <PageLayout>
       <div className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="mb-6 text-3xl font-bold">Terms of Service</h1>
+        <p className="mb-1 text-sm text-foreground-muted">
+          Last Updated: April 2, 2026
+        </p>
         <p className="mb-6 text-sm text-foreground-muted">
-          Last Updated: December 31, 2025
+          Effective: April 2, 2026
         </p>
 
         <div className="space-y-6 text-sm">
@@ -21,8 +25,8 @@ export default function TermsPage() {
             </h2>
             <p className="text-foreground-muted">
               By accessing or using Brick Party (&quot;the Service&quot;), you
-              agree to be bound by these Terms of Service (&quot;Terms&quot;).
-              If you do not agree to these Terms, do not use the Service.
+              agree to be bound by these Terms. If you do not agree, do not use
+              the Service.
             </p>
           </section>
 
@@ -33,48 +37,44 @@ export default function TermsPage() {
             <p className="text-foreground-muted">
               Brick Party is a web application that helps you track LEGO set
               inventories, mark owned pieces, and export missing parts lists for
-              use with Rebrickable and BrickLink. The Service is currently
-              provided in a beta phase. We reserve the right to modify, suspend,
-              or discontinue any aspect of the Service at any time.
+              use with Rebrickable and BrickLink. We reserve the right to
+              modify, suspend, or discontinue any aspect of the Service at any
+              time.
             </p>
           </section>
 
-          {/* 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">3. Subscriptions and Payments</h2>
+            <h2 className="mb-3 text-xl font-semibold">
+              3. Subscriptions and Payments
+            </h2>
             <div className="space-y-3 text-foreground-muted">
               <p>
-                The Service offers free and paid subscription tiers (e.g., Plus, Pro). 
-                By subscribing to a paid tier, you agree to pay all applicable fees 
+                The Service offers free and paid subscription tiers. By
+                subscribing to a paid tier, you agree to pay all applicable fees
                 described at the time of purchase.
               </p>
               <ul className="list-inside list-disc space-y-1">
                 <li>
-                  <strong>Billing:</strong> Payments are processed via Stripe. You 
-                  authorize us to charge your provided payment method on a 
+                  <strong>Billing:</strong> Payments are processed via Stripe.
+                  You authorize us to charge your provided payment method on a
                   recurring basis.
                 </li>
                 <li>
-                  <strong>Cancellations:</strong> You may cancel your subscription 
-                  at any time through your account settings or the billing portal. 
-                  Access will continue until the end of your current billing period.
+                  <strong>Cancellations:</strong> You may cancel your
+                  subscription at any time through your account settings or the
+                  billing portal. Access will continue until the end of your
+                  current billing period.
                 </li>
                 <li>
-                  <strong>Refunds:</strong> Except as required by law, paid 
+                  <strong>Refunds:</strong> Except as required by law, paid
                   subscription fees are non-refundable.
-                </li>
-                <li>
-                  <strong>Beta Access:</strong> During the beta phase, we may 
-                  provide temporary &quot;All-Access&quot; to paid features. This 
-                  access may be revoked or transitioned to paid tiers at our discretion.
                 </li>
               </ul>
             </div>
           </section>
-          */}
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">3. User Accounts</h2>
+            <h2 className="mb-3 text-xl font-semibold">4. User Accounts</h2>
             <div className="space-y-3 text-foreground-muted">
               <p>
                 You may use the Service anonymously with local-only storage, or
@@ -93,23 +93,8 @@ export default function TermsPage() {
             </div>
           </section>
 
-          {/* 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">
-              5. User-Provided API Keys
-            </h2>
-            <p className="text-foreground-muted">
-              Certain advanced features (e.g., real-time pricing) may allow you
-              to provide your own third-party API keys (such as BrickLink). You
-              are solely responsible for maintaining the confidentiality of
-              these keys and for any costs or violations of third-party terms
-              incurred through their use within the Service.
-            </p>
-          </section>
-          */}
-
-          <section>
-            <h2 className="mb-3 text-xl font-semibold">4. Acceptable Use</h2>
+            <h2 className="mb-3 text-xl font-semibold">5. Acceptable Use</h2>
             <div className="space-y-3 text-foreground-muted">
               <p>You agree NOT to:</p>
               <ul className="list-inside list-disc space-y-1">
@@ -129,13 +114,18 @@ export default function TermsPage() {
                 <li>Reverse engineer, decompile, or disassemble the Service</li>
                 <li>Transmit any viruses, malware, or malicious code</li>
                 <li>Impersonate any person or entity</li>
+                <li>
+                  Use data obtained from the Service to train machine learning
+                  or artificial intelligence models
+                </li>
+                <li>Use the Service if you are under 13 years of age</li>
               </ul>
             </div>
           </section>
 
           <section>
             <h2 className="mb-3 text-xl font-semibold">
-              5. Rate Limits and Quotas
+              6. Rate Limits and Quotas
             </h2>
             <p className="text-foreground-muted">
               The Service implements rate limiting and feature quotas (e.g.,
@@ -147,25 +137,58 @@ export default function TermsPage() {
 
           <section>
             <h2 className="mb-3 text-xl font-semibold">
-              6. Third-Party Services
+              7. Third-Party Services
             </h2>
-            <p className="text-foreground-muted">
-              The Service integrates with third-party services including
-              Rebrickable, BrickLink, and Brickognize. Your use of these
-              services through our application is also subject to their
-              respective terms of service. We are not responsible for the
-              availability, accuracy, or content of these third-party services.
-              <strong>
-                {' '}
-                Pricing data is provided for informational purposes only and
-                does not guarantee marketplace availability.
-              </strong>
-            </p>
+            <div className="space-y-3 text-foreground-muted">
+              <p>
+                The Service integrates with third-party services including
+                Rebrickable, BrickLink, and Brickognize. Your use of these
+                services through our application is also subject to their
+                respective terms of service. We are not responsible for the
+                availability, accuracy, or content of these third-party
+                services.
+                <strong>
+                  {' '}
+                  Pricing data is provided for informational purposes only and
+                  does not guarantee marketplace availability.
+                </strong>
+              </p>
+              <p>
+                Export features generate files compatible with Rebrickable and
+                BrickLink formats. Your use of those files on third-party
+                platforms is subject to those platforms&apos; terms of service.
+              </p>
+            </div>
           </section>
 
           <section>
             <h2 className="mb-3 text-xl font-semibold">
-              7. Intellectual Property
+              8. Group Sessions (Search Party)
+            </h2>
+            <div className="space-y-3 text-foreground-muted">
+              <p>
+                When you host a Search Party session, participants can see the
+                set inventory and mark pieces found.
+              </p>
+              <ul className="list-inside list-disc space-y-1">
+                <li>
+                  Participant display names are visible to all session members.
+                </li>
+                <li>
+                  Session data (participants, pieces found) is retained for 30
+                  days after the session ends, then permanently deleted.
+                </li>
+                <li>
+                  If a participant deletes their account, their display name is
+                  replaced with &quot;Deleted User&quot; in session history.
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-xl font-semibold">
+              9. Intellectual Property
             </h2>
             <div className="space-y-3 text-foreground-muted">
               <p>
@@ -185,25 +208,25 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">8. User Data</h2>
+            <h2 className="mb-3 text-xl font-semibold">10. User Data</h2>
             <div className="space-y-3 text-foreground-muted">
               <p>
-                You retain ownership of any data you input into the Service
-                (inventory tracking, owned quantities, etc.). By using the
-                Service, you grant us a license to store, process, and display
-                this data to provide the Service to you.
+                You retain ownership of any data you input into the Service. By
+                using the Service, you grant us a license to store, process, and
+                display this data to provide the Service to you.
               </p>
               <p>
-                You can export your data through the account settings. To
-                request deletion of your account and associated data, please
-                contact us through the feedback form.
+                You can delete your account and all associated data at any time
+                through account settings. Deletion is permanent and cannot be
+                undone. Active subscriptions are automatically cancelled upon
+                account deletion.
               </p>
             </div>
           </section>
 
           <section>
             <h2 className="mb-3 text-xl font-semibold">
-              9. Disclaimer of Warranties
+              11. Disclaimer of Warranties
             </h2>
             <p className="text-foreground-muted">
               THE SERVICE IS PROVIDED &quot;AS IS&quot; AND &quot;AS
@@ -217,7 +240,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="mb-3 text-xl font-semibold">
-              10. Limitation of Liability
+              12. Limitation of Liability
             </h2>
             <p className="text-foreground-muted">
               TO THE MAXIMUM EXTENT PERMITTED BY LAW, BRICK PARTY SHALL NOT BE
@@ -229,16 +252,18 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">11. Beta Service</h2>
+            <h2 className="mb-3 text-xl font-semibold">13. Indemnification</h2>
             <p className="text-foreground-muted">
-              The Service is currently in beta. Features may change, and the
-              Service may experience downtime or data loss. We recommend
-              regularly exporting your inventory data as a backup.
+              You agree to indemnify, defend, and hold harmless Brick Party and
+              its operator from and against any claims, damages, losses,
+              liabilities, costs, and expenses (including reasonable legal fees)
+              arising out of or related to your violation of these Terms or your
+              misuse of the Service.
             </p>
           </section>
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">12. Termination</h2>
+            <h2 className="mb-3 text-xl font-semibold">14. Termination</h2>
             <p className="text-foreground-muted">
               We reserve the right to suspend or terminate your access to the
               Service at any time, with or without notice, for any reason,
@@ -248,7 +273,32 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">13. Changes to Terms</h2>
+            <h2 className="mb-3 text-xl font-semibold">
+              15. Dispute Resolution
+            </h2>
+            <div className="space-y-3 text-foreground-muted">
+              <p>
+                Before pursuing legal action, both parties agree to attempt to
+                resolve any dispute informally for at least 30 days.
+              </p>
+              <p>
+                Any legal proceedings shall be brought exclusively in the courts
+                located in the State of Oregon, United States.
+              </p>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-xl font-semibold">16. Governing Law</h2>
+            <p className="text-foreground-muted">
+              These Terms shall be governed by and construed in accordance with
+              the laws of the State of Oregon, United States, without regard to
+              its conflict of law provisions.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-xl font-semibold">17. Changes to Terms</h2>
             <p className="text-foreground-muted">
               We reserve the right to modify these Terms at any time. We will
               notify users of any material changes by posting the new Terms on
@@ -259,16 +309,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="mb-3 text-xl font-semibold">14. Governing Law</h2>
-            <p className="text-foreground-muted">
-              These Terms shall be governed by and construed in accordance with
-              the laws of the jurisdiction in which Brick Party operates,
-              without regard to its conflict of law provisions.
-            </p>
-          </section>
-
-          <section>
-            <h2 className="mb-3 text-xl font-semibold">15. Contact</h2>
+            <h2 className="mb-3 text-xl font-semibold">18. Contact</h2>
             <p className="text-foreground-muted">
               If you have questions about these Terms, please contact us through
               the feedback form in your account settings.
