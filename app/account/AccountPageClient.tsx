@@ -11,7 +11,8 @@ import {
 } from '@/app/components/ui/Tabs';
 import { useHydrateUserSets } from '@/app/hooks/useHydrateUserSets';
 import { useOnboardingStore } from '@/app/store/onboarding';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { Tables } from '@/supabase/types';
 import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
@@ -54,6 +55,22 @@ export default function AccountPageClient({
   useEffect(() => {
     useOnboardingStore.getState().complete('review_settings');
   }, []);
+
+  const VALID_TABS = useMemo(
+    () =>
+      new Set(['account', 'display', 'billing', 'sets', 'feedback', 'backup']),
+    []
+  );
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const tabParam = searchParams.get('tab');
+  const activeTab = tabParam && VALID_TABS.has(tabParam) ? tabParam : 'account';
+
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', value);
+    router.replace(`/account?${params.toString()}`, { scroll: false });
+  };
 
   const {
     user,
@@ -106,7 +123,12 @@ export default function AccountPageClient({
 
       {error && <ErrorBanner message={error} />}
 
-      <Tabs defaultValue="account" className="w-full">
+      <Tabs
+        defaultValue="account"
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="w-full"
+      >
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="display">Display</TabsTrigger>

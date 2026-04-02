@@ -23,14 +23,26 @@ export async function validatePromoCode(
     });
 
     const promo = promos.data[0];
-    const coupon = promo?.promotion?.coupon;
-    if (!promo || !coupon || typeof coupon === 'string' || !coupon.valid) {
+    if (!promo) {
+      return { valid: false };
+    }
+
+    const coupon = promo.promotion?.coupon;
+    if (!coupon) {
+      return { valid: false };
+    }
+
+    // coupon may be a string (ID) or expanded object depending on the response
+    const couponId = typeof coupon === 'string' ? coupon : coupon.id;
+    const isValid = typeof coupon === 'string' ? true : coupon.valid;
+
+    if (!isValid) {
       return { valid: false };
     }
 
     return {
       valid: true,
-      couponId: coupon.id,
+      couponId,
       promoCodeId: promo.id,
     };
   } catch (err) {

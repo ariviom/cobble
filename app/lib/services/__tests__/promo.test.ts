@@ -89,6 +89,27 @@ describe('validatePromoCode', () => {
     expect(result).toEqual({ valid: false });
   });
 
+  it('returns coupon when promotion.coupon is a string ID (not expanded)', async () => {
+    mockStripe.promotionCodes.list.mockResolvedValue({
+      data: [
+        {
+          id: 'promo_789',
+          active: true,
+          promotion: {
+            coupon: 'AVtCbgeC',
+          },
+        },
+      ],
+    });
+
+    const result = await validatePromoCode('BRICKPARTYBETA');
+    expect(result).toEqual({
+      valid: true,
+      couponId: 'AVtCbgeC',
+      promoCodeId: 'promo_789',
+    });
+  });
+
   it('returns invalid when coupon is not valid', async () => {
     mockStripe.promotionCodes.list.mockResolvedValue({
       data: [

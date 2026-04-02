@@ -1,21 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/app/components/ui/Button';
 import { Input } from '@/app/components/ui/Input';
 import { useRedeemPromo } from '@/app/hooks/useRedeemPromo';
 
-export function PromoCodeInput() {
+type PromoCodeInputProps = {
+  onSuccess?: () => void;
+};
+
+export function PromoCodeInput({ onSuccess }: PromoCodeInputProps) {
   const [expanded, setExpanded] = useState(false);
   const [code, setCode] = useState('');
   const { redeem, loading, error, success } = useRedeemPromo();
   const router = useRouter();
 
+  useEffect(() => {
+    if (success) {
+      onSuccess?.();
+      router.refresh();
+    }
+  }, [success, onSuccess, router]);
+
   if (success) {
-    // Refresh SSR data so entitlements update immediately
-    router.refresh();
     return (
       <p className="text-sm font-medium text-success">
         Promo code applied! Welcome to Plus.

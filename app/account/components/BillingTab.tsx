@@ -11,6 +11,7 @@ import {
 import { PromoCodeInput } from '@/app/components/PromoCodeInput';
 import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import { usePortalSession } from '@/app/hooks/usePortalSession';
+import { useCallback, useState } from 'react';
 import type { Tables } from '@/supabase/types';
 
 type BillingSubscriptionRow = Tables<'billing_subscriptions'>;
@@ -74,9 +75,13 @@ export function BillingTab({ subscription }: BillingTabProps) {
     error: portalError,
   } = usePortalSession();
   const { tier } = useEntitlements();
-  const state = getSubscriptionState(subscription);
+  const [promoRedeemed, setPromoRedeemed] = useState(false);
+  const handlePromoSuccess = useCallback(() => setPromoRedeemed(true), []);
+  const state = promoRedeemed ? 'active' : getSubscriptionState(subscription);
 
-  const tierLabel = tier === 'plus' || tier === 'pro' ? 'Plus' : 'Free';
+  const effectiveTier = promoRedeemed ? 'plus' : tier;
+  const tierLabel =
+    effectiveTier === 'plus' || effectiveTier === 'pro' ? 'Plus' : 'Free';
 
   return (
     <div className="space-y-6">
@@ -105,7 +110,7 @@ export function BillingTab({ subscription }: BillingTabProps) {
               <Button href="/pricing" variant="primary" size="sm">
                 Upgrade to Plus
               </Button>
-              <PromoCodeInput />
+              <PromoCodeInput onSuccess={handlePromoSuccess} />
             </div>
           )}
 
