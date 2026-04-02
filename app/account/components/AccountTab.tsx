@@ -20,6 +20,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import type { UserId, UserProfileRow } from '../hooks/useAccountData';
+import { DeleteAccountModal } from './DeleteAccountModal';
 
 type AccountTabProps = {
   user: User | null;
@@ -61,6 +62,9 @@ export function AccountTab({
 
   // Logout state
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Delete account state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const clearThemePersistence = () => {
     if (typeof window !== 'undefined') {
@@ -230,6 +234,24 @@ export function AccountTab({
     setUser(null);
     setProfile(null);
     router.push('/login');
+  };
+
+  const handleDeleteAccount = async () => {
+    const response = await fetch('/api/account/delete', {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('Delete failed');
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    await supabase.auth.signOut({ scope: 'local' });
+    clearThemePersistence();
+    setUser(null);
+    setProfile(null);
+    router.push('/');
   };
 
   return (
@@ -434,6 +456,41 @@ export function AccountTab({
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Delete Account Section */}
+      {isLoggedIn && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Delete account</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-body text-foreground-muted">
+              Permanently delete your Brick Party account and all associated
+              data. This action cannot be undone.
+            </p>
+            <div className="mt-4">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="border-danger/50 text-danger hover:bg-danger/5"
+                onClick={() => setShowDeleteModal(true)}
+              >
+                Delete account
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Delete Account Modal */}
+      {isLoggedIn && (
+        <DeleteAccountModal
+          open={showDeleteModal}
+          onClose={() => setShowDeleteModal(false)}
+          onConfirm={handleDeleteAccount}
+        />
       )}
 
       {/* Legal links */}
