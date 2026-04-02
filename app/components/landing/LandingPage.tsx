@@ -20,35 +20,35 @@ const features = [
     icon: Filter,
     title: 'Filter & Sort',
     description:
-      'Narrow down pieces by color, size, and category to find what you need fast.',
+      'Make it easier to find similar pieces by filtering for color, size, and category to find what you need fast.',
     imageSrc: '/landing/standard/filter.webp',
   },
   {
     icon: Package,
     title: 'Track owned pieces',
     description:
-      "Mark which pieces you've found. Your progress is saved locally — no account needed.",
+      "Mark which pieces you've found and track your progress towards finding a complete set.",
     imageSrc: '/landing/standard/track.webp',
   },
   {
     icon: Camera,
     title: 'Identify parts by photo',
     description:
-      'Snap a photo of a mystery piece and let AI identify the part number.',
+      'Snap a photo of a piece to identify the part number and all containing sets - powered by Brickognize.',
     imageSrc: '/landing/standard/identify.webp',
   },
   {
     icon: Users,
     title: 'Search Party',
     description:
-      'Invite friends or family to help sort through a pile together in real time.',
+      'Invite friends or family to help sort through a pile together in real time, compete for who can find the most pieces.',
     imageSrc: '/landing/standard/search-party.webp',
   },
   {
     icon: Download,
     title: 'Export missing pieces',
     description:
-      'Export your missing parts as a Rebrickable CSV or BrickLink wanted list.',
+      "Can't find all the set parts? Export your missing pieces list as a Rebrickable CSV or BrickLink wanted list and purchase what's missing",
     imageSrc: '/landing/standard/export.webp',
   },
 ];
@@ -145,7 +145,7 @@ export function LandingPage({
               How it works
             </span>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
-              From pile to built set in three steps
+              Tools to help you pull the set from the pile
             </h2>
           </div>
 
@@ -217,7 +217,7 @@ export function LandingPage({
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-base text-foreground-muted">
               Everything you need to track LEGO sets is free. Upgrade to Plus
-              for unlimited power.
+              for even more clutch power.
             </p>
           </div>
           {/* Safe to hardcode: LandingPage only renders for unauthenticated visitors

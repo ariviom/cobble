@@ -1,7 +1,7 @@
 'use client';
 
-import { Cloud, Diamond, ScanSearch, Users, Layers, List } from 'lucide-react';
 import { Button } from '@/app/components/ui/Button';
+import { Cloud, Diamond, Layers, List, ScanSearch, Users } from 'lucide-react';
 import { FeatureCard } from './FeatureCard';
 
 const plusFeatures = [
@@ -16,13 +16,13 @@ const plusFeatures = [
     icon: Diamond,
     title: 'Part rarity insights',
     description:
-      'See which pieces are rare or hard to find so you can prioritize your search.',
+      'See which pieces are rare, hard to find, or set exclusive so you can prioritize your search and identify sets.',
     imageSrc: '/landing/plus/rarity.webp',
   },
   {
     icon: ScanSearch,
     title: 'Unlimited identifications',
-    description: 'Identify as many parts as you want — no daily limits.',
+    description: 'Identify as many parts as you want - no daily limits.',
     imageSrc: '/landing/plus/identifications.webp',
   },
   {
