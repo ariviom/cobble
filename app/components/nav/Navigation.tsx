@@ -65,7 +65,7 @@ export function Navigation({
       <div className="relative flex h-16 w-full items-center justify-around gap-x-1 px-2 sm:px-4 lg:justify-center lg:gap-x-3 lg:px-6">
         {/* Desktop brand - white logo on theme background */}
         <Link
-          href="/sets"
+          href="/"
           className="group hidden items-center gap-2 transition-all duration-150 hover:scale-[1.02] lg:absolute lg:top-1/2 lg:left-6 lg:flex lg:-translate-y-1/2"
         >
           <svg
@@ -83,8 +83,7 @@ export function Navigation({
             />
           </svg>
           <h1 className="text-xl font-extrabold tracking-tight text-theme-primary-contrast">
-            <span>Brick</span>
-            <span className="opacity-70">Party</span>
+            <span>Brick</span> <span className="opacity-70">Party</span>
           </h1>
         </Link>
         <NavLinkItem
