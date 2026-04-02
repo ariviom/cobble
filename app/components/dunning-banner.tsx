@@ -14,9 +14,7 @@ export function DunningBanner({ subscriptionStatus }: Props) {
 
   return (
     <div className="flex items-center justify-center gap-3 bg-warning-muted px-4 py-2 text-sm text-warning">
-      <span>
-        Your payment failed — update your payment method to keep Plus features.
-      </span>
+      <span>Add a payment method to keep your Plus features.</span>
       <Button
         onClick={openPortal}
         disabled={loading}
