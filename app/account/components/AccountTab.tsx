@@ -12,12 +12,14 @@ import {
   CardTitle,
 } from '@/app/components/ui/Card';
 import { Input } from '@/app/components/ui/Input';
+import { AnalyticsEvent } from '@/app/lib/analytics/events';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { normalizeUsernameCandidate } from '@/app/lib/users';
 import type { User } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { usePostHog } from 'posthog-js/react';
 
 import type { UserId, UserProfileRow } from '../hooks/useAccountData';
 import { DeleteAccountModal } from './DeleteAccountModal';
@@ -38,6 +40,7 @@ export function AccountTab({
   setError,
 }: AccountTabProps) {
   const router = useRouter();
+  const posthog = usePostHog();
   const isLoggedIn = !!user;
   const authProvider =
     isLoggedIn && user?.app_metadata
@@ -237,6 +240,7 @@ export function AccountTab({
   };
 
   const handleDeleteAccount = async () => {
+    posthog?.capture(AnalyticsEvent.ACCOUNT_DELETED);
     const response = await fetch('/api/account/delete', {
       method: 'DELETE',
       credentials: 'include',
