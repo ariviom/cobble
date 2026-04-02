@@ -4,6 +4,8 @@ import { ThemedPageHeader } from '@/app/components/ui/ThemedPageHeader';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Search Sets & Minifigs | Brick Party',
   description: 'Search for LEGO sets and minifigures by name or number',
@@ -70,7 +72,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       </section>
 
       {/* Results — control bar is full-width, content uses container-wide internally */}
-      <Suspense fallback={null}>
+      <Suspense key={`${initialQuery}:${initialType}`} fallback={null}>
         <SearchResults />
       </Suspense>
     </>
