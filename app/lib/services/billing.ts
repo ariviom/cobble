@@ -270,9 +270,10 @@ async function getEmailTierOverride(
 
   if (!email) {
     // User may not have a billing_customers row yet (never started checkout).
-    // Fall back to auth.users via service role.
+    // Fall back to auth.users — requires service role (admin API).
+    const serviceClient = getSupabaseServiceRoleClient();
     const { data: authData, error: authError } =
-      await supabase.auth.admin.getUserById(userId);
+      await serviceClient.auth.admin.getUserById(userId);
     if (authError || !authData?.user?.email) {
       if (authError) {
         logger.error('billing.override_email_lookup_failed', {
