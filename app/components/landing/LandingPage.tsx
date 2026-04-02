@@ -151,11 +151,11 @@ export function LandingPage({
           <div className="mt-14 grid gap-10 sm:grid-cols-3">
             {steps.map(step => (
               <div key={step.number} className="text-center">
-                <div className="mx-auto mb-5 overflow-hidden rounded-xl border border-subtle shadow-sm">
+                <div className="mx-auto mb-5 flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-subtle bg-white p-4 shadow-sm">
                   <img
                     src={step.image}
                     alt={step.title}
-                    className="w-full"
+                    className="max-h-full max-w-full object-contain"
                     loading="lazy"
                   />
                 </div>
