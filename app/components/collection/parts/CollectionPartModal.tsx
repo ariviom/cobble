@@ -6,8 +6,10 @@ import { ModalExternalLinks } from '@/app/components/ui/ModalExternalLinks';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
 import {
   bulkUpsertLooseParts,
+  enqueueLoosePartChange,
   getLoosePart,
 } from '@/app/lib/localDb/loosePartsStore';
+import { useAuth } from '@/app/components/providers/auth-provider';
 import { ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -55,6 +57,7 @@ export function CollectionPartModal({
   onLooseQuantityChange,
   showOwnedFromSets = true,
 }: Props) {
+  const { user } = useAuth();
   const [selectedColorId, setSelectedColorId] = useState(part.colorId);
   const [looseQty, setLooseQty] = useState(0);
   const [ownedFromSetsForColor, setOwnedFromSetsForColor] = useState(0);
@@ -142,6 +145,15 @@ export function CollectionPartModal({
       [{ partNum: part.partNum, colorId: selectedColorId, quantity: next }],
       'replace'
     );
+    if (user) {
+      await enqueueLoosePartChange(
+        user.id,
+        crypto.randomUUID(),
+        part.partNum,
+        selectedColorId,
+        next
+      );
+    }
     onLooseQuantityChange?.();
   };
 

@@ -15,8 +15,10 @@ import {
 } from '@/app/components/collection/parts/colorGroups';
 import {
   bulkUpsertLooseParts,
+  enqueueLoosePartChange,
   getLoosePart,
 } from '@/app/lib/localDb/loosePartsStore';
+import { useAuth } from '@/app/components/providers/auth-provider';
 
 type PartColor = {
   color_id: number;
@@ -48,6 +50,7 @@ type Props = {
 };
 
 export function PartDetailClient({ part, colors, rarityData }: Props) {
+  const { user } = useAuth();
   // Map colors to the format ColorPicker expects
   const availableColors = useMemo(
     () =>
@@ -194,6 +197,15 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
       [{ partNum: part.part_num, colorId: selectedColorId, quantity: next }],
       'replace'
     );
+    if (user) {
+      await enqueueLoosePartChange(
+        user.id,
+        crypto.randomUUID(),
+        part.part_num,
+        selectedColorId,
+        next
+      );
+    }
   };
 
   const selectedColor = colors.find(c => c.color_id === selectedColorId);
