@@ -109,49 +109,55 @@ export function SetsLandingContent({
       {/* Unified sets grid */}
       <section className="py-8">
         <div className="container-wide">
-          {/* Filter chips */}
-          <div className="-mx-3 mb-4 flex gap-2 overflow-x-auto px-3 pb-1 no-scrollbar sm:-mx-4 sm:px-4 xl:mx-0 xl:flex-wrap xl:overflow-visible xl:px-0">
-            {filterOptions.map(opt => (
-              <button
-                key={opt.key}
-                onClick={() => setActiveFilter(opt.key as UnifiedFilter)}
-                className={cn(
-                  'shrink-0 rounded-full border px-3 py-1 text-sm font-semibold transition-colors',
-                  activeFilter === opt.key
-                    ? 'border-theme-primary bg-theme-primary/10 text-theme-text'
-                    : 'border-subtle bg-card text-foreground-muted hover:border-theme-primary/50 hover:text-foreground'
-                )}
-              >
-                {opt.label}
-                <span className="ml-1.5 text-xs opacity-70">{opt.count}</span>
-              </button>
-            ))}
-          </div>
+          {/* Filter chips + search — hidden when no sets exist */}
+          {filterOptions.some(opt => opt.count > 0) && (
+            <>
+              <div className="-mx-3 mb-4 flex gap-2 overflow-x-auto px-3 pb-1 no-scrollbar sm:-mx-4 sm:px-4 xl:mx-0 xl:flex-wrap xl:overflow-visible xl:px-0">
+                {filterOptions.map(opt => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setActiveFilter(opt.key as UnifiedFilter)}
+                    className={cn(
+                      'shrink-0 rounded-full border px-3 py-1 text-sm font-semibold transition-colors',
+                      activeFilter === opt.key
+                        ? 'border-theme-primary bg-theme-primary/10 text-theme-text'
+                        : 'border-subtle bg-card text-foreground-muted hover:border-theme-primary/50 hover:text-foreground'
+                    )}
+                  >
+                    {opt.label}
+                    <span className="ml-1.5 text-xs opacity-70">
+                      {opt.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
 
-          {/* Clear all link for Search Parties */}
-          {activeFilter === 'search-parties' && sets.length > 0 && (
-            <div className="mb-2 text-right">
-              <button
-                type="button"
-                onClick={clearAllSearchParties}
-                className="text-xs text-foreground-muted underline underline-offset-2 transition-colors hover:text-foreground"
-              >
-                Clear all
-              </button>
-            </div>
+              {/* Clear all link for Search Parties */}
+              {activeFilter === 'search-parties' && sets.length > 0 && (
+                <div className="mb-2 text-right">
+                  <button
+                    type="button"
+                    onClick={clearAllSearchParties}
+                    className="text-xs text-foreground-muted underline underline-offset-2 transition-colors hover:text-foreground"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
+
+              {/* Filter / search input */}
+              <div className="relative mb-6">
+                <Search className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-foreground-muted" />
+                <Input
+                  size="lg"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Filter by name or number..."
+                  className="pl-11"
+                />
+              </div>
+            </>
           )}
-
-          {/* Filter / search input */}
-          <div className="relative mb-6">
-            <Search className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-foreground-muted" />
-            <Input
-              size="lg"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Filter by name or number..."
-              className="pl-11"
-            />
-          </div>
 
           {/* Content */}
           {isLoading && activeFilter !== 'recent' && sets.length === 0 ? (
@@ -171,7 +177,7 @@ export function SetsLandingContent({
                     >
                       Sign in
                     </Link>{' '}
-                    to sync your collection across devices.
+                    to track your collection.
                   </>
                 )}
               </p>
