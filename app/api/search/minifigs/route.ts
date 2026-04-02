@@ -5,11 +5,10 @@ import { logger } from '@/lib/metrics';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-// s-maxage controls CDN cache (30s); max-age controls browser cache (60s).
-const CACHE_CONTROL =
-  process.env.NODE_ENV === 'production'
-    ? 'public, s-maxage=30, max-age=60'
-    : 'no-store';
+export const dynamic = 'force-dynamic';
+
+// Per-URL caching: s-maxage for CDN, max-age for browser. Each unique query string is a separate cache entry.
+const CACHE_CONTROL = 'public, s-maxage=30, max-age=60';
 const allowedSizes = new Set([20, 40, 60, 80, 100]);
 const allowedSorts: MinifigSortOption[] = [
   'relevance',

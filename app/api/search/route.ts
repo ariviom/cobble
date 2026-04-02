@@ -8,8 +8,9 @@ import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-// Catalog data is the same for all users; short CDN TTL avoids redundant function invocations.
-// s-maxage controls CDN cache (30s); max-age controls browser cache (60s).
+export const dynamic = 'force-dynamic';
+
+// Per-URL caching: s-maxage for CDN, max-age for browser. Each unique query string is a separate cache entry.
 const CACHE_CONTROL = 'public, s-maxage=30, max-age=60';
 
 const allowedFilters: FilterType[] = ['all', 'set', 'theme', 'subtheme'];
