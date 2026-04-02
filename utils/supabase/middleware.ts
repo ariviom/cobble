@@ -23,7 +23,13 @@ function getRequestId(request: NextRequest): string {
 function buildRelaxedCsp(): string {
   const directives = [
     "default-src 'self'",
-    ['script-src', `'self'`, "'unsafe-inline'", isDev ? "'unsafe-eval'" : null]
+    [
+      'script-src',
+      `'self'`,
+      "'unsafe-inline'",
+      isDev ? "'unsafe-eval'" : null,
+      'https://us-assets.i.posthog.com',
+    ]
       .filter(Boolean)
       .join(' '),
     [
@@ -32,6 +38,8 @@ function buildRelaxedCsp(): string {
       'https://*.supabase.co',
       'https://api.brickognize.com',
       'https://*.ingest.sentry.io',
+      'https://us.i.posthog.com',
+      'https://us-assets.i.posthog.com',
       'ws:',
       'wss:',
     ].join(' '),
