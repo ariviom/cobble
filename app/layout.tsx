@@ -35,7 +35,9 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://brick-party.com'),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://brick-party.com'
+  ),
   title: 'Brick Party — LEGO Set Piece Picker',
   description:
     'Search LEGO sets, track owned pieces, and export missing parts lists for Rebrickable and BrickLink.',

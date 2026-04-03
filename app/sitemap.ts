@@ -3,7 +3,7 @@ import 'server-only';
 import type { MetadataRoute } from 'next';
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 
-const BASE_URL = 'https://brick-party.com';
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://brick-party.com';
 
 export async function generateSitemaps() {
   return [
