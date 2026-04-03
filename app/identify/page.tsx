@@ -1,6 +1,6 @@
 import { getEntitlements } from '@/app/lib/services/entitlements';
 import { getUsageStatus } from '@/app/lib/services/usageCounters';
-import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { getSupabaseSession } from '@/app/lib/supabaseAuthServerClient';
 import type { Metadata } from 'next';
 import IdentifyClient from './IdentifyClient';
 
@@ -11,12 +11,9 @@ export const metadata: Metadata = {
 };
 
 export default async function IdentifyPage() {
-  const supabase = await getSupabaseAuthServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { userId } = await getSupabaseSession();
 
-  if (!user) {
+  if (!userId) {
     return (
       <IdentifyClient
         initialQuota={{ status: 'unauthorized' }}
@@ -25,7 +22,18 @@ export default async function IdentifyPage() {
     );
   }
 
-  const entitlements = await getEntitlements(user.id, { supabase });
+  // Fetch entitlements and usage in parallel — both only need userId.
+  // For unlimited-tier users the usage result is discarded, but the
+  // parallelism saves more time than the redundant DB read costs.
+  const [entitlements, usage] = await Promise.all([
+    getEntitlements(userId),
+    getUsageStatus({
+      userId,
+      featureKey: 'identify:daily',
+      windowKind: 'daily',
+      limit: 5,
+    }),
+  ]);
 
   if (entitlements.features.includes('identify.unlimited')) {
     return (
@@ -35,14 +43,6 @@ export default async function IdentifyPage() {
       />
     );
   }
-
-  const usage = await getUsageStatus({
-    userId: user.id,
-    featureKey: 'identify:daily',
-    windowKind: 'daily',
-    limit: 5,
-    supabase,
-  });
 
   return (
     <IdentifyClient
