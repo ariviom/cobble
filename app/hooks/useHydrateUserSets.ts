@@ -71,13 +71,9 @@ export function useHydrateUserSets() {
   const { user } = useSupabaseUser();
   const hydrate = useUserSetsStore(state => state.hydrateFromSupabase);
   const markHydrated = useUserSetsStore(state => state.markHydrated);
-  // Use ref to track per-instance cancellation (safe for Concurrent Mode)
-  const cancelledRef = useRef(false);
   const prevUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    cancelledRef.current = false;
-
     if (!user) {
       // Clean up hydration state for logged-out users so re-login re-hydrates
       if (prevUserIdRef.current) {
@@ -130,8 +126,6 @@ export function useHydrateUserSets() {
 
         const data = (await response.json()) as UserSetsResponse;
 
-        if (cancelledRef.current) return;
-
         if (!data.sets || data.sets.length === 0) {
           // No remote sets - sync local sets to Supabase
           await syncLocalSetsToSupabase(userId, supabase);
@@ -183,9 +177,5 @@ export function useHydrateUserSets() {
 
     const promise = run();
     hydrationByUser.set(userId, { promise, completed: false });
-
-    return () => {
-      cancelledRef.current = true;
-    };
   }, [user, hydrate, markHydrated]);
 }
