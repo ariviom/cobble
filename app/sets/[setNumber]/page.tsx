@@ -1,3 +1,4 @@
+import { JsonLd } from '@/app/components/ui/JsonLd';
 import { PageLayout } from '@/app/components/layout/PageLayout';
 import { SetOverviewClient } from '@/app/components/set/SetOverviewClient';
 import { getSetSummaryLocal } from '@/app/lib/catalog';
@@ -36,9 +37,16 @@ export async function generateMetadata({
     return { title: 'Set Not Found | Brick Party' };
   }
 
+  const description = `View ${summary.name} (${summary.setNumber}) — ${summary.numParts} pieces, ${summary.year}. Browse parts, minifigures, and related sets.`;
+
   return {
     title: `${summary.name} (${summary.setNumber}) — Brick Party`,
-    description: `View ${summary.name} (${summary.setNumber}) — ${summary.numParts} pieces, ${summary.year}. Browse parts, minifigures, and related sets.`,
+    description,
+    openGraph: {
+      title: `${summary.name} (${summary.setNumber})`,
+      description,
+      ...(summary.imageUrl ? { images: [{ url: summary.imageUrl }] } : {}),
+    },
   };
 }
 
@@ -83,22 +91,36 @@ export default async function SetPage({ params }: SetPageProps) {
     };
   });
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: summary.name,
+    productID: summary.setNumber,
+    description: `${summary.numParts} pieces · ${summary.year}${summary.themeName ? ` · ${summary.themeName}` : ''}`,
+    ...(summary.imageUrl ? { image: summary.imageUrl } : {}),
+    brand: { '@type': 'Brand', name: 'LEGO' },
+    ...(summary.themeName ? { category: summary.themeName } : {}),
+  };
+
   return (
-    <PageLayout noTopOffset>
-      <SetOverviewClient
-        setNumber={summary.setNumber}
-        name={summary.name}
-        year={summary.year}
-        imageUrl={summary.imageUrl}
-        numParts={summary.numParts}
-        themeId={summary.themeId}
-        themeName={summary.themeName}
-        uniqueParts={stats?.uniqueParts ?? null}
-        uniqueColors={stats?.uniqueColors ?? null}
-        minifigs={minifigs}
-        initialRelatedSets={relatedResult.sets}
-        relatedSetsTotal={relatedResult.total}
-      />
-    </PageLayout>
+    <>
+      <JsonLd data={jsonLd} />
+      <PageLayout noTopOffset>
+        <SetOverviewClient
+          setNumber={summary.setNumber}
+          name={summary.name}
+          year={summary.year}
+          imageUrl={summary.imageUrl}
+          numParts={summary.numParts}
+          themeId={summary.themeId}
+          themeName={summary.themeName}
+          uniqueParts={stats?.uniqueParts ?? null}
+          uniqueColors={stats?.uniqueColors ?? null}
+          minifigs={minifigs}
+          initialRelatedSets={relatedResult.sets}
+          relatedSetsTotal={relatedResult.total}
+        />
+      </PageLayout>
+    </>
   );
 }
