@@ -488,7 +488,7 @@ export function UserCollectionOverview({
 
     const storeSets = sets.filter(set => {
       const { status } = set;
-      if (listFilter === 'owned' && !status.owned) return false;
+      if (!status.owned && !selectedListId) return false;
       if (listFilter === 'wishlist' && !selectedListId) return false;
       if (selectedListId) {
         if (!membership || !membership.includes(set.setNumber)) {
