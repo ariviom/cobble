@@ -4,8 +4,6 @@ import { ThemedPageHeader } from '@/app/components/ui/ThemedPageHeader';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 
-export const dynamic = 'force-dynamic';
-
 export const metadata: Metadata = {
   title: 'Search Sets & Minifigs | Brick Party',
   description: 'Search for LEGO sets and minifigures by name or number',
