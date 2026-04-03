@@ -2,7 +2,7 @@ import { PageLayout } from '@/app/components/layout/PageLayout';
 import { CollectionHero } from './CollectionHero';
 import { SignInPrompt } from '@/app/components/ui/SignInPrompt';
 import { getUserUsername } from '@/app/lib/server/getUserProfile';
-import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { getSupabaseSession } from '@/app/lib/supabaseAuthServerClient';
 import { buildUserHandle } from '@/app/lib/users';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
@@ -33,21 +33,15 @@ export default async function CollectionPage({
 }: {
   searchParams?: Promise<SearchParams>;
 }) {
-  const supabase = await getSupabaseAuthServerClient();
-
   let userId: string | null = null;
   let username: string | null = null;
 
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { userId: sessionUserId, supabase } = await getSupabaseSession();
 
-    if (!user) {
-      userId = null;
-    } else {
-      userId = user.id;
-      username = await getUserUsername(supabase, user.id);
+    if (sessionUserId) {
+      userId = sessionUserId;
+      username = await getUserUsername(supabase, sessionUserId);
     }
   } catch {
     userId = null;
