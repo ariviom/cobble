@@ -64,6 +64,9 @@ function buildRelaxedCsp(): string {
   return directives.join('; ');
 }
 
+/** CSP is deterministic per NODE_ENV — compute once and reuse. */
+const RELAXED_CSP = buildRelaxedCsp();
+
 /**
  * Apply CSP headers and request ID for distributed tracing.
  * Supabase session refresh is intentionally skipped here to
@@ -113,7 +116,7 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  response.headers.set('Content-Security-Policy', buildRelaxedCsp());
+  response.headers.set('Content-Security-Policy', RELAXED_CSP);
 
   return response;
 }
