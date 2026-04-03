@@ -33,3 +33,25 @@ export async function getSupabaseAuthServerClient(): Promise<SupabaseAuthServerC
     cookies: cookieMethods,
   });
 }
+
+/**
+ * Lightweight session check for server components.
+ *
+ * Reads the JWT from cookies via `getSession()` — no network roundtrip.
+ * Safe to use when middleware has already called `getUser()` to refresh
+ * the session on this request.
+ *
+ * Use `getSupabaseAuthServerClient()` + `auth.getUser()` instead for
+ * sensitive operations (account settings, billing) where server-side
+ * token validation is required.
+ */
+export async function getSupabaseSession(): Promise<{
+  userId: string | null;
+  supabase: SupabaseAuthServerClient;
+}> {
+  const supabase = await getSupabaseAuthServerClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return { userId: session?.user?.id ?? null, supabase };
+}
