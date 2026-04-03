@@ -123,7 +123,7 @@ export function useHydrateUserSets() {
           logger.error('hydrate.api_request_failed', {
             status: response.status,
           });
-          // Don't mark as completed so retry is possible
+          markHydrated();
           hydrationByUser.delete(userId);
           return;
         }
@@ -176,7 +176,7 @@ export function useHydrateUserSets() {
         logger.error('hydrate.user_sets_failed', {
           error: (err as Error)?.message ?? String(err),
         });
-        // Allow retry on error by removing the entry
+        markHydrated();
         hydrationByUser.delete(userId);
       }
     };

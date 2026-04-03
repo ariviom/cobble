@@ -755,7 +755,9 @@ export function UserCollectionOverview({
         onCollectionTypeChange={handleCollectionTypeChange}
       />
       {collectionType !== 'parts' &&
-        (collectionType === 'sets' ? hasAnySets : hasAnyMinifigs) && (
+        (collectionType === 'sets'
+          ? setsHydrated && hasAnySets
+          : hasAnyMinifigs) && (
           <CollectionControlBar
             collectionType={collectionType}
             listFilter={listFilter}
@@ -851,6 +853,7 @@ export function UserCollectionOverview({
           )}
 
         {collectionType === 'sets' &&
+          setsHydrated &&
           hasAnySets &&
           filteredSets.length === 0 &&
           !isCustomListLoading && (
@@ -868,37 +871,40 @@ export function UserCollectionOverview({
             </div>
           )}
 
-        {collectionType === 'sets' && hasAnySets && filteredSets.length > 0 && (
-          <div className="mt-4 flex flex-col gap-6">
-            {grouped.map(group => (
-              <div key={group.label} className="flex flex-col gap-2">
-                <CollectionGroupHeading>{group.label}</CollectionGroupHeading>
-                <div
-                  data-item-size="md"
-                  className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-                >
-                  {group.items.map(set => (
-                    <SetDisplayCardWithControls
-                      key={set.setNumber}
-                      setNumber={set.setNumber}
-                      name={set.name}
-                      year={set.year}
-                      imageUrl={set.imageUrl}
-                      numParts={set.numParts}
-                      themeId={set.themeId}
-                      themeLabel={
-                        typeof set.themeId === 'number' &&
-                        Number.isFinite(set.themeId)
-                          ? getRootThemeName(set.themeId, themeMap)
-                          : null
-                      }
-                    />
-                  ))}
+        {collectionType === 'sets' &&
+          setsHydrated &&
+          hasAnySets &&
+          filteredSets.length > 0 && (
+            <div className="mt-4 flex flex-col gap-6">
+              {grouped.map(group => (
+                <div key={group.label} className="flex flex-col gap-2">
+                  <CollectionGroupHeading>{group.label}</CollectionGroupHeading>
+                  <div
+                    data-item-size="md"
+                    className="grid grid-cols-1 gap-x-2 gap-y-4 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+                  >
+                    {group.items.map(set => (
+                      <SetDisplayCardWithControls
+                        key={set.setNumber}
+                        setNumber={set.setNumber}
+                        name={set.name}
+                        year={set.year}
+                        imageUrl={set.imageUrl}
+                        numParts={set.numParts}
+                        themeId={set.themeId}
+                        themeLabel={
+                          typeof set.themeId === 'number' &&
+                          Number.isFinite(set.themeId)
+                            ? getRootThemeName(set.themeId, themeMap)
+                            : null
+                        }
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
 
         {collectionType === 'minifigs' &&
           hasAnyMinifigs &&
@@ -927,11 +933,14 @@ export function UserCollectionOverview({
             </div>
           )}
 
-        {collectionType === 'sets' && themesLoading && hasAnySets && (
-          <div className="mt-2 text-xs text-foreground-muted">
-            Loading themes…
-          </div>
-        )}
+        {collectionType === 'sets' &&
+          setsHydrated &&
+          themesLoading &&
+          hasAnySets && (
+            <div className="mt-2 text-xs text-foreground-muted">
+              Loading themes…
+            </div>
+          )}
       </div>
     </section>
   );
