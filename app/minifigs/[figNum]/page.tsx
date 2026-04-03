@@ -1,5 +1,6 @@
 import { PageLayout } from '@/app/components/layout/PageLayout';
 import { MinifigPageClient } from '@/app/components/minifig/MinifigPageClient';
+import { JsonLd } from '@/app/components/ui/JsonLd';
 import {
   findRbMinifig,
   getBlMinifigImageUrl,
@@ -164,16 +165,23 @@ export async function generateMetadata({
   const blMinifigNo = resolved?.figNum?.trim();
 
   if (!blMinifigNo) {
-    return {
-      title: 'Minifig',
-    };
+    return { title: 'Minifig' };
   }
 
-  const { name } = await getServerMinifigMeta(blMinifigNo);
-  const baseTitle = name ?? blMinifigNo;
+  const meta = await getServerMinifigMeta(blMinifigNo);
+  const baseTitle = meta.name ?? blMinifigNo;
+  const description = meta.name
+    ? `View ${meta.name} minifigure — appears in ${meta.setsCount} set${meta.setsCount !== 1 ? 's' : ''}${meta.themeName ? ` · ${meta.themeName}` : ''}`
+    : `View LEGO minifigure ${blMinifigNo}`;
 
   return {
-    title: `${baseTitle} – Minifig`,
+    title: `${baseTitle} – Minifig | Brick Party`,
+    description,
+    openGraph: {
+      title: baseTitle,
+      description,
+      ...(meta.imageUrl ? { images: [{ url: meta.imageUrl }] } : {}),
+    },
   };
 }
 
@@ -184,22 +192,33 @@ export default async function MinifigPage({ params }: MinifigPageProps) {
     notFound();
   }
 
-  // Fetch initial metadata on server so client can render immediately
   const initialMeta = await getServerMinifigMeta(figNum);
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: initialMeta.name ?? figNum,
+    productID: figNum,
+    ...(initialMeta.imageUrl ? { image: initialMeta.imageUrl } : {}),
+    brand: { '@type': 'Brand', name: 'LEGO' },
+  };
+
   return (
-    <PageLayout>
-      <MinifigPageClient
-        figNum={figNum}
-        initialName={initialMeta.name}
-        initialImageUrl={initialMeta.imageUrl}
-        initialYear={initialMeta.year}
-        initialThemeName={initialMeta.themeName}
-        initialNumParts={initialMeta.numParts}
-        initialBlId={initialMeta.blId}
-        initialSetsCount={initialMeta.setsCount}
-        initialMinSubpartSetCount={initialMeta.minSubpartSetCount}
-      />
-    </PageLayout>
+    <>
+      <JsonLd data={jsonLd} />
+      <PageLayout>
+        <MinifigPageClient
+          figNum={figNum}
+          initialName={initialMeta.name}
+          initialImageUrl={initialMeta.imageUrl}
+          initialYear={initialMeta.year}
+          initialThemeName={initialMeta.themeName}
+          initialNumParts={initialMeta.numParts}
+          initialBlId={initialMeta.blId}
+          initialSetsCount={initialMeta.setsCount}
+          initialMinSubpartSetCount={initialMeta.minSubpartSetCount}
+        />
+      </PageLayout>
+    </>
   );
 }

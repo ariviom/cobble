@@ -8,12 +8,24 @@ export async function getPartByPartNum(partNum: string) {
   const supabase = getCatalogReadClient();
   const { data, error } = await supabase
     .from('rb_parts')
-    .select('part_num, name, part_cat_id, bl_part_id')
+    .select('part_num, name, part_cat_id, bl_part_id, image_url')
     .eq('part_num', partNum)
     .maybeSingle();
 
   if (error || !data) return null;
   return data;
+}
+
+export async function getPartCategoryName(
+  catId: number
+): Promise<string | null> {
+  const supabase = getCatalogReadClient();
+  const { data } = await supabase
+    .from('rb_part_categories')
+    .select('name')
+    .eq('id', catId)
+    .maybeSingle();
+  return data?.name ?? null;
 }
 
 export async function getPartColors(partNum: string) {
