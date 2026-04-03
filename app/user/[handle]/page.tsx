@@ -12,8 +12,6 @@ import { Lock } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
-export const revalidate = 0;
-
 type PublicSetSummary = {
   set_num: string;
   name: string;
