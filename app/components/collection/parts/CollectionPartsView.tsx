@@ -185,7 +185,7 @@ export function CollectionPartsView({
   if (isLoading) {
     return (
       <div className="mt-8 flex justify-center">
-        <BrickLoader size="sm" label="Loading parts…" />
+        <BrickLoader label="Loading parts…" />
       </div>
     );
   }

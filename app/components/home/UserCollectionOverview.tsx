@@ -792,7 +792,7 @@ export function UserCollectionOverview({
       <div className="mx-auto w-full max-w-7xl px-4">
         {collectionType === 'sets' && !setsHydrated && (
           <div className="mt-8 flex justify-center">
-            <BrickLoader size="sm" label="Loading sets…" />
+            <BrickLoader label="Loading sets…" />
           </div>
         )}
 
@@ -807,7 +807,7 @@ export function UserCollectionOverview({
 
         {collectionType === 'minifigs' && minifigsLoading && (
           <div className="mt-8 flex justify-center">
-            <BrickLoader size="sm" label="Loading minifigures…" />
+            <BrickLoader label="Loading minifigures…" />
           </div>
         )}
 
