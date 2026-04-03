@@ -4,7 +4,7 @@ import { PublicUserCollectionOverview } from '@/app/components/user/PublicUserCo
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { resolvePublicUser } from '@/app/lib/publicUsers';
 import { fetchThemes } from '@/app/lib/services/themes';
-import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { getSupabaseSession } from '@/app/lib/supabaseAuthServerClient';
 import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import { buildUserHandle } from '@/app/lib/users';
 import type { Metadata } from 'next';
@@ -142,18 +142,15 @@ export default async function CollectionHandlePage({
 
   // Check auth first — a logged-in user viewing their own collection should
   // always work, even if they have no user_profiles row yet (new users).
-  const supabaseAuth = await getSupabaseAuthServerClient();
   let currentUserId: string | null = null;
   let currentUsername: string | null = null;
 
   try {
-    const {
-      data: { user },
-    } = await supabaseAuth.auth.getUser();
+    const { userId, supabase: supabaseAuth } = await getSupabaseSession();
 
-    if (user) {
-      currentUserId = user.id;
-      currentUsername = await getUserUsername(supabaseAuth, user.id);
+    if (userId) {
+      currentUserId = userId;
+      currentUsername = await getUserUsername(supabaseAuth, userId);
     }
   } catch {
     // ignore auth errors
