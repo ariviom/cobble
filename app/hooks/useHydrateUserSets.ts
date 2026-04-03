@@ -83,6 +83,7 @@ export function useHydrateUserSets() {
       if (prevUserIdRef.current) {
         hydrationByUser.delete(prevUserIdRef.current);
       }
+      markHydrated();
       return;
     }
 

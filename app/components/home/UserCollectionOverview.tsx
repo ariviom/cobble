@@ -797,11 +797,13 @@ export function UserCollectionOverview({
         )}
 
         {collectionType === 'sets' && setsHydrated && !hasAnySets && (
-          <div className="mt-2 text-center text-sm text-foreground-muted">
-            You have no tracked sets yet. Use the status menu on search results
-            or set pages to mark sets as{' '}
-            <span className="font-medium">Owned</span> or add them to your{' '}
-            <span className="font-medium">Wishlist</span>.
+          <div className="mt-6 rounded-xl border border-dashed border-subtle bg-card/50 p-8 text-center">
+            <p className="text-body text-foreground-muted">
+              You have no tracked sets yet. Use the status menu on search
+              results or set pages to mark sets as{' '}
+              <span className="font-medium">Owned</span> or add them to your{' '}
+              <span className="font-medium">Wishlist</span>.
+            </p>
           </div>
         )}
 
@@ -814,11 +816,13 @@ export function UserCollectionOverview({
         {collectionType === 'minifigs' &&
           !minifigsLoading &&
           !hasAnyMinifigs && (
-            <div className="mt-2 text-center text-sm text-foreground-muted">
-              You have no tracked minifigures yet. Once you mark minifigs as{' '}
-              <span className="font-medium">Owned</span> or add them to your{' '}
-              <span className="font-medium">Wishlist</span>, they will appear
-              here.
+            <div className="mt-6 rounded-xl border border-dashed border-subtle bg-card/50 p-8 text-center">
+              <p className="text-body text-foreground-muted">
+                You have no tracked minifigures yet. Once you mark minifigs as{' '}
+                <span className="font-medium">Owned</span> or add them to your{' '}
+                <span className="font-medium">Wishlist</span>, they will appear
+                here.
+              </p>
             </div>
           )}
 

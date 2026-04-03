@@ -221,10 +221,12 @@ export function CollectionPartsView({
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4">
         {/* Empty state when no parts at all */}
         {parts.length === 0 && (
-          <div className="mt-2 text-center text-sm text-foreground-muted">
-            You have no tracked parts yet. Once you mark sets as{' '}
-            <span className="font-medium">Owned</span> and track pieces found,
-            your parts will appear here.
+          <div className="mt-6 rounded-xl border border-dashed border-subtle bg-card/50 p-8 text-center">
+            <p className="text-body text-foreground-muted">
+              You have no tracked parts yet. Once you mark sets as{' '}
+              <span className="font-medium">Owned</span> and track pieces found,
+              your parts will appear here.
+            </p>
           </div>
         )}
 
