@@ -1,6 +1,6 @@
 import { act } from '@testing-library/react';
 import { vi } from 'vitest';
-import { useUserSetsStore } from '@/app/store/user-sets';
+import { useUserSetsStore, STALE_ENTRY_GRACE_MS } from '@/app/store/user-sets';
 import type { UserSet } from '@/app/store/user-sets';
 
 let mockStore: Record<string, string> = {};
@@ -94,6 +94,118 @@ describe('useUserSetsStore', () => {
       useUserSetsStore.getState().clearAllStatusesForSet(SET);
     });
     expect(useUserSetsStore.getState().sets['1234-1']).toBeUndefined();
+  });
+
+  describe('hydrateFromSupabase stale entry pruning', () => {
+    it('prunes local-only entries older than the grace period', () => {
+      const staleTimestamp = Date.now() - STALE_ENTRY_GRACE_MS - 1000;
+
+      // Seed a stale local entry not on the server
+      act(() => {
+        useUserSetsStore.setState({
+          sets: {
+            '6897-1': makeEntry('6897-1', { lastUpdatedAt: staleTimestamp }),
+          },
+        });
+      });
+
+      // Hydrate with server data that does NOT include 6897-1
+      act(() => {
+        useUserSetsStore
+          .getState()
+          .hydrateFromSupabase([
+            {
+              setNumber: '1234-1',
+              name: 'Server Set',
+              status: { owned: true },
+            },
+          ]);
+      });
+
+      const state = useUserSetsStore.getState().sets;
+      expect(state['1234-1']).toBeDefined();
+      expect(state['6897-1']).toBeUndefined();
+    });
+
+    it('keeps local-only entries within the grace period', () => {
+      const recentTimestamp = Date.now() - 5000; // 5 seconds ago
+
+      act(() => {
+        useUserSetsStore.setState({
+          sets: {
+            '6897-1': makeEntry('6897-1', { lastUpdatedAt: recentTimestamp }),
+          },
+        });
+      });
+
+      act(() => {
+        useUserSetsStore
+          .getState()
+          .hydrateFromSupabase([
+            {
+              setNumber: '1234-1',
+              name: 'Server Set',
+              status: { owned: true },
+            },
+          ]);
+      });
+
+      const state = useUserSetsStore.getState().sets;
+      expect(state['1234-1']).toBeDefined();
+      expect(state['6897-1']).toBeDefined();
+    });
+
+    it('does not prune entries that exist on the server', () => {
+      const staleTimestamp = Date.now() - STALE_ENTRY_GRACE_MS - 1000;
+
+      act(() => {
+        useUserSetsStore.setState({
+          sets: {
+            '6897-1': makeEntry('6897-1', { lastUpdatedAt: staleTimestamp }),
+          },
+        });
+      });
+
+      // Server includes 6897-1 — should not be pruned even though local is old
+      act(() => {
+        useUserSetsStore
+          .getState()
+          .hydrateFromSupabase([
+            { setNumber: '6897-1', name: 'Updated', status: { owned: true } },
+          ]);
+      });
+
+      const entry = useUserSetsStore.getState().sets['6897-1'];
+      expect(entry).toBeDefined();
+      expect(entry?.name).toBe('Updated');
+    });
+
+    it('prunes multiple stale entries in one hydration', () => {
+      const staleTimestamp = Date.now() - STALE_ENTRY_GRACE_MS - 1000;
+
+      act(() => {
+        useUserSetsStore.setState({
+          sets: {
+            '1111-1': makeEntry('1111-1', { lastUpdatedAt: staleTimestamp }),
+            '2222-1': makeEntry('2222-1', { lastUpdatedAt: staleTimestamp }),
+            '3333-1': makeEntry('3333-1', { lastUpdatedAt: staleTimestamp }),
+          },
+        });
+      });
+
+      act(() => {
+        useUserSetsStore
+          .getState()
+          .hydrateFromSupabase([
+            { setNumber: '2222-1', name: 'Kept', status: { owned: true } },
+          ]);
+      });
+
+      const state = useUserSetsStore.getState().sets;
+      expect(state['1111-1']).toBeUndefined();
+      expect(state['2222-1']).toBeDefined();
+      expect(state['3333-1']).toBeUndefined();
+    });
   });
 
   describe('parsePersisted (via localStorage round-trip)', () => {

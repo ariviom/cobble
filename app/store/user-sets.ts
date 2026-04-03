@@ -4,6 +4,13 @@ import { readStorage, writeStorage } from '@/app/lib/persistence/storage';
 import { useOnboardingStore } from '@/app/store/onboarding';
 import { create } from 'zustand';
 
+/**
+ * Grace period for local-only entries during server hydration.
+ * Entries updated within this window are presumed to be in-flight optimistic
+ * updates and are kept; older entries are pruned as stale.
+ */
+export const STALE_ENTRY_GRACE_MS = 60_000;
+
 export type SetStatus = {
   owned: boolean;
 };
@@ -312,11 +319,15 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
       let mutated = false;
       const nextSets = { ...prevState.sets };
 
+      // Build set of server-known keys for stale entry pruning
+      const serverKeys = new Set<string>();
+
       for (const entry of entries) {
         if (!entry || typeof entry.setNumber !== 'string') {
           continue;
         }
         const normKey = normalizeKey(entry.setNumber);
+        serverKeys.add(normKey);
         const existing = nextSets[normKey];
         const incomingUpdatedAt =
           typeof entry.updatedAt === 'number' &&
@@ -354,6 +365,19 @@ export const useUserSetsStore = create<UserSetsState>(set => ({
               : (existing?.foundCount ?? 0),
         };
         mutated = true;
+      }
+
+      // Prune local-only entries not present on the server.
+      // Keep entries updated within the last 60 seconds — they are likely
+      // optimistic updates whose async sync hasn't round-tripped yet.
+      const now = Date.now();
+      for (const key of Object.keys(nextSets)) {
+        if (serverKeys.has(key)) continue;
+        const entry = nextSets[key];
+        if (now - (entry.lastUpdatedAt ?? 0) > STALE_ENTRY_GRACE_MS) {
+          delete nextSets[key];
+          mutated = true;
+        }
       }
 
       if (!mutated) {
