@@ -30,7 +30,17 @@
       "Bash(curl -s 'http://localhost:3000/search?q=Pirate+Ship')",
       "Bash(ls:*)",
       "Read(//tmp/**)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(git -C /home/drew/cobble log --oneline --all)",
+      "WebFetch(domain:www.bricklink.com)",
+      "WebFetch(domain:www.ldraw.org)",
+      "WebFetch(domain:forum.rebrickable.com)",
+      "WebFetch(domain:forums.ldraw.org)",
+      "WebFetch(domain:www.lego.com)",
+      "WebFetch(domain:bricksafe.com)",
+      "Bash(npx --yes sharp-cli --version)",
+      "Bash(npm list:*)"
     ]
   }
 }
