@@ -86,8 +86,6 @@ describe('GET /api/search/parts', () => {
     const req = new NextRequest('http://localhost/api/search/parts?q=test');
     const res = await GET(req);
 
-    expect(res.headers.get('Cache-Control')).toBe(
-      'public, s-maxage=30, max-age=60'
-    );
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=60');
   });
 });

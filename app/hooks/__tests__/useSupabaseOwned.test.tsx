@@ -70,10 +70,24 @@ vi.mock('@/app/lib/ownedSync', () => ({
   },
 }));
 
+// Mock localStorage for the test environment
+const localStorageStore = new Map<string, string>();
+vi.stubGlobal('localStorage', {
+  getItem: (key: string) => localStorageStore.get(key) ?? null,
+  setItem: (key: string, val: string) => localStorageStore.set(key, val),
+  removeItem: (key: string) => localStorageStore.delete(key),
+  clear: () => localStorageStore.clear(),
+  get length() {
+    return localStorageStore.size;
+  },
+  key: (i: number) => Array.from(localStorageStore.keys())[i] ?? null,
+});
+
 describe('useSupabaseOwned', () => {
   const setNumber = '75001-1';
 
   beforeEach(() => {
+    localStorageStore.clear();
     // Reset the store before each test
     const store = useOwnedStore.getState();
     store.clearAll(setNumber);

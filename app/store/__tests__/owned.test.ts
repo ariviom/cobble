@@ -1,6 +1,19 @@
 import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Mock localStorage (jsdom's implementation may not be available in this module context)
+const localStorageStore = new Map<string, string>();
+vi.stubGlobal('localStorage', {
+  getItem: (key: string) => localStorageStore.get(key) ?? null,
+  setItem: (key: string, val: string) => localStorageStore.set(key, val),
+  removeItem: (key: string) => localStorageStore.delete(key),
+  clear: () => localStorageStore.clear(),
+  get length() {
+    return localStorageStore.size;
+  },
+  key: (i: number) => Array.from(localStorageStore.keys())[i] ?? null,
+});
+
 // Mock localDb before importing owned store
 const mockSetOwnedForSet = vi.fn<
   (setNumber: string, data: Record<string, number>) => Promise<void>
@@ -29,6 +42,7 @@ async function flushMicrotasks() {
 
 describe('useOwnedStore', () => {
   beforeEach(async () => {
+    localStorageStore.clear();
     mockSetOwnedForSet.mockClear();
     mockGetOwnedForSet.mockClear();
     mockIsIndexedDBAvailable.mockReturnValue(true);
