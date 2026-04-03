@@ -23,7 +23,14 @@
       "mcp__plugin_stripe_stripe__search_stripe_documentation",
       "Bash(node:*)",
       "Bash(git show:*)",
-      "WebFetch(domain:brick-party.com)"
+      "WebFetch(domain:brick-party.com)",
+      "Bash(curl -s 'http://localhost:3000/api/search?q=Galaxy+Explorer&sort=relevance&page=1&pageSize=3')",
+      "Bash(curl -s 'http://localhost:3000/api/search?q=Pirate+Ship&sort=relevance&page=1&pageSize=3')",
+      "Bash(curl -s 'http://localhost:3000/search?q=Galaxy+Explorer')",
+      "Bash(curl -s 'http://localhost:3000/search?q=Pirate+Ship')",
+      "Bash(ls:*)",
+      "Read(//tmp/**)",
+      "Bash(curl:*)"
     ]
   }
 }

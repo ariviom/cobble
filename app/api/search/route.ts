@@ -10,8 +10,13 @@ import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-// Per-URL caching: s-maxage for CDN, max-age for browser. Each unique query string is a separate cache entry.
-const CACHE_CONTROL = 'public, s-maxage=30, max-age=60';
+// Browser may cache per-URL (max-age). Netlify CDN must not cache because its
+// netlify-vary header ignores search query params, collapsing different queries
+// into one cache entry. CDN-Cache-Control overrides CDN behavior only.
+const CACHE_HEADERS = {
+  'Cache-Control': 'public, max-age=60',
+  'CDN-Cache-Control': 'no-store',
+};
 
 const allowedFilters: FilterType[] = ['all', 'set', 'theme', 'subtheme'];
 const allowedSizes = new Set([20, 50, 100]);
@@ -91,7 +96,7 @@ export async function GET(req: NextRequest) {
     logEvent('search_response', { q, page, pageSize, count: slice.length });
     return NextResponse.json(
       { results: slice, nextPage },
-      { headers: { 'Cache-Control': CACHE_CONTROL } }
+      { headers: CACHE_HEADERS }
     );
   } catch (err) {
     if (err instanceof Error && err.message === 'rebrickable_circuit_open') {
