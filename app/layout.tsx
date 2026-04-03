@@ -35,6 +35,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://brick-party.com'),
   title: 'Brick Party — LEGO Set Piece Picker',
   description:
     'Search LEGO sets, track owned pieces, and export missing parts lists for Rebrickable and BrickLink.',
@@ -51,6 +52,14 @@ export const metadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+  },
+  openGraph: {
+    type: 'website',
+    siteName: 'Brick Party',
+    images: [{ url: '/og-default.png', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
   },
 };
 
