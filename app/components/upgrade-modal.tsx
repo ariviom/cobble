@@ -1,12 +1,10 @@
 'use client';
 
-import React from 'react';
-
 import { Button } from '@/app/components/ui/Button';
-import { X } from 'lucide-react';
 import { Modal } from '@/app/components/ui/Modal';
-import { useOpenTabsStore, isSetTab } from '@/app/store/open-tabs';
 import { FREE_TAB_LIMIT } from '@/app/lib/domain/limits';
+import { isSetTab, useOpenTabsStore } from '@/app/store/open-tabs';
+import { X } from 'lucide-react';
 
 export type FeatureGateKey =
   | 'tabs.unlimited'
@@ -41,9 +39,16 @@ type Props = {
   open: boolean;
   feature: FeatureGateKey;
   onClose: () => void;
+  /**
+   * Optional Continue handler for gates that have a pending action to
+   * commit on confirm (e.g. the tabs gate opens the originally-intended
+   * set after the user frees up a slot). Defaults to `onClose` for gates
+   * where Continue is just "Maybe Later".
+   */
+  onContinue?: () => void;
 };
 
-export function UpgradeModal({ open, feature, onClose }: Props) {
+export function UpgradeModal({ open, feature, onClose, onContinue }: Props) {
   const tabs = useOpenTabsStore(s => s.tabs);
   const closeTab = useOpenTabsStore(s => s.closeTab);
   const setTabs = feature === 'tabs.unlimited' ? tabs.filter(isSetTab) : [];
@@ -64,9 +69,9 @@ export function UpgradeModal({ open, feature, onClose }: Props) {
                   className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm"
                 >
                   <span className="truncate text-foreground-muted">
-                    <span className="font-medium text-foreground">
+                    <span className="mr-2 font-medium text-foreground">
                       {tab.setNumber}
-                    </span>{' '}
+                    </span>
                     {tab.name}
                   </span>
                   <button
@@ -107,7 +112,7 @@ export function UpgradeModal({ open, feature, onClose }: Props) {
             <Button
               variant="secondary"
               size="sm"
-              onClick={onClose}
+              onClick={onContinue ?? onClose}
               disabled={setTabs.length >= FREE_TAB_LIMIT}
               className="flex-1"
             >

@@ -64,8 +64,13 @@ export function SetOverviewClient({
   initialRelatedSets,
   relatedSetsTotal,
 }: SetOverviewClientProps) {
-  const { openSet, showUpgradeModal, dismissUpgradeModal, gateFeature } =
-    useOpenSet();
+  const {
+    openSet,
+    showUpgradeModal,
+    dismissUpgradeModal,
+    continueFromUpgradeModal,
+    gateFeature,
+  } = useOpenSet();
   const ownership = useSetOwnershipState({
     setNumber,
     name,
@@ -320,6 +325,7 @@ export function SetOverviewClient({
         open={showUpgradeModal}
         feature={gateFeature}
         onClose={dismissUpgradeModal}
+        onContinue={continueFromUpgradeModal}
       />
     </div>
   );

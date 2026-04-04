@@ -43,8 +43,13 @@ export function SetDetailModal({
   themeName,
   activeSetNumber,
 }: SetDetailModalProps) {
-  const { openSet, showUpgradeModal, dismissUpgradeModal, gateFeature } =
-    useOpenSet();
+  const {
+    openSet,
+    showUpgradeModal,
+    dismissUpgradeModal,
+    continueFromUpgradeModal,
+    gateFeature,
+  } = useOpenSet();
   const isCurrentSet =
     activeSetNumber != null &&
     activeSetNumber.toLowerCase() === setNumber.toLowerCase();
@@ -207,6 +212,7 @@ export function SetDetailModal({
         open={showUpgradeModal}
         feature={gateFeature}
         onClose={dismissUpgradeModal}
+        onContinue={continueFromUpgradeModal}
       />
     </>
   );

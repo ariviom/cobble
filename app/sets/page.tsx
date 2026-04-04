@@ -93,8 +93,16 @@ export default function SetsPage() {
     replaceLandingWithSet,
     showUpgradeModal,
     dismissUpgradeModal,
+    continueFromUpgradeModal,
     gateFeature,
-  } = useGatedOpenTab();
+  } = useGatedOpenTab({
+    // Fires when a tab is actually opened — either immediately on the
+    // happy path, or later when the user clicks Continue in the upgrade
+    // modal after freeing up slots. URL sync for the SPA tab container.
+    onOpened: tab => {
+      window.history.pushState(null, '', `/sets?active=${tab.id}`);
+    },
+  });
 
   // Track pending deep-link open to avoid repeated fetch attempts
   const pendingDeepLinkRef = useRef<string | null>(null);
@@ -269,19 +277,46 @@ export default function SetsPage() {
     window.scrollTo(0, 0);
   }, [saveCurrentScroll, openLandingTab]);
 
-  // Handle selecting a set from a landing tab's content
+  // Handle selecting a set from a landing tab's content.
+  // URL sync is handled by the hook's onOpened callback (runs on the happy
+  // path AND after the upgrade modal's Continue, so gated opens don't lose
+  // the user's intent).
   const handleSelectSetFromLanding = useCallback(
     (landingTabId: string) => (setTab: SetTab) => {
-      const allowed = replaceLandingWithSet(landingTabId, setTab);
-      if (allowed) {
-        window.history.pushState(null, '', `/sets?active=${setTab.id}`);
-      }
+      replaceLandingWithSet(landingTabId, setTab);
     },
     [replaceLandingWithSet]
   );
 
   // Sync URL with active tab on mount and handle popstate
   useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const active = params.get('active');
+      if (active && tabs.some(t => t.id === active)) {
+        saveCurrentScroll();
+        setActiveTab(active);
+      } else {
+        // No ?active= param — try to activate a landing tab
+        const landingTab = tabs.find(t => isLandingTab(t));
+        if (landingTab) {
+          saveCurrentScroll();
+          setActiveTab(landingTab.id);
+        }
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+
+    // While the upgrade modal is open, freeze URL/tab sync. Otherwise
+    // closing a tab inside the modal can either re-fetch the just-closed
+    // tab via the deep-link branch below, or replaceState the URL to a
+    // different tab, both of which the user hasn't asked for yet. Sync
+    // resumes when the modal closes (either cancel or Continue). The
+    // popstate listener stays registered so browser back still works.
+    if (showUpgradeModal) {
+      return () => window.removeEventListener('popstate', handlePopState);
+    }
+
     const params = new URLSearchParams(window.location.search);
     const activeFromUrl = params.get('active');
 
@@ -339,25 +374,15 @@ export default function SetsPage() {
       }
     }
 
-    const handlePopState = () => {
-      const params = new URLSearchParams(window.location.search);
-      const active = params.get('active');
-      if (active && tabs.some(t => t.id === active)) {
-        saveCurrentScroll();
-        setActiveTab(active);
-      } else {
-        // No ?active= param — try to activate a landing tab
-        const landingTab = tabs.find(t => isLandingTab(t));
-        if (landingTab) {
-          saveCurrentScroll();
-          setActiveTab(landingTab.id);
-        }
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [tabs, activeTabId, setActiveTab, saveCurrentScroll, openTab]);
+  }, [
+    tabs,
+    activeTabId,
+    setActiveTab,
+    saveCurrentScroll,
+    openTab,
+    showUpgradeModal,
+  ]);
 
   // Track active tab changes (scroll restoration is handled by SetTabContainerContent)
   useEffect(() => {
@@ -442,6 +467,7 @@ export default function SetsPage() {
         open={showUpgradeModal}
         feature={gateFeature}
         onClose={dismissUpgradeModal}
+        onContinue={continueFromUpgradeModal}
       />
     </div>
   );

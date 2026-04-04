@@ -51,8 +51,21 @@ export function GroupSessionPageClient({
 
   const clientId = useGroupClientId();
   const router = useRouter();
-  const { openTab, showUpgradeModal, dismissUpgradeModal, gateFeature } =
-    useGatedOpenTab();
+  const {
+    openTab,
+    showUpgradeModal,
+    dismissUpgradeModal,
+    continueFromUpgradeModal,
+    gateFeature,
+  } = useGatedOpenTab({
+    // Fires when the set tab is actually opened — either immediately on
+    // the happy path, or later when the user clicks Continue in the
+    // upgrade modal after freeing up slots. Handles the redirect from the
+    // session join page to the tabbed /sets view.
+    onOpened: tab => {
+      router.push(`/sets?active=${encodeURIComponent(tab.id)}`);
+    },
+  });
 
   const handleJoin = async () => {
     if (!clientId) return;
@@ -140,11 +153,9 @@ export function GroupSessionPageClient({
         groupParticipantId: data.participant.id,
         groupRole: 'joiner',
       };
-      const allowed = openTab(setTab);
-      if (!allowed) return;
-
-      // Redirect to the tabbed sets page
-      router.push(`/sets?active=${encodeURIComponent(tabId)}`);
+      // openTab's onOpened callback handles the redirect on the happy path,
+      // and replays it after Continue in the upgrade modal if gated.
+      openTab(setTab);
     } catch (err) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('GroupSessionPageClient: handleJoin failed', {
@@ -228,6 +239,7 @@ export function GroupSessionPageClient({
         open={showUpgradeModal}
         feature={gateFeature}
         onClose={dismissUpgradeModal}
+        onContinue={continueFromUpgradeModal}
       />
     </div>
   );

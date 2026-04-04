@@ -18,16 +18,28 @@ type OpenSetParams = {
 
 export function useOpenSet() {
   const router = useRouter();
-  const { openTab, showUpgradeModal, dismissUpgradeModal, gateFeature } =
-    useGatedOpenTab();
   const syncRecentSet = useSyncRecentSet();
+  const {
+    openTab,
+    showUpgradeModal,
+    dismissUpgradeModal,
+    continueFromUpgradeModal,
+    gateFeature,
+  } = useGatedOpenTab({
+    // Fires when a tab is actually opened — either immediately on the
+    // happy path, or later when the user clicks Continue in the upgrade
+    // modal after freeing up slots.
+    onOpened: tab => {
+      router.push(`/sets?active=${encodeURIComponent(tab.id)}`);
+    },
+  });
 
   const openSet = useCallback(
     (params: OpenSetParams) => {
       const { setNumber, name, year, imageUrl, numParts, themeId, themeName } =
         params;
 
-      const allowed = openTab({
+      openTab({
         type: 'set',
         id: setNumber,
         setNumber,
@@ -49,13 +61,15 @@ export function useOpenSet() {
         themeName,
       });
       syncRecentSet(setNumber);
-
-      if (allowed) {
-        router.push(`/sets?active=${encodeURIComponent(setNumber)}`);
-      }
     },
-    [openTab, syncRecentSet, router]
+    [openTab, syncRecentSet]
   );
 
-  return { openSet, showUpgradeModal, dismissUpgradeModal, gateFeature };
+  return {
+    openSet,
+    showUpgradeModal,
+    dismissUpgradeModal,
+    continueFromUpgradeModal,
+    gateFeature,
+  };
 }
