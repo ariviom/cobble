@@ -40,7 +40,9 @@
       "WebFetch(domain:www.lego.com)",
       "WebFetch(domain:bricksafe.com)",
       "Bash(npx --yes sharp-cli --version)",
-      "Bash(npm list:*)"
+      "Bash(npm list:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm i:*)"
     ]
   }
 }

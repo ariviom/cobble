@@ -1,3 +1,5 @@
+import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import { TourCard } from '@/app/components/onboarding/TourCard';
 import { DunningBanner } from '@/app/components/dunning-banner';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
@@ -236,6 +238,8 @@ export default async function RootLayout({
                   <ReactQueryProvider>
                     <ErrorBoundary>
                       {children}
+                      <Analytics />
+                      <SpeedInsights />
                       <TourCard />
                     </ErrorBoundary>
                   </ReactQueryProvider>
