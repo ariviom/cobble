@@ -10,10 +10,10 @@ Use Stripe test cards for checkout flows: `4242 4242 4242 4242` (success), `4000
 
 Unauth users can browse but not track anything or use features that require tracking.
 
-- [ ] Can search for sets
-- [ ] Can view set inventories
-- [ ] Cannot mark owned quantities (prompted to sign in)
-- [ ] Cannot create lists, identify parts, or host Search Party
+- [x] Can search for sets
+- [x] Can view set inventories
+- [x] Cannot mark owned quantities (prompted to sign in)
+- [x] Cannot create lists, identify parts, or host Search Party
 - [ ] Cannot access collection or account pages
 
 ## Tabs

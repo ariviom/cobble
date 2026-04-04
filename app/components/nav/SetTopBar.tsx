@@ -386,7 +386,9 @@ export function SetTopBar({
                     Search for pieces together
                   </CardTitle>
                   <CardDescription className="text-sm">
-                    Start a session and invite others to join.
+                    {user
+                      ? 'Start a session and invite others to join.'
+                      : 'Sign in to start a session and invite others to join.'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -489,6 +491,21 @@ export function SetTopBar({
                         </p>
                       </div>
                     )
+                  ) : !user ? (
+                    <div className="flex w-full flex-col gap-2">
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="lg"
+                        className="w-full"
+                        href="/login"
+                      >
+                        Sign in to start
+                      </Button>
+                      <p className="mt-2 text-center text-xs text-foreground-muted">
+                        Sign in to host a Search Party session
+                      </p>
+                    </div>
                   ) : (
                     <p className="text-foreground-muted">
                       Only the session host can start a Search Party session.
