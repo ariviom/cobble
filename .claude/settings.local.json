@@ -42,7 +42,14 @@
       "Bash(npx --yes sharp-cli --version)",
       "Bash(npm list:*)",
       "Bash(npm ls:*)",
-      "Bash(npm i:*)"
+      "Bash(npm i:*)",
+      "Bash(find /home/drew/cobble -path /home/drew/cobble/node_modules -prune -o -type f \\\\\\(-name *.yml -o -name *.yaml \\\\\\) -print)",
+      "Bash(find /home/drew/cobble -maxdepth 2 -name .env* -type f)",
+      "Bash(sort -k6,7)",
+      "Bash(find /home/drew/cobble -type f -path *supabase/functions*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git diff:*)"
     ]
   }
 }

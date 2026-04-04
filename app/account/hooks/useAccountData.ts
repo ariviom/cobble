@@ -87,9 +87,8 @@ export function useAccountData({
 
         if (!existingProfile) {
           const oauthName =
-            (fetchedUser.user_metadata?.full_name as
-              | string
-              | undefined) ?? null;
+            (fetchedUser.user_metadata?.full_name as string | undefined) ??
+            null;
           const username = generateUsername();
           const displayName = oauthName ?? username;
 
