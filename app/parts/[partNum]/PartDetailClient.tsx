@@ -19,6 +19,7 @@ import {
   getLoosePart,
 } from '@/app/lib/localDb/loosePartsStore';
 import { useAuth } from '@/app/components/providers/auth-provider';
+import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 
 type PartColor = {
   color_id: number;
@@ -51,6 +52,8 @@ type Props = {
 
 export function PartDetailClient({ part, colors, rarityData }: Props) {
   const { user } = useAuth();
+  const { hasFeature } = useEntitlements();
+  const rarityEnabled = hasFeature('rarity.enabled');
   // Map colors to the format ColorPicker expects
   const availableColors = useMemo(
     () =>
@@ -256,7 +259,7 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
                 <span>{selectedColor.name}</span>
               </>
             )}
-            {selectedRarity > 0 && (
+            {rarityEnabled && selectedRarity > 0 && (
               <>
                 <span>·</span>
                 <span>

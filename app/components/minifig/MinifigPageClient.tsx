@@ -15,6 +15,7 @@ import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { formatCurrency } from '@/app/lib/utils/formatCurrency';
 import { ImagePlaceholder } from '@/app/components/ui/ImagePlaceholder';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
+import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import { RarityBadge } from '@/app/components/set/items/RarityBadge';
 import { getRarityTier } from '@/app/components/set/types';
 import {
@@ -60,6 +61,8 @@ export function MinifigPageClient({
   initialMinSubpartSetCount,
 }: MinifigPageClientProps) {
   const trimmedFigNum = figNum.trim();
+  const { hasFeature } = useEntitlements();
+  const rarityEnabled = hasFeature('rarity.enabled');
   const ownership = useMinifigOwnershipState({ figNum: trimmedFigNum });
   const { user, isLoading: isUserLoading } = useSupabaseUser();
   const { minifigs } = useUserMinifigs();
@@ -204,14 +207,17 @@ export function MinifigPageClient({
                 <span>{partsCount} parts</span>
               </>
             )}
-            {getRarityTier(initialMinSubpartSetCount ?? setsCount) != null && (
-              <>
-                <span>•</span>
-                <RarityBadge
-                  tier={getRarityTier(initialMinSubpartSetCount ?? setsCount)!}
-                />
-              </>
-            )}
+            {rarityEnabled &&
+              getRarityTier(initialMinSubpartSetCount ?? setsCount) != null && (
+                <>
+                  <span>•</span>
+                  <RarityBadge
+                    tier={
+                      getRarityTier(initialMinSubpartSetCount ?? setsCount)!
+                    }
+                  />
+                </>
+              )}
           </div>
         </div>
 
@@ -446,7 +452,8 @@ export function MinifigPageClient({
                             <span>{item.colorName}</span>
                             <span>•</span>
                             <span>×{item.quantity}</span>
-                            {item.setCount != null &&
+                            {rarityEnabled &&
+                              item.setCount != null &&
                               getRarityTier(item.setCount) != null && (
                                 <>
                                   <span>•</span>

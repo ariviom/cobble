@@ -1,5 +1,6 @@
 'use client';
 
+import { generateUsername } from '@/app/lib/generateUsername';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
 import type { Tables } from '@/supabase/types';
@@ -85,25 +86,40 @@ export function useAccountData({
         }
 
         if (!existingProfile) {
-          const displayName =
-            (fetchedUser.user_metadata &&
-              (fetchedUser.user_metadata.full_name as string | undefined)) ||
-            fetchedUser.email ||
-            null;
+          const oauthName =
+            (fetchedUser.user_metadata?.full_name as
+              | string
+              | undefined) ?? null;
+          const username = generateUsername();
+          const displayName = oauthName ?? username;
 
-          const { data: createdProfile, error: insertError } = await supabase
-            .from('user_profiles')
-            .insert({
-              user_id: fetchedUser.id as UserId,
-              display_name: displayName,
-            })
-            .select('*')
-            .maybeSingle();
+          let created = false;
+          let attemptsLeft = 3;
+          let currentUsername = username;
 
-          if (insertError) {
-            setError(insertError.message);
-          } else if (createdProfile) {
-            setProfile(createdProfile);
+          while (!created && attemptsLeft > 0) {
+            attemptsLeft--;
+            const { data: createdProfile, error: insertError } = await supabase
+              .from('user_profiles')
+              .insert({
+                user_id: fetchedUser.id as UserId,
+                display_name: displayName,
+                username: currentUsername,
+              })
+              .select('*')
+              .maybeSingle();
+
+            if (insertError) {
+              if (insertError.code === '23505' && attemptsLeft > 0) {
+                currentUsername = generateUsername();
+                continue;
+              }
+              setError(insertError.message);
+              break;
+            } else if (createdProfile) {
+              setProfile(createdProfile);
+              created = true;
+            }
           }
         } else {
           setProfile(existingProfile);

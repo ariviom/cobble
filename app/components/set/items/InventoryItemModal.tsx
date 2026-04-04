@@ -7,6 +7,7 @@ import {
   ModalExternalLinks,
 } from '@/app/components/ui/ModalExternalLinks';
 import { OptimizedImage } from '@/app/components/ui/OptimizedImage';
+import { useEntitlements } from '@/app/components/providers/entitlements-provider';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import { formatCurrency } from '@/app/lib/utils/formatCurrency';
 import { DollarSign, ExternalLink, Layers } from 'lucide-react';
@@ -108,6 +109,8 @@ function useBricklinkValidation(
 }
 
 export function InventoryItemModal({ open, onClose, data }: Props) {
+  const { hasFeature } = useEntitlements();
+  const rarityEnabled = hasFeature('rarity.enabled');
   // Derive values needed for validation hook (must be called unconditionally)
   const row = data?.row;
   const bricklinkColorId = data?.bricklinkColorId;
@@ -204,7 +207,7 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
   // Determine if we have stats to show in the grid
   const showPriceCell =
     hasPrice || hasRange || isPricePending || pricingSource === 'unavailable';
-  const showSetsCell = row.setCount != null;
+  const showSetsCell = rarityEnabled && row.setCount != null;
   const showStatsGrid = showPriceCell || showSetsCell;
 
   return (
