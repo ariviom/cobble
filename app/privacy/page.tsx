@@ -156,6 +156,14 @@ export default function PrivacyPage() {
                   <strong>Sentry</strong> — Error monitoring and reporting
                 </li>
                 <li>
+                  <strong>Vercel Analytics</strong> — Page view and performance
+                  metrics
+                </li>
+                <li>
+                  <strong>Vercel Speed Insights</strong> — Core Web Vitals
+                  monitoring
+                </li>
+                <li>
                   <strong>Rebrickable</strong> — LEGO catalog data
                 </li>
                 <li>

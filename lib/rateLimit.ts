@@ -94,9 +94,7 @@ function consumeRateLimitInMemory(
 export async function getClientIp(req: {
   headers: Headers;
 }): Promise<string | null> {
-  // Platform-verified headers (not client-spoofable) — check first
-  const nfIp = req.headers.get('x-nf-client-connection-ip'); // Netlify
-  if (nfIp && nfIp.trim().length > 0) return nfIp.trim();
+  // Platform-verified header (not client-spoofable) — check first
   const realIp = req.headers.get('x-real-ip'); // Vercel
   if (realIp && realIp.trim().length > 0) return realIp.trim();
 

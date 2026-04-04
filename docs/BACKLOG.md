@@ -107,12 +107,12 @@ Replace real-time-only BL API pricing with a three-layer system (BL cache → ob
 - [ ] Add per-request budget to cap external calls
 - [ ] Cache "identify → sets" resolutions in Supabase
 
-### Migrate to Vercel
+### ~~Migrate to Vercel~~ ✅
 
-Currently hosted on Netlify. Vercel is a better fit for Next.js (native App Router support, edge middleware, ISR).
+Migrated from Netlify to Vercel (2026-04-04). DNS, env vars, and SSL configured.
 
-- [ ] Migrate hosting from Netlify to Vercel
-- [ ] Update env vars, domain DNS, webhook URLs
+- [x] Migrate hosting from Netlify to Vercel
+- [x] Update env vars, domain DNS, webhook URLs
 
 ### Architecture Cleanup
 

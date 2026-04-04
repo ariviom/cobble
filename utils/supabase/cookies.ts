@@ -82,7 +82,7 @@ export function createMiddlewareCookieMethods(
 /**
  * Create CookieMethodsServer for Server Component context (next/headers).
  *
- * Server Components cannot mutate cookies (and Netlify Edge will throw).
+ * Server Components cannot mutate cookies.
  * We intentionally no-op setAll to avoid runtime errors; middleware/route
  * handlers are responsible for refresh token writes.
  */

@@ -61,7 +61,7 @@ Start with Small ($20/mo) at 5K MAU. Monitor `pg_stat_activity` and query latenc
 
 **When:** At ~10K+ MAU with heavy search usage.
 
-**Problem:** `/_next/image` optimization requests are serverless function invocations on Netlify. Search results with 100 set cards trigger 100 image optimization requests on first view per unique image variant.
+**Problem:** `/_next/image` optimization requests are serverless function invocations. Search results with 100 set cards trigger 100 image optimization requests on first view per unique image variant.
 
 **Mitigation already in place:** PWA service worker uses `CacheFirst` strategy with 30-day TTL for Rebrickable, BrickLink, and Google Storage images. Repeat visits serve from browser cache.
 
@@ -71,14 +71,13 @@ Start with Small ($20/mo) at 5K MAU. Monitor `pg_stat_activity` and query latenc
 - Pregenerate common thumbnail sizes during catalog ingestion
 - Add `loading="lazy"` to below-fold images (may already be handled by Next.js `<Image>`)
 
-### Netlify plan upgrade
+### Vercel plan upgrade
 
-**When:** Deploy frequency becomes the bottleneck (15 credits per deploy, 300 credits on Free plan = 20 deploys/month max).
+**When:** Function execution or bandwidth becomes the bottleneck.
 
 **Path:**
 
-- Free ($0/mo, 300 credits) → likely sufficient through ~500 MAU
-- Personal ($9/mo, 1,000 credits) → sufficient through ~5,000 MAU
-- Pro ($20/mo, 3,000 credits) → sufficient through ~20,000+ MAU
+- Hobby ($0/mo) → generous free tier for personal projects
+- Pro ($20/mo) → 1TB bandwidth, 1000 GB-hrs serverless, team features
 
-Deploy frequency (not traffic) will force the upgrade first. At 2+ deploys/day, the Free plan is already tight.
+Image optimization (1000 free/month on Hobby) may be the first limit hit with heavy search usage.

@@ -8,12 +8,8 @@ import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-// Browser may cache per-URL (max-age). Netlify CDN must not cache because its
-// netlify-vary header ignores search query params, collapsing different queries
-// into one cache entry. CDN-Cache-Control overrides CDN behavior only.
 const CACHE_HEADERS = {
   'Cache-Control': 'public, max-age=60',
-  'CDN-Cache-Control': 'no-store',
 };
 const allowedSizes = new Set([20, 50, 100]);
 
