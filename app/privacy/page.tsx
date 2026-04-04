@@ -362,8 +362,11 @@ export default function PrivacyPage() {
 
         <div className="border-border mt-8 border-t pt-6">
           <p className="text-xs text-foreground-muted">
-            LEGO® is a trademark of the LEGO Group, which does not sponsor,
-            authorize, or endorse this application.
+            LEGO® is a trademark of the LEGO Group. Rebrickable® is a
+            trademark of Rebrickable Pty Ltd. BrickLink® is a trademark of
+            BrickLink Corporation (LEGO Group). This application is not
+            affiliated with, sponsored by, or endorsed by any of these
+            companies.
           </p>
         </div>
       </div>

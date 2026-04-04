@@ -158,6 +158,20 @@ export default function TermsPage() {
                 BrickLink formats. Your use of those files on third-party
                 platforms is subject to those platforms&apos; terms of service.
               </p>
+              <p>
+                Brick Party is not affiliated with, sponsored by, or endorsed by
+                any of these third-party services or their parent companies. Use
+                of their names is for identification purposes only and does not
+                imply endorsement.
+              </p>
+              <ul className="list-disc space-y-1 pl-6">
+                <li>LEGO® is a trademark of the LEGO Group.</li>
+                <li>Rebrickable® is a trademark of Rebrickable Pty Ltd.</li>
+                <li>
+                  BrickLink® is a trademark of BrickLink Corporation (LEGO
+                  Group).
+                </li>
+              </ul>
             </div>
           </section>
 
@@ -319,8 +333,11 @@ export default function TermsPage() {
 
         <div className="border-border mt-8 border-t pt-6">
           <p className="text-xs text-foreground-muted">
-            LEGO® is a trademark of the LEGO Group, which does not sponsor,
-            authorize, or endorse this application.
+            LEGO® is a trademark of the LEGO Group. Rebrickable® is a
+            trademark of Rebrickable Pty Ltd. BrickLink® is a trademark of
+            BrickLink Corporation (LEGO Group). This application is not
+            affiliated with, sponsored by, or endorsed by any of these
+            companies.
           </p>
         </div>
       </div>
