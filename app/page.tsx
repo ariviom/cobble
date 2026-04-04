@@ -1,4 +1,4 @@
-import { getSupabaseSession } from '@/app/lib/supabaseAuthServerClient';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { redirect } from 'next/navigation';
 import { LandingPage } from './components/landing/LandingPage';
 
@@ -6,8 +6,12 @@ export default async function Home() {
   let isAuthenticated = false;
 
   try {
-    const { userId } = await getSupabaseSession();
-    isAuthenticated = !!userId;
+    const supabase = await getSupabaseAuthServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    isAuthenticated = !!user;
   } catch {
     // Auth check failed — treat as unauthenticated
   }

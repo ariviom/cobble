@@ -1,4 +1,4 @@
-import { getSupabaseSession } from '@/app/lib/supabaseAuthServerClient';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { getEntitlements } from '@/app/lib/services/entitlements';
 import { PricingPageClient } from './pricing-client';
 
@@ -9,17 +9,20 @@ export default async function PricingPage() {
   let hadPriorSubscription = false;
 
   try {
-    const { userId, supabase } = await getSupabaseSession();
+    const supabase = await getSupabaseAuthServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (userId) {
+    if (user) {
       isAuthenticated = true;
-      const entitlements = await getEntitlements(userId);
+      const entitlements = await getEntitlements(user.id);
       tier = entitlements.tier;
 
       const { data: sub } = await supabase
         .from('billing_subscriptions')
         .select('status')
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         .in('status', ['active', 'trialing', 'past_due', 'canceled'])
         .order('created_at', { ascending: false })
         .limit(1)
@@ -30,7 +33,7 @@ export default async function PricingPage() {
       const { data: priorSub } = await supabase
         .from('billing_subscriptions')
         .select('id')
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         .limit(1)
         .maybeSingle();
       hadPriorSubscription = !!priorSub;

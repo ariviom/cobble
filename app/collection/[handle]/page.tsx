@@ -4,7 +4,7 @@ import { PublicUserCollectionOverview } from '@/app/components/user/PublicUserCo
 import { getCatalogReadClient } from '@/app/lib/db/catalogAccess';
 import { resolvePublicUser } from '@/app/lib/publicUsers';
 import { fetchThemes } from '@/app/lib/services/themes';
-import { getSupabaseSession } from '@/app/lib/supabaseAuthServerClient';
+import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { getSupabaseServerClient } from '@/app/lib/supabaseServerClient';
 import { buildUserHandle } from '@/app/lib/users';
 import type { Metadata } from 'next';
@@ -146,11 +146,14 @@ export default async function CollectionHandlePage({
   let currentUsername: string | null = null;
 
   try {
-    const { userId, supabase: supabaseAuth } = await getSupabaseSession();
+    const supabaseAuth = await getSupabaseAuthServerClient();
+    const {
+      data: { user },
+    } = await supabaseAuth.auth.getUser();
 
-    if (userId) {
-      currentUserId = userId;
-      currentUsername = await getUserUsername(supabaseAuth, userId);
+    if (user) {
+      currentUserId = user.id;
+      currentUsername = await getUserUsername(supabaseAuth, user.id);
     }
   } catch {
     // ignore auth errors
