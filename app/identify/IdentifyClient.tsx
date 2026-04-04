@@ -207,9 +207,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
     id: number;
     name: string;
   }> | null>(null);
-  const [mode, setMode] = useState<'camera' | 'part'>(
-    isAuthenticated ? 'camera' : 'part'
-  );
+  const [mode, setMode] = useState<'camera' | 'part'>('camera');
   const [partSearchInput, setPartSearchInput] = useState('');
   const [quota, setQuota] = useState<IdentifyQuota>(
     initialQuota ??
