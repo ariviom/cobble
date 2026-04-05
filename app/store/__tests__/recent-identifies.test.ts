@@ -117,8 +117,8 @@ describe('recent-identifies store', () => {
     expect(recents[0]?.name).toBe('6129c03');
   });
 
-  it('preserves entries with empty name when overwritten', () => {
-    // First add with a good name (from image search)
+  it('preserves rich data when a later lookup returns degraded fields', () => {
+    // First add with rich data (from image search)
     addRecentIdentify({
       partNum: '6129c03',
       name: 'Dragon, Classic',
@@ -127,7 +127,9 @@ describe('recent-identifies store', () => {
       setsFound: 5,
       source: 'camera',
     });
-    // Then overwrite with empty name (from failed part lookup)
+    // Then "overwrite" with a degraded result (failed BL assembly fallback:
+    // empty name, null image, zero sets). None of these should clobber the
+    // prior successful lookup.
     addRecentIdentify({
       partNum: '6129c03',
       name: '',
@@ -139,9 +141,62 @@ describe('recent-identifies store', () => {
 
     const recents = getRecentIdentifies();
     expect(recents).toHaveLength(1);
-    // Entry should still exist (not filtered out), with partNum as fallback name
     expect(recents[0]?.partNum).toBe('6129c03');
-    expect(recents[0]?.name).toBe('6129c03');
+    expect(recents[0]?.name).toBe('Dragon, Classic');
+    expect(recents[0]?.imageUrl).toBe('https://example.com/dragon.png');
+    expect(recents[0]?.setsFound).toBe(5);
+  });
+
+  it('preserves the original source when an entry is re-identified', () => {
+    // Initial camera identification
+    addRecentIdentify({
+      partNum: '3001',
+      name: 'Brick 2x4',
+      imageUrl: 'https://example.com/3001.png',
+      isMinifig: false,
+      setsFound: 5,
+      source: 'camera',
+    });
+    // User later clicks the history tile, which routes through the text
+    // lookup path. The stored source should NOT flip to 'text' — otherwise
+    // the entry would silently vanish from the Camera tab's history strip.
+    addRecentIdentify({
+      partNum: '3001',
+      name: 'Brick 2x4',
+      imageUrl: 'https://example.com/3001.png',
+      isMinifig: false,
+      setsFound: 5,
+      source: 'text',
+    });
+
+    const recents = getRecentIdentifies();
+    expect(recents).toHaveLength(1);
+    expect(recents[0]?.source).toBe('camera');
+    expect(getRecentIdentifies('camera')).toHaveLength(1);
+    expect(getRecentIdentifies('text')).toHaveLength(0);
+  });
+
+  it('takes the max setsFound across updates', () => {
+    addRecentIdentify({
+      partNum: '3001',
+      name: 'Brick 2x4',
+      imageUrl: null,
+      isMinifig: false,
+      setsFound: 12,
+      source: 'camera',
+    });
+    // A later lookup finds fewer sets — shouldn't downgrade the record.
+    addRecentIdentify({
+      partNum: '3001',
+      name: 'Brick 2x4',
+      imageUrl: null,
+      isMinifig: false,
+      setsFound: 3,
+      source: 'text',
+    });
+
+    const recents = getRecentIdentifies();
+    expect(recents[0]?.setsFound).toBe(12);
   });
 
   it('filters by source when specified', () => {

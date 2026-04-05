@@ -93,16 +93,34 @@ export function addRecentIdentify(entry: {
 }): void {
   try {
     const existing = loadRecentIdentifiesUnsafe();
-    const filtered = existing.filter(
-      it => it.partNum.toLowerCase() !== entry.partNum.toLowerCase()
+    const key = entry.partNum.toLowerCase();
+    const prior = existing.find(it => it.partNum.toLowerCase() === key);
+    const filtered = existing.filter(it => it.partNum.toLowerCase() !== key);
+
+    // Merge with the prior entry so that:
+    //   1. An entry keeps whichever `source` it was first discovered with.
+    //      Clicking a history tile routes through the text-lookup path, so
+    //      without this preservation every revisit would silently flip the
+    //      stored source to 'text' and hide the row from the Camera tab.
+    //   2. A later lookup with degraded data (empty name, null image, zero
+    //      sets from a failed BL assembly fallback) can't clobber the rich
+    //      data from a prior successful lookup.
+    const priorName =
+      prior && prior.name && prior.name !== prior.partNum ? prior.name : null;
+    const merged: RecentIdentifyEntry = {
+      partNum: entry.partNum,
+      name: entry.name || priorName || entry.partNum,
+      imageUrl: entry.imageUrl ?? prior?.imageUrl ?? null,
+      isMinifig: entry.isMinifig || (prior?.isMinifig ?? false),
+      setsFound: Math.max(entry.setsFound, prior?.setsFound ?? 0),
+      source: prior?.source ?? entry.source,
+      lastIdentifiedAt: Date.now(),
+    };
+
+    const next: RecentIdentifyEntry[] = [merged, ...filtered].slice(
+      0,
+      MAX_RECENT
     );
-    const next: RecentIdentifyEntry[] = [
-      {
-        ...entry,
-        lastIdentifiedAt: Date.now(),
-      },
-      ...filtered,
-    ].slice(0, MAX_RECENT);
     writeStorage(STORAGE_KEY, JSON.stringify(next));
   } catch {
     // ignore storage errors

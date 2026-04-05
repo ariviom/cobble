@@ -392,7 +392,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           setRarestSubpartSets(
             (payloadAny.rarestSubpartSets as IdentifySet[]) ?? []
           );
-          if (payloadAny.part && (payloadAny.sets?.length ?? 0) > 0) {
+          if (payloadAny.part) {
             recordHistory(
               {
                 partNum: payloadAny.part.partNum,
@@ -403,8 +403,6 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
               payloadAny.sets?.length ?? 0,
               'text'
             );
-          }
-          if (payloadAny.part) {
             updateUrlParams(payloadAny.part.partNum, 'part', replaceUrl);
           }
           setLoadingPhase(null);
@@ -522,10 +520,11 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
               (payloadAny.rarestSubpartSets as IdentifySet[]) ?? [],
           });
 
-        // Only record history when the lookup found sets — avoids overwriting
-        // a good entry (from image search) with degraded data from a failed
-        // part lookup (e.g., unresolvable BL assembly ID).
-        if (payloadAny.part && (payloadAny.sets?.length ?? 0) > 0) {
+        // Record history whenever the lookup resolved to a real part. The
+        // merge logic in `addRecentIdentify` protects existing rich entries
+        // from being clobbered by degraded data (e.g., a failed BL assembly
+        // fallback that returns zero sets or an empty name).
+        if (payloadAny.part) {
           recordHistory(
             {
               partNum: payloadAny.part.partNum,
@@ -536,8 +535,6 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             payloadAny.sets?.length ?? 0,
             'text'
           );
-        }
-        if (payloadAny.part) {
           updateUrlParams(payloadAny.part.partNum, 'part', replaceUrl);
         }
       } catch (e) {
