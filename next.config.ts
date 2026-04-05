@@ -114,11 +114,17 @@ const nextConfig: NextConfig = {
 };
 
 export default withSentryConfig(withPWA(nextConfig), {
-  org: process.env.SENTRY_ORG ?? '',
-  project: process.env.SENTRY_PROJECT ?? '',
-  authToken: process.env.SENTRY_AUTH_TOKEN ?? '',
+  org: 'brick-party',
+  project: 'javascript-nextjs',
+  ...(process.env.SENTRY_AUTH_TOKEN
+    ? { authToken: process.env.SENTRY_AUTH_TOKEN }
+    : {}),
   silent: !process.env.CI,
   widenClientFileUpload: true,
   tunnelRoute: '/monitoring',
-  disableLogger: true,
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
 });
