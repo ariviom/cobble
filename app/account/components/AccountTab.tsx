@@ -12,6 +12,11 @@ import {
   CardTitle,
 } from '@/app/components/ui/Card';
 import { Input } from '@/app/components/ui/Input';
+import { PasswordInput } from '@/app/components/ui/PasswordInput';
+import {
+  PasswordRequirements,
+  isPasswordValid,
+} from '@/app/components/ui/PasswordRequirements';
 import { AnalyticsEvent } from '@/app/lib/analytics/events';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import { normalizeUsernameCandidate } from '@/app/lib/users';
@@ -151,7 +156,7 @@ export function AccountTab({
       return;
     }
 
-    if (trimmedNew.length < 8) {
+    if (!isPasswordValid(trimmedNew)) {
       setPasswordError('New password must be at least 8 characters long.');
       setPasswordSuccess(null);
       return;
@@ -341,8 +346,7 @@ export function AccountTab({
                 <label className="text-label font-semibold text-foreground">
                   Current password
                 </label>
-                <Input
-                  type="password"
+                <PasswordInput
                   size="sm"
                   value={currentPassword}
                   onChange={e => setCurrentPassword(e.target.value)}
@@ -353,20 +357,19 @@ export function AccountTab({
                 <label className="text-label font-semibold text-foreground">
                   New password
                 </label>
-                <Input
-                  type="password"
+                <PasswordInput
                   size="sm"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
                   className="mt-2"
                 />
+                <PasswordRequirements password={newPassword} />
               </div>
               <div>
                 <label className="text-label font-semibold text-foreground">
                   Confirm new password
                 </label>
-                <Input
-                  type="password"
+                <PasswordInput
                   size="sm"
                   value={confirmNewPassword}
                   onChange={e => setConfirmNewPassword(e.target.value)}
