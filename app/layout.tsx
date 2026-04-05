@@ -41,15 +41,15 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://brick-party.com'
   ),
-  title: 'Brick Party — LEGO Set Piece Picker',
+  title: 'Brick Party — Turn Your Pile of Bricks Back Into Sets',
   description:
-    'Search LEGO sets, track owned pieces, and export missing parts lists for Rebrickable and BrickLink.',
+    'Turn your pile of LEGO bricks back into sets. Pick a set, find the pieces, track your progress, and export missing parts for Rebrickable or BrickLink.',
   keywords: [
     'LEGO',
-    'sets',
-    'pieces',
-    'inventory',
-    'tracking',
+    'rebuild LEGO sets',
+    'sort LEGO pile',
+    'LEGO inventory',
+    'missing parts',
     'Rebrickable',
     'BrickLink',
   ],

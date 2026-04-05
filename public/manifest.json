@@ -1,7 +1,7 @@
 {
-  "name": "Brick Party — LEGO Set Piece Picker",
+  "name": "Brick Party — Turn Your Pile of Bricks Back Into Sets",
   "short_name": "Brick Party",
-  "description": "Track owned LEGO pieces and export missing parts lists for Rebrickable and BrickLink",
+  "description": "Turn your pile of LEGO bricks back into sets. Pick a set, find the pieces, track your progress, and export missing parts for Rebrickable or BrickLink.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f2d300",

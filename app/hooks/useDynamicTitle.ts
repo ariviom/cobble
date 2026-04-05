@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 
 const BASE_TITLE = 'Brick Party';
-const DEFAULT_TITLE = `${BASE_TITLE} — LEGO Set Piece Picker`;
+const DEFAULT_TITLE = `${BASE_TITLE} — Turn Your Pile of Bricks Back Into Sets`;
 
 /**
  * Updates the browser tab title dynamically based on the provided title.
