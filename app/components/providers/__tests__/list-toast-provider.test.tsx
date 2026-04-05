@@ -82,6 +82,36 @@ describe('ListToastProvider', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('retriggers auto-dismiss when the same message is emitted a second time', () => {
+    render(
+      <ListToastProvider>
+        <div>child</div>
+      </ListToastProvider>
+    );
+
+    act(() => {
+      emitListToast('Same');
+    });
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    act(() => {
+      emitListToast('Same'); // identical message
+    });
+
+    // Still visible — second emit reset the timer
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('Same');
+
+    // Gone 4s after the second emit
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it('is a no-op when emitListToast is called with no provider mounted', () => {
     expect(() => emitListToast('no listeners')).not.toThrow();
   });

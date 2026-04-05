@@ -19,7 +19,11 @@ export function emitListToast(message: string): void {
   }
 }
 
-type ToastState = { message: string; id: number } | null;
+type ToastState = {
+  message: string;
+  /** Incremented on every emit so identical consecutive messages still retrigger the dismiss timer. */
+  id: number;
+} | null;
 
 const TOAST_DISMISS_MS = 4000;
 
