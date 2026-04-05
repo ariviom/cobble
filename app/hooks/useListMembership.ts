@@ -1,6 +1,7 @@
 'use client';
 
 import { useEntitlements } from '@/app/components/providers/entitlements-provider';
+import { emitListToast } from '@/app/components/providers/list-toast-provider';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import {
   optimisticUpdateUserLists,
@@ -339,6 +340,20 @@ export function useListMembership(
     }
   }
 
+  function updateCachesFunctional(updater: (prev: string[]) => string[]): void {
+    if (cacheKey) {
+      const prev = membershipCache.get(cacheKey)?.selectedIds ?? [];
+      membershipCache.set(cacheKey, {
+        selectedIds: updater(prev),
+        updatedAt: Date.now(),
+      });
+    }
+    if (user) {
+      const prev = getPersistedMembership(user.id, persistKey) ?? [];
+      updatePersistedMembership(user.id, persistKey, updater(prev));
+    }
+  }
+
   // --- CRUD operations ---
 
   const toggleList = (listId: string) => {
@@ -418,14 +433,27 @@ export function useListMembership(
       return;
     }
 
-    const tempId = `temp-${Date.now().toString(36)}`;
+    const tempId = `temp-${Date.now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2, 6)}`;
     const optimistic: UserListSummary = {
       id: tempId,
       name: trimmed,
       isSystem: false,
     };
 
+    // 1. Optimistic add to userLists (existing helper, already functional)
     optimisticUpdateUserLists(user.id, prev => [...prev, optimistic]);
+
+    // 2. Optimistic add to selectedListIds (functional)
+    setSelectedListIds(prev =>
+      prev.includes(tempId) ? prev : [...prev, tempId]
+    );
+
+    // 3. Optimistic add to in-memory + localStorage caches (functional)
+    updateCachesFunctional(prev =>
+      prev.includes(tempId) ? prev : [...prev, tempId]
+    );
 
     void (async () => {
       try {
@@ -436,17 +464,22 @@ export function useListMembership(
         });
 
         if (res.status === 403) {
-          const body = (await res.json()) as {
+          const body = (await res.json().catch(() => null)) as {
             error?: string;
             message?: string;
-          };
-          if (body.error === 'feature_unavailable') {
-            optimisticUpdateUserLists(user.id, prev =>
-              prev.filter(list => list.id !== tempId)
-            );
+          } | null;
+          // Rollback all optimistic state
+          optimisticUpdateUserLists(user.id, prev =>
+            prev.filter(list => list.id !== tempId)
+          );
+          setSelectedListIds(prev => prev.filter(id => id !== tempId));
+          updateCachesFunctional(prev => prev.filter(id => id !== tempId));
+          if (body?.error === 'feature_unavailable') {
             setShowListUpgradeModal(true);
-            return;
+          } else {
+            emitListToast(body?.message || 'Failed to create list');
           }
+          return;
         }
 
         if (!res.ok) {
@@ -457,9 +490,13 @@ export function useListMembership(
           logger.error('list.create_failed', {
             error: body?.message || body?.error,
           });
-          setError(body?.message || body?.error || 'Failed to create list');
           optimisticUpdateUserLists(user.id, prev =>
             prev.filter(list => list.id !== tempId)
+          );
+          setSelectedListIds(prev => prev.filter(id => id !== tempId));
+          updateCachesFunctional(prev => prev.filter(id => id !== tempId));
+          emitListToast(
+            body?.message || body?.error || 'Failed to create list'
           );
           return;
         }
@@ -475,17 +512,24 @@ export function useListMembership(
           isSystem: data.is_system,
         };
 
+        // 4. Swap tempId -> realId in userLists (functional, with sort)
         optimisticUpdateUserLists(user.id, prev =>
           prev
-            .filter(list => list.id !== tempId)
-            .concat(created)
+            .map(list => (list.id === tempId ? created : list))
             .sort((a, b) => a.name.localeCompare(b.name))
         );
 
-        const nextSelected = [...selectedListIds, created.id];
-        setSelectedListIds(nextSelected);
-        updateCaches(nextSelected);
+        // 5. Swap tempId -> realId in selectedListIds (functional)
+        setSelectedListIds(prev =>
+          prev.map(id => (id === tempId ? created.id : id))
+        );
 
+        // 6. Swap tempId -> realId in caches (functional)
+        updateCachesFunctional(prev =>
+          prev.map(id => (id === tempId ? created.id : id))
+        );
+
+        // 7. Persist the item-to-list association
         const supabase = getSupabaseBrowserClient();
         void supabase
           .from('user_list_items')
@@ -498,7 +542,14 @@ export function useListMembership(
                 itemType,
                 error: membershipError.message,
               });
-              setError(`Failed to add ${itemType} to new list`);
+              // List was created successfully; roll back only the item-to-list link
+              setSelectedListIds(prev => prev.filter(id => id !== created.id));
+              updateCachesFunctional(prev =>
+                prev.filter(id => id !== created.id)
+              );
+              emitListToast(
+                `List created, but failed to add ${itemType}. Try again.`
+              );
             } else {
               onToggleAdd?.(user.id, normItemId, created.id);
             }
@@ -507,10 +558,12 @@ export function useListMembership(
         logger.error('list.create_failed', {
           error: (err as Error)?.message ?? String(err),
         });
-        setError('Failed to create list');
         optimisticUpdateUserLists(user.id, prev =>
           prev.filter(list => list.id !== tempId)
         );
+        setSelectedListIds(prev => prev.filter(id => id !== tempId));
+        updateCachesFunctional(prev => prev.filter(id => id !== tempId));
+        emitListToast('Failed to create list');
       }
     })();
   };
