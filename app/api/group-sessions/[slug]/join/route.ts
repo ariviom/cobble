@@ -5,6 +5,7 @@ import { errorResponse } from '@/app/lib/api/responses';
 import { VALIDATION } from '@/app/lib/constants';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
+import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { logger } from '@/lib/metrics';
 import type { Tables } from '@/supabase/types';
@@ -185,7 +186,16 @@ export const POST = withCsrfProtection(
           );
         }
 
-        const { data: updated, error: updateError } = await supabase
+        // Use the service-role client for the rejoin update. Migration
+        // 20260325131949_security_restrict_participant_updates.sql grants
+        // anon/authenticated UPDATE on only (last_seen_at, pieces_found,
+        // left_at), but the join handler legitimately needs to refresh
+        // display_name, user_id (anon→signed-in upgrade), and color_slot on
+        // rejoin. Auth has already been verified above via active-session
+        // lookup + client_token match (client_token is the bearer secret for
+        // the participant row).
+        const serviceRoleSupabase = getSupabaseServiceRoleClient();
+        const { data: updated, error: updateError } = await serviceRoleSupabase
           .from('group_session_participants')
           .update({
             display_name: displayName,
