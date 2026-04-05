@@ -12,6 +12,7 @@ import {
 } from '@/app/components/ui/Card';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
+import { PasswordInput } from '@/app/components/ui/PasswordInput';
 import {
   getAuthRedirectUrl,
   getSupabaseBrowserClient,
@@ -236,9 +237,8 @@ function LoginForm() {
             >
               Password
             </label>
-            <Input
+            <PasswordInput
               id="login-password"
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={e => setPassword(e.target.value)}
