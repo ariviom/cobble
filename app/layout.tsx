@@ -8,6 +8,7 @@ import { EntitlementsProvider } from '@/app/components/providers/entitlements-pr
 import { ReactQueryProvider } from '@/app/components/providers/react-query-provider';
 import { SentryUserContext } from '@/app/components/providers/sentry-user-context';
 import { PostHogProvider } from '@/app/components/providers/posthog-provider';
+import { ListToastProvider } from '@/app/components/providers/list-toast-provider';
 import { SyncProvider } from '@/app/components/providers/sync-provider';
 import { ThemeProvider } from '@/app/components/providers/theme-provider';
 import type { ClientEntitlements } from '@/app/components/providers/entitlements-provider';
@@ -230,20 +231,22 @@ export default async function RootLayout({
               <SentryUserContext />
               <DunningBanner subscriptionStatus={subscriptionStatus} />
               <SyncProvider>
-                <ThemeProvider
-                  initialTheme={initialTheme}
-                  initialThemeColor={dbThemeColor ?? undefined}
-                  isAuthenticated={!!initialUser}
-                >
-                  <ReactQueryProvider>
-                    <ErrorBoundary>
-                      {children}
-                      <Analytics />
-                      <SpeedInsights />
-                      <TourCard />
-                    </ErrorBoundary>
-                  </ReactQueryProvider>
-                </ThemeProvider>
+                <ListToastProvider>
+                  <ThemeProvider
+                    initialTheme={initialTheme}
+                    initialThemeColor={dbThemeColor ?? undefined}
+                    isAuthenticated={!!initialUser}
+                  >
+                    <ReactQueryProvider>
+                      <ErrorBoundary>
+                        {children}
+                        <Analytics />
+                        <SpeedInsights />
+                        <TourCard />
+                      </ErrorBoundary>
+                    </ReactQueryProvider>
+                  </ThemeProvider>
+                </ListToastProvider>
               </SyncProvider>
             </EntitlementsProvider>
           </PostHogProvider>
