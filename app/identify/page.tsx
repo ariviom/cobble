@@ -28,6 +28,10 @@ export default async function IdentifyPage() {
   // Fetch entitlements and usage in parallel — both only need userId.
   // For unlimited-tier users the usage result is discarded, but the
   // parallelism saves more time than the redundant DB read costs.
+  // `usage_counters` has RLS restricted to service_role, so we must NOT
+  // pass the user-auth client here — doing so causes the SELECT to be
+  // silently filtered and return a false `remaining: limit`, letting
+  // exhausted users attempt an identify after a page refresh.
   const [entitlements, usage] = await Promise.all([
     getEntitlements(user.id, { supabase }),
     getUsageStatus({
@@ -35,7 +39,6 @@ export default async function IdentifyPage() {
       featureKey: 'identify:daily',
       windowKind: 'daily',
       limit: 5,
-      supabase,
     }),
   ]);
 
