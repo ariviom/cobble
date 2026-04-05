@@ -80,11 +80,11 @@ describe('UpgradeModal', () => {
     expect(screen.getByText(/upgrade to plus/i)).toBeTruthy();
   });
 
-  it('renders View Plans link to /pricing', () => {
+  it('renders Get Plus link to /pricing', () => {
     render(
       <UpgradeModal open={true} feature="rarity.enabled" onClose={vi.fn()} />
     );
-    const link = screen.getByRole('link', { name: /view plans/i });
+    const link = screen.getByRole('link', { name: /get plus/i });
     expect(link.getAttribute('href')).toBe('/pricing');
   });
 

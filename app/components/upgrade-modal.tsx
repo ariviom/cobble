@@ -106,7 +106,7 @@ export function UpgradeModal({ open, feature, onClose, onContinue }: Props) {
             size="sm"
             className="flex-1"
           >
-            View Plans
+            Get Plus
           </Button>
           {feature === 'tabs.unlimited' ? (
             <Button
