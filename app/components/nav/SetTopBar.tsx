@@ -357,7 +357,7 @@ export function SetTopBar({
                   <Users className="size-3.5" />
                   Search Party
                   {searchParty.active && (
-                    <div className="absolute -top-2.5 right-[-14px] flex size-6 items-center justify-center rounded-full border-2 border-card bg-brand-yellow text-2xs font-extrabold text-neutral-900 shadow-sm">
+                    <div className="absolute -top-2.5 right-[-14px] flex size-6 items-center justify-center rounded-full border-2 border-card bg-brand-yellow text-2xs font-extrabold text-neutral-200 shadow-sm">
                       {participantCount.toLocaleString()}
                     </div>
                   )}
