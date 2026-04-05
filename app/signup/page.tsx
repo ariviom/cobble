@@ -12,6 +12,11 @@ import {
 } from '@/app/components/ui/Card';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
 import { Input } from '@/app/components/ui/Input';
+import { PasswordInput } from '@/app/components/ui/PasswordInput';
+import {
+  PasswordRequirements,
+  isPasswordValid,
+} from '@/app/components/ui/PasswordRequirements';
 import {
   getAuthRedirectUrl,
   getSupabaseBrowserClient,
@@ -118,7 +123,7 @@ export default function SignupPage() {
       return;
     }
 
-    if (trimmedPassword.length < 8) {
+    if (!isPasswordValid(trimmedPassword)) {
       setEmailError('Password must be at least 8 characters.');
       return;
     }
@@ -279,9 +284,8 @@ export default function SignupPage() {
             >
               Password
             </label>
-            <Input
+            <PasswordInput
               id="signup-password"
-              type="password"
               autoComplete="new-password"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -289,15 +293,15 @@ export default function SignupPage() {
               className="w-full text-xs"
               disabled={isEmailLoading}
             />
+            <PasswordRequirements password={password} />
             <label
               htmlFor="signup-confirm"
               className="mt-2 text-2xs font-medium text-foreground"
             >
               Confirm password
             </label>
-            <Input
+            <PasswordInput
               id="signup-confirm"
-              type="password"
               autoComplete="new-password"
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
