@@ -396,21 +396,26 @@ export function SetTopBar({
                   {!quotaInfo.loading &&
                     !quotaInfo.unlimited &&
                     searchParty.canHost && (
-                      <div className="rounded-md border-2 border-subtle bg-card-muted px-4 py-3 text-center text-sm">
+                      <div className="space-y-1 rounded-md border-2 border-subtle bg-card-muted px-4 py-3 text-center text-sm">
                         {quotaInfo.canHost ? (
                           <>
-                            <span className="font-bold text-foreground">
-                              {quotaInfo.remaining} of {quotaInfo.limit}
-                            </span>{' '}
-                            <span className="text-foreground-muted">
-                              sessions remaining this month
-                            </span>
+                            <div>
+                              <span className="font-bold text-foreground">
+                                {quotaInfo.remaining} of {quotaInfo.limit}
+                              </span>{' '}
+                              <span className="text-foreground-muted">
+                                sets remaining this month
+                              </span>
+                            </div>
+                            <p className="text-xs text-foreground-muted">
+                              Restarting a session on the same set is free.
+                            </p>
                           </>
                         ) : (
                           <div className="space-y-2">
                             <p className="font-bold text-warning">
-                              You&apos;ve used all {quotaInfo.limit} Search
-                              Party sessions this month
+                              You&apos;ve started Search Party on all{' '}
+                              {quotaInfo.limit} sets this month
                             </p>
                             <p className="text-foreground-muted">
                               Your limit resets on{' '}
