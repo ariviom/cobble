@@ -163,3 +163,41 @@ describe('useListMembership — createList optimistic behavior', () => {
     );
   });
 });
+
+describe('useListMembership — toggleList race safety', () => {
+  it('preserves final state when add and remove fire in quick succession', async () => {
+    // Initial membership: already in list 'list-a'
+    mockMembershipResult = {
+      data: [{ list_id: 'list-a' }],
+      error: null,
+    };
+    mockUpsertResult = { data: null, error: null };
+    mockDeleteResult = { data: null, error: null };
+
+    // Distinct itemId avoids module-level persistedRoot leakage from the
+    // createList test above (which leaves behind a 'real-1' entry for
+    // '75192-1' when its trailing fetch microtask resolves).
+    const { result } = renderHook(() =>
+      useListMembership('set', '10188-1', 'set_num')
+    );
+
+    await waitFor(() => {
+      expect(result.current.selectedListIds).toEqual(['list-a']);
+    });
+
+    // Rapidly remove then re-add. React batches updates inside a single
+    // `act`, so splitting into two acts mirrors two separate click events
+    // and is what exercises the second call seeing the updated state.
+    act(() => {
+      result.current.toggleList('list-a'); // remove
+    });
+    act(() => {
+      result.current.toggleList('list-a'); // add back
+    });
+
+    // Let pending supabase .then callbacks resolve
+    await waitFor(() => {
+      expect(result.current.selectedListIds).toEqual(['list-a']);
+    });
+  });
+});

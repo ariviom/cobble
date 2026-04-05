@@ -328,18 +328,6 @@ export function useListMembership(
 
   // --- Shared cache update helpers ---
 
-  function updateCaches(nextSelected: string[]): void {
-    if (cacheKey) {
-      membershipCache.set(cacheKey, {
-        selectedIds: nextSelected,
-        updatedAt: Date.now(),
-      });
-    }
-    if (user) {
-      updatePersistedMembership(user.id, persistKey, nextSelected);
-    }
-  }
-
   /**
    * Read-modify-write update of both the in-memory membership cache and
    * localStorage. Use this instead of capturing state snapshots when multiple
@@ -369,16 +357,17 @@ export function useListMembership(
     if (!user) return;
 
     const supabase = getSupabaseBrowserClient();
-    const isSelected = selectedListIds.includes(listId);
-    const prevSelected = selectedListIds;
-    const nextSelected = isSelected
-      ? selectedListIds.filter(id => id !== listId)
-      : [...selectedListIds, listId];
+    const wasSelected = selectedListIds.includes(listId);
 
-    setSelectedListIds(nextSelected);
-    updateCaches(nextSelected);
+    // Optimistic state update (functional)
+    setSelectedListIds(prev =>
+      wasSelected ? prev.filter(id => id !== listId) : [...prev, listId]
+    );
+    updateCachesFunctional(prev =>
+      wasSelected ? prev.filter(id => id !== listId) : [...prev, listId]
+    );
 
-    if (isSelected) {
+    if (wasSelected) {
       void supabase
         .from('user_list_items')
         .delete()
@@ -393,9 +382,14 @@ export function useListMembership(
               itemType,
               error: err.message,
             });
-            setSelectedListIds(prevSelected);
-            updateCaches(prevSelected);
-            setError('Failed to update lists');
+            // Rollback: add the id back if it's still absent
+            setSelectedListIds(prev =>
+              prev.includes(listId) ? prev : [...prev, listId]
+            );
+            updateCachesFunctional(prev =>
+              prev.includes(listId) ? prev : [...prev, listId]
+            );
+            emitListToast('Failed to update lists');
           } else {
             onToggleRemove?.(user.id, normItemId, listId);
           }
@@ -413,9 +407,10 @@ export function useListMembership(
               itemType,
               error: err.message,
             });
-            setSelectedListIds(prevSelected);
-            updateCaches(prevSelected);
-            setError('Failed to update lists');
+            // Rollback: remove the id if it's still present
+            setSelectedListIds(prev => prev.filter(id => id !== listId));
+            updateCachesFunctional(prev => prev.filter(id => id !== listId));
+            emitListToast('Failed to update lists');
           } else {
             onToggleAdd?.(user.id, normItemId, listId);
           }
@@ -609,7 +604,7 @@ export function useListMembership(
               prev.map(l => (l.id === listId ? { ...l, name: prevName } : l))
             );
           }
-          setError('Failed to rename list');
+          emitListToast('Failed to rename list');
         }
       });
   };
@@ -617,31 +612,17 @@ export function useListMembership(
   const deleteList = (listId: string) => {
     if (!user) return;
 
-    // Snapshot for rollback
+    // Snapshot only for userLists rollback on failure (useUserLists store
+    // doesn't expose a functional "restore" helper, so we capture the full
+    // previous list and restore from it if the delete fails).
     const prevLists = allLists;
-    const prevSelected = selectedListIds;
 
     optimisticUpdateUserLists(user.id, prev =>
       prev.filter(l => l.id !== listId)
     );
 
     setSelectedListIds(prev => prev.filter(id => id !== listId));
-
-    if (cacheKey) {
-      const existing = membershipCache.get(cacheKey);
-      if (existing) {
-        membershipCache.set(cacheKey, {
-          selectedIds: existing.selectedIds.filter(id => id !== listId),
-          updatedAt: Date.now(),
-        });
-      }
-    }
-
-    updatePersistedMembership(
-      user.id,
-      persistKey,
-      selectedListIds.filter(id => id !== listId)
-    );
+    updateCachesFunctional(prev => prev.filter(id => id !== listId));
 
     const supabase = getSupabaseBrowserClient();
     void supabase
@@ -653,9 +634,13 @@ export function useListMembership(
         if (err) {
           logger.error('list.delete_failed', { listId, error: err.message });
           optimisticUpdateUserLists(user.id, () => prevLists);
-          setSelectedListIds(prevSelected);
-          updateCaches(prevSelected);
-          setError('Failed to delete list');
+          setSelectedListIds(prev =>
+            prev.includes(listId) ? prev : [...prev, listId]
+          );
+          updateCachesFunctional(prev =>
+            prev.includes(listId) ? prev : [...prev, listId]
+          );
+          emitListToast('Failed to delete list');
         }
       });
   };
