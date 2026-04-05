@@ -142,7 +142,7 @@ export function SetDetailModal({
                 <div className="text-xs text-foreground-muted">Details</div>
                 <div className="text-sm font-medium">
                   {typeof year === 'number' ? year : '—'}
-                  {typeof numParts === 'number' && ` · ${numParts} pcs`}
+                  {typeof numParts === 'number' && ` | ${numParts} pcs`}
                 </div>
                 {themeName && (
                   <div className="truncate text-xs text-foreground-muted">

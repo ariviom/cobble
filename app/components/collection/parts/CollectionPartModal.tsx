@@ -191,7 +191,7 @@ export function CollectionPartModal({
         <div className="border-t-2 border-subtle px-4 py-2.5">
           <p className="text-xs text-foreground-muted">
             Part {part.partNum}
-            {displayColorName ? ` · ${displayColorName}` : ''}
+            {displayColorName ? ` | ${displayColorName}` : ''}
           </p>
         </div>
 

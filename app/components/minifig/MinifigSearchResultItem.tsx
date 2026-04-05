@@ -66,7 +66,7 @@ export function MinifigSearchResultItem({
               <div className="mt-1 w-full text-xs text-foreground-muted">
                 <span>{displayLabel}</span>
                 {typeof numParts === 'number' && numParts > 0 && (
-                  <span className="ml-1">• {numParts} parts</span>
+                  <span className="ml-1">| {numParts} parts</span>
                 )}
               </div>
             </div>

@@ -155,9 +155,9 @@ export function SetOverviewClient({
           </h1>
           <p className="mt-1 text-sm text-foreground-muted">
             {setNumber}
-            {' · '}
+            {' | '}
             {year}
-            {' · '}
+            {' | '}
             {numParts} pieces
           </p>
         </div>

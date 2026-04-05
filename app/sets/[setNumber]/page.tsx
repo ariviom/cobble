@@ -96,7 +96,7 @@ export default async function SetPage({ params }: SetPageProps) {
     '@type': 'Product',
     name: summary.name,
     productID: summary.setNumber,
-    description: `${summary.numParts} pieces · ${summary.year}${summary.themeName ? ` · ${summary.themeName}` : ''}`,
+    description: `${summary.numParts} pieces | ${summary.year}${summary.themeName ? ` | ${summary.themeName}` : ''}`,
     ...(summary.imageUrl ? { image: summary.imageUrl } : {}),
     brand: { '@type': 'Brand', name: 'LEGO' },
     ...(summary.themeName ? { category: summary.themeName } : {}),

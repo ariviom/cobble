@@ -197,20 +197,20 @@ export function MinifigPageClient({
             <span>{idDisplay.label}</span>
             {year && (
               <>
-                <span>•</span>
+                <span>|</span>
                 <span>{year}</span>
               </>
             )}
             {typeof partsCount === 'number' && partsCount > 0 && (
               <>
-                <span>•</span>
+                <span>|</span>
                 <span>{partsCount} parts</span>
               </>
             )}
             {rarityEnabled &&
               getRarityTier(initialMinSubpartSetCount ?? setsCount) != null && (
                 <>
-                  <span>•</span>
+                  <span>|</span>
                   <RarityBadge
                     tier={
                       getRarityTier(initialMinSubpartSetCount ?? setsCount)!
@@ -448,15 +448,15 @@ export function MinifigPageClient({
                           </div>
                           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-foreground-muted">
                             <span className="font-mono">{item.partId}</span>
-                            <span>•</span>
+                            <span>|</span>
                             <span>{item.colorName}</span>
-                            <span>•</span>
+                            <span>|</span>
                             <span>×{item.quantity}</span>
                             {rarityEnabled &&
                               item.setCount != null &&
                               getRarityTier(item.setCount) != null && (
                                 <>
-                                  <span>•</span>
+                                  <span>|</span>
                                   <span className="inline-flex items-center gap-1">
                                     <RarityBadge
                                       tier={getRarityTier(item.setCount)!}
@@ -470,7 +470,7 @@ export function MinifigPageClient({
                               )}
                             {bricklinkUrl && (
                               <>
-                                <span>•</span>
+                                <span>|</span>
                                 <Link
                                   href={bricklinkUrl}
                                   target="_blank"

@@ -171,7 +171,7 @@ export async function generateMetadata({
   const meta = await getServerMinifigMeta(blMinifigNo);
   const baseTitle = meta.name ?? blMinifigNo;
   const description = meta.name
-    ? `View ${meta.name} minifigure — appears in ${meta.setsCount} set${meta.setsCount !== 1 ? 's' : ''}${meta.themeName ? ` · ${meta.themeName}` : ''}`
+    ? `View ${meta.name} minifigure — appears in ${meta.setsCount} set${meta.setsCount !== 1 ? 's' : ''}${meta.themeName ? ` | ${meta.themeName}` : ''}`
     : `View LEGO minifigure ${blMinifigNo}`;
 
   return {

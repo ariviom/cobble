@@ -255,13 +255,13 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
             <span className="font-mono">{part.part_num}</span>
             {selectedColor && (
               <>
-                <span>·</span>
+                <span>|</span>
                 <span>{selectedColor.name}</span>
               </>
             )}
             {rarityEnabled && selectedRarity > 0 && (
               <>
-                <span>·</span>
+                <span>|</span>
                 <span>
                   {selectedRarity} {selectedRarity === 1 ? 'set' : 'sets'}
                 </span>
@@ -386,7 +386,7 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
                       </p>
                       <p className="font-mono text-2xs text-foreground-muted">
                         {set.setNumber}
-                        {set.year != null && ` · ${set.year}`}
+                        {set.year != null && ` | ${set.year}`}
                       </p>
                     </div>
                   </button>

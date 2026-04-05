@@ -107,7 +107,7 @@ export function MinifigCard({
               {displayName}
             </div>
             <div className="mt-1 w-full text-2xs font-semibold text-foreground-muted">
-              {metadataParts.join(' • ')}
+              {metadataParts.join(' | ')}
             </div>
           </div>
         </div>

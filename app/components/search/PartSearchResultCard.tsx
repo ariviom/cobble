@@ -63,7 +63,7 @@ export function PartSearchResultCard({ result, onClick }: Props) {
           <div className="mt-1 w-full text-xs text-foreground-muted">
             <span>{result.partNum}</span>
             {result.categoryName && (
-              <span className="ml-1">· {result.categoryName}</span>
+              <span className="ml-1">| {result.categoryName}</span>
             )}
           </div>
           {result.colors.length > 0 && (
