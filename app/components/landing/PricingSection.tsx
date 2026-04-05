@@ -199,18 +199,21 @@ export function PricingSection({
       );
     }
     return (
-      <Button
-        onClick={handleCheckout}
-        disabled={loading}
-        variant="primary"
-        className="w-full"
-      >
-        {loading
-          ? 'Redirecting...'
-          : hadPriorSubscription
-            ? 'Get Plus'
-            : 'Start 14-day free trial'}
-      </Button>
+      <div className="flex flex-col gap-2.5">
+        <Button
+          onClick={handleCheckout}
+          disabled={loading}
+          variant="primary"
+          className="w-full"
+        >
+          {loading ? 'Redirecting...' : 'Get Plus'}
+        </Button>
+        {!hadPriorSubscription && (
+          <p className="text-center text-sm text-brand-yellow-dark">
+            14-day free trial · Cancel anytime
+          </p>
+        )}
+      </div>
     );
   }
 
