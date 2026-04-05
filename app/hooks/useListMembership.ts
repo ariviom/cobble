@@ -340,6 +340,15 @@ export function useListMembership(
     }
   }
 
+  /**
+   * Read-modify-write update of both the in-memory membership cache and
+   * localStorage. Use this instead of capturing state snapshots when multiple
+   * calls may race (rapid create/toggle).
+   *
+   * The `updater` MUST be a pure function: it is invoked twice per call (once
+   * against the in-memory cache, once against localStorage). Side-effectful
+   * updaters (logging, random values, telemetry) will behave unpredictably.
+   */
   function updateCachesFunctional(updater: (prev: string[]) => string[]): void {
     if (cacheKey) {
       const prev = membershipCache.get(cacheKey)?.selectedIds ?? [];
@@ -548,7 +557,7 @@ export function useListMembership(
                 prev.filter(id => id !== created.id)
               );
               emitListToast(
-                `List created, but failed to add ${itemType}. Try again.`
+                `List created, but failed to add this ${itemType}. Try again.`
               );
             } else {
               onToggleAdd?.(user.id, normItemId, created.id);
