@@ -41,9 +41,9 @@ export function PasswordRequirements({
             )}
           >
             {passed ? (
-              <Check className="size-3.5" aria-hidden />
+              <Check className="size-3.5" aria-hidden="true" />
             ) : (
-              <Circle className="size-3.5" aria-hidden />
+              <Circle className="size-3.5" aria-hidden="true" />
             )}
             <span>{rule.label}</span>
             <span className="sr-only">
