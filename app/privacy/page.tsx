@@ -12,10 +12,10 @@ export default function PrivacyPage() {
       <div className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="mb-6 text-3xl font-bold">Privacy Policy</h1>
         <p className="mb-1 text-sm text-foreground-muted">
-          Last Updated: April 2, 2026
+          Last Updated: April 5, 2026
         </p>
         <p className="mb-6 text-sm text-foreground-muted">
-          Effective: April 2, 2026
+          Effective: April 5, 2026
         </p>
 
         <div className="space-y-6 text-sm">
@@ -113,12 +113,34 @@ export default function PrivacyPage() {
               <li>Sync your data across devices when signed in</li>
               <li>Manage your subscription and process payments via Stripe</li>
               <li>
+                Send occasional service communications about new features and
+                important updates to the Service
+              </li>
+              <li>
                 Analyze anonymous usage patterns to improve the application
               </li>
               <li>Enforce fair use quotas and subscription tier limits</li>
               <li>Respond to support requests</li>
               <li>Prevent fraud and abuse</li>
             </ul>
+            <div className="mt-4 space-y-3 text-foreground-muted">
+              <h3 className="mb-2 font-medium text-foreground">
+                Service Communications
+              </h3>
+              <p>
+                From time to time, we may send you emails about new features,
+                product updates, and important changes to the Service. These are
+                service communications, not marketing — we do not send
+                promotional offers, discounts, or upsell emails.
+              </p>
+              <p>
+                You can opt out of service communications at any time by
+                clicking the unsubscribe link included in any such email. Opting
+                out will not affect transactional emails required for your
+                account (such as password resets, billing notices, or security
+                alerts).
+              </p>
+            </div>
           </section>
 
           {/* 4. Data Storage and Security */}
