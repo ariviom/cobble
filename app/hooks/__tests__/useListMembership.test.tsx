@@ -277,6 +277,101 @@ describe('useListMembership — createList optimistic behavior', () => {
       ]);
     });
   });
+
+  it('rolls back temp id and emits toast on POST failure', async () => {
+    fetchMock.mockRejectedValueOnce(new Error('network down'));
+
+    const { result } = renderHook(() =>
+      useListMembership('set', '42115-1', 'set_num')
+    );
+
+    await waitFor(() => {
+      expect(result.current.listsLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.createList('Doomed');
+    });
+
+    // Initially optimistic: temp id present
+    expect(result.current.selectedListIds).toHaveLength(1);
+
+    await waitFor(() => {
+      expect(result.current.selectedListIds).toEqual([]);
+    });
+
+    expect(emitListToastMock).toHaveBeenCalledWith(
+      expect.stringMatching(/failed to create list/i)
+    );
+  });
+
+  it('rolls back and shows upgrade modal on POST 403', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'feature_unavailable' }), {
+        status: 403,
+      })
+    );
+
+    const { result } = renderHook(() =>
+      useListMembership('set', '75288-1', 'set_num')
+    );
+
+    await waitFor(() => {
+      expect(result.current.listsLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.createList('Over limit');
+    });
+
+    await waitFor(() => {
+      expect(result.current.selectedListIds).toEqual([]);
+    });
+
+    expect(result.current.showListUpgradeModal).toBe(true);
+    expect(emitListToastMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps list but rolls back membership when upsert fails after successful POST', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ id: 'real-x', name: 'X', is_system: false }),
+        { status: 201 }
+      )
+    );
+    mockUpsertResult = {
+      data: null,
+      error: { message: 'upsert boom' },
+    };
+
+    const { result } = renderHook(() =>
+      useListMembership('set', '31132-1', 'set_num')
+    );
+
+    await waitFor(() => {
+      expect(result.current.listsLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.createList('X');
+    });
+
+    // Wait for the POST + upsert chain to settle
+    await waitFor(() => {
+      expect(emitListToastMock).toHaveBeenCalled();
+    });
+
+    // The list id should be rolled back from selectedListIds
+    expect(result.current.selectedListIds).not.toContain('real-x');
+
+    // But the list itself should still exist in userLists (via the
+    // optimisticUpdateUserLists mock's in-memory store)
+    expect(mockAllLists.some(l => l.id === 'real-x')).toBe(true);
+
+    expect(emitListToastMock).toHaveBeenCalledWith(
+      expect.stringMatching(/failed to add this set/i)
+    );
+  });
 });
 
 describe('useListMembership — toggleList race safety', () => {
