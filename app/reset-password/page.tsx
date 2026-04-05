@@ -9,7 +9,11 @@ import {
   CardTitle,
 } from '@/app/components/ui/Card';
 import { ErrorBanner } from '@/app/components/ui/ErrorBanner';
-import { Input } from '@/app/components/ui/Input';
+import { PasswordInput } from '@/app/components/ui/PasswordInput';
+import {
+  PasswordRequirements,
+  isPasswordValid,
+} from '@/app/components/ui/PasswordRequirements';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -73,7 +77,7 @@ function ResetPasswordForm() {
       return;
     }
 
-    if (trimmedPassword.length < 8) {
+    if (!isPasswordValid(trimmedPassword)) {
       setError('Password must be at least 8 characters.');
       return;
     }
@@ -208,9 +212,7 @@ function ResetPasswordForm() {
         <CardHeader>
           <div>
             <CardTitle>New password</CardTitle>
-            <CardDescription>
-              Choose a strong password with at least 8 characters.
-            </CardDescription>
+            <CardDescription>Choose a new password.</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -221,9 +223,8 @@ function ResetPasswordForm() {
             >
               New password
             </label>
-            <Input
+            <PasswordInput
               id="new-password"
-              type="password"
               autoComplete="new-password"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -231,15 +232,15 @@ function ResetPasswordForm() {
               className="w-full text-xs"
               disabled={isLoading}
             />
+            <PasswordRequirements password={password} />
             <label
               htmlFor="confirm-password"
               className="mt-2 text-2xs font-medium text-foreground"
             >
               Confirm password
             </label>
-            <Input
+            <PasswordInput
               id="confirm-password"
-              type="password"
               autoComplete="new-password"
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
