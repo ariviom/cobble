@@ -162,6 +162,121 @@ describe('useListMembership — createList optimistic behavior', () => {
       )
     );
   });
+
+  it('preserves all selections when multiple creates resolve in order', async () => {
+    const pending: Array<(res: Response) => void> = [];
+    fetchMock.mockImplementation(
+      () => new Promise<Response>(resolve => pending.push(resolve))
+    );
+
+    const { result } = renderHook(() =>
+      useListMembership('set', '21034-1', 'set_num')
+    );
+
+    await waitFor(() => {
+      expect(result.current.listsLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.createList('A');
+      result.current.createList('B');
+      result.current.createList('C');
+    });
+
+    // All three temp ids should be present
+    expect(result.current.selectedListIds).toHaveLength(3);
+    expect(
+      result.current.selectedListIds.every(id => id.startsWith('temp-'))
+    ).toBe(true);
+
+    // Resolve in order A, B, C
+    await act(async () => {
+      pending[0](
+        new Response(
+          JSON.stringify({ id: 'real-a', name: 'A', is_system: false }),
+          { status: 201 }
+        )
+      );
+      pending[1](
+        new Response(
+          JSON.stringify({ id: 'real-b', name: 'B', is_system: false }),
+          { status: 201 }
+        )
+      );
+      pending[2](
+        new Response(
+          JSON.stringify({ id: 'real-c', name: 'C', is_system: false }),
+          { status: 201 }
+        )
+      );
+      // Flush microtasks so all .then callbacks settle
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(result.current.selectedListIds.sort()).toEqual([
+        'real-a',
+        'real-b',
+        'real-c',
+      ]);
+    });
+  });
+
+  it('preserves all selections when creates resolve out of order', async () => {
+    const pending: Array<(res: Response) => void> = [];
+    fetchMock.mockImplementation(
+      () => new Promise<Response>(resolve => pending.push(resolve))
+    );
+
+    const { result } = renderHook(() =>
+      useListMembership('set', '10497-1', 'set_num')
+    );
+
+    await waitFor(() => {
+      expect(result.current.listsLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.createList('A');
+      result.current.createList('B');
+      result.current.createList('C');
+    });
+
+    // Resolve in reverse order: C, B, A
+    await act(async () => {
+      pending[2](
+        new Response(
+          JSON.stringify({ id: 'real-c', name: 'C', is_system: false }),
+          { status: 201 }
+        )
+      );
+      pending[1](
+        new Response(
+          JSON.stringify({ id: 'real-b', name: 'B', is_system: false }),
+          { status: 201 }
+        )
+      );
+      pending[0](
+        new Response(
+          JSON.stringify({ id: 'real-a', name: 'A', is_system: false }),
+          { status: 201 }
+        )
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(result.current.selectedListIds.sort()).toEqual([
+        'real-a',
+        'real-b',
+        'real-c',
+      ]);
+    });
+  });
 });
 
 describe('useListMembership — toggleList race safety', () => {
