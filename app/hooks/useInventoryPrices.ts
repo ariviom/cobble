@@ -244,6 +244,24 @@ export function useInventoryPrices<TPriceInfo extends BasePriceInfo>({
         logger.error('inventory.prices_load_failed', {
           error: (err as Error)?.message ?? String(err),
         });
+        // Write an "unavailable" sentinel for each requested key so the
+        // auto-request effect (which re-runs when pendingKeys changes)
+        // doesn't see them as missing and immediately retry — that caused
+        // an infinite loop when the request kept failing. Reloading the
+        // page will clear these entries and re-attempt fetching.
+        const failureEntries: Record<string, TPriceInfo> = {};
+        for (const key of keysToFetch) {
+          failureEntries[key] = {
+            unitPrice: null,
+            minPrice: null,
+            maxPrice: null,
+            currency: null,
+            pricingSource: 'unavailable',
+            lastUpdatedAt: null,
+            nextRefreshAt: null,
+          } as TPriceInfo;
+        }
+        setPricesByKey(prev => ({ ...prev, ...failureEntries }));
         setPricesStatus(prev =>
           prev === 'idle' && Object.keys(pricesByKeyRef.current).length === 0
             ? 'error'

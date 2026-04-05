@@ -91,9 +91,17 @@ export async function GET(req: NextRequest) {
     if (storedResult === 'exists') {
       return NextResponse.json({ validBlPartId: blPartId, corrected: false });
     }
+    if (storedResult === 'error') {
+      // BL API call failed (auth, circuit breaker, network). We cannot
+      // verify the part — surface as 502 so the caller can fall back to
+      // showing the link as-is rather than a misleading "Not on BrickLink".
+      return errorResponse('external_service_error', {
+        message: 'Could not verify BrickLink part',
+      });
+    }
 
-    // 2. If 404, try fallback candidates
-    if (storedResult === 'not_found' && rbPartId) {
+    // 2. storedResult === 'not_found' — try fallback candidates
+    if (rbPartId) {
       const candidates: string[] = [];
 
       // Try raw RB part ID (if different from BL ID)
@@ -128,6 +136,12 @@ export async function GET(req: NextRequest) {
             corrected: true,
           });
         }
+        if (result === 'error') {
+          // Same reasoning as above — can't verify, surface as 502.
+          return errorResponse('external_service_error', {
+            message: 'Could not verify BrickLink part',
+          });
+        }
       }
     }
 
@@ -138,7 +152,8 @@ export async function GET(req: NextRequest) {
       rbPartId,
       error: err instanceof Error ? err.message : String(err),
     });
-    // Return null rather than an error — the caller will show the link as-is
-    return NextResponse.json({ validBlPartId: null, corrected: false });
+    return errorResponse('external_service_error', {
+      message: 'Could not verify BrickLink part',
+    });
   }
 }

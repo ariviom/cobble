@@ -81,7 +81,16 @@ function useBricklinkValidation(
     if (rbPartId) params.set('rbPartId', rbPartId);
 
     fetch(`/api/parts/bricklink/validate?${params.toString()}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          // Non-2xx (e.g., 502 when BL API is unreachable) — throw into
+          // the catch handler so we show the link as-is rather than a
+          // misleading "Not on BrickLink". Don't cache the failure;
+          // next modal open will re-attempt.
+          throw new Error(`validate_failed_${res.status}`);
+        }
+        return res.json();
+      })
       .then((data: { validBlPartId: string | null; corrected: boolean }) => {
         if (cancelled) return;
         if (data.validBlPartId) {
