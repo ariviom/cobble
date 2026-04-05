@@ -481,36 +481,132 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
           }
         }
 
-        // Restore lists: delete existing, then insert from backup
-        await checked(
-          'clear list items',
-          supabase.from('user_list_items').delete().eq('user_id', user.id)
-        );
-        await checked(
-          'clear lists',
-          supabase.from('user_lists').delete().eq('user_id', user.id)
-        );
+        // Restore lists: preserve system lists (e.g. Wishlist) — delete only
+        // custom lists, then insert imported lists. If a backup list's name
+        // matches an existing system list, remap its items into that system
+        // list instead of creating a duplicate (the unique index on
+        // (user_id, lower(name)) would otherwise reject it).
+        const { data: systemListRows, error: systemListErr } = await supabase
+          .from('user_lists')
+          .select('id,name')
+          .eq('user_id', user.id)
+          .eq('is_system', true);
+        if (systemListErr) {
+          throw new Error(
+            `Failed to load system lists: ${systemListErr.message}`
+          );
+        }
+        const systemListByName = new Map<string, string>();
+        for (const row of systemListRows ?? []) {
+          systemListByName.set(row.name.toLowerCase(), row.id);
+        }
+
+        const { data: customListRows, error: customListErr } = await supabase
+          .from('user_lists')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_system', false);
+        if (customListErr) {
+          throw new Error(
+            `Failed to load custom lists: ${customListErr.message}`
+          );
+        }
+        const customListIds = (customListRows ?? []).map(r => r.id);
+
+        if (customListIds.length > 0) {
+          await checked(
+            'clear custom list items',
+            supabase
+              .from('user_list_items')
+              .delete()
+              .eq('user_id', user.id)
+              .in('list_id', customListIds)
+          );
+          await checked(
+            'clear custom lists',
+            supabase
+              .from('user_lists')
+              .delete()
+              .eq('user_id', user.id)
+              .in('id', customListIds)
+          );
+        }
 
         if (backup.data.lists.length > 0) {
-          const listRows = backup.data.lists.map(l => ({
-            id: l.id,
-            user_id: user.id,
-            name: l.name,
-          }));
-          await checked(
-            'insert lists',
-            supabase.from('user_lists').insert(listRows)
-          );
+          // Map each backup list id to the list id we'll actually use.
+          // Backup lists whose name matches a system list are remapped to
+          // the existing system list instead of being re-created — the
+          // unique index on (user_id, lower(name)) would otherwise reject
+          // the insert, and prior backup format didn't record is_system.
+          const listIdMap = new Map<string, string>();
+          const remappedSystemListIds = new Set<string>();
+          const listsToInsert: Array<{
+            id: string;
+            user_id: string;
+            name: string;
+          }> = [];
+          for (const l of backup.data.lists) {
+            const systemId = systemListByName.get(l.name.toLowerCase());
+            if (systemId) {
+              listIdMap.set(l.id, systemId);
+              remappedSystemListIds.add(systemId);
+            } else {
+              listIdMap.set(l.id, l.id);
+              listsToInsert.push({
+                id: l.id,
+                user_id: user.id,
+                name: l.name,
+              });
+            }
+          }
 
-          const itemRows = backup.data.lists.flatMap(l =>
-            l.items.map(item => ({
-              user_id: user.id,
-              list_id: l.id,
-              item_type: item.itemType,
-              set_num: item.itemType === 'set' ? item.itemId : null,
-              minifig_id: item.itemType === 'minifig' ? item.itemId : null,
-            }))
-          );
+          if (listsToInsert.length > 0) {
+            await checked(
+              'insert lists',
+              supabase.from('user_lists').insert(listsToInsert)
+            );
+          }
+
+          // Pre-fetch existing items in any system list that will receive
+          // remapped backup items so we can skip duplicates in-code (partial
+          // unique indexes on user_list_items don't play nicely with upsert).
+          const existingKeys = new Set<string>();
+          if (remappedSystemListIds.size > 0) {
+            const { data: existingRows, error: existingErr } = await supabase
+              .from('user_list_items')
+              .select('list_id,item_type,set_num,minifig_id')
+              .eq('user_id', user.id)
+              .in('list_id', Array.from(remappedSystemListIds));
+            if (existingErr) {
+              throw new Error(
+                `Failed to load existing list items: ${existingErr.message}`
+              );
+            }
+            for (const row of existingRows ?? []) {
+              const itemId =
+                row.item_type === 'set' ? row.set_num : row.minifig_id;
+              existingKeys.add(`${row.list_id}::${row.item_type}::${itemId}`);
+            }
+          }
+
+          const itemRows = backup.data.lists.flatMap(l => {
+            const listId = listIdMap.get(l.id) ?? l.id;
+            return l.items
+              .filter(
+                item =>
+                  !existingKeys.has(
+                    `${listId}::${item.itemType}::${item.itemId}`
+                  )
+              )
+              .map(item => ({
+                user_id: user.id,
+                list_id: listId,
+                item_type: item.itemType,
+                set_num: item.itemType === 'set' ? item.itemId : null,
+                minifig_id: item.itemType === 'minifig' ? item.itemId : null,
+              }));
+          });
+
           if (itemRows.length > 0) {
             for (let i = 0; i < itemRows.length; i += 200) {
               await checked(
