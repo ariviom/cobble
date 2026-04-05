@@ -51,6 +51,7 @@ export type IdentifyResponse = {
   availableColors?: Array<{
     id: number;
     name: string;
+    rgb?: string | null;
     partImageUrl?: string | null;
   }>;
   // When falling back to BrickLink supersets for assemblies (no component list)

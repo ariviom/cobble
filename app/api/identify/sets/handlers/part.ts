@@ -69,6 +69,27 @@ export async function handlePartIdentify(
     availableColors = [];
   }
 
+  // Rebrickable's /parts/{num}/colors/ endpoint doesn't return rgb.
+  // Enrich from the local catalog so the client can group by hue.
+  if (availableColors.length > 0) {
+    try {
+      const ids = availableColors.map(c => c.id);
+      const { data: rgbRows } = await getCatalogReadClient()
+        .from('rb_colors')
+        .select('id, rgb')
+        .in('id', ids);
+      if (rgbRows?.length) {
+        const rgbById = new Map(rgbRows.map(r => [r.id, r.rgb ?? null]));
+        availableColors = availableColors.map(c => ({
+          ...c,
+          rgb: c.rgb ?? rgbById.get(c.id) ?? null,
+        }));
+      }
+    } catch {
+      // non-fatal: client falls back to 'special' grouping
+    }
+  }
+
   // Map BL color if provided and no RB color yet
   if (selectedColorId == null && blColorId != null) {
     try {

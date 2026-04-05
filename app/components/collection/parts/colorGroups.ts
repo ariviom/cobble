@@ -91,15 +91,9 @@ const GROUP_META: Record<
 function classifyColor(name: string, rgb: string | null | undefined): GroupKey {
   const lowerName = name.toLowerCase();
 
-  // Name-based overrides for ambiguous colors
-  if (
-    lowerName.includes('chrome') ||
-    lowerName.includes('metallic') ||
-    lowerName.includes('pearl') ||
-    lowerName.includes('glitter') ||
-    lowerName.includes('milky') ||
-    lowerName.includes('glow')
-  )
+  // Genuine effect colors (no meaningful parent hue) stay in 'special'.
+  // Finishes like chrome/metallic/pearl/glitter fall through and classify by RGB hue.
+  if (lowerName.includes('glow') || lowerName.includes('milky'))
     return 'special';
   if (lowerName.includes('brown') || lowerName.includes('nougat'))
     return 'brown';

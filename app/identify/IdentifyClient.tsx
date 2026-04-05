@@ -39,7 +39,7 @@ type IdentifyCacheEntry = IdentifyResponse & { cachedAt: number };
 
 const identifyResponseCache = new Map<string, IdentifyCacheEntry>();
 const IDENTIFY_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h local cache
-const SESSION_CACHE_KEY = 'identify_cache_v1';
+const SESSION_CACHE_KEY = 'identify_cache_v2';
 const SESSION_CACHE_MAX = 20;
 
 function loadSessionCache(): Record<string, IdentifyCacheEntry> {
@@ -127,6 +127,7 @@ type TabState = {
   colors: Array<{
     id: number;
     name: string;
+    rgb: string | null;
     partImageUrl: string | null;
   }> | null;
   blPartId: string | null;
@@ -165,17 +166,28 @@ function updateUrlParams(
   }
 }
 
-type ColorState = { id: number; name: string; partImageUrl: string | null };
+type ColorState = {
+  id: number;
+  name: string;
+  rgb: string | null;
+  partImageUrl: string | null;
+};
 
 /** Map raw available colors from API responses to the consistent ColorState shape. */
 function mapAvailableColors(
-  raw: Array<{ id?: number; name?: string; partImageUrl?: string | null }>
+  raw: Array<{
+    id?: number;
+    name?: string;
+    rgb?: string | null;
+    partImageUrl?: string | null;
+  }>
 ): ColorState[] {
   return raw
     .filter(c => !!c?.name)
     .map(c => ({
       id: c.id!,
       name: c.name!,
+      rgb: c.rgb ?? null,
       partImageUrl: c.partImageUrl ?? null,
     }));
 }
@@ -359,6 +371,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
             availableColors?: Array<{
               id: number;
               name: string;
+              rgb?: string | null;
               partImageUrl?: string | null;
             }>;
             selectedColorId?: number | null;
@@ -432,6 +445,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           availableColors?: Array<{
             id: number;
             name: string;
+            rgb?: string | null;
             partImageUrl?: string | null;
           }>;
           selectedColorId?: number | null;
@@ -896,6 +910,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
           availableColors?: Array<{
             id: number;
             name: string;
+            rgb?: string | null;
             partImageUrl?: string | null;
           }>;
           selectedColorId?: number | null;
@@ -998,6 +1013,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                 availableColors?: Array<{
                   id: number;
                   name: string;
+                  rgb?: string | null;
                   partImageUrl?: string | null;
                 }>;
               }
@@ -1409,6 +1425,7 @@ function IdentifyClient({ initialQuota, isAuthenticated }: IdentifyPageProps) {
                       availableColors={(colors ?? []).map(c => ({
                         colorId: c.id,
                         colorName: c.name,
+                        rgb: c.rgb,
                         imageUrl: c.partImageUrl,
                       }))}
                       onClose={() => setLoosePartModalOpen(false)}
