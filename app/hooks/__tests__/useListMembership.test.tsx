@@ -1,0 +1,165 @@
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// --- Mocks ---
+
+const mockUser = { id: 'user-1' };
+vi.mock('@/app/hooks/useSupabaseUser', () => ({
+  useSupabaseUser: () => ({ user: mockUser }),
+}));
+
+vi.mock('@/app/components/providers/entitlements-provider', () => ({
+  useEntitlements: () => ({ hasFeature: () => true }),
+}));
+
+// Mock emitListToast so we can assert on it
+const emitListToastMock = vi.fn();
+vi.mock('@/app/components/providers/list-toast-provider', () => ({
+  emitListToast: (...args: unknown[]) => emitListToastMock(...args),
+}));
+
+// Mock useUserLists — provide a tiny in-memory store so optimistic updates
+// from useListMembership are visible to assertions.
+let mockAllLists: Array<{ id: string; name: string; isSystem: boolean }> = [];
+const optimisticUpdateUserListsMock = vi.fn(
+  (
+    _userId: string,
+    updater: (
+      prev: Array<{ id: string; name: string; isSystem: boolean }>
+    ) => Array<{ id: string; name: string; isSystem: boolean }>
+  ) => {
+    mockAllLists = updater(mockAllLists);
+  }
+);
+vi.mock('@/app/hooks/useUserLists', () => ({
+  useUserLists: () => ({
+    allLists: mockAllLists,
+    lists: mockAllLists.filter(l => !l.isSystem),
+    wishlist: null,
+    isLoading: false,
+    error: null,
+  }),
+  optimisticUpdateUserLists: (
+    userId: string,
+    updater: (
+      prev: Array<{ id: string; name: string; isSystem: boolean }>
+    ) => Array<{ id: string; name: string; isSystem: boolean }>
+  ) => optimisticUpdateUserListsMock(userId, updater),
+}));
+
+// Supabase chainable mock. Terminal operations (.then on the query chain
+// for upsert/delete/eq) resolve to the configured result.
+type QueryResult = { data: unknown; error: { message: string } | null };
+let mockMembershipResult: QueryResult = { data: [], error: null };
+let mockUpsertResult: QueryResult = { data: null, error: null };
+let mockDeleteResult: QueryResult = { data: null, error: null };
+
+function makeQueryChain() {
+  const chain: Record<string, unknown> = {};
+  const self = () => chain;
+  chain.select = self;
+  chain.eq = self;
+  chain.in = self;
+  chain.not = self;
+  chain.order = self;
+  // Await on the chain resolves to mockMembershipResult (initial membership load)
+  chain.then = (resolve: (v: QueryResult) => unknown) =>
+    Promise.resolve(resolve(mockMembershipResult));
+  return chain;
+}
+
+function makeUpsertChain() {
+  return {
+    then: (resolve: (v: QueryResult) => unknown) =>
+      Promise.resolve(resolve(mockUpsertResult)),
+  };
+}
+
+function makeDeleteChain() {
+  const chain: Record<string, unknown> = {};
+  const self = () => chain;
+  chain.eq = self;
+  chain.then = (resolve: (v: QueryResult) => unknown) =>
+    Promise.resolve(resolve(mockDeleteResult));
+  return chain;
+}
+
+vi.mock('@/app/lib/supabaseClient', () => ({
+  getSupabaseBrowserClient: () => ({
+    from: () => ({
+      select: () => makeQueryChain(),
+      upsert: () => makeUpsertChain(),
+      delete: () => makeDeleteChain(),
+    }),
+  }),
+}));
+
+// Stub global fetch for POST /api/lists
+const fetchMock = vi.fn();
+vi.stubGlobal('fetch', fetchMock);
+
+// localStorage
+const lsStore = new Map<string, string>();
+vi.stubGlobal('localStorage', {
+  getItem: (k: string) => lsStore.get(k) ?? null,
+  setItem: (k: string, v: string) => lsStore.set(k, v),
+  removeItem: (k: string) => lsStore.delete(k),
+  clear: () => lsStore.clear(),
+  get length() {
+    return lsStore.size;
+  },
+  key: (i: number) => Array.from(lsStore.keys())[i] ?? null,
+});
+
+// Now import the hook under test (after all mocks are set up)
+import { useListMembership } from '@/app/hooks/useListMembership';
+
+beforeEach(() => {
+  mockAllLists = [];
+  optimisticUpdateUserListsMock.mockClear();
+  emitListToastMock.mockClear();
+  fetchMock.mockReset();
+  mockMembershipResult = { data: [], error: null };
+  mockUpsertResult = { data: null, error: null };
+  mockDeleteResult = { data: null, error: null };
+  lsStore.clear();
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe('useListMembership — createList optimistic behavior', () => {
+  it('adds the item to the new list synchronously via a temp id', async () => {
+    // fetch never resolves so we can assert synchronous state
+    let resolveFetch!: (value: Response) => void;
+    fetchMock.mockImplementationOnce(
+      () => new Promise<Response>(res => (resolveFetch = res))
+    );
+
+    const { result } = renderHook(() =>
+      useListMembership('set', '75192-1', 'set_num')
+    );
+
+    // Wait for initial membership load to settle
+    await waitFor(() => {
+      expect(result.current.listsLoading).toBe(false);
+    });
+
+    act(() => {
+      result.current.createList('My List');
+    });
+
+    // selectedListIds should already contain a temp id, synchronously
+    expect(result.current.selectedListIds).toHaveLength(1);
+    expect(result.current.selectedListIds[0]).toMatch(/^temp-/);
+
+    // Cleanup: resolve the fetch so any trailing microtasks settle
+    resolveFetch(
+      new Response(
+        JSON.stringify({ id: 'real-1', name: 'My List', is_system: false }),
+        { status: 201 }
+      )
+    );
+  });
+});
