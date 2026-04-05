@@ -1,5 +1,5 @@
 import AccountPageClient from '@/app/account/AccountPageClient';
-import { getUserProfile } from '@/app/lib/server/getUserProfile';
+import { ensureUserProfile } from '@/app/lib/server/ensureUserProfile';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { DEFAULT_PRICING_PREFERENCES } from '@/app/lib/pricing';
 import { loadUserPricingPreferences } from '@/app/lib/userPricingPreferences';
@@ -50,13 +50,9 @@ export default async function AccountPage() {
 
     initialUser = user;
 
-    const existingProfile = await getUserProfile(supabase, user.id);
-
-    if (existingProfile) {
-      initialProfile = existingProfile;
-      initialPricingCurrency = DEFAULT_PRICING_PREFERENCES.currencyCode;
-      initialPricingCountry = DEFAULT_PRICING_PREFERENCES.countryCode;
-    }
+    const oauthName =
+      (user.user_metadata?.full_name as string | undefined) ?? null;
+    initialProfile = await ensureUserProfile(supabase, user.id, oauthName);
 
     try {
       const pricingPrefs = await loadUserPricingPreferences(supabase, user.id);
