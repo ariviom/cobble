@@ -58,7 +58,7 @@ export function Navigation({
   return (
     <nav
       className={cn(
-        'fixed inset-x-0 bottom-0 z-100 w-full bg-theme-primary pb-[env(safe-area-inset-bottom,0px)] shadow-[color:var(--color-theme-shadow)] lg:top-0 lg:bottom-auto lg:pb-0 lg:shadow-[0_4px_0_0]',
+        'fixed inset-x-0 bottom-0 z-100 w-full bg-theme-primary pb-[env(safe-area-inset-bottom,0px)] shadow-[color:var(--color-theme-shadow)] lg:top-[var(--spacing-dunning-height)] lg:bottom-auto lg:pb-0 lg:shadow-[0_4px_0_0]',
         className
       )}
     >

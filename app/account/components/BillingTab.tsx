@@ -142,14 +142,17 @@ export function BillingTab({ subscription }: BillingTabProps) {
               <div className="flex items-center gap-3">
                 <PlanBadge label={tierLabel} variant="plus" />
               </div>
-              {subscription?.cancel_at_period_end ? (
+              {subscription?.cancel_at_period_end || subscription?.cancel_at ? (
                 <p className="text-sm text-foreground-muted">
-                  Your subscription is set to cancel at the end of the current
-                  period on{' '}
+                  Your subscription is good through{' '}
                   <span className="font-medium text-foreground">
-                    {formatDate(subscription.current_period_end)}
+                    {formatDate(
+                      subscription.cancel_at ??
+                        subscription.current_period_end ??
+                        null
+                    )}
                   </span>
-                  . You&apos;ll retain access until then.
+                  . It won&apos;t renew after that.
                 </p>
               ) : (
                 <p className="text-sm text-foreground-muted">

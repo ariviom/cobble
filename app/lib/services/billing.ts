@@ -220,6 +220,9 @@ export async function upsertSubscriptionFromStripe(
           ? new Date(currentPeriodEnd * 1000).toISOString()
           : null,
         cancel_at_period_end: subscription.cancel_at_period_end ?? false,
+        cancel_at: subscription.cancel_at
+          ? new Date(subscription.cancel_at * 1000).toISOString()
+          : null,
         quantity: firstItem?.quantity ?? 1,
         metadata:
           subscription.metadata && Object.keys(subscription.metadata).length > 0

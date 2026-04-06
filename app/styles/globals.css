@@ -152,7 +152,10 @@ summary,
   --width-xl: 11.25rem; /* 180px */
 
   --spacing-nav-height: calc(4rem + env(safe-area-inset-bottom, 0px));
-  --spacing-nav-offset: 0; /* Mobile: nav at bottom, no top offset needed */
+  --spacing-dunning-height: 0px;
+  --spacing-nav-offset: var(
+    --spacing-dunning-height
+  ); /* Mobile: nav at bottom, dunning only */
   --spacing-topnav-height: 6rem;
   --spacing-tab-bar-height: 2.5rem;
   --spacing-tab-curve-size: 12px;
@@ -289,8 +292,8 @@ summary,
 @media (min-width: 1024px) {
   :root {
     --spacing-nav-offset: calc(
-      var(--spacing-nav-height) + 0.25rem
-    ); /* Nav height + 4px shadow/border */
+      var(--spacing-nav-height) + 0.25rem + var(--spacing-dunning-height)
+    ); /* Nav height + 4px shadow/border + dunning banner */
     --spacing-topnav-height: 8rem;
   }
 }
@@ -323,6 +326,28 @@ summary,
   /* Link colors - lighter blue for readability on dark backgrounds */
   --color-link: #60a5fa;
   --color-link-hover: #93bbfd;
+
+  /* Status muted backgrounds — mix with dark base instead of white */
+  --color-danger-muted: color-mix(
+    in oklch,
+    var(--color-brand-red) 15%,
+    var(--color-neutral-100)
+  );
+  --color-success-muted: color-mix(
+    in oklch,
+    var(--color-brand-green) 15%,
+    var(--color-neutral-100)
+  );
+  --color-warning-muted: color-mix(
+    in oklch,
+    var(--color-brand-orange) 15%,
+    var(--color-neutral-100)
+  );
+  --color-info-muted: color-mix(
+    in oklch,
+    var(--color-brand-blue) 15%,
+    var(--color-neutral-100)
+  );
 
   /* Darkened brand colors for hero backgrounds — retains hue but reduces
      brightness so colored sections feel cohesive with dark surfaces. */
