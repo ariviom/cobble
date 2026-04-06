@@ -2,22 +2,21 @@ import { Button } from '@/app/components/ui/Button';
 
 export default function BillingCancelPage() {
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-12">
-      <header className="space-y-2">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 lg:px-6">
+      <header>
         <p className="text-sm font-semibold text-amber-600">
           Checkout canceled
         </p>
-        <h1 className="text-3xl font-bold">No worries</h1>
-        <p className="text-foreground-muted">
+        <h1 className="text-heading-lg font-bold tracking-tight text-foreground">
+          No worries
+        </h1>
+        <p className="mt-1 text-body text-foreground-muted">
           No charge was made. You can upgrade anytime from the pricing page.
         </p>
       </header>
-      <div className="flex flex-wrap gap-3">
+      <div>
         <Button href="/pricing">View plans</Button>
-        <Button href="/sets" variant="outline">
-          Browse sets
-        </Button>
       </div>
-    </main>
+    </div>
   );
 }

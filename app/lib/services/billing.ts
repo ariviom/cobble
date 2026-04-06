@@ -202,20 +202,9 @@ export async function upsertSubscriptionFromStripe(
       : product && !('deleted' in product)
         ? (product.id as string)
         : '';
-  // current_period_end is present in the Stripe API response but missing from
-  // the TypeScript definitions in stripe@20.x (API version 2025-12-15.clover).
-  // Access via index signature until the type definitions are updated.
-  const currentPeriodEnd = (() => {
-    const value = (subscription as unknown as Record<string, unknown>)[
-      'current_period_end'
-    ];
-    if (value === undefined) {
-      logger.warn('billing.missing_current_period_end', {
-        subscriptionId: subscription.id,
-      });
-    }
-    return typeof value === 'number' ? value : null;
-  })();
+  // In API version 2025-12-15.clover, current_period_end moved from the
+  // subscription to the subscription item.
+  const currentPeriodEnd = firstItem?.current_period_end ?? null;
 
   const { error: upsertError } = await supabase
     .from('billing_subscriptions')

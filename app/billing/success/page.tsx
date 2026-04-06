@@ -14,46 +14,27 @@ export default async function BillingSuccessPage() {
     // Auth check failed — treat as unauthenticated
   }
 
-  if (!isAuthenticated) {
-    return (
-      <main className="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-12">
-        <header className="space-y-2">
-          <p className="text-sm font-semibold text-green-600">
-            Payment confirmed
-          </p>
-          <h1 className="text-3xl font-bold">You&apos;re in!</h1>
-          <p className="text-foreground-muted">
-            Sign in to start using Plus. If you&apos;re new, check your email
-            for an invite link.
-          </p>
-        </header>
-        <div className="flex flex-wrap gap-3">
-          <Button href="/login" variant="primary">
-            Sign in
-          </Button>
-          <Button href="/sets" variant="outline">
-            Browse sets
-          </Button>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-12">
+    <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-4 py-16 text-center lg:px-6">
       <header className="space-y-2">
-        <p className="text-sm font-semibold text-green-600">Success</p>
-        <h1 className="text-3xl font-bold">Welcome to Plus!</h1>
-        <p className="text-foreground-muted">
-          You now have full access to all Plus features.
+        <p className="text-sm font-semibold text-green-600">
+          {isAuthenticated ? 'Success' : 'Payment confirmed'}
+        </p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-foreground lg:text-4xl">
+          {isAuthenticated ? "Let's Party!" : "Let's Party!"}
+        </h1>
+        <p className="mt-2 text-body text-foreground-muted">
+          {isAuthenticated
+            ? 'You now have full access to all Plus features.'
+            : "Sign in to start using Plus. If you're new, check your email for an invite link."}
         </p>
       </header>
-      <div className="flex flex-wrap gap-3">
-        <Button href="/sets">Start exploring</Button>
-        <Button href="/account" variant="outline">
-          View account
+
+      <div>
+        <Button href={isAuthenticated ? '/sets' : '/login'} variant="primary">
+          {isAuthenticated ? 'Go to sets' : 'Sign in'}
         </Button>
       </div>
-    </main>
+    </div>
   );
 }
