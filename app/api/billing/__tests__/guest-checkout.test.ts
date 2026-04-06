@@ -193,7 +193,7 @@ describe('POST /api/billing/guest-checkout', () => {
       const args = mockCheckoutSessionsCreate.mock.calls[0][0];
 
       expect(args.mode).toBe('subscription');
-      expect(args.customer_creation).toBe('always');
+      expect(args.customer_creation).toBeUndefined();
       expect(args.line_items).toEqual([{ price: VALID_PRICE_ID, quantity: 1 }]);
       expect(args.success_url).toBe('https://example.com/success');
       expect(args.cancel_url).toBe('https://example.com/cancel');
