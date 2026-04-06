@@ -26,7 +26,7 @@ export default async function BillingSuccessPage() {
         <p className="mt-2 text-body text-foreground-muted">
           {isAuthenticated
             ? 'You now have full access to all Plus features.'
-            : "Sign in to start using Plus. If you're new, check your email for an invite link."}
+            : 'Check your email for a link to sign in and activate your account.'}
         </p>
       </header>
 
