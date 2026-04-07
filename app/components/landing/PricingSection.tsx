@@ -142,7 +142,7 @@ export function PricingSection({
   function renderFreeCta() {
     return (
       <Button href="/signup" variant="outline" className="w-full">
-        Get started
+        Sign up free
       </Button>
     );
   }

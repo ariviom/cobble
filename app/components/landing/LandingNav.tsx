@@ -56,7 +56,7 @@ export function LandingNav() {
             Sign in
           </Button>
           <Button href="/sets" variant="primary" size="sm">
-            Get started
+            Try Brick Party
           </Button>
         </div>
       </div>

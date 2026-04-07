@@ -105,7 +105,7 @@ export type CardDescriptionProps = PropsWithChildren<
 export function CardDescription({ className, ...rest }: CardDescriptionProps) {
   return (
     <p
-      className={cn('mt-1 text-body text-foreground-muted', className)}
+      className={cn('mt-1 text-sm text-foreground-muted', className)}
       {...rest}
     />
   );

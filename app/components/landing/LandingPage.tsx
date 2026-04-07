@@ -113,7 +113,7 @@ export function LandingPage({
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <Button href="/sets" variant="hero-secondary" size="lg">
-              Get started
+              Try Brick Party
             </Button>
           </div>
         </div>
@@ -251,7 +251,7 @@ export function LandingPage({
           </h2>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <Button href="/sets" variant="hero-primary" size="lg">
-              Get started
+              Try Brick Party
             </Button>
           </div>
         </div>
