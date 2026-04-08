@@ -72,19 +72,28 @@ async function fetchLatestInventories(
   invIds: number[];
   latestBySet: Map<string, { id: number; version: number }>;
 } | null> {
-  const { data: inventories, error: invError } = await catalogClient
-    .from('rb_inventories')
-    .select('id, set_num, version')
-    .in('set_num', setNums)
-    .not('set_num', 'like', 'fig-%');
-
-  if (invError) {
-    logger.error('user_minifigs.sync_from_sets.inventories_failed', {
-      userId,
-      error: invError.message,
-    });
-    return null;
+  const allInventories: Array<{
+    id: number;
+    set_num: string | null;
+    version: number | null;
+  }> = [];
+  for (let i = 0; i < setNums.length; i += CHUNK_SIZE) {
+    const batch = setNums.slice(i, i + CHUNK_SIZE);
+    const { data, error: invError } = await catalogClient
+      .from('rb_inventories')
+      .select('id, set_num, version')
+      .in('set_num', batch)
+      .not('set_num', 'like', 'fig-%');
+    if (invError) {
+      logger.error('user_minifigs.sync_from_sets.inventories_failed', {
+        userId,
+        error: invError.message,
+      });
+      return null;
+    }
+    allInventories.push(...(data ?? []));
   }
+  const inventories = allInventories;
 
   if (!inventories || inventories.length === 0) {
     return { invIds: [], latestBySet: new Map() };
@@ -126,19 +135,28 @@ async function computeMinifigContributions(
     quantity: number | null;
   }>;
 } | null> {
-  // Get all minifigs for these inventories
-  const { data: invMinifigs, error: imError } = await catalogClient
-    .from('rb_inventory_minifigs')
-    .select('inventory_id, fig_num, quantity')
-    .in('inventory_id', invIds);
-
-  if (imError) {
-    logger.error('user_minifigs.sync_from_sets.inventory_minifigs_failed', {
-      userId,
-      error: imError.message,
-    });
-    return null;
+  // Get all minifigs for these inventories (batched to avoid URL length limits)
+  const allInvMinifigs: Array<{
+    inventory_id: number;
+    fig_num: string;
+    quantity: number | null;
+  }> = [];
+  for (let i = 0; i < invIds.length; i += CHUNK_SIZE) {
+    const batch = invIds.slice(i, i + CHUNK_SIZE);
+    const { data, error: imError } = await catalogClient
+      .from('rb_inventory_minifigs')
+      .select('inventory_id, fig_num, quantity')
+      .in('inventory_id', batch);
+    if (imError) {
+      logger.error('user_minifigs.sync_from_sets.inventory_minifigs_failed', {
+        userId,
+        error: imError.message,
+      });
+      return null;
+    }
+    allInvMinifigs.push(...(data ?? []));
   }
+  const invMinifigs = allInvMinifigs;
 
   // Map fig_num to BL minifig ID
   const figNums = [...new Set((invMinifigs ?? []).map(im => im.fig_num))];
@@ -147,10 +165,19 @@ async function computeMinifigContributions(
     return { contributions: new Map(), figToBlId: new Map(), invMinifigs: [] };
   }
 
-  const { data: rbMinifigs } = await catalogClient
-    .from('rb_minifigs')
-    .select('fig_num, bl_minifig_id')
-    .in('fig_num', figNums);
+  const allRbMinifigs: Array<{
+    fig_num: string;
+    bl_minifig_id: string | null;
+  }> = [];
+  for (let i = 0; i < figNums.length; i += CHUNK_SIZE) {
+    const batch = figNums.slice(i, i + CHUNK_SIZE);
+    const { data } = await catalogClient
+      .from('rb_minifigs')
+      .select('fig_num, bl_minifig_id')
+      .in('fig_num', batch);
+    allRbMinifigs.push(...(data ?? []));
+  }
+  const rbMinifigs = allRbMinifigs;
 
   const figToBlId = new Map<string, string>();
   for (const m of rbMinifigs ?? []) {

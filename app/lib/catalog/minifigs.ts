@@ -504,12 +504,21 @@ export async function searchMinifigsLocal(
       .filter((v): v is string => Boolean(v));
 
     if (figNumsForCount.length > 0) {
-      const { data: partCounts } = await supabase
-        .from('rb_minifig_parts')
-        .select('fig_num')
-        .in('fig_num', figNumsForCount.slice(0, 4000));
+      const partCountBatches: Promise<{ fig_num: string }[]>[] = [];
+      for (let i = 0; i < figNumsForCount.length; i += 200) {
+        const batch = figNumsForCount.slice(i, i + 200);
+        partCountBatches.push(
+          Promise.resolve(
+            supabase
+              .from('rb_minifig_parts')
+              .select('fig_num')
+              .in('fig_num', batch)
+          ).then(({ data }) => data ?? [])
+        );
+      }
+      const partCounts = (await Promise.all(partCountBatches)).flat();
 
-      if (partCounts) {
+      if (partCounts.length > 0) {
         const countByFig = new Map<string, number>();
         for (const row of partCounts) {
           const current = countByFig.get(row.fig_num) ?? 0;
