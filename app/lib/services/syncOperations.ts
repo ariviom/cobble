@@ -219,29 +219,29 @@ async function executeSetPartDeletes(
   deletes: SetPartDelete[],
   failed: Array<{ id: number; error: string }>
 ): Promise<number> {
-  let processed = 0;
+  const results = await Promise.all(
+    deletes.map(async d => {
+      const { error: deleteError } = await supabase
+        .from('user_set_parts')
+        .delete()
+        .eq('user_id', userId)
+        .eq('set_num', d.payload.set_num)
+        .eq('part_num', d.payload.part_num)
+        .eq('color_id', d.payload.color_id)
+        .eq('is_spare', d.payload.is_spare);
 
-  for (const d of deletes) {
-    const { error: deleteError } = await supabase
-      .from('user_set_parts')
-      .delete()
-      .eq('user_id', userId)
-      .eq('set_num', d.payload.set_num)
-      .eq('part_num', d.payload.part_num)
-      .eq('color_id', d.payload.color_id)
-      .eq('is_spare', d.payload.is_spare);
+      if (deleteError) {
+        failed.push({
+          id: d.id,
+          error: `delete_failed:${deleteError.message}`,
+        });
+        return false;
+      }
+      return true;
+    })
+  );
 
-    if (deleteError) {
-      failed.push({
-        id: d.id,
-        error: `delete_failed:${deleteError.message}`,
-      });
-    } else {
-      processed++;
-    }
-  }
-
-  return processed;
+  return results.filter(Boolean).length;
 }
 
 async function executeLoosePartUpserts(
@@ -362,17 +362,16 @@ async function updateFoundCounts(
   supabase: SupabaseClient<Database>,
   affectedSetNums: Set<string>
 ): Promise<void> {
-  for (const setNum of affectedSetNums) {
-    try {
-      // Atomic aggregate+update via SQL function to prevent
-      // concurrent syncs from writing stale found_count values
-      await supabase.rpc('update_found_count', {
-        p_set_num: setNum,
-      });
-    } catch {
-      // Non-critical — found_count will self-correct on next sync
-    }
-  }
+  // Parallelize — each RPC is independent and non-critical
+  await Promise.all(
+    Array.from(affectedSetNums).map(async setNum => {
+      try {
+        await supabase.rpc('update_found_count', { p_set_num: setNum });
+      } catch {
+        // Non-critical — found_count will self-correct on next sync
+      }
+    })
+  );
 }
 
 async function fetchSyncVersions(
