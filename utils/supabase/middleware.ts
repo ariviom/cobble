@@ -135,6 +135,19 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // Redirect unauthenticated users away from account pages.
+  if (!isAuthenticated && request.nextUrl.pathname.startsWith('/account')) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/';
+    const redirect = NextResponse.redirect(redirectUrl);
+    for (const cookie of response.cookies.getAll()) {
+      redirect.cookies.set(cookie);
+    }
+    redirect.headers.set('x-request-id', requestId);
+    redirect.headers.set('Content-Security-Policy', RELAXED_CSP);
+    return redirect;
+  }
+
   // Redirect authenticated users away from the marketing page.
   if (isAuthenticated && request.nextUrl.pathname === '/') {
     const redirectUrl = request.nextUrl.clone();
