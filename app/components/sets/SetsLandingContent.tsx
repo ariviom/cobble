@@ -117,6 +117,8 @@ export function SetsLandingContent({
                   <button
                     key={opt.key}
                     onClick={() => setActiveFilter(opt.key as UnifiedFilter)}
+                    aria-label={`Filter: ${opt.label}`}
+                    aria-pressed={activeFilter === opt.key}
                     className={cn(
                       'shrink-0 rounded-full border px-3 py-1 text-sm font-semibold transition-colors',
                       activeFilter === opt.key
