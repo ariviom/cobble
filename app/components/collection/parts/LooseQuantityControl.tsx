@@ -28,7 +28,7 @@ export function LooseQuantityControl({
       max={MAX_LOOSE}
       className="h-12"
       inputClassName="border-x border-subtle"
-      ariaLabel="Loose quantity"
+      ariaLabel="Spare quantity"
     />
   );
 }

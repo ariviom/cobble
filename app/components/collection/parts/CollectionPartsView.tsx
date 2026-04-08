@@ -6,7 +6,7 @@ import { UpgradeModal } from '@/app/components/upgrade-modal';
 import { useCollectionParts } from '@/app/hooks/useCollectionParts';
 import { useCollectionPartsControls } from '@/app/hooks/useCollectionPartsControls';
 import { useCollectionPartsSelection } from '@/app/hooks/useCollectionPartsSelection';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CollectionPartCard } from './CollectionPartCard';
 import { getGridClassName } from './gridClassName';
 import { CollectionPartModal } from './CollectionPartModal';
@@ -27,10 +27,14 @@ import type { CollectionPart, PartsSourceFilter } from './types';
 
 import { CollectionPartsExportModal } from './CollectionPartsExportModal';
 
+export type PartsStats = {
+  uniqueParts: number;
+  totalPieces: number;
+};
+
 type Props = {
   syncPartsFromSets: boolean;
-  ownedSetCount: number;
-  loosePartsCount: number;
+  onStatsChange?: (stats: PartsStats) => void;
 };
 
 /** Invert missing data to get a map of setNumber → parts with that set missing */
@@ -58,8 +62,7 @@ function groupMissingBySet(
 
 export function CollectionPartsView({
   syncPartsFromSets,
-  ownedSetCount,
-  loosePartsCount,
+  onStatsChange,
 }: Props) {
   const controls = useCollectionPartsControls();
   const {
@@ -128,6 +131,11 @@ export function CollectionPartsView({
     () => processedParts.reduce((sum, p) => sum + p.totalOwned, 0),
     [processedParts]
   );
+
+  // Report stats to parent for hero display
+  useEffect(() => {
+    onStatsChange?.({ uniqueParts: totalUnique, totalPieces });
+  }, [totalUnique, totalPieces, onStatsChange]);
 
   // Missing-view: group by set (no pagination at the top level for missing)
   const missingBySet = useMemo(() => {
@@ -224,34 +232,11 @@ export function CollectionPartsView({
           <div className="mt-6 rounded-xl border border-dashed border-subtle bg-card/50 p-8 text-center">
             <p className="text-body text-foreground-muted">
               You have no tracked parts yet. Once you mark sets as{' '}
-              <span className="font-medium">Owned</span> and track pieces found,
-              your parts will appear here.
+              <span className="font-medium">Owned</span> or track spare pieces,
+              your parts will appear here. You can also add spare parts via the
+              part detail modal.
             </p>
           </div>
-        )}
-
-        {/* Parts summary */}
-        {processedParts.length > 0 && (
-          <p className="text-center text-sm text-foreground-muted">
-            {totalUnique.toLocaleString()} unique part
-            {totalUnique !== 1 ? 's' : ''}
-            {sourceFilter !== 'missing' && (
-              <>
-                {' '}
-                &middot; {totalPieces.toLocaleString()} total piece
-                {totalPieces !== 1 ? 's' : ''}
-              </>
-            )}
-            {ownedSetCount > 0 && (
-              <>
-                {' '}
-                &middot; {ownedSetCount} set{ownedSetCount !== 1 ? 's' : ''}
-              </>
-            )}
-            {loosePartsCount > 0 && (
-              <> &middot; {loosePartsCount.toLocaleString()} loose</>
-            )}
-          </p>
         )}
 
         {parts.length > 0 && processedParts.length === 0 && (

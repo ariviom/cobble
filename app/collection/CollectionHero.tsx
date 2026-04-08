@@ -4,9 +4,18 @@ import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
 import { ThemedPageHeader } from '@/app/components/ui/ThemedPageHeader';
 import type { CollectionType } from '@/app/components/home/CollectionControlBar';
 
+type CollectionStats = {
+  ownedSets?: number | undefined;
+  minifigs?: number | undefined;
+  spareParts?: number | undefined;
+  uniqueParts?: number | undefined;
+  totalPieces?: number | undefined;
+};
+
 type CollectionHeroProps = {
   collectionType?: CollectionType;
   onCollectionTypeChange?: (next: CollectionType) => void;
+  stats?: CollectionStats | undefined;
 };
 
 const typeSegments = [
@@ -15,9 +24,33 @@ const typeSegments = [
   { key: 'parts', label: 'Parts' },
 ];
 
+function StatsSummary({ stats }: { stats?: CollectionStats | undefined }) {
+  if (!stats) return null;
+  const items: string[] = [];
+  if (stats.ownedSets != null && stats.ownedSets > 0)
+    items.push(
+      `${stats.ownedSets} owned set${stats.ownedSets !== 1 ? 's' : ''}`
+    );
+  if (stats.minifigs != null && stats.minifigs > 0)
+    items.push(`${stats.minifigs} minifig${stats.minifigs !== 1 ? 's' : ''}`);
+  if (stats.uniqueParts != null && stats.uniqueParts > 0)
+    items.push(
+      `${stats.uniqueParts.toLocaleString()} unique part${stats.uniqueParts !== 1 ? 's' : ''}`
+    );
+  if (stats.totalPieces != null && stats.totalPieces > 0)
+    items.push(
+      `${stats.totalPieces.toLocaleString()} total piece${stats.totalPieces !== 1 ? 's' : ''}`
+    );
+  if (stats.spareParts != null && stats.spareParts > 0)
+    items.push(`${stats.spareParts.toLocaleString()} spare`);
+  if (items.length === 0) return null;
+  return <p className="mt-1 text-sm text-white/60">{items.join(' · ')}</p>;
+}
+
 export function CollectionHero({
   collectionType,
   onCollectionTypeChange,
+  stats,
 }: CollectionHeroProps = {}) {
   return (
     <section className="relative overflow-hidden">
@@ -30,6 +63,7 @@ export function CollectionHero({
             <p className="text-base text-white/80 lg:text-lg">
               Track your LEGO sets and minifigures
             </p>
+            <StatsSummary stats={stats} />
           </div>
 
           {collectionType && onCollectionTypeChange && (

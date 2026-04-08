@@ -36,9 +36,9 @@ import type { PartsFilter, PartsSourceFilter, PartsSortKey } from './types';
 
 const sourceOptions: DropdownOption[] = [
   { key: 'all', text: 'All Parts' },
-  { key: 'owned', text: 'Owned' },
-  { key: 'loose', text: 'Loose' },
-  { key: 'missing', text: 'Missing' },
+  { key: 'owned', text: 'From Owned Sets' },
+  { key: 'loose', text: 'Spare' },
+  { key: 'missing', text: 'Missing from Tracked Sets' },
 ];
 
 const sortKeyOptions: DropdownOption[] = [

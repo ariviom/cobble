@@ -57,7 +57,7 @@ function CollectionPartCardComponent({
   const quantityLabel =
     needQuantity != null
       ? `Need: ${needQuantity}`
-      : `Owned: ${part.totalOwned}`;
+      : `Total: ${part.totalOwned}`;
 
   return (
     <PartCard
@@ -132,7 +132,7 @@ function CollectionPartCardComponent({
               {part.looseQuantity > 0 && (
                 <>
                   <br />
-                  Loose: {part.looseQuantity}
+                  Spare: {part.looseQuantity}
                 </>
               )}
             </p>

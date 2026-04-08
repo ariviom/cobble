@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, HelpCircle } from 'lucide-react';
 import Image from 'next/image';
 import { SetDetailModal } from '@/app/components/set/SetDetailModal';
 import { Card } from '@/app/components/ui/Card';
@@ -72,6 +72,7 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [looseQty, setLooseQty] = useState(0);
   const [ownedFromSets, setOwnedFromSets] = useState(0);
+  const [showSpareHelp, setShowSpareHelp] = useState(false);
   const [colorImageUrl, setColorImageUrl] = useState<string | null>(null);
   const [modalSet, setModalSet] = useState<{
     setNumber: string;
@@ -311,26 +312,48 @@ export function PartDetailClient({ part, colors, rarityData }: Props) {
           </div>
         )}
 
-        {/* Owned / Loose */}
+        {/* From Owned Sets / Spare */}
         <div className="flex gap-px border-t border-subtle bg-subtle">
           <div className="flex-1 bg-card px-5 py-3 sm:px-6">
             <p className="mb-1 text-xs font-medium text-foreground-muted uppercase">
-              Owned
+              From Owned Sets
             </p>
             <p className="text-2xl font-bold tabular-nums">{ownedFromSets}</p>
           </div>
           <div className="flex-1 bg-card px-5 py-3 sm:px-6">
             <p className="mb-1 text-xs font-medium text-foreground-muted uppercase">
-              Loose
+              Spare
             </p>
             <p className="text-2xl font-bold tabular-nums">{looseQty}</p>
           </div>
         </div>
 
-        {/* Loose quantity editor */}
+        {/* Spare quantity editor */}
         <div className="border-t border-subtle px-5 py-4 sm:px-6">
-          <p className="mb-2 text-xs font-medium text-foreground-muted uppercase">
-            Loose quantity
+          <div className="mb-2 flex items-center gap-1.5">
+            <p className="text-xs font-medium text-foreground-muted uppercase">
+              Spare Parts
+            </p>
+            <button
+              type="button"
+              aria-label="What are spare parts?"
+              onClick={() => setShowSpareHelp(prev => !prev)}
+              className="text-foreground-muted transition-colors hover:text-foreground"
+            >
+              <HelpCircle className="size-3.5" />
+            </button>
+          </div>
+          {showSpareHelp && (
+            <p className="mb-2 text-xs leading-relaxed text-foreground-muted">
+              Spare parts are pieces you own that aren&apos;t counted as part of
+              any set. Parts from sets you mark as &ldquo;Owned&rdquo; are
+              tracked separately under &ldquo;From Owned Sets&rdquo; and can be
+              viewed in the Parts tab on your Collection page.
+            </p>
+          )}
+          <p className="mb-2 text-xs text-foreground-muted">
+            Parts you own outside of any set — from bulk buys, extras, or online
+            orders. These are separate from parts from &ldquo;owned&rdquo; sets.
           </p>
           <LooseQuantityControl
             key={selectedColorId}

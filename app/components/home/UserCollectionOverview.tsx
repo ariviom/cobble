@@ -25,9 +25,12 @@ import { useUserSetsStore } from '@/app/store/user-sets';
 import { logger } from '@/lib/metrics';
 import type { Tables } from '@/supabase/types';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CollectionHero } from '@/app/collection/CollectionHero';
-import { CollectionPartsView } from '@/app/components/collection/parts/CollectionPartsView';
+import {
+  CollectionPartsView,
+  type PartsStats,
+} from '@/app/components/collection/parts/CollectionPartsView';
 import {
   CollectionControlBar,
   type CollectionSortField,
@@ -425,6 +428,12 @@ export function UserCollectionOverview({
     };
   }, []);
 
+  const [partsStats, setPartsStats] = useState<PartsStats | null>(null);
+  const handlePartsStatsChange = useCallback(
+    (stats: PartsStats) => setPartsStats(stats),
+    []
+  );
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -753,6 +762,13 @@ export function UserCollectionOverview({
       <CollectionHero
         collectionType={collectionType}
         onCollectionTypeChange={handleCollectionTypeChange}
+        stats={{
+          ownedSets: ownedSetCount,
+          minifigs: minifigs.length,
+          spareParts: loosePartsCount,
+          uniqueParts: partsStats?.uniqueParts,
+          totalPieces: partsStats?.totalPieces,
+        }}
       />
       {collectionType !== 'parts' &&
         (collectionType === 'sets'
@@ -786,8 +802,7 @@ export function UserCollectionOverview({
       {collectionType === 'parts' && (
         <CollectionPartsView
           syncPartsFromSets={syncPartsFromSets}
-          ownedSetCount={ownedSetCount}
-          loosePartsCount={loosePartsCount}
+          onStatsChange={handlePartsStatsChange}
         />
       )}
 
