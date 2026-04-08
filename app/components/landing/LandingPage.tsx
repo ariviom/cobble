@@ -1,7 +1,10 @@
 'use client';
 
+import { useAuth } from '@/app/components/providers/auth-provider';
 import { Button } from '@/app/components/ui/Button';
 import { Camera, Download, Filter, Package, Search, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { FeatureCard } from './FeatureCard';
 import { LandingFooter } from './LandingFooter';
 import { LandingNav } from './LandingNav';
@@ -86,6 +89,18 @@ export function LandingPage({
   plusMonthlyPriceId,
   plusYearlyPriceId,
 }: LandingPageProps) {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+
+  // Client-side fallback: if the Supabase OAuth redirect lands on "/" instead
+  // of "/auth/callback", the browser client establishes the session but the
+  // server-side redirect in app/page.tsx won't have seen the cookies yet.
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.replace('/sets');
+    }
+  }, [isLoading, user, router]);
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <LandingNav />
