@@ -342,33 +342,31 @@ export function DisplayTab({
         </CardContent>
       </Card>
 
-      {/* Experimental Section — only visible in dark mode */}
-      {isKnockoutAvailable && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Experimental</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div>
-              <label className="text-label font-semibold text-foreground">
-                Transparent image backgrounds
-              </label>
-              <p className="text-body-sm mt-0.5 text-foreground-muted">
-                Removes white backgrounds from part, set, and minifig thumbnails
-                in dark mode. Results vary — some images may look distorted,
-                especially light-colored or transparent parts.
-              </p>
-              <div className="mt-3">
-                <Switch
-                  checked={knockoutEnabled}
-                  onChange={() => setKnockoutEnabled(!knockoutEnabled)}
-                  label={knockoutEnabled ? 'On' : 'Off'}
-                />
-              </div>
+      {/* Experimental Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Experimental</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div>
+            <label className="text-label font-semibold text-foreground">
+              Transparent image backgrounds (Dark Mode Only)
+            </label>
+            <p className="text-body-sm mt-0.5 text-foreground-muted">
+              Removes white backgrounds from part, set, and minifig thumbnails
+              in dark mode. Results vary — some images may look distorted,
+              especially light-colored or transparent parts.
+            </p>
+            <div className="mt-3">
+              <Switch
+                checked={knockoutEnabled}
+                onChange={() => setKnockoutEnabled(!knockoutEnabled)}
+                label={knockoutEnabled ? 'On' : 'Off'}
+              />
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Inventory Defaults Section */}
       <Card>
