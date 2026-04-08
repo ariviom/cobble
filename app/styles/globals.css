@@ -441,6 +441,18 @@ body {
   font-family: var(--font-plus-jakarta), sans-serif;
 }
 
+::selection {
+  background: var(--color-brand-yellow);
+  color: black;
+}
+
+/* On yellow backgrounds, swap to blue so the selection is visible */
+.bg-brand-yellow ::selection,
+.bg-brand-yellow::selection {
+  background: var(--color-brand-blue);
+  color: white;
+}
+
 /* Prevent OS-level prefers-color-scheme from painting dark before our theme runs.
    This ensures that even if the OS prefers dark, we won't flash a dark theme
    on first paint if the user's account preference is light. */
