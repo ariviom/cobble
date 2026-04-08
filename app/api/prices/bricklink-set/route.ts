@@ -50,22 +50,20 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
     });
   }
 
-  if (userId) {
-    const userLimit = await consumeRateLimit(`bl-set-price:user:${userId}`, {
-      windowMs: BL_RATE_WINDOW_MS,
-      maxHits: BL_RATE_LIMIT_USER,
+  const userLimit = await consumeRateLimit(`bl-set-price:user:${userId}`, {
+    windowMs: BL_RATE_WINDOW_MS,
+    maxHits: BL_RATE_LIMIT_USER,
+  });
+  if (!userLimit.allowed) {
+    incrementCounter('prices_bricklink_set_rate_limited', { scope: 'user' });
+    return errorResponse('rate_limited', {
+      message: 'Too many pricing requests. Please wait a moment.',
+      details: {
+        scope: 'user',
+        retryAfterSeconds: userLimit.retryAfterSeconds,
+      },
+      headers: { 'Retry-After': String(userLimit.retryAfterSeconds) },
     });
-    if (!userLimit.allowed) {
-      incrementCounter('prices_bricklink_set_rate_limited', { scope: 'user' });
-      return errorResponse('rate_limited', {
-        message: 'Too many pricing requests. Please wait a moment.',
-        details: {
-          scope: 'user',
-          retryAfterSeconds: userLimit.retryAfterSeconds,
-        },
-        headers: { 'Retry-After': String(userLimit.retryAfterSeconds) },
-      });
-    }
   }
 
   try {

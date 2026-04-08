@@ -219,29 +219,37 @@ async function executeSetPartDeletes(
   deletes: SetPartDelete[],
   failed: Array<{ id: number; error: string }>
 ): Promise<number> {
-  const results = await Promise.all(
-    deletes.map(async d => {
-      const { error: deleteError } = await supabase
-        .from('user_set_parts')
-        .delete()
-        .eq('user_id', userId)
-        .eq('set_num', d.payload.set_num)
-        .eq('part_num', d.payload.part_num)
-        .eq('color_id', d.payload.color_id)
-        .eq('is_spare', d.payload.is_spare);
+  // Process in batches to avoid overwhelming Supabase with concurrent requests
+  const BATCH_SIZE = 20;
+  let processed = 0;
 
-      if (deleteError) {
-        failed.push({
-          id: d.id,
-          error: `delete_failed:${deleteError.message}`,
-        });
-        return false;
-      }
-      return true;
-    })
-  );
+  for (let i = 0; i < deletes.length; i += BATCH_SIZE) {
+    const batch = deletes.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map(async d => {
+        const { error: deleteError } = await supabase
+          .from('user_set_parts')
+          .delete()
+          .eq('user_id', userId)
+          .eq('set_num', d.payload.set_num)
+          .eq('part_num', d.payload.part_num)
+          .eq('color_id', d.payload.color_id)
+          .eq('is_spare', d.payload.is_spare);
 
-  return results.filter(Boolean).length;
+        if (deleteError) {
+          failed.push({
+            id: d.id,
+            error: `delete_failed:${deleteError.message}`,
+          });
+          return false;
+        }
+        return true;
+      })
+    );
+    processed += results.filter(Boolean).length;
+  }
+
+  return processed;
 }
 
 async function executeLoosePartUpserts(
