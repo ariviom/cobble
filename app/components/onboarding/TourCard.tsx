@@ -52,6 +52,7 @@ export function TourCard() {
   // Prefetch tour videos after idle so they're cached when modals open
   useEffect(() => {
     if (dismissed || isComplete()) return;
+    const links: HTMLLinkElement[] = [];
     const timeout = setTimeout(() => {
       const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
       TOUR_ITEMS.forEach(item => {
@@ -61,9 +62,13 @@ export function TourCard() {
         link.as = 'video';
         link.href = getTourVideoUrl(item.videoKey, isDesktop);
         document.head.appendChild(link);
+        links.push(link);
       });
     }, 2000);
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      links.forEach(link => link.remove());
+    };
   }, [dismissed, isComplete]);
 
   // Don't render on hidden routes (e.g. marketing landing page)
