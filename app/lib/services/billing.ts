@@ -11,6 +11,16 @@ import { logger } from '@/lib/metrics';
 export type BillingTier = 'free' | 'plus' | 'pro';
 export type BillingCadence = 'monthly' | 'yearly';
 
+const BILLING_TIERS: ReadonlySet<string> = new Set<BillingTier>([
+  'free',
+  'plus',
+  'pro',
+]);
+
+export function isBillingTier(value: unknown): value is BillingTier {
+  return typeof value === 'string' && BILLING_TIERS.has(value);
+}
+
 /** Mask email for logging: `buy***@example.com` */
 function maskEmail(email: string): string {
   const [local, domain] = email.split('@');
@@ -290,7 +300,7 @@ async function getEmailTierOverride(
     return null;
   }
 
-  return (override?.tier as BillingTier) ?? null;
+  return isBillingTier(override?.tier) ? override.tier : null;
 }
 
 export async function getUserEntitlements(
@@ -323,8 +333,8 @@ export async function getUserEntitlements(
       if (!ACTIVE_STATUSES.includes(row.status as Stripe.Subscription.Status)) {
         continue;
       }
-      if (tierRank[row.tier as BillingTier] > tierRank[bestTier]) {
-        bestTier = row.tier as BillingTier;
+      if (isBillingTier(row.tier) && tierRank[row.tier] > tierRank[bestTier]) {
+        bestTier = row.tier;
       }
     }
   }
