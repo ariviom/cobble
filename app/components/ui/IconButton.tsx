@@ -33,9 +33,10 @@ const iconButtonVariants = cva(
 
 export { iconButtonVariants };
 
-type Props = ButtonHTMLAttributes<HTMLButtonElement> &
+type Props = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label'> &
   VariantProps<typeof iconButtonVariants> & {
     icon: ReactNode;
+    'aria-label': string;
   };
 
 export const IconButton = forwardRef<HTMLButtonElement, Props>(
