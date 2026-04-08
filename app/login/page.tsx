@@ -157,8 +157,8 @@ function LoginForm() {
         return;
       }
 
-      // Success - redirect to home page
-      router.push('/');
+      // Success - redirect to sets page
+      router.push('/sets');
     } catch (err) {
       const errorMessage =
         err instanceof Error
