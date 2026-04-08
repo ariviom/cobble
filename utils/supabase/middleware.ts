@@ -94,6 +94,7 @@ export async function updateSession(request: NextRequest) {
   // up-to-date without needing access tokens on the client.
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  let isAuthenticated = false;
   if (supabaseUrl && supabaseAnonKey) {
     try {
       const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -110,10 +111,27 @@ export async function updateSession(request: NextRequest) {
         },
       });
 
-      await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      isAuthenticated = !!user;
     } catch {
       // Swallow refresh errors to keep middleware non-fatal.
     }
+  }
+
+  // Redirect authenticated users away from the marketing page.
+  if (isAuthenticated && request.nextUrl.pathname === '/') {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = '/sets';
+    const redirect = NextResponse.redirect(redirectUrl);
+    // Transfer refreshed auth cookies to the redirect response
+    for (const cookie of response.cookies.getAll()) {
+      redirect.cookies.set(cookie);
+    }
+    redirect.headers.set('x-request-id', requestId);
+    redirect.headers.set('Content-Security-Policy', RELAXED_CSP);
+    return redirect;
   }
 
   response.headers.set('Content-Security-Policy', RELAXED_CSP);
