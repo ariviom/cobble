@@ -101,6 +101,11 @@ export function LandingPage({
     }
   }, [isLoading, user, router]);
 
+  // Don't render marketing content once auth resolves — redirect is in progress.
+  if (user) {
+    return null;
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       <LandingNav />

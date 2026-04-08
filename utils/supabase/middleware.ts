@@ -89,6 +89,21 @@ export async function updateSession(request: NextRequest) {
   // Also set on response for client visibility
   response.headers.set('x-request-id', requestId);
 
+  // If an OAuth redirect lands on "/" with a PKCE code parameter (e.g.
+  // Supabase used the Site URL instead of /auth/callback), forward to the
+  // callback route so the code exchange happens server-side.
+  if (
+    request.nextUrl.pathname === '/' &&
+    request.nextUrl.searchParams.has('code')
+  ) {
+    const callbackUrl = request.nextUrl.clone();
+    callbackUrl.pathname = '/auth/callback';
+    const redirect = NextResponse.redirect(callbackUrl);
+    redirect.headers.set('x-request-id', requestId);
+    redirect.headers.set('Content-Security-Policy', RELAXED_CSP);
+    return redirect;
+  }
+
   // Refresh Supabase auth cookies when configuration is available. This uses
   // the SSR client, which is safe in middleware/Edge and keeps cookies
   // up-to-date without needing access tokens on the client.
