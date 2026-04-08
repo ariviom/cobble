@@ -1,7 +1,7 @@
 {
   "name": "@brick_party/web",
   "version": "0.1.0",
-  "private": "true",
+  "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
