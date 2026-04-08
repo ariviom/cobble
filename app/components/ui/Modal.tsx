@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ReactNode, useEffect, useId } from 'react';
+import React, { ReactNode, useCallback, useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useScrollLock } from '@/app/hooks/useScrollLock';
 import { X } from 'lucide-react';
@@ -12,9 +12,35 @@ type Props = {
   children: ReactNode;
 };
 
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function Modal({ open, title, onClose, children }: Props) {
   const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
+  // Capture focus origin and move focus into modal on open
+  useEffect(() => {
+    if (!open) return;
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+
+    // Defer so the portal DOM is ready
+    const raf = requestAnimationFrame(() => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const first = dialog.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+      first?.focus();
+    });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      // Restore focus when modal closes
+      previousFocusRef.current?.focus();
+    };
+  }, [open]);
+
+  // Escape key handler
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -23,6 +49,29 @@ export function Modal({ open, title, onClose, children }: Props) {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  // Focus trap: wrap Tab at edges
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== 'Tab') return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+    );
+    if (focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }, []);
 
   useScrollLock(open);
 
@@ -35,6 +84,8 @@ export function Modal({ open, title, onClose, children }: Props) {
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}
+      onKeyDown={handleKeyDown}
+      ref={dialogRef}
     >
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
