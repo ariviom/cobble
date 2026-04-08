@@ -59,7 +59,7 @@ const eslintConfig = [
     ignores: ['scripts/videos/**'],
     languageOptions: {
       parserOptions: {
-        project: './tsconfig.json',
+        project: ['./tsconfig.json', './tsconfig.worker.json'],
         tsconfigRootDir: __dirname,
       },
     },

@@ -1,52 +1,11 @@
 import { withSentryConfig } from '@sentry/nextjs';
 import type { NextConfig } from 'next';
-import withPWAInit from 'next-pwa';
+import withSerwistInit from '@serwist/next';
 
-const withPWA = withPWAInit({
-  dest: 'public',
-  // Disable PWA in development to avoid service worker caching issues
+const withSerwist = withSerwistInit({
+  swSrc: 'app/sw.ts',
+  swDest: 'public/sw.js',
   disable: process.env.NODE_ENV === 'development',
-  register: true,
-  skipWaiting: true,
-  // Runtime caching for external image CDNs
-  runtimeCaching: [
-    {
-      // Rebrickable images (part photos, set images)
-      urlPattern: /^https:\/\/cdn\.rebrickable\.com\/.*/i,
-      handler: 'CacheFirst',
-      options: {
-        cacheName: 'rebrickable-images',
-        expiration: {
-          maxEntries: 500,
-          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-        },
-      },
-    },
-    {
-      // BrickLink images (minifig photos)
-      urlPattern: /^https:\/\/img\.bricklink\.com\/.*/i,
-      handler: 'CacheFirst',
-      options: {
-        cacheName: 'bricklink-images',
-        expiration: {
-          maxEntries: 500,
-          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-        },
-      },
-    },
-    {
-      // Google Storage images (set thumbnails)
-      urlPattern: /^https:\/\/storage\.googleapis\.com\/.*/i,
-      handler: 'CacheFirst',
-      options: {
-        cacheName: 'google-storage-images',
-        expiration: {
-          maxEntries: 200,
-          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
-        },
-      },
-    },
-  ],
 });
 
 const compiler =
@@ -117,7 +76,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(withPWA(nextConfig), {
+export default withSentryConfig(withSerwist(nextConfig), {
   org: 'brick-party',
   project: 'javascript-nextjs',
   ...(process.env.SENTRY_AUTH_TOKEN
