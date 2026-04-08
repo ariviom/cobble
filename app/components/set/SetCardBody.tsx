@@ -23,7 +23,7 @@ export function SetCardBody({
     <>
       <div className="p-2">
         {imageUrl ? (
-          <div className="relative aspect-4/3 w-full overflow-hidden rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 dark:from-neutral-800 dark:to-neutral-900">
+          <div className="relative aspect-4/3 w-full overflow-hidden rounded-md bg-gradient-to-br from-neutral-100 to-neutral-200 dark:bg-card-muted dark:bg-none">
             <Image
               src={imageUrl}
               alt=""
