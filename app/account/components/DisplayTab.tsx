@@ -82,8 +82,7 @@ export function DisplayTab({
   const { dismissed: tourDismissed, reEnable: reEnableTour } = useOnboarding();
 
   // Image knockout (experimental)
-  const { knockoutEnabled, setKnockoutEnabled, isKnockoutAvailable } =
-    useImageKnockout();
+  const { knockoutEnabled, setKnockoutEnabled } = useImageKnockout();
 
   // Wake lock (keep screen awake)
   const [supportsWakeLock, setSupportsWakeLock] = useState(false);
