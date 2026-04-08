@@ -11,9 +11,17 @@ const RATE_LIMIT = {
   MAX_SUBMISSIONS: 5,
 };
 
+const FEEDBACK_CATEGORIES = [
+  'bug',
+  'feature_request',
+  'question',
+  'general',
+] as const;
+
 const feedbackSchema = z.object({
   name: z.string().min(1).max(100),
   message: z.string().min(1).max(2000),
+  category: z.enum(FEEDBACK_CATEGORIES),
 });
 
 /**
@@ -23,10 +31,10 @@ const feedbackSchema = z.object({
 function sanitizeInput(input: string): string {
   return (
     input
-      // Strip HTML tags
-      .replace(/<[^>]*>/g, '')
-      // Strip script content
+      // Strip script content (must run before generic tag strip)
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      // Strip remaining HTML tags
+      .replace(/<[^>]*>/g, '')
       // Normalize whitespace (collapse multiple spaces/newlines)
       .replace(/\s+/g, ' ')
       .trim()
@@ -94,7 +102,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       });
     }
 
-    const { name, message } = parsed.data;
+    const { name, message, category } = parsed.data;
 
     // Sanitize inputs
     const sanitizedName = sanitizeInput(name);
@@ -126,6 +134,7 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
         email: userEmail,
         name: sanitizedName,
         message: sanitizedMessage,
+        category,
       })
       .select('id, created_at')
       .single();
