@@ -327,27 +327,13 @@ summary,
   --color-link: #60a5fa;
   --color-link-hover: #93bbfd;
 
-  /* Status muted backgrounds — mix with dark base instead of white */
-  --color-danger-muted: color-mix(
-    in oklch,
-    var(--color-brand-red) 15%,
-    var(--color-neutral-100)
-  );
-  --color-success-muted: color-mix(
-    in oklch,
-    var(--color-brand-green) 15%,
-    var(--color-neutral-100)
-  );
-  --color-warning-muted: color-mix(
-    in oklch,
-    var(--color-brand-orange) 15%,
-    var(--color-neutral-100)
-  );
-  --color-info-muted: color-mix(
-    in oklch,
-    var(--color-brand-blue) 15%,
-    var(--color-neutral-100)
-  );
+  /* Status muted backgrounds — mix with dark base instead of white.
+     Use a higher percentage than light mode (25% vs 12%) so the hue
+     remains distinguishable against the dark neutral base. */
+  --color-danger-muted: oklch(from var(--color-brand-red) l c h / 15%);
+  --color-success-muted: oklch(from var(--color-brand-green) l c h / 15%);
+  --color-warning-muted: oklch(from var(--color-brand-orange) l c h / 15%);
+  --color-info-muted: oklch(from var(--color-brand-blue) l c h / 15%);
 
   /* Darkened brand colors for hero backgrounds — retains hue but reduces
      brightness so colored sections feel cohesive with dark surfaces. */
