@@ -16,7 +16,12 @@ vi.mock('@/lib/rateLimit', () => ({
 vi.mock('@/app/lib/supabaseAuthServerClient', () => ({
   getSupabaseAuthServerClient: vi.fn().mockResolvedValue({
     auth: {
-      getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+      getUser: vi
+        .fn()
+        .mockResolvedValue({
+          data: { user: { id: 'test-user' } },
+          error: null,
+        }),
     },
   }),
 }));
