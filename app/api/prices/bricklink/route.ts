@@ -47,6 +47,12 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
 
   const { userId, pricingPrefs } = await resolveUserPricingContext();
 
+  if (!userId) {
+    return errorResponse('unauthorized', {
+      message: 'Sign in to view pricing.',
+    });
+  }
+
   const ipLimit = await consumeRateLimit(`bl-prices:ip:${clientIp}`, {
     windowMs: BL_RATE_WINDOW_MS,
     maxHits: BL_RATE_LIMIT_IP,
