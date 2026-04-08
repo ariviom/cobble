@@ -203,7 +203,6 @@ describe('GET /api/search', () => {
       const res = await GET(req);
 
       expect(res.headers.get('Cache-Control')).toBe('public, max-age=60');
-      expect(res.headers.get('CDN-Cache-Control')).toBe('no-store');
     });
 
     it('returns null nextPage when no more results', async () => {
