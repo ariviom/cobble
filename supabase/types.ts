@@ -1065,6 +1065,7 @@ export type Database = {
       };
       user_feedback: {
         Row: {
+          category: string;
           created_at: string;
           email: string;
           id: string;
@@ -1073,6 +1074,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          category?: string;
           created_at?: string;
           email: string;
           id?: string;
@@ -1081,6 +1083,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          category?: string;
           created_at?: string;
           email?: string;
           id?: string;

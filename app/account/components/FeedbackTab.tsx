@@ -9,8 +9,16 @@ import {
   CardTitle,
 } from '@/app/components/ui/Card';
 import { Input } from '@/app/components/ui/Input';
+import { Select } from '@/app/components/ui/Select';
 import type { User } from '@supabase/supabase-js';
 import { useState } from 'react';
+
+const CATEGORY_OPTIONS = [
+  { value: 'general', label: 'General feedback' },
+  { value: 'bug', label: 'Bug report' },
+  { value: 'feature_request', label: 'Feature request' },
+  { value: 'question', label: 'Question' },
+] as const;
 
 type FeedbackTabProps = {
   user: User | null;
@@ -22,6 +30,7 @@ export function FeedbackTab({ user }: FeedbackTabProps) {
 
   // Form state
   const [name, setName] = useState('');
+  const [category, setCategory] = useState('general');
   const [message, setMessage] = useState('');
 
   // UI state
@@ -76,6 +85,7 @@ export function FeedbackTab({ user }: FeedbackTabProps) {
         },
         body: JSON.stringify({
           name: trimmedName,
+          category,
           message: trimmedMessage,
         }),
       });
@@ -96,8 +106,11 @@ export function FeedbackTab({ user }: FeedbackTabProps) {
       }
 
       // Success
-      setSuccess('Feedback submitted successfully. Thank you!');
+      setSuccess(
+        'Thanks for your feedback! We read every submission and will follow up if needed.'
+      );
       setName('');
+      setCategory('general');
       setMessage('');
     } catch {
       setError('An unexpected error occurred. Please try again.');
@@ -162,6 +175,30 @@ export function FeedbackTab({ user }: FeedbackTabProps) {
                   className="mt-2"
                   disabled={isSubmitting}
                 />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="text-label font-semibold text-foreground">
+                  Category
+                </label>
+                <Select
+                  size="sm"
+                  value={category}
+                  onChange={e => {
+                    setCategory(e.target.value);
+                    setError(null);
+                    setSuccess(null);
+                  }}
+                  disabled={isSubmitting}
+                  className="mt-2"
+                >
+                  {CATEGORY_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </Select>
               </div>
 
               {/* Message */}
