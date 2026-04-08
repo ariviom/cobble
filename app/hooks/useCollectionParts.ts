@@ -169,13 +169,17 @@ async function loadCatalogPartsForSets(
  * those live on CatalogPart (the normalized parts table).
  */
 async function loadPartMetadata(
-  catalogPartsBySet: Map<string, CatalogSetPart[]>
+  catalogPartsBySet: Map<string, CatalogSetPart[]>,
+  loosePartNums?: string[]
 ): Promise<Map<string, CatalogPart>> {
   if (!isIndexedDBAvailable()) return new Map();
 
   const partNums = new Set<string>();
   for (const parts of catalogPartsBySet.values()) {
     for (const cp of parts) partNums.add(cp.partNum);
+  }
+  if (loosePartNums) {
+    for (const pn of loosePartNums) partNums.add(pn);
   }
 
   const db = getLocalDb();
@@ -188,6 +192,36 @@ async function loadPartMetadata(
     .toArray();
   for (const meta of allMeta) {
     result.set(meta.partNum, meta);
+  }
+
+  // For loose parts not found in IndexedDB cache, fetch from rb_parts catalog
+  if (loosePartNums) {
+    const missing = loosePartNums.filter(pn => !result.has(pn));
+    if (missing.length > 0) {
+      const supabase = getSupabaseBrowserClient();
+      for (let i = 0; i < missing.length; i += 200) {
+        const batch = missing.slice(i, i + 200);
+        const { data } = await supabase
+          .from('rb_parts')
+          .select('part_num, name, image_url, part_cat_id')
+          .in('part_num', batch);
+        if (data) {
+          const now = Date.now();
+          for (const row of data) {
+            result.set(row.part_num, {
+              partNum: row.part_num,
+              name: row.name,
+              imageUrl: row.image_url,
+              categoryId: row.part_cat_id,
+              categoryName: null,
+              parentCategory: null,
+              bricklinkPartId: null,
+              cachedAt: now,
+            });
+          }
+        }
+      }
+    }
   }
 
   return result;
@@ -360,11 +394,12 @@ export function useCollectionParts(
         } else {
           // Path A: owned sets + loose
           const setInfos = syncPartsFromSets ? ownedSetInfos : [];
-          const catalog = await loadCatalogPartsForSets(
-            setInfos.map(s => s.setNumber)
-          );
-          const partMeta = await loadPartMetadata(catalog);
-          const looseParts = await getAllLooseParts();
+          const [catalog, looseParts] = await Promise.all([
+            loadCatalogPartsForSets(setInfos.map(s => s.setNumber)),
+            getAllLooseParts(),
+          ]);
+          const loosePartNums = looseParts.map(lp => lp.partNum);
+          const partMeta = await loadPartMetadata(catalog, loosePartNums);
 
           const ownedData = await Promise.all(
             setInfos.map(async ({ setNumber, setName }) => ({

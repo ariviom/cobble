@@ -34,7 +34,11 @@ import {
   bulkEnqueueLoosePartChanges,
 } from '@/app/lib/localDb/loosePartsStore';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
-import { useUserSetsStore } from '@/app/store/user-sets';
+import { useUserSetsStore, type HydratedSetInput } from '@/app/store/user-sets';
+import type {
+  UserSetWithMeta,
+  UserSetsResponse,
+} from '@/app/api/user-sets/route';
 import type { Json } from '@/supabase/types';
 import type { User } from '@supabase/supabase-js';
 import { useCallback, useRef, useState } from 'react';
@@ -115,6 +119,9 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
   const userSets = useUserSetsStore(state => state.sets);
   const setOwned = useUserSetsStore(state => state.setOwned);
   const replaceAllSets = useUserSetsStore(state => state.replaceAllSets);
+  const hydrateFromSupabase = useUserSetsStore(
+    state => state.hydrateFromSupabase
+  );
 
   // ─── Backup / Download ────────────────────────────────────────────
   const handleDownloadBackup = useCallback(async () => {
@@ -670,9 +677,35 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
               .upsert(upsertData, { onConflict: 'user_id' })
           );
         }
+
+        // Re-hydrate the store with full set metadata (name, imageUrl, etc.)
+        // from the catalog join. The initial replaceAllSets only had setNumber
+        // and status — the API route joins with rb_sets for the rest.
+        const res = await fetch('/api/user-sets', {
+          credentials: 'same-origin',
+        });
+        if (res.ok) {
+          const data = (await res.json()) as UserSetsResponse;
+          if (data.sets?.length) {
+            hydrateFromSupabase(
+              data.sets.map(
+                (row: UserSetWithMeta): HydratedSetInput => ({
+                  setNumber: row.setNumber,
+                  status: { owned: row.owned },
+                  name: row.name,
+                  year: row.year,
+                  imageUrl: row.imageUrl,
+                  numParts: row.numParts,
+                  themeId: row.themeId,
+                  foundCount: row.foundCount,
+                })
+              )
+            );
+          }
+        }
       }
     },
-    [replaceAllSets, user]
+    [replaceAllSets, hydrateFromSupabase, user]
   );
 
   const handleRestoreFile = useCallback(
