@@ -223,25 +223,22 @@ export function AccountTab({
         throw new Error('Server sign out failed');
       }
 
-      const supabase = getSupabaseBrowserClient();
-      const { error: signOutError } = await supabase.auth.signOut({
-        scope: 'local',
-      });
-
-      if (signOutError) {
-        throw signOutError;
+      clearThemePersistence();
+      // Clear cached user so auth provider doesn't restore stale session
+      try {
+        window.sessionStorage.removeItem('brick_party_supabase_user_cache_v1');
+      } catch {
+        // ignore storage errors
       }
+
+      // Hard navigate to avoid flash of unauthenticated account page.
+      // Server-side signout already cleared auth cookies; full page load
+      // resets all in-memory state without triggering onAuthStateChange.
+      window.location.href = '/login';
     } catch {
       setError('Failed to log out. Please try again.');
-      return;
-    } finally {
       setIsLoggingOut(false);
     }
-
-    clearThemePersistence();
-    setUser(null);
-    setProfile(null);
-    router.push('/login');
   };
 
   const handleDeleteAccount = async () => {

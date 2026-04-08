@@ -33,10 +33,10 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Redirect authenticated users to home page
+  // Redirect authenticated users to sets page
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/');
+      router.push('/sets');
     }
   }, [authLoading, user, router]);
 
