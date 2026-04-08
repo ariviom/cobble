@@ -551,9 +551,10 @@ export function BackupImportTab({ user }: BackupImportTabProps) {
               listIdMap.set(l.id, systemId);
               remappedSystemListIds.add(systemId);
             } else {
-              listIdMap.set(l.id, l.id);
+              const newId = crypto.randomUUID();
+              listIdMap.set(l.id, newId);
               listsToInsert.push({
-                id: l.id,
+                id: newId,
                 user_id: user.id,
                 name: l.name,
               });
