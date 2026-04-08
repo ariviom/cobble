@@ -63,12 +63,7 @@ export async function checkAndIncrementUsage(
 
   // Try atomic RPC first (prevents race conditions where concurrent requests
   // both read the same count and both increment, exceeding the limit)
-  const { data, error } = await (
-    supabase.rpc as (
-      fn: string,
-      args: Record<string, unknown>
-    ) => ReturnType<typeof supabase.rpc>
-  )('increment_usage_counter', {
+  const { data, error } = await supabase.rpc('increment_usage_counter', {
     p_user_id: opts.userId,
     p_feature_key: opts.featureKey,
     p_window_kind: opts.windowKind,
@@ -77,11 +72,7 @@ export async function checkAndIncrementUsage(
   });
 
   if (!error) {
-    // RPC returns array with single row: { allowed: boolean, new_count: number }
-    type RpcResult = { allowed: boolean; new_count: number };
-    const result = (Array.isArray(data)
-      ? data[0]
-      : data) as unknown as RpcResult | null;
+    const result = Array.isArray(data) ? data[0] : null;
     const allowed = result?.allowed ?? false;
     const newCount = result?.new_count ?? opts.limit;
 
@@ -103,8 +94,7 @@ export async function checkAndIncrementUsage(
   return incrementFallback(supabase, opts, windowStart, resetAt);
 }
 
-const USAGE_TABLE =
-  'usage_counters' as unknown as keyof Database['public']['Tables'];
+const USAGE_TABLE = 'usage_counters' as const;
 
 /**
  * Read the current count and upsert an incremented value.
@@ -132,16 +122,9 @@ async function upsertUsageCount(
     return { currentCount: -1, writeError: readError };
   }
 
-  const currentCount = (existing as { count: number } | null)?.count ?? 0;
+  const currentCount = existing?.count ?? 0;
 
-  const { error: writeError } = await (
-    supabase.from(USAGE_TABLE) as unknown as {
-      upsert: (
-        values: Record<string, unknown>,
-        options?: { onConflict?: string }
-      ) => PromiseLike<{ error: { message: string } | null }>;
-    }
-  ).upsert(
+  const { error: writeError } = await supabase.from(USAGE_TABLE).upsert(
     {
       user_id: opts.userId,
       feature_key: opts.featureKey,
@@ -223,12 +206,7 @@ export async function incrementUsage(
   const windowStart = getWindowStart(opts.windowKind, now);
 
   // Use the atomic RPC to increment by 1 (pass a high limit so it always succeeds)
-  const { error } = await (
-    supabase.rpc as (
-      fn: string,
-      args: Record<string, unknown>
-    ) => ReturnType<typeof supabase.rpc>
-  )('increment_usage_counter', {
+  const { error } = await supabase.rpc('increment_usage_counter', {
     p_user_id: opts.userId,
     p_feature_key: opts.featureKey,
     p_window_kind: opts.windowKind,
