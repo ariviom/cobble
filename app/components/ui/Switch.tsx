@@ -34,12 +34,12 @@ export const Switch = forwardRef<HTMLInputElement, Props>(function Switch(
             'block h-6 w-11 rounded-full border transition-colors duration-150',
             checked
               ? 'border-theme-primary bg-theme-primary'
-              : 'border-subtle bg-background-muted'
+              : 'border-strong bg-background-muted'
           )}
         />
         <span
           className={cn(
-            'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-card shadow-sm transition-transform duration-150',
+            'absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-150',
             checked && 'translate-x-5'
           )}
         />

@@ -13,6 +13,18 @@ export type ImageRing =
   | 'neutral'
   | 'selected';
 
+/** Colors where the knockout filter would make the part nearly invisible. */
+export const KNOCKOUT_SKIP_COLORS = new Set([
+  'White',
+  'Trans-Clear',
+  'Glow In Dark White',
+  'Milky White',
+  'Pearl White',
+  'Satin Trans-Clear',
+  'Glitter Trans-Clear',
+  'Mx White',
+]);
+
 type PartCardProps = {
   // Display
   partName: string;
@@ -22,6 +34,8 @@ type PartCardProps = {
   imageAlt: string;
   onImageClick: () => void;
   imageRing: ImageRing;
+  /** Skip the dark-mode knockout filter for light-colored parts */
+  skipKnockout?: boolean;
 
   // Slots
   topLeftOverlay?: ReactNode;
@@ -46,6 +60,7 @@ export function PartCard({
   imageAlt,
   onImageClick,
   imageRing,
+  skipKnockout,
   topLeftOverlay,
   imageBadge,
   dropdownItems,
@@ -92,7 +107,7 @@ export function PartCard({
               alt={imageAlt}
               variant="inventoryThumb"
               className="mx-auto aspect-square h-full w-full object-contain"
-              data-knockout="true"
+              {...(!skipKnockout ? { 'data-knockout': 'true' } : {})}
             />
           ) : (
             <ImagePlaceholder variant="inventory" />

@@ -1,7 +1,7 @@
 'use client';
 
 import { MoreDropdownButton } from '@/app/components/ui/MoreDropdown';
-import { PartCard } from '@/app/components/ui/PartCard';
+import { KNOCKOUT_SKIP_COLORS, PartCard } from '@/app/components/ui/PartCard';
 import { SignInPrompt } from '@/app/components/ui/SignInPrompt';
 import { formatMinifigId } from '@/app/lib/minifigIds';
 import { Check, ExternalLink, Info, Pin, Search } from 'lucide-react';
@@ -94,6 +94,7 @@ function InventoryItemComponent({
       imageAlt={row.partName}
       onImageClick={handleOpenMoreInfo}
       imageRing={owned === row.quantityRequired ? 'complete' : 'incomplete'}
+      skipKnockout={KNOCKOUT_SKIP_COLORS.has(row.colorName)}
       imageBadge={
         owned === row.quantityRequired ? (
           <div className="absolute right-0 bottom-0 flex h-6 min-w-6 translate-x-3 translate-y-1/2 items-center justify-center rounded-full border-2 border-success bg-background text-success grid:h-8 grid:min-w-8 micro:h-5 micro:min-w-5 micro:translate-x-1">

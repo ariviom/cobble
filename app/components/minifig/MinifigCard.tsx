@@ -90,6 +90,7 @@ export function MinifigCard({
                 alt={displayName}
                 variant="minifigCard"
                 className="size-full rounded-sm object-contain p-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
+                data-knockout="true"
               />
             </div>
           ) : (

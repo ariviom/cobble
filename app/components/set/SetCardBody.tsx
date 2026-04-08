@@ -29,6 +29,7 @@ export function SetCardBody({
               alt=""
               fill
               className="rounded-sm object-contain p-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
+              data-knockout="true"
               onError={onImageError}
             />
           </div>

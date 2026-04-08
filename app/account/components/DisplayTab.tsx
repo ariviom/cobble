@@ -11,6 +11,7 @@ import { Input } from '@/app/components/ui/Input';
 import { SegmentedControl } from '@/app/components/ui/SegmentedControl';
 import { Select } from '@/app/components/ui/Select';
 import { Switch } from '@/app/components/ui/Switch';
+import { useImageKnockout } from '@/app/hooks/useImageKnockout';
 import { useOnboarding } from '@/app/hooks/useOnboarding';
 import { useOrigin } from '@/app/hooks/useOrigin';
 import { useTheme } from '@/app/hooks/useTheme';
@@ -79,6 +80,10 @@ export function DisplayTab({
 
   // Tour
   const { dismissed: tourDismissed, reEnable: reEnableTour } = useOnboarding();
+
+  // Image knockout (experimental)
+  const { knockoutEnabled, setKnockoutEnabled, isKnockoutAvailable } =
+    useImageKnockout();
 
   // Wake lock (keep screen awake)
   const [supportsWakeLock, setSupportsWakeLock] = useState(false);
@@ -336,6 +341,34 @@ export function DisplayTab({
           </div>
         </CardContent>
       </Card>
+
+      {/* Experimental Section — only visible in dark mode */}
+      {isKnockoutAvailable && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Experimental</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div>
+              <label className="text-label font-semibold text-foreground">
+                Transparent image backgrounds
+              </label>
+              <p className="text-body-sm mt-0.5 text-foreground-muted">
+                Removes white backgrounds from part, set, and minifig thumbnails
+                in dark mode. Results vary — some images may look distorted,
+                especially light-colored or transparent parts.
+              </p>
+              <div className="mt-3">
+                <Switch
+                  checked={knockoutEnabled}
+                  onChange={() => setKnockoutEnabled(!knockoutEnabled)}
+                  label={knockoutEnabled ? 'On' : 'Off'}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Inventory Defaults Section */}
       <Card>

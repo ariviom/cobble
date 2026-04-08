@@ -13,6 +13,7 @@ import {
   USER_THEME_COLOR_KEY,
   USER_THEME_KEY,
 } from '@/app/components/theme/constants';
+import { KnockoutFilter } from '@/app/components/ui/KnockoutFilter';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
 import { getSupabaseBrowserClient } from '@/app/lib/supabaseClient';
 import {
@@ -193,6 +194,7 @@ function AppThemeInner({
     useState<ThemeColor>(DEFAULT_THEME_COLOR);
   const [isMounted, setIsMounted] = useState(false);
   const [isLoadingColor, setIsLoadingColor] = useState(true);
+  const [knockoutEnabled, setKnockoutEnabled] = useState(false);
 
   // Initialize theme color on mount only
   useEffect(() => {
@@ -201,8 +203,35 @@ function AppThemeInner({
     const nextColor = initialThemeColor ?? storedColor ?? DEFAULT_THEME_COLOR;
     setThemeColorState(nextColor);
     setIsLoadingColor(false);
+
+    // Read knockout preference from localStorage
+    try {
+      setKnockoutEnabled(
+        window.localStorage.getItem('brick_party_image_knockout_v1') === 'true'
+      );
+    } catch {
+      // ignore
+    }
     // Note: Initial color application happens in the effect below
   }, [initialThemeColor]);
+
+  // Listen for knockout preference changes (same-tab custom event + cross-tab storage event)
+  useEffect(() => {
+    function onKnockoutChange(e: Event) {
+      setKnockoutEnabled((e as CustomEvent<boolean>).detail);
+    }
+    function onStorage(e: StorageEvent) {
+      if (e.key === 'brick_party_image_knockout_v1') {
+        setKnockoutEnabled(e.newValue === 'true');
+      }
+    }
+    window.addEventListener('knockout-change', onKnockoutChange);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('knockout-change', onKnockoutChange);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
 
   // Apply theme colors whenever color or resolved theme changes
   // This handles both initial mount and light/dark mode switches
@@ -276,8 +305,11 @@ function AppThemeInner({
     themeColor,
   ]);
 
+  const showKnockout = isMounted && knockoutEnabled && resolvedTheme === 'dark';
+
   return (
     <ThemeContext.Provider value={contextValue}>
+      {showKnockout && <KnockoutFilter />}
       {children}
     </ThemeContext.Provider>
   );

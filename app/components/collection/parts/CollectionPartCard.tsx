@@ -2,7 +2,7 @@
 
 import MobileButtonHitArea from '@/app/components/ui/MobileButtonHitArea';
 import { MoreDropdownButton } from '@/app/components/ui/MoreDropdown';
-import { PartCard } from '@/app/components/ui/PartCard';
+import { KNOCKOUT_SKIP_COLORS, PartCard } from '@/app/components/ui/PartCard';
 import { cn } from '@/app/components/ui/utils';
 import { ExternalLink, Info, Square, SquareCheck } from 'lucide-react';
 import { memo } from 'react';
@@ -66,6 +66,7 @@ function CollectionPartCardComponent({
       imageAlt={part.partName}
       onImageClick={() => onShowModal(part)}
       imageRing={isSelected ? 'selected' : 'neutral'}
+      skipKnockout={KNOCKOUT_SKIP_COLORS.has(part.colorName ?? '')}
       topLeftOverlay={
         <button
           type="button"
