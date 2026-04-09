@@ -17,6 +17,11 @@ export type SupabaseAuthServerClient = SupabaseClient<Database, 'public'>;
  * (session tokens) can be read and updated on the server.
  */
 export async function getSupabaseAuthServerClient(): Promise<SupabaseAuthServerClient> {
+  // Await cookies() first so Next.js detects the dynamic signal and skips
+  // prerendering. If the env check below throws, it must happen *after* this
+  // call, otherwise the build fails trying to statically render the page.
+  const cookieStore = await cookies();
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -26,7 +31,6 @@ export async function getSupabaseAuthServerClient(): Promise<SupabaseAuthServerC
     );
   }
 
-  const cookieStore = await cookies();
   const cookieMethods = createServerComponentCookieMethods(cookieStore);
 
   return createServerClient<Database, 'public'>(supabaseUrl, supabaseAnonKey, {
