@@ -17,6 +17,8 @@ type AuthContextValue = {
   isLoading: boolean;
   /** Canonical handle for the current user (username or user_id fallback). */
   handle: string | null;
+  /** Update the handle after a username change (e.g. from account settings). */
+  setHandle: (handle: string | null) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -163,6 +165,7 @@ export function AuthProvider({
       user,
       isLoading,
       handle,
+      setHandle,
     }),
     [handle, isLoading, user]
   );

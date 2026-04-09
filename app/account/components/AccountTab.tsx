@@ -26,6 +26,9 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { usePostHog } from 'posthog-js/react';
 
+import { useAuth } from '@/app/components/providers/auth-provider';
+import { buildUserHandle } from '@/app/lib/users';
+
 import type { UserId, UserProfileRow } from '../hooks/useAccountData';
 import { DeleteAccountModal } from './DeleteAccountModal';
 
@@ -46,6 +49,7 @@ export function AccountTab({
 }: AccountTabProps) {
   const router = useRouter();
   const posthog = usePostHog();
+  const { setHandle } = useAuth();
   const isLoggedIn = !!user;
   const authProvider =
     isLoggedIn && user?.app_metadata
@@ -132,6 +136,9 @@ export function AccountTab({
       if (data) {
         setProfile(data);
         setUsernameInput(data.username ?? '');
+        setHandle(
+          buildUserHandle({ user_id: user.id, username: data.username })
+        );
       }
     } finally {
       setIsSavingUsername(false);
