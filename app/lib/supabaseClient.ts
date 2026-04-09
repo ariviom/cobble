@@ -1,25 +1,22 @@
 import type { Database } from '@/supabase/types';
 import { createBrowserClient } from '@supabase/ssr';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY'
-  );
-}
-
-const createBrowserSupabaseClient = () =>
-  createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
-
-type BrowserClient = ReturnType<typeof createBrowserSupabaseClient>;
+type BrowserClient = ReturnType<typeof createBrowserClient<Database>>;
 
 let browserClient: BrowserClient | null = null;
 
 export function getSupabaseBrowserClient(): BrowserClient {
   if (!browserClient) {
-    browserClient = createBrowserSupabaseClient();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error(
+        'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY'
+      );
+    }
+
+    browserClient = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
   }
   return browserClient;
 }

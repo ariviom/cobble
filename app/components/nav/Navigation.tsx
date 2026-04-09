@@ -3,7 +3,7 @@
 import { NavLinkItem } from '@/app/components/nav/NavLinkItem';
 import { cn } from '@/app/components/ui/utils';
 import { useSupabaseUser } from '@/app/hooks/useSupabaseUser';
-import { Camera, Layers, Package, Search, User } from 'lucide-react';
+import { Blocks, Camera, Search, SquareLibrary, User } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -87,7 +87,7 @@ export function Navigation({
           </h1>
         </Link>
         <NavLinkItem
-          icon={<Layers className="h-5 w-5" />}
+          icon={<Blocks className="h-5 w-5" />}
           ariaLabel="Sets"
           labelMobile="Sets"
           href="/sets"
@@ -95,7 +95,7 @@ export function Navigation({
           onClick={handleTabClick('sets')}
         />
         <NavLinkItem
-          icon={<Package className="h-5 w-5" />}
+          icon={<SquareLibrary className="h-5 w-5" />}
           ariaLabel="Collection"
           labelMobile="Collection"
           href={isLoggedIn && handle ? `/collection/${handle}` : '/collection'}
