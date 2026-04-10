@@ -77,9 +77,12 @@ export function Inventory() {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [selectedItemKey, setSelectedItemKey] = useState<string | null>(null);
 
-  // Auto-request price when modal opens
+  // Auto-request price when modal opens.
+  // Skipped for unauthenticated users so we don't burn BrickLink quota —
+  // the modal shows a "Sign in to view" link instead.
   useEffect(() => {
     if (!selectedItemKey) return;
+    if (!isAuthenticated) return;
     const priceInfo = pricesByKey ? pricesByKey[selectedItemKey] : null;
     const hasPrice =
       typeof priceInfo?.unitPrice === 'number' &&
@@ -94,7 +97,13 @@ export function Inventory() {
     if (!hasPrice && !hasRange && !isPending && canRequest) {
       requestPricesForKeys([selectedItemKey]);
     }
-  }, [selectedItemKey, pricesByKey, pendingPriceKeys, requestPricesForKeys]);
+  }, [
+    selectedItemKey,
+    pricesByKey,
+    pendingPriceKeys,
+    requestPricesForKeys,
+    isAuthenticated,
+  ]);
 
   // Build modal data from selected item
   const selectedItemModalData = useMemo((): InventoryItemModalData | null => {
@@ -268,6 +277,7 @@ export function Inventory() {
         open={selectedItemKey !== null}
         onClose={() => setSelectedItemKey(null)}
         data={selectedItemModalData}
+        isAuthenticated={isAuthenticated}
       />
     </div>
   );
