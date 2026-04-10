@@ -1586,6 +1586,7 @@ export type Database = {
           retry_after_seconds: number;
         }[];
       };
+      exec_sql: { Args: { query: string }; Returns: undefined };
       get_max_sync_versions: {
         Args: { p_set_nums: string[]; p_user_id: string };
         Returns: {
