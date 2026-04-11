@@ -1,5 +1,4 @@
 import { errorResponse } from '@/app/lib/api/responses';
-import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getSetSummary } from '@/app/lib/rebrickable';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
@@ -43,32 +42,6 @@ export const POST = withCsrfProtection(
         incrementCounter('set_image_refresh_no_url', { setNumber: trimmed });
         return NextResponse.json(
           { imageUrl: null },
-          { status: 200, headers: { 'Cache-Control': 'no-store' } }
-        );
-      }
-
-      // Upsert the corrected image URL into rb_sets using service role client.
-      const supabase = getCatalogWriteClient();
-      const { error } = await supabase
-        .from('rb_sets')
-        .update({
-          image_url: imageUrl,
-          // best-effort timestamp; column has default so we don't rely on it here
-          last_updated_at: new Date().toISOString(),
-        })
-        .eq('set_num', trimmed);
-
-      if (error) {
-        logger.error('set_image_refresh_update_failed', {
-          setNumber: trimmed,
-          error: error.message,
-        });
-        incrementCounter('set_image_refresh_update_failed', {
-          setNumber: trimmed,
-        });
-        // Still return the URL so the client can use it immediately.
-        return NextResponse.json(
-          { imageUrl },
           { status: 200, headers: { 'Cache-Control': 'no-store' } }
         );
       }

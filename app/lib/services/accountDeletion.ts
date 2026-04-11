@@ -16,6 +16,7 @@ export async function deleteUserAccount(userId: string): Promise<void> {
     .in('status', ['active', 'trialing', 'past_due']);
 
   if (subscriptions && subscriptions.length > 0) {
+    const failedSubscriptionIds: string[] = [];
     for (const sub of subscriptions) {
       try {
         // Cancel immediately with no final invoice and no proration charge
@@ -28,13 +29,19 @@ export async function deleteUserAccount(userId: string): Promise<void> {
           subscriptionId: sub.stripe_subscription_id,
         });
       } catch (err) {
-        // Log but continue — subscription may already be cancelled in Stripe
+        failedSubscriptionIds.push(sub.stripe_subscription_id);
         logger.error('account_deletion.subscription_cancel_failed', {
           userId,
           subscriptionId: sub.stripe_subscription_id,
           error: err instanceof Error ? err.message : String(err),
         });
       }
+    }
+
+    if (failedSubscriptionIds.length > 0) {
+      throw new Error(
+        'Failed to cancel active subscriptions before account deletion'
+      );
     }
   }
 

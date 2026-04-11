@@ -15,6 +15,12 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
     globals: true,
+    include: [
+      'app/**/*.{test,spec}.{ts,tsx}',
+      'lib/**/*.{test,spec}.{ts,tsx}',
+      'utils/**/*.{test,spec}.{ts,tsx}',
+    ],
+    exclude: ['e2e/**', 'playwright.config.ts'],
     coverage: {
       reporter: ['text', 'html'],
       include: ['app/**/*.{ts,tsx}'],

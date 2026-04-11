@@ -84,7 +84,8 @@
       "Bash(git -c commit.gpgsign=false commit -m 'add admin dashboard implementation plan:*)",
       "Bash(git -c commit.gpgsign=false commit -m 'fix exactOptionalPropertyTypes mismatch on listAdminUsers q arg:*)",
       "Bash(git -c commit.gpgsign=false commit -m 'document admin dashboard completion in active-context:*)",
-      "Bash(git -c commit.gpgsign=false commit -m 'show email column and entitlement override tier in admin users list:*)"
+      "Bash(git -c commit.gpgsign=false commit -m 'show email column and entitlement override tier in admin users list:*)",
+      "Bash(git rebase:*)"
     ]
   }
 }

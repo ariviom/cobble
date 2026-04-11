@@ -4,40 +4,12 @@ import {
   BL_RATE_LIMIT_IP,
   BL_RATE_WINDOW_MS,
 } from '@/app/lib/bricklink/rateLimitConfig';
-import { getCatalogWriteClient } from '@/app/lib/db/catalogAccess';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { incrementCounter, logger } from '@/lib/metrics';
 import { consumeRateLimit, getClientIp } from '@/lib/rateLimit';
 import { NextRequest, NextResponse } from 'next/server';
 
 const PART_SUFFIX_PATTERN = /^(\d+)[a-z]$/i;
-
-/** Self-heal: update rb_parts.bl_part_id with the corrected BL ID. */
-async function selfHealBlPartId(
-  rbPartId: string,
-  blPartId: string
-): Promise<void> {
-  try {
-    const supabase = getCatalogWriteClient();
-    const { error } = await supabase
-      .from('rb_parts')
-      .update({ bl_part_id: blPartId })
-      .eq('part_num', rbPartId);
-    if (error) {
-      logger.error('parts.bricklink.validate.self_heal_failed', {
-        rbPartId,
-        blPartId,
-        error: error.message,
-      });
-    }
-  } catch (err) {
-    logger.error('parts.bricklink.validate.self_heal_error', {
-      rbPartId,
-      blPartId,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
-}
 
 /**
  * On-demand validation: given a stored BL part ID (and optionally the RB part ID),
@@ -124,8 +96,6 @@ export async function GET(req: NextRequest) {
       for (const candidate of candidates) {
         const result = await blValidatePart(candidate);
         if (result === 'exists') {
-          // Self-heal: update rb_parts.bl_part_id with the correct BL ID
-          await selfHealBlPartId(rbPartId, candidate);
           logger.info('parts.bricklink.validate.corrected', {
             blPartId,
             rbPartId,

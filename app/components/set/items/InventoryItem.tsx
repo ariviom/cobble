@@ -194,7 +194,10 @@ function areEqual(prev: Props, next: Props) {
     prev.missing === next.missing &&
     prev.bricklinkColorId === next.bricklinkColorId &&
     prev.rarityTier === next.rarityTier &&
+    prev.onOwnedChange === next.onOwnedChange &&
     prev.isPinned === next.isPinned &&
+    prev.onTogglePinned === next.onTogglePinned &&
+    prev.onShowMoreInfo === next.onShowMoreInfo &&
     prev.isAuthenticated === next.isAuthenticated &&
     prev.isInGroupSession === next.isInGroupSession
   );

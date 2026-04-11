@@ -86,12 +86,17 @@ export async function redeemPromoCode(params: {
       throw new Error('STRIPE_PRICE_PLUS_MONTHLY env var is not set');
     }
 
-    await stripe.subscriptions.create({
-      customer: stripeCustomerId,
-      items: [{ price: priceId }],
-      discounts: [{ coupon: couponId }],
-      metadata: { user_id: userId, promo_redemption: 'true' },
-    });
+    await stripe.subscriptions.create(
+      {
+        customer: stripeCustomerId,
+        items: [{ price: priceId }],
+        discounts: [{ coupon: couponId }],
+        metadata: { user_id: userId, promo_redemption: 'true' },
+      },
+      {
+        idempotencyKey: `promo-redeem:${userId}:${couponId}`,
+      }
+    );
 
     // Invalidate entitlements cache — the webhook will upsert the subscription
     // row, but we can eagerly bust the cache so the next SSR load reflects Plus.

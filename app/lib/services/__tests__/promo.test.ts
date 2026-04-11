@@ -145,12 +145,41 @@ describe('redeemPromoCode', () => {
     });
 
     expect(result).toEqual({ success: true });
-    expect(mockStripe.subscriptions.create).toHaveBeenCalledWith({
-      customer: 'cus_123',
-      items: [{ price: 'price_plus_monthly' }],
-      discounts: [{ coupon: 'AVtCbgeC' }],
-      metadata: { user_id: 'user-1', promo_redemption: 'true' },
+    expect(mockStripe.subscriptions.create).toHaveBeenCalledWith(
+      {
+        customer: 'cus_123',
+        items: [{ price: 'price_plus_monthly' }],
+        discounts: [{ coupon: 'AVtCbgeC' }],
+        metadata: { user_id: 'user-1', promo_redemption: 'true' },
+      },
+      { idempotencyKey: 'promo-redeem:user-1:AVtCbgeC' }
+    );
+  });
+
+  it('uses a stable idempotency key for promo redemption', async () => {
+    process.env.STRIPE_PRICE_PLUS_MONTHLY = 'price_plus_monthly';
+    mockSupabase.maybeSingle.mockResolvedValue({ data: null, error: null });
+
+    mockStripe.subscriptions.create.mockResolvedValue({
+      id: 'sub_promo_123',
+      status: 'active',
     });
+
+    await redeemPromoCode({
+      userId: 'user-1',
+      stripeCustomerId: 'cus_123',
+      couponId: 'AVtCbgeC',
+    });
+
+    expect(mockStripe.subscriptions.create).toHaveBeenCalledWith(
+      {
+        customer: 'cus_123',
+        items: [{ price: 'price_plus_monthly' }],
+        discounts: [{ coupon: 'AVtCbgeC' }],
+        metadata: { user_id: 'user-1', promo_redemption: 'true' },
+      },
+      { idempotencyKey: 'promo-redeem:user-1:AVtCbgeC' }
+    );
   });
 
   it('rejects when user already has an active subscription', async () => {

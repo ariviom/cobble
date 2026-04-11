@@ -19,6 +19,12 @@ See `docs/BACKLOG.md` for full checklist. Key areas:
 ## Recently Completed (Apr 2026)
 
 - Admin dashboard (`/admin`) — users list + detail (reuses `PublicUserCollectionOverview`), feedback viewer with category tabs; gated by Supabase `auth.users.app_metadata.role='admin'` JWT claim. Service-role queries bypass RLS; APIs return 404 to non-admins (no leak). Extracted `fetchPublicCollectionPayload` helper so admin detail and `/collection/[handle]` share the same data assembly.
+- Billing/data-integrity hardening: Stripe webhook now fails retryably on event-recording errors; promo redemption uses Stripe idempotency keys
+- Account deletion now fails closed if active Stripe subscription cancellation fails
+- Public self-heal routes no longer persist shared catalog mutations (`refresh-image`, BrickLink validate); they return fresh data only
+- Identify quota success path now uses atomic post-pipeline usage consumption to avoid dropped increments / concurrent overages
+- Vitest config now excludes Playwright E2E specs; default `npm test -- --run` works again
+- Inventory item memoization now tracks callback prop changes to avoid stale handlers
 - Privacy policy rewrite (15 sections: GDPR/CCPA rights, data retention, breach notification, PostHog/Sentry disclosure, AI training prohibition)
 - Terms of service rewrite (18 sections: subscriptions active, group sessions, dispute resolution, indemnification, Oregon governing law, beta references removed)
 - Self-service account deletion (service → API → modal with type-to-confirm, auto-cancels Stripe, scrubs participant names)
@@ -45,4 +51,4 @@ See `docs/BACKLOG.md` for full checklist. Key areas:
 
 - **Target test sets**: 1788, 6781, 6989, 40597, 21322
 - **Pricing**: USD + `country_code=US` default; currency/country preference is future work
-- 573 tests passing (67 test files), clean tsc
+- 653 tests passing (82 test files), clean tsc

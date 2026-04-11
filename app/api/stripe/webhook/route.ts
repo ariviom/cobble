@@ -37,7 +37,7 @@ async function updateWebhookEvent(
 async function recordEventIfNew(
   supabase: Supabase,
   event: Stripe.Event
-): Promise<'new' | 'existing' | 'reprocess'> {
+): Promise<'new' | 'existing' | 'reprocess' | 'failed'> {
   // Check if event was previously recorded and failed — allow reprocessing
   const { data: prior } = await supabase
     .from('billing_webhook_events')
@@ -69,10 +69,10 @@ async function recordEventIfNew(
   );
 
   if (error) {
-    // Any error here is a real failure, not a race condition
+    // Any error here is a real failure, not a race condition.
+    // Return a failure so Stripe retries instead of silently dropping the event.
     logger.error('billing.webhook_record_failed', { error: error.message });
-    // Return 'existing' rather than 'failed' to avoid 500→Stripe retry storms
-    return 'existing';
+    return 'failed';
   }
 
   return 'new';
@@ -225,6 +225,11 @@ export async function POST(req: NextRequest) {
   const supabase = getSupabaseServiceRoleClient();
 
   const recorded = await recordEventIfNew(supabase, event);
+  if (recorded === 'failed') {
+    return errorResponse('webhook_processing_failed', {
+      message: 'failed to record event',
+    });
+  }
   if (recorded === 'existing') {
     return NextResponse.json({ received: true });
   }

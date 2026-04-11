@@ -11,8 +11,8 @@ import { runIdentifyPipeline } from '@/app/lib/identify/pipeline';
 import { withCsrfProtection } from '@/app/lib/middleware/csrf';
 import { getEntitlements, hasFeature } from '@/app/lib/services/entitlements';
 import {
+  checkAndIncrementUsage,
   getUsageStatus,
-  incrementUsage,
 } from '@/app/lib/services/usageCounters';
 import { getSupabaseAuthServerClient } from '@/app/lib/supabaseAuthServerClient';
 import { logger } from '@/lib/metrics';
@@ -192,13 +192,27 @@ export const POST = withCsrfProtection(async (req: NextRequest) => {
       return errorResponse('budget_exceeded', { status: 429 });
     }
 
-    // Success — increment quota now
+    // Success — atomically consume quota now so concurrent identifies cannot
+    // both succeed against the same remaining slot.
     if (!hasUnlimited) {
-      void incrementUsage({
+      const usage = await checkAndIncrementUsage({
         userId: user.id,
         featureKey: 'identify:daily',
         windowKind: 'daily',
+        limit: 5,
       });
+      if (!usage.allowed) {
+        return errorResponse('feature_unavailable', {
+          status: 429,
+          details: {
+            reason: 'quota_exceeded',
+            limit: usage.limit,
+            remaining: usage.remaining,
+            resetAt: usage.resetAt,
+            dedupe: false,
+          },
+        });
+      }
     }
 
     // Shape response
