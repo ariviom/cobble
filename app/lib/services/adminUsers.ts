@@ -1,5 +1,6 @@
 import 'server-only';
 
+import type { User } from '@supabase/supabase-js';
 import type { Database, Tables } from '@/supabase/types';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import { logger } from '@/lib/metrics';
@@ -57,3 +58,44 @@ export async function listAdminUsers({
 
 // Re-export type for the detail task (Task 6) to consume.
 export type BillingSubscriptionRow = Tables<'billing_subscriptions'>;
+
+export type AdminUserDetail = {
+  authUser: User;
+  overview: AdminUserRow | null;
+  subscription: BillingSubscriptionRow | null;
+};
+
+export async function getAdminUserDetail(
+  userId: string
+): Promise<AdminUserDetail | null> {
+  const supabase = getSupabaseServiceRoleClient();
+
+  const { data: authData, error: authError } =
+    await supabase.auth.admin.getUserById(userId);
+
+  if (authError || !authData?.user) {
+    logger.warn('adminUsers.detail_auth_missing', { userId });
+    return null;
+  }
+
+  const [{ data: overviewRow }, { data: subRow }] = await Promise.all([
+    supabase
+      .from('admin_users_overview')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle(),
+    supabase
+      .from('billing_subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  return {
+    authUser: authData.user,
+    overview: (overviewRow as AdminUserRow | null) ?? null,
+    subscription: (subRow as BillingSubscriptionRow | null) ?? null,
+  };
+}
