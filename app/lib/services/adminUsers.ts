@@ -1,24 +1,11 @@
 import 'server-only';
 
-import type { Tables } from '@/supabase/types';
+import type { Database, Tables } from '@/supabase/types';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
 import { logger } from '@/lib/metrics';
 
-export type AdminUserRow = {
-  user_id: string;
-  email: string | null;
-  username: string | null;
-  display_name: string | null;
-  created_at: string | null;
-  last_sign_in_at: string | null;
-  owned_set_count: number;
-  tracked_set_count: number;
-  list_count: number;
-  subscription_tier: string | null;
-  subscription_status: string | null;
-  subscription_period_end: string | null;
-  subscription_cancel_at_period_end: boolean | null;
-};
+export type AdminUserRow =
+  Database['public']['Views']['admin_users_overview']['Row'];
 
 export type ListAdminUsersArgs = {
   q?: string;
@@ -49,6 +36,7 @@ export async function listAdminUsers({
 
   if (q && q.trim()) {
     const safe = q.trim().replace(/[%_]/g, '\\$&');
+    // Username-only prefix search by design — admins can navigate by handle.
     query = query.ilike('username', `${safe}%`);
   }
 
