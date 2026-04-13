@@ -6,7 +6,8 @@
 -- (20260125035830). Owned sets are now rows in user_sets where owned = true.
 -- Tracked/wishlisted sets live in user_list_items joined to the system Wishlist list.
 
-create or replace view public.admin_users_overview as
+create or replace view public.admin_users_overview
+with (security_invoker = true) as
 with owned_counts as (
   select user_id, count(*)::int as owned_set_count
   from public.user_sets
@@ -37,7 +38,7 @@ latest_sub as (
     cancel_at_period_end
   from public.billing_subscriptions
   where status <> 'canceled'
-  order by user_id, created_at desc
+  order by user_id, created_at desc nulls last
 )
 select
   u.id as user_id,
