@@ -84,4 +84,22 @@ describe('GET /api/admin/users', () => {
       expect.objectContaining({ pageSize: 50 })
     );
   });
+
+  it('falls back to default pageSize when param is empty string', async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'a1', app_metadata: { role: 'admin' } } },
+    });
+    listAdminUsersMock.mockResolvedValue({
+      rows: [],
+      total: 0,
+      page: 0,
+      pageSize: 25,
+    });
+
+    await GET(makeReq('http://localhost/api/admin/users?pageSize='));
+
+    expect(listAdminUsersMock).toHaveBeenCalledWith(
+      expect.objectContaining({ pageSize: 25 })
+    );
+  });
 });

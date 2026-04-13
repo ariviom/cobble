@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const q = url.searchParams.get('q') ?? undefined;
-  const pageRaw = Number(url.searchParams.get('page') ?? '0');
-  const sizeRaw = Number(url.searchParams.get('pageSize') ?? DEFAULT_PAGE_SIZE);
+  const pageRaw = Number(url.searchParams.get('page') || '0');
+  const sizeRaw = Number(url.searchParams.get('pageSize') || DEFAULT_PAGE_SIZE);
 
   const page =
     Number.isFinite(pageRaw) && pageRaw >= 0 ? Math.floor(pageRaw) : 0;
