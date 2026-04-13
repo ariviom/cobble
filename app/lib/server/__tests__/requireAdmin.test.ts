@@ -45,6 +45,7 @@ describe('requireAdmin', () => {
     });
 
     await expect(requireAdmin()).rejects.toThrow('NEXT_REDIRECT:/');
+    expect(redirectMock).toHaveBeenCalledWith('/');
   });
 
   it('returns the user when role=admin', async () => {
