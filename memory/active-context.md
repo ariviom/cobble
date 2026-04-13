@@ -18,6 +18,7 @@ See `docs/BACKLOG.md` for full checklist. Key areas:
 
 ## Recently Completed (Apr 2026)
 
+- Admin dashboard (`/admin`) — users list + detail (reuses `PublicUserCollectionOverview`), feedback viewer with category tabs; gated by Supabase `auth.users.app_metadata.role='admin'` JWT claim. Service-role queries bypass RLS; APIs return 404 to non-admins (no leak). Extracted `fetchPublicCollectionPayload` helper so admin detail and `/collection/[handle]` share the same data assembly.
 - Privacy policy rewrite (15 sections: GDPR/CCPA rights, data retention, breach notification, PostHog/Sentry disclosure, AI training prohibition)
 - Terms of service rewrite (18 sections: subscriptions active, group sessions, dispute resolution, indemnification, Oregon governing law, beta references removed)
 - Self-service account deletion (service → API → modal with type-to-confirm, auto-cancels Stripe, scrubs participant names)
