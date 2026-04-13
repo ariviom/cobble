@@ -18,7 +18,8 @@ export async function GET(req: NextRequest) {
   }
 
   const url = new URL(req.url);
-  const q = url.searchParams.get('q') ?? undefined;
+  const rawQ = url.searchParams.get('q');
+  const q = rawQ && rawQ.length > 0 ? rawQ : undefined;
   const pageRaw = Number(url.searchParams.get('page') || '0');
   const sizeRaw = Number(url.searchParams.get('pageSize') || DEFAULT_PAGE_SIZE);
 
@@ -28,6 +29,10 @@ export async function GET(req: NextRequest) {
     ? Math.min(Math.max(1, Math.floor(sizeRaw)), MAX_PAGE_SIZE)
     : DEFAULT_PAGE_SIZE;
 
-  const result = await listAdminUsers({ q, page, pageSize });
+  const result = await listAdminUsers({
+    ...(q !== undefined && { q }),
+    page,
+    pageSize,
+  });
   return NextResponse.json(result);
 }
