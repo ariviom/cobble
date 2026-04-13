@@ -7,11 +7,6 @@ export type Json =
   | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: '13.0.5';
-  };
   public: {
     Tables: {
       billing_customers: {
@@ -33,7 +28,15 @@ export type Database = {
           stripe_customer_id?: string;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'billing_customers_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: true;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
+        ];
       };
       billing_entitlement_overrides: {
         Row: {
@@ -108,7 +111,15 @@ export type Database = {
           updated_at?: string | null;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'billing_subscriptions_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
+        ];
       };
       billing_webhook_events: {
         Row: {
@@ -145,17 +156,15 @@ export type Database = {
           bl_color_id: number;
           bl_minifig_no: string;
           bl_part_id: string;
-          color_name: string | null;
           last_refreshed_at: string | null;
           name: string | null;
           quantity: number;
           rb_color_id: number | null;
         };
         Insert: {
-          bl_color_id: number;
+          bl_color_id?: number;
           bl_minifig_no: string;
           bl_part_id: string;
-          color_name?: string | null;
           last_refreshed_at?: string | null;
           name?: string | null;
           quantity?: number;
@@ -165,7 +174,6 @@ export type Database = {
           bl_color_id?: number;
           bl_minifig_no?: string;
           bl_part_id?: string;
-          color_name?: string | null;
           last_refreshed_at?: string | null;
           name?: string | null;
           quantity?: number;
@@ -454,6 +462,13 @@ export type Database = {
             referencedRelation: 'feature_flags';
             referencedColumns: ['key'];
           },
+          {
+            foreignKeyName: 'feature_overrides_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
         ];
       };
       group_session_participants: {
@@ -501,6 +516,13 @@ export type Database = {
             referencedRelation: 'group_sessions';
             referencedColumns: ['id'];
           },
+          {
+            foreignKeyName: 'group_session_participants_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
         ];
       };
       group_sessions: {
@@ -535,6 +557,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: 'group_sessions_host_user_id_fkey';
+            columns: ['host_user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
           {
             foreignKeyName: 'group_sessions_set_num_fkey';
             columns: ['set_num'];
@@ -1061,7 +1090,15 @@ export type Database = {
           window_kind?: string;
           window_start?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'usage_counters_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
+        ];
       };
       user_feedback: {
         Row: {
@@ -1091,7 +1128,15 @@ export type Database = {
           name?: string;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'user_feedback_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
+        ];
       };
       user_list_items: {
         Row: {
@@ -1146,6 +1191,13 @@ export type Database = {
             referencedRelation: 'rb_sets';
             referencedColumns: ['set_num'];
           },
+          {
+            foreignKeyName: 'user_list_items_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
         ];
       };
       user_lists: {
@@ -1176,7 +1228,15 @@ export type Database = {
           updated_at?: string;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'user_lists_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
+        ];
       };
       user_minifigs: {
         Row: {
@@ -1203,7 +1263,15 @@ export type Database = {
           updated_at?: string;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'user_minifigs_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
+        ];
       };
       user_parts_inventory: {
         Row: {
@@ -1245,6 +1313,13 @@ export type Database = {
             referencedRelation: 'rb_parts';
             referencedColumns: ['part_num'];
           },
+          {
+            foreignKeyName: 'user_parts_inventory_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
         ];
       };
       user_preferences: {
@@ -1275,7 +1350,15 @@ export type Database = {
           updated_at?: string;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'user_preferences_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: true;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
+        ];
       };
       user_profiles: {
         Row: {
@@ -1308,7 +1391,15 @@ export type Database = {
           user_id?: string;
           username?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'user_profiles_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: true;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
+        ];
       };
       user_recent_sets: {
         Row: {
@@ -1326,7 +1417,15 @@ export type Database = {
           set_num?: string;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'user_recent_sets_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
+        ];
       };
       user_set_parts: {
         Row: {
@@ -1366,6 +1465,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'rb_sets';
             referencedColumns: ['set_num'];
+          },
+          {
+            foreignKeyName: 'user_set_parts_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
           },
         ];
       };
@@ -1411,10 +1517,35 @@ export type Database = {
             referencedRelation: 'rb_sets';
             referencedColumns: ['set_num'];
           },
+          {
+            foreignKeyName: 'user_sets_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
         ];
       };
     };
     Views: {
+      admin_users_overview: {
+        Row: {
+          created_at: string | null;
+          display_name: string | null;
+          email: string | null;
+          last_sign_in_at: string | null;
+          list_count: number | null;
+          owned_set_count: number | null;
+          subscription_cancel_at_period_end: boolean | null;
+          subscription_period_end: string | null;
+          subscription_status: string | null;
+          subscription_tier: string | null;
+          tracked_set_count: number | null;
+          user_id: string | null;
+          username: string | null;
+        };
+        Relationships: [];
+      };
       mv_set_non_spare_count: {
         Row: {
           set_num: string | null;
@@ -1461,6 +1592,13 @@ export type Database = {
             referencedRelation: 'rb_sets';
             referencedColumns: ['set_num'];
           },
+          {
+            foreignKeyName: 'user_list_items_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
         ];
       };
       public_user_lists_view: {
@@ -1470,7 +1608,15 @@ export type Database = {
           name: string | null;
           user_id: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'user_lists_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
+        ];
       };
       public_user_minifigs_view: {
         Row: {
@@ -1478,7 +1624,15 @@ export type Database = {
           status: Database['public']['Enums']['set_status'] | null;
           user_id: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'user_minifigs_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
+        ];
       };
       public_user_profiles_view: {
         Row: {
@@ -1499,7 +1653,15 @@ export type Database = {
           user_id?: string | null;
           username?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: 'user_profiles_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: true;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
+          },
+        ];
       };
       public_user_sets_view: {
         Row: {
@@ -1514,6 +1676,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: 'rb_sets';
             referencedColumns: ['set_num'];
+          },
+          {
+            foreignKeyName: 'user_sets_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'admin_users_overview';
+            referencedColumns: ['user_id'];
           },
         ];
       };
@@ -1586,6 +1755,7 @@ export type Database = {
           retry_after_seconds: number;
         }[];
       };
+      exec_sql: { Args: { query: string }; Returns: undefined };
       get_max_sync_versions: {
         Args: { p_set_nums: string[]; p_user_id: string };
         Returns: {
