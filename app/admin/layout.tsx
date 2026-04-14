@@ -5,6 +5,7 @@ import { requireAdmin } from '@/app/lib/server/requireAdmin';
 
 export const metadata = {
   title: 'Admin | Brick Party',
+  robots: { index: false, follow: false },
 };
 
 export default async function AdminLayout({

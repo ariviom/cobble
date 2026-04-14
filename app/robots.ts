@@ -18,6 +18,8 @@ export default function robots(): MetadataRoute.Robots {
           '/group/',
           '/join',
           '/collection/',
+          '/admin/',
+          '/admin',
         ],
       },
     ],

@@ -1,4 +1,5 @@
 import { AdminShell } from '@/app/components/admin/AdminShell';
+import { requireAdmin } from '@/app/lib/server/requireAdmin';
 import { listAdminUsers } from '@/app/lib/services/adminUsers';
 
 import { UsersListClient } from './UsersListClient';
@@ -16,6 +17,8 @@ export default async function AdminUsersPage({
 }: {
   searchParams?: Promise<SearchParams>;
 }) {
+  await requireAdmin();
+
   const resolved = searchParams ? await searchParams : {};
   const q = pickString(resolved, 'q');
   const pageRaw = Number(pickString(resolved, 'page') ?? '0');

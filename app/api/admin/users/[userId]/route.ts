@@ -24,5 +24,7 @@ export async function GET(
     return new NextResponse(null, { status: 404 });
   }
 
-  return NextResponse.json(detail);
+  return NextResponse.json(detail, {
+    headers: { 'Cache-Control': 'private, no-store' },
+  });
 }

@@ -1,4 +1,5 @@
 import { AdminShell } from '@/app/components/admin/AdminShell';
+import { requireAdmin } from '@/app/lib/server/requireAdmin';
 import {
   isFeedbackCategory,
   listAdminFeedback,
@@ -20,6 +21,8 @@ export default async function AdminFeedbackPage({
 }: {
   searchParams?: Promise<SearchParams>;
 }) {
+  await requireAdmin();
+
   const resolved = searchParams ? await searchParams : {};
   const categoryParam = pickString(resolved, 'category');
   const category: FeedbackCategory | undefined = isFeedbackCategory(

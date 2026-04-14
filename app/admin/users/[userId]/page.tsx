@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 
 import { AdminShell } from '@/app/components/admin/AdminShell';
 import { PublicUserCollectionOverview } from '@/app/components/user/PublicUserCollectionOverview';
+import { requireAdmin } from '@/app/lib/server/requireAdmin';
 import { getAdminUserDetail } from '@/app/lib/services/adminUsers';
 import { fetchPublicCollectionPayload } from '@/app/lib/services/publicCollection';
 import { getSupabaseServiceRoleClient } from '@/app/lib/supabaseServiceRoleClient';
@@ -14,6 +15,8 @@ export default async function AdminUserDetailPage({
 }: {
   params: Promise<{ userId: string }>;
 }) {
+  await requireAdmin();
+
   const { userId } = await params;
   const detail = await getAdminUserDetail(userId);
 

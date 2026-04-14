@@ -34,5 +34,7 @@ export async function GET(req: NextRequest) {
     page,
     pageSize,
   });
-  return NextResponse.json(result);
+  return NextResponse.json(result, {
+    headers: { 'Cache-Control': 'private, no-store' },
+  });
 }
