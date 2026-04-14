@@ -22,6 +22,24 @@ function formatDate(value: string | null | undefined): string {
   });
 }
 
+function TierBadge({ row }: { row: AdminUserRow }) {
+  if (row.subscription_tier) {
+    return (
+      <span className="rounded-full bg-card-muted px-2 py-0.5 text-xs">
+        {row.subscription_tier} · {row.subscription_status ?? '—'}
+      </span>
+    );
+  }
+  if (row.entitlement_override_tier) {
+    return (
+      <span className="rounded-full bg-card-muted px-2 py-0.5 text-xs">
+        {row.entitlement_override_tier} · override
+      </span>
+    );
+  }
+  return <span className="text-foreground-muted">free</span>;
+}
+
 export function UsersListClient({
   initialData,
   initialQuery,
@@ -93,6 +111,7 @@ export function UsersListClient({
           <thead className="bg-card-muted text-left text-xs tracking-wide text-foreground-muted uppercase">
             <tr>
               <th className="px-3 py-2">User</th>
+              <th className="px-3 py-2">Email</th>
               <th className="px-3 py-2">Last login</th>
               <th className="px-3 py-2">Tier</th>
               <th className="px-3 py-2 text-right">Owned</th>
@@ -104,7 +123,7 @@ export function UsersListClient({
             {data.rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-3 py-8 text-center text-foreground-muted"
                 >
                   {query ? 'No users match that search.' : 'No users yet.'}
@@ -127,23 +146,21 @@ export function UsersListClient({
                           row.email ||
                           row.user_id}
                       </span>
-                      <span className="text-xs text-foreground-muted">
-                        {row.username ? `@${row.username}` : row.email}
-                      </span>
+                      {row.username && (
+                        <span className="text-xs text-foreground-muted">
+                          @{row.username}
+                        </span>
+                      )}
                     </Link>
+                  </td>
+                  <td className="px-3 py-2 text-foreground-muted">
+                    {row.email ?? '—'}
                   </td>
                   <td className="px-3 py-2">
                     {formatDate(row.last_sign_in_at)}
                   </td>
                   <td className="px-3 py-2">
-                    {row.subscription_tier ? (
-                      <span className="rounded-full bg-card-muted px-2 py-0.5 text-xs">
-                        {row.subscription_tier} ·{' '}
-                        {row.subscription_status ?? '—'}
-                      </span>
-                    ) : (
-                      <span className="text-foreground-muted">free</span>
-                    )}
+                    <TierBadge row={row} />
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {row.owned_set_count ?? 0}

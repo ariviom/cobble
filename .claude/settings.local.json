@@ -79,7 +79,12 @@
       "Bash(rm /tmp/idclient-full.tsx)",
       "Bash(git restore:*)",
       "mcp__plugin_context7_context7__query-docs",
-      "mcp__plugin_supabase_supabase__get_logs"
+      "mcp__plugin_supabase_supabase__get_logs",
+      "Bash(git -c commit.gpgsign=false commit -m 'add admin dashboard design spec:*)",
+      "Bash(git -c commit.gpgsign=false commit -m 'add admin dashboard implementation plan:*)",
+      "Bash(git -c commit.gpgsign=false commit -m 'fix exactOptionalPropertyTypes mismatch on listAdminUsers q arg:*)",
+      "Bash(git -c commit.gpgsign=false commit -m 'document admin dashboard completion in active-context:*)",
+      "Bash(git -c commit.gpgsign=false commit -m 'show email column and entitlement override tier in admin users list:*)"
     ]
   }
 }

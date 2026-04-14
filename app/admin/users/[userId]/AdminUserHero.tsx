@@ -65,7 +65,9 @@ export function AdminUserHero({
           value={
             subscription?.tier
               ? `${subscription.tier} · ${subscription.status ?? '—'}`
-              : 'free'
+              : overview?.entitlement_override_tier
+                ? `${overview.entitlement_override_tier} · override`
+                : 'free'
           }
         />
       </dl>

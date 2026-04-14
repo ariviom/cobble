@@ -7,6 +7,36 @@ export type Json =
   | Json[];
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: '13.0.5';
+  };
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
       billing_customers: {
@@ -156,15 +186,17 @@ export type Database = {
           bl_color_id: number;
           bl_minifig_no: string;
           bl_part_id: string;
+          color_name: string | null;
           last_refreshed_at: string | null;
           name: string | null;
           quantity: number;
           rb_color_id: number | null;
         };
         Insert: {
-          bl_color_id?: number;
+          bl_color_id: number;
           bl_minifig_no: string;
           bl_part_id: string;
+          color_name?: string | null;
           last_refreshed_at?: string | null;
           name?: string | null;
           quantity?: number;
@@ -174,6 +206,7 @@ export type Database = {
           bl_color_id?: number;
           bl_minifig_no?: string;
           bl_part_id?: string;
+          color_name?: string | null;
           last_refreshed_at?: string | null;
           name?: string | null;
           quantity?: number;
@@ -1533,6 +1566,7 @@ export type Database = {
           created_at: string | null;
           display_name: string | null;
           email: string | null;
+          entitlement_override_tier: string | null;
           last_sign_in_at: string | null;
           list_count: number | null;
           owned_set_count: number | null;
@@ -1971,6 +2005,9 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       collection_item_type: ['set', 'minifig'],
