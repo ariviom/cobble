@@ -1569,6 +1569,7 @@ export type Database = {
           entitlement_override_tier: string | null;
           last_sign_in_at: string | null;
           list_count: number | null;
+          lists_public: boolean | null;
           owned_set_count: number | null;
           subscription_cancel_at_period_end: boolean | null;
           subscription_period_end: string | null;

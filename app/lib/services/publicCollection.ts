@@ -53,10 +53,16 @@ export type PublicCollectionPayload = {
 };
 
 export type FetchPublicCollectionOptions = {
-  /** Client used to read public_*_view tables and user_parts_inventory. */
+  /** Client used to read public_*_view tables (or raw tables when includePrivate) and user_parts_inventory. */
   supabase?: SupabaseClient<Database>;
   /** Client used for catalog (rb_*) reads. */
   catalogClient?: SupabaseClient<Database>;
+  /**
+   * Read from the raw `user_*` tables instead of the privacy-filtered
+   * `public_user_*_view` versions. Only admin callers (using the service-role
+   * client) should set this.
+   */
+  includePrivate?: boolean;
 };
 
 export async function fetchPublicCollectionPayload(
@@ -66,31 +72,54 @@ export async function fetchPublicCollectionPayload(
   const supabase = options.supabase ?? getSupabaseServerClient();
   const catalogClient = options.catalogClient ?? getCatalogReadClient();
 
+  const setsPromise = options.includePrivate
+    ? supabase.from('user_sets').select('set_num,owned').eq('user_id', userId)
+    : supabase
+        .from('public_user_sets_view')
+        .select('set_num,owned')
+        .eq('user_id', userId);
+  const listsPromise = options.includePrivate
+    ? supabase
+        .from('user_lists')
+        .select('id,name,is_system')
+        .eq('user_id', userId)
+        .order('name', { ascending: true })
+    : supabase
+        .from('public_user_lists_view')
+        .select<'id,name,is_system'>('id,name,is_system')
+        .eq('user_id', userId)
+        .order('name', { ascending: true });
+  const listItemsPromise = options.includePrivate
+    ? supabase
+        .from('user_list_items')
+        .select('list_id,item_type,set_num,minifig_id')
+        .eq('user_id', userId)
+    : supabase
+        .from('public_user_list_items_view')
+        .select<'list_id,item_type,set_num,minifig_id'>(
+          'list_id,item_type,set_num,minifig_id'
+        )
+        .eq('user_id', userId);
+  const minifigsPromise = options.includePrivate
+    ? supabase
+        .from('user_minifigs')
+        .select('fig_num,status')
+        .eq('user_id', userId)
+    : supabase
+        .from('public_user_minifigs_view')
+        .select<'fig_num,status'>('fig_num,status')
+        .eq('user_id', userId);
+
   const [
     { data: userSets },
     { data: userLists },
     { data: listItems },
     { data: userMinifigs },
   ] = await Promise.all([
-    supabase
-      .from('public_user_sets_view')
-      .select('set_num,owned')
-      .eq('user_id', userId),
-    supabase
-      .from('public_user_lists_view')
-      .select<'id,name,is_system'>('id,name,is_system')
-      .eq('user_id', userId)
-      .order('name', { ascending: true }),
-    supabase
-      .from('public_user_list_items_view')
-      .select<'list_id,item_type,set_num,minifig_id'>(
-        'list_id,item_type,set_num,minifig_id'
-      )
-      .eq('user_id', userId),
-    supabase
-      .from('public_user_minifigs_view')
-      .select<'fig_num,status'>('fig_num,status')
-      .eq('user_id', userId),
+    setsPromise,
+    listsPromise,
+    listItemsPromise,
+    minifigsPromise,
   ]);
 
   // Extract owned set numbers from the view

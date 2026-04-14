@@ -48,12 +48,18 @@ export function AdminUserHero({
           </div>
         </div>
 
-        <Link
-          href={`/collection/${handle}`}
-          className="rounded-md border border-subtle px-3 py-1.5 text-sm hover:bg-card-muted"
-        >
-          View public collection ↗
-        </Link>
+        {overview?.lists_public ? (
+          <Link
+            href={`/collection/${handle}`}
+            className="rounded-md border border-subtle px-3 py-1.5 text-sm hover:bg-card-muted"
+          >
+            View public collection ↗
+          </Link>
+        ) : (
+          <span className="rounded-md border border-dashed border-subtle px-3 py-1.5 text-xs text-foreground-muted">
+            Private collection
+          </span>
+        )}
       </div>
 
       <dl className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">

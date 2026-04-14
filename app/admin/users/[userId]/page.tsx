@@ -29,6 +29,7 @@ export default async function AdminUserDetailPage({
     fetchPublicCollectionPayload(userId, {
       supabase: serviceClient,
       catalogClient: serviceClient,
+      includePrivate: true,
     }),
     fetchThemes().catch(() => []),
   ]);
