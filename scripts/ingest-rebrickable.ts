@@ -1124,21 +1124,30 @@ async function materializeMinifigParts(
 ): Promise<void> {
   log('Materializing rb_minifig_parts from fig-* inventories...');
 
-  // Use rpc to run raw SQL — the same query as the migration
+  // Upsert the canonical snapshot (latest inventory version per fig-*).
+  // DISTINCT ON picks one row per set_num; without this filter, sets with
+  // multiple Rebrickable inventory revisions would have their quantities
+  // summed across versions. Fig-* entries are single-version today, but the
+  // filter keeps the invariant if that ever changes.
   const { error } = await supabase.rpc(
     'exec_sql' as never,
     {
       query: `
+      WITH latest_fig_inv AS (
+        SELECT DISTINCT ON (set_num) id, set_num
+        FROM public.rb_inventories
+        WHERE set_num LIKE 'fig-%'
+        ORDER BY set_num, version DESC NULLS LAST, id DESC
+      )
       INSERT INTO public.rb_minifig_parts (fig_num, part_num, color_id, quantity, img_url)
-      SELECT ri.set_num, rip.part_num, rip.color_id, SUM(rip.quantity),
+      SELECT lfi.set_num, rip.part_num, rip.color_id, SUM(rip.quantity),
              (array_agg(rip.img_url) FILTER (WHERE rip.img_url IS NOT NULL))[1]
-      FROM public.rb_inventories ri
-      JOIN public.rb_inventory_parts rip ON rip.inventory_id = ri.id
+      FROM latest_fig_inv lfi
+      JOIN public.rb_inventory_parts rip ON rip.inventory_id = lfi.id
       JOIN public.rb_parts rp ON rp.part_num = rip.part_num
       JOIN public.rb_colors rc ON rc.id = rip.color_id
-      WHERE ri.set_num LIKE 'fig-%'
-        AND rip.is_spare = false
-      GROUP BY ri.set_num, rip.part_num, rip.color_id
+      WHERE rip.is_spare = false
+      GROUP BY lfi.set_num, rip.part_num, rip.color_id
       ON CONFLICT (fig_num, part_num, color_id) DO UPDATE SET
         quantity = EXCLUDED.quantity,
         img_url = COALESCE(EXCLUDED.img_url, rb_minifig_parts.img_url)
@@ -1150,11 +1159,16 @@ async function materializeMinifigParts(
     // Fallback: run as a multi-step approach if rpc not available
     log('rpc exec_sql not available, using chunked materialization...');
 
-    // Get all fig-* inventory IDs (paginated to avoid 1000-row limit)
-    const figInventories = await fetchAllRows<{ id: number; set_num: string }>(
+    // Get all fig-* inventories with version info so we can dedupe to the
+    // latest version per set_num before querying parts.
+    const figInventories = await fetchAllRows<{
+      id: number;
+      set_num: string;
+      version: number | null;
+    }>(
       supabase
         .from('rb_inventories')
-        .select('id, set_num')
+        .select('id, set_num, version')
         .like('set_num', 'fig-%')
     );
 
@@ -1163,14 +1177,43 @@ async function materializeMinifigParts(
       return;
     }
 
-    log(`Found ${figInventories.length} fig-* inventories to materialize.`);
+    // Pick latest version per set_num (higher version wins, then higher id).
+    const latestBySet = new Map<
+      string,
+      { id: number; version: number | null }
+    >();
+    for (const inv of figInventories) {
+      if (!inv.set_num) continue;
+      const existing = latestBySet.get(inv.set_num);
+      if (!existing) {
+        latestBySet.set(inv.set_num, { id: inv.id, version: inv.version });
+        continue;
+      }
+      const existingVer = existing.version ?? -1;
+      const candidateVer = inv.version ?? -1;
+      if (
+        candidateVer > existingVer ||
+        (candidateVer === existingVer && inv.id > existing.id)
+      ) {
+        latestBySet.set(inv.set_num, { id: inv.id, version: inv.version });
+      }
+    }
+
+    const latestInvIds = Array.from(latestBySet.values()).map(v => v.id);
+    const invToFig = new Map<number, string>();
+    for (const [setNum, inv] of latestBySet) {
+      invToFig.set(inv.id, setNum);
+    }
+
+    log(
+      `Found ${figInventories.length} fig-* inventories (${latestBySet.size} distinct fig_nums) to materialize.`
+    );
 
     const batchSize = 200;
     let totalRows = 0;
 
-    for (let i = 0; i < figInventories.length; i += batchSize) {
-      const chunk = figInventories.slice(i, i + batchSize);
-      const invIds = chunk.map(inv => inv.id);
+    for (let i = 0; i < latestInvIds.length; i += batchSize) {
+      const invIds = latestInvIds.slice(i, i + batchSize);
 
       // Get all non-spare parts for these inventories (paginated to avoid 1000-row limit)
       const parts = await fetchAllRows<{
@@ -1188,12 +1231,6 @@ async function materializeMinifigParts(
       );
 
       if (parts.length === 0) continue;
-
-      // Build figNum lookup
-      const invToFig = new Map<number, string>();
-      for (const inv of chunk) {
-        if (inv.set_num) invToFig.set(inv.id, inv.set_num);
-      }
 
       // Aggregate by (fig_num, part_num, color_id)
       const aggregated = new Map<
@@ -1235,8 +1272,45 @@ async function materializeMinifigParts(
       }
     }
 
-    log(`Materialized ${totalRows} rows into rb_minifig_parts.`);
+    log(
+      `Materialized ${totalRows} rows into rb_minifig_parts ` +
+        '(fallback path — orphan cleanup skipped).'
+    );
     return;
+  }
+
+  // Delete rows that no longer appear in any latest fig-* inventory. Without
+  // this step, upsert-only materialization accumulates stale rows whenever
+  // Rebrickable revises a minifig's part list (e.g. renaming a printed variant).
+  const { error: cleanupError } = await supabase.rpc(
+    'exec_sql' as never,
+    {
+      query: `
+      WITH latest_fig_inv AS (
+        SELECT DISTINCT ON (set_num) id, set_num
+        FROM public.rb_inventories
+        WHERE set_num LIKE 'fig-%'
+        ORDER BY set_num, version DESC NULLS LAST, id DESC
+      )
+      DELETE FROM public.rb_minifig_parts mp
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM latest_fig_inv lfi
+        JOIN public.rb_inventory_parts rip ON rip.inventory_id = lfi.id
+        WHERE lfi.set_num = mp.fig_num
+          AND rip.part_num = mp.part_num
+          AND rip.color_id = mp.color_id
+          AND rip.is_spare = false
+      )
+    `,
+    } as never
+  );
+
+  if (cleanupError) {
+    log(
+      `Warning: rb_minifig_parts orphan cleanup failed: ${cleanupError.message}`
+    );
+    // Non-fatal: freshly upserted data is correct; stale rows persist until next run.
   }
 
   log('Materialized rb_minifig_parts via SQL.');
@@ -2122,10 +2196,16 @@ async function buildRbFingerprint(
   blPartMap: Map<string, string>,
   rbToBlColor: Map<number, number>
 ): Promise<FingerprintPart[]> {
+  // Pick the latest inventory version for this fig_num so the fingerprint is
+  // deterministic across runs even if Rebrickable ever ships a multi-version
+  // fig-* entry. Fig-* is single-version today, but explicit ordering makes
+  // this a safe no-op now and robust later.
   const { data: inventories } = await supabase
     .from('rb_inventories')
     .select('id')
     .eq('set_num', figNum)
+    .order('version', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false })
     .limit(1);
   if (!inventories || inventories.length === 0) return [];
 

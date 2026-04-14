@@ -31,7 +31,17 @@ const identifySetsCache = new LRUCache<
  * - blColorId: BrickLink color ID (optional, mapped to RB if colorId not provided)
  */
 export async function GET(req: NextRequest) {
-  // IP-based rate limit (no auth required — part/minifig lookups are public)
+  // IP-based rate limit.
+  //
+  // This endpoint is intentionally unauthenticated: the happy path is entirely
+  // catalog-backed (Supabase rb_* tables) and doesn't hit Rebrickable or
+  // BrickLink for canonical part numbers. The rare BL fallback branches
+  // (fetchBLSupersetsFallback, mapBlColorToRb, resolvePartIdToRebrickable) are
+  // adequately protected by this per-IP rate limit + the separate BL-facing
+  // bl-supersets route, which has its own stricter IP limit.
+  //
+  // Image-based identify (POST /api/identify) stays authenticated because it
+  // burns Brickognize quota and can trigger BL enrichment.
   const clientIp = (await getClientIp(req)) ?? 'unknown';
   const ipLimit = await consumeRateLimit(`identify-sets:ip:${clientIp}`, {
     windowMs: RATE_LIMIT.WINDOW_MS,

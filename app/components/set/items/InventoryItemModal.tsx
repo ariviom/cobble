@@ -33,6 +33,13 @@ type Props = {
   open: boolean;
   onClose: () => void;
   data: InventoryItemModalData | null;
+  /**
+   * When false, the Used Price cell shows a "Sign in to view" link instead of
+   * price data, to avoid burning BrickLink quota on anonymous traffic.
+   * Defaults to true for backward compatibility with callers that don't fetch
+   * pricing (e.g. PinnedPanel).
+   */
+  isAuthenticated?: boolean;
 };
 
 type BlValidation =
@@ -117,7 +124,12 @@ function useBricklinkValidation(
   return state;
 }
 
-export function InventoryItemModal({ open, onClose, data }: Props) {
+export function InventoryItemModal({
+  open,
+  onClose,
+  data,
+  isAuthenticated = true,
+}: Props) {
   const { hasFeature } = useEntitlements();
   const rarityEnabled = hasFeature('rarity.enabled');
   // Derive values needed for validation hook (must be called unconditionally)
@@ -213,9 +225,15 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
   const blLinkUnavailable = !isFigId && blValidation.status === 'not_found';
   const rarityTier = row.setCount != null ? getRarityTier(row.setCount) : null;
 
-  // Determine if we have stats to show in the grid
+  // Determine if we have stats to show in the grid.
+  // For unauthenticated users we always reserve the price cell so we can
+  // prompt them to sign in rather than silently hiding pricing.
   const showPriceCell =
-    hasPrice || hasRange || isPricePending || pricingSource === 'unavailable';
+    !isAuthenticated ||
+    hasPrice ||
+    hasRange ||
+    isPricePending ||
+    pricingSource === 'unavailable';
   const showSetsCell = rarityEnabled && row.setCount != null;
   const showStatsGrid = showPriceCell || showSetsCell;
 
@@ -257,7 +275,15 @@ export function InventoryItemModal({ open, onClose, data }: Props) {
                   <div className="text-xs text-foreground-muted">
                     Used Price
                   </div>
-                  {hasPrice && unitPrice != null ? (
+                  {!isAuthenticated ? (
+                    <Link
+                      href="/login"
+                      onClick={e => e.stopPropagation()}
+                      className="text-sm text-foreground-muted underline underline-offset-2 hover:text-foreground"
+                    >
+                      Sign in to view
+                    </Link>
+                  ) : hasPrice && unitPrice != null ? (
                     <>
                       <div className="text-sm font-medium">
                         {formatCurrency(unitPrice, currency)}

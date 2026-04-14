@@ -29,4 +29,4 @@ AS $$
   WHERE ip.part_num = p_part_num
     AND ip.color_id = p_color_id
     AND ip.is_spare = false;
-$$
+$$;
