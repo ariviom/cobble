@@ -95,14 +95,14 @@ export function UsersListClient({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <h2 className="text-xl font-semibold">Users ({data.total})</h2>
         <input
           type="search"
           placeholder="Search by username…"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="w-64 rounded-md border border-subtle bg-background px-3 py-2 text-sm"
+          className="w-full rounded-md border border-subtle bg-background px-3 py-2 text-sm sm:w-64"
         />
       </div>
 
