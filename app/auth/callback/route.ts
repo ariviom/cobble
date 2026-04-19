@@ -45,11 +45,21 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // Successful code exchange - redirect to the intended destination
-      return NextResponse.redirect(`${origin}${next}`);
+      // Detect password recovery flow — Supabase drops query params from redirect_to,
+      // so `next` defaults to '/sets'. Fall back to checking recovery_sent_at.
+      const isRecovery =
+        next === '/reset-password' ||
+        (next === '/sets' &&
+          data.user?.recovery_sent_at != null &&
+          Date.now() - new Date(data.user.recovery_sent_at).getTime() <
+            10 * 60 * 1000);
+
+      return NextResponse.redirect(
+        `${origin}${isRecovery ? '/reset-password' : next}`
+      );
     }
   }
 
